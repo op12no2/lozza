@@ -19,7 +19,7 @@ lozza.postMessage('position startpos');
 lozza.postMessage('go depth 10');
 ```
 
-Try it [here](https://op12no2.github.io/lozza/examples/hello_world.html).
+[Hello world](https://op12no2.github.io/lozza/examples/hello_world.html).
 
 ## Acknowledgements
 
