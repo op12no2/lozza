@@ -2,7 +2,7 @@
 // https://github.com/op12no2/lozza
 //
 
-var VERSION = '0.6';
+var VERSION = '0.7';
 
 //{{{  readme
 /*
@@ -16,13 +16,17 @@ var VERSION = '0.6';
 
 /*
 
+19/06/14 v0.7
+
+27/06/14 Fix repetition detection at last.
+
 19/06/14 v0.6
 
 26/06/14 Base LMR on the move base.
 26/06/14 Just use > alpha for LMR research.
 26/06/14 Fix hash update bugs.
 26/06/14 move mate distance and rep check tests to pre horizon.
-26/06/14 Only extend if depth below horizon.
+26/06/14 Only extend at root and if depth below horizon.
 26/06/14 Remove lone king stuff.
 
 19/06/14 v0.5
@@ -43,7 +47,6 @@ var VERSION = '0.6';
 
 06/06/14 Facilitate N messages in one UCI message string.
 28/05/14 Fix bug where search() and alphabeta() returned -INFINITY instead of oAlpha.
-28/05/14 Add opponent king tropism component to running eval.  Disabled.
 28/05/14 Adjust MATE score in TT etc.
 
 28/05/14 v0.2
@@ -1293,10 +1296,11 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
   //}}}
   //{{{  check for draws
   
-  for (var i=board.numRep-5; i >= 0; i -= 2) {
+  for (var i=board.repHi-5; i >= board.repLo; i -= 2) {
   
-    if (board.rep[i][0] == board.loHash && board.rep[i][1] == board.hiHash)
+    if (board.rep[i][0] == board.loHash && board.rep[i][1] == board.hiHash) {
       return CONTEMPT;
+    }
   }
   
   //}}}
@@ -1663,10 +1667,10 @@ lozChess.prototype.getPVStr = function(node) {
   board.unmakeMove(move);
   node.uncache();
 
-  if (pv.indexOf(' ' + mv + ' ') === -1)
+  //if (pv.indexOf(' ' + mv + ' ') === -1)
     return mv + pv;
-  else
-    return '';
+  //else
+    //return '';
 }
 
 
@@ -1684,7 +1688,8 @@ function lozBoard () {
   this.runningEval = 0;  // these are all caches across make/unmakeMove.
   this.rights      = 0;
   this.ep          = 0;
-  this.numRep      = 0;
+  this.repLo       = 0;
+  this.repHi       = 0;
   this.loHash      = 0;
   this.hiHash      = 0;
 
@@ -1757,8 +1762,8 @@ function lozBoard () {
   
   //}}}
 
-  this.rep = Array(200);
-  for (var i=0; i < 200; i++)
+  this.rep = Array(2000);
+  for (var i=0; i < 2000; i++)
     this.rep[i] = [0,0]; // lo/hi hash.
 
   this.phase   = 0;
@@ -1775,7 +1780,9 @@ lozBoard.prototype.init = function () {
   this.loHash = 0;
   this.hiHash = 0;
 
-  this.numRep = 0;
+  this.repLo  = 0;
+  this.repHi  = 0;
+
   this.wCount = 0;
   this.bCount = 0;
 
@@ -1979,25 +1986,23 @@ lozBoard.prototype.makeMove = function (move) {
     var toCol   = toObj & COLOR_MASK;
     var toColI  = toCol >>> 3;
   
-    this.phase += VPHASE[toPiece];
-  
     this.loHash ^= this.loPieces[toColI][toPiece-1][to];
     this.hiHash ^= this.hiPieces[toColI][toPiece-1][to];
   
     if (toCol == WHITE) {
   
-      this.wCountPiece(toPiece,-1);
-  
       this.runningEval -= VALUE_VECTOR[toPiece];
       this.runningEval -= this.wPST(toPiece,to);
+      this.wCountPiece(toPiece,-1);
+      this.phase += VPHASE[toPiece];
     }
   
     else {
   
-      this.bCountPiece(toPiece,-1);
-  
       this.runningEval += VALUE_VECTOR[toPiece];
       this.runningEval += this.bPST(toPiece,to);
+      this.bCountPiece(toPiece,-1);
+      this.phase += VPHASE[toPiece];
     }
   }
   
@@ -2070,7 +2075,6 @@ lozBoard.prototype.makeMove = function (move) {
     
         this.runningEval += VALUE_PAWN;
         this.runningEval += this.bPST(PAWN,to+12);  // sic.
-    
         this.bCountPiece(PAWN,-1);
       }
     
@@ -2086,13 +2090,12 @@ lozBoard.prototype.makeMove = function (move) {
     
         this.runningEval -= VALUE_PAWN;
         this.runningEval -= this.wPST(PAWN,to);
+        this.wCountPiece(PAWN,-1);
+    
         this.runningEval += VALUE_VECTOR[pro];
         this.runningEval += this.wPST(pro,to);
-    
-        this.phase       -= VPHASE[pro];
-    
-        this.wCountPiece(PAWN,-1);
         this.wCountPiece(pro,1);
+        this.phase -= VPHASE[pro];
       }
     
       else if (move == MOVE_E1G1) {
@@ -2148,7 +2151,6 @@ lozBoard.prototype.makeMove = function (move) {
     
         this.runningEval -= VALUE_PAWN;
         this.runningEval -= this.wPST(PAWN,to-12);  // sic.
-    
         this.wCountPiece(PAWN,-1);
       }
     
@@ -2164,13 +2166,13 @@ lozBoard.prototype.makeMove = function (move) {
     
         this.runningEval += VALUE_PAWN;
         this.runningEval += this.bPST(PAWN,to);
+        this.bCountPiece(PAWN,-1);
+    
         this.runningEval -= VALUE_VECTOR[pro];
         this.runningEval -= this.bPST(pro,to);
-    
+        this.bCountPiece(pro,1);
         this.phase       -= VPHASE[pro];
     
-        this.bCountPiece(PAWN,-1);
-        this.bCountPiece(pro,1);
       }
     
       else if (move == MOVE_E8G8) {
@@ -2213,18 +2215,15 @@ lozBoard.prototype.makeMove = function (move) {
   this.hiHash ^= this.hiTurn;
   
   //}}}
-  //{{{  push hash
+  //{{{  push rep hash
   
-  if (!(move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) && frPiece != PAWN) {
+  this.rep[this.repHi][0] = this.loHash;
+  this.rep[this.repHi][1] = this.hiHash;
   
-    this.rep[this.numRep][0] = this.loHash;
-    this.rep[this.numRep][1] = this.hiHash;
+  this.repHi++;
   
-    this.numRep++;
-  }
-  
-  else
-    this.numRep = 0; // this move means reps have become impossible
+  if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece == PAWN)
+    this.repLo = this.repHi
   
   //}}}
 
@@ -2454,18 +2453,16 @@ lozBoard.prototype.makeQMove = function (move) {
   
     if (toCol == WHITE) {
   
-      this.wCountPiece(toPiece,-1);
-  
       this.runningEval -= VALUE_VECTOR[toPiece];
       this.runningEval -= this.wPST(toPiece,to);
+      this.wCountPiece(toPiece,-1);
     }
   
     else {
   
-      this.bCountPiece(toPiece,-1);
-  
       this.runningEval += VALUE_VECTOR[toPiece];
       this.runningEval += this.bPST(toPiece,to);
+      this.bCountPiece(toPiece,-1);
     }
   }
   
@@ -2487,7 +2484,6 @@ lozBoard.prototype.makeQMove = function (move) {
     
         this.runningEval += VALUE_PAWN;
         this.runningEval += this.bPST(PAWN,to + 12);  // sic.
-    
         this.bCountPiece(PAWN,-1);
       }
     
@@ -2498,13 +2494,12 @@ lozBoard.prototype.makeQMove = function (move) {
     
         this.runningEval -= VALUE_PAWN;
         this.runningEval -= this.wPST(PAWN,to);
+        this.wCountPiece(PAWN,-1);
+    
         this.runningEval += VALUE_VECTOR[pro];
         this.runningEval += this.wPST(pro,to);
-    
-        this.phase       -= VPHASE[pro];
-    
-        this.wCountPiece(PAWN,-1);
         this.wCountPiece(pro,1);
+        this.phase       -= VPHASE[pro];
       }
     }
     
@@ -2527,13 +2522,12 @@ lozBoard.prototype.makeQMove = function (move) {
     
         this.runningEval += VALUE_PAWN;
         this.runningEval += this.bPST(PAWN,to);
+        this.bCountPiece(PAWN,-1);
+    
         this.runningEval -= VALUE_VECTOR[pro];
         this.runningEval -= this.bPST(pro,to);
-    
-        this.phase       -= VPHASE[pro];
-    
-        this.bCountPiece(PAWN,-1);
         this.bCountPiece(pro,1);
+        this.phase       -= VPHASE[pro];
       }
     }
     
@@ -3074,7 +3068,8 @@ function lozNode (parentNode) {
   this.C_runningEval = 0;
   this.C_rights      = 0;
   this.C_ep          = 0;
-  this.C_numRep      = 0;
+  this.C_repLo       = 0;
+  this.C_repHi       = 0;
   this.C_loHash      = 0;
   this.C_hiHash      = 0;
   this.C_phase       = 0;
@@ -3093,7 +3088,8 @@ lozNode.prototype.cache = function() {
   this.C_runningEval = board.runningEval;
   this.C_rights      = board.rights;
   this.C_ep          = board.ep;
-  this.C_numRep      = board.numRep;
+  this.C_repLo       = board.repLo;
+  this.C_repHi       = board.repHi;
   this.C_loHash      = board.loHash;
   this.C_hiHash      = board.hiHash;
   this.C_phase       = board.phase;
@@ -3112,7 +3108,8 @@ lozNode.prototype.uncache = function() {
   board.runningEval    = this.C_runningEval;
   board.rights         = this.C_rights;
   board.ep             = this.C_ep;
-  board.numRep         = this.C_numRep;
+  board.repLo          = this.C_repLo;
+  board.repHi          = this.C_repHi;
   board.loHash         = this.C_loHash;
   board.hiHash         = this.C_hiHash;
   board.phase          = this.C_phase;
