@@ -2,7 +2,7 @@
 // https://github.com/op12no2/lozza
 //
 
-var VERSION = '0.9';
+var VERSION = '1.0';
 
 //{{{  readme
 /*
@@ -16,14 +16,19 @@ var VERSION = '0.9';
 
 /*
 
-19/06/14 v0.9
+16/07/14 v1.0
 
-02/07/14 Use separate PSTs for move ordering.
+16/07/14 Only reset TT on UCINEWGAME command.  Seems to work OK at last.
+
+16/07/14 v0.9
+
+16/07/14 Encode mate scores for UI.
+16/07/14 Use separate PSTs for move ordering.
 
 19/06/14 v0.8
 
 30/06/14 use simple arrays for piece counts and add colour counts.
-30/06/14 Split runningEval into runningEvalS and runningEvalE and combine in evaluate();
+30/06/14 Split runningEval into runningEvalS and runningEval E and combine in evaluate();
 30/06/14 Inline various functions.
 
 19/06/14 v0.7
@@ -460,6 +465,7 @@ var MOVE_PROMAS_MASK   = 0x60000000;  // NBRQ.
 var MOVE_SPARE2_MASK   = 0x80000000;
 
 var MOVE_SPECIAL_MASK  = MOVE_CASTLE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK | MOVE_PROMOTE_MASK; // need extra work in make move.
+var KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility, LMR.
 
 var NULL   = 0x0;
 var PAWN   = 0x1;
@@ -702,9 +708,11 @@ pst2Black(WKING_PST2,  BKING_PST2);
 
 var WS_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST];
 var WE_PST = [NULL_PST, WPAWN_PST2,  WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2];
+var WM_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2];
 
 var BS_PST = [NULL_PST, BPAWN_PST,   BKNIGHT_PST, BBISHOP_PST, BROOK_PST, BQUEEN_PST, BKING_PST];
 var BE_PST = [NULL_PST, BPAWN_PST2,  BKNIGHT_PST, BBISHOP_PST, BROOK_PST, BQUEEN_PST, BKING_PST2];
+var BM_PST = [NULL_PST, BPAWN_PST,   BKNIGHT_PST, BBISHOP_PST, BROOK_PST, BQUEEN_PST, BKING_PST2];
 
 var B88 = [26, 27, 28, 29, 30, 31, 32, 33,
            38, 39, 40, 41, 42, 43, 44, 45,
@@ -1106,12 +1114,12 @@ lozChess.prototype.go = function(spec) {
   //this.uci.debug (board.id,'depth',ply,'ZW','hits',l.zwHits,'misses',l.zwMisses,'research rate',l.zwMisses/(l.zwHits+l.zwMisses));
   //this.uci.debug (board.id,'depth',ply,'KILL','hits',l.killHits,'misses',l.killMisses,'hit rate',l.killHits/(l.killHits+l.killMisses));
   
-  board.evaluate(board.turn);
+  //board.evaluate(board.turn);
   
-  var wBP = board.wCounts[BISHOP];
-  var bBP = board.bCounts[BISHOP];
+  //var wBP = board.wCounts[BISHOP];
+  //var bBP = board.bCounts[BISHOP];
   
-  this.uci.debug (board.id,'depth',ply,'PHASE',board.gPhase,wBP,bBP,board.wCount,board.bCount);
+  //this.uci.debug (board.id,'depth',ply,'PHASE',board.gPhase,wBP,bBP,board.wCount,board.bCount);
   
   //}}}
 
@@ -1128,8 +1136,6 @@ lozChess.prototype.go = function(spec) {
 
 //}}}
 //{{{  .search
-
-var KEEPER_MASK = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;
 
 lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
 
@@ -1204,7 +1210,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     if (node.base < BASE_LMR)
       lmrs += 1;
     
-    if (depth >= 3 && !inCheck && !betaMate && !alphaMate && lmrs > 10) {
+    if (doLMR && !alphaMate && lmrs > 10) {
     
       givesCheck = board.isAttacked((board.rights >>> nextTurn+BLACK) & 0xFF, turn);
     
@@ -1251,7 +1257,24 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         alpha     = score;
         alphaMate = (alpha <= -MINMATE && alpha >= -MATE) || (alpha >= MINMATE && alpha <= MATE);
         board.ttPut(TT_ALPHA, depth, score, move, node.ply);
-        this.uci.send('info depth',this.stats.ply,'score cp',score,'pv',this.getPVStr(node));
+        //{{{  send score to UI
+        
+        var absScore = Math.abs(score);
+        var units    = 'cp';
+        var uciScore = score;
+        
+        if (absScore > MINMATE) {
+          var units    = 'mate';
+          var uciScore = Math.floor((MATE - absScore - 3) / 2);
+          if (uciScore < 0)
+            uciScore = 0;
+          if (score < 0)
+            uciScore = -uciScore;
+        }
+        
+        this.uci.send('info depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',this.getPVStr(node));
+        
+        //}}}
       }
       bestScore = score;
       bestMove  = move;
@@ -1289,6 +1312,9 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
     if (this.stats.timeOut)
       return;
   }
+  
+  if (node.ply > this.stats.selDepth)
+    this.stats.selDepth = node.ply;
   
   //}}}
 
@@ -1328,7 +1354,11 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
   var score    = 0;
   var inCheck  = board.isAttacked((board.rights >>> turn+BLACK) & 0xFF, nextTurn);
 
-  depth = (inCheck && depth <= 0) ? 1 : depth;
+  if (inCheck) {
+    depth += 1;
+    if (depth <= 0)
+      depth = 1;
+  }
 
   //{{{  horizon?
   
@@ -1497,7 +1527,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
           this.log.zwHits++;
       }
     }
-
     else {
       score = -this.alphabeta(node.childNode, depth-R-1, nextTurn, -beta, -alpha);  // ZW by implication.
       if (R && !this.stats.timeOut && score > alpha)
@@ -1817,7 +1846,7 @@ lozBoard.prototype.init = function () {
   this.wCount = 0;
   this.bCount = 0;
 
-  this.ttInit();
+  //this.ttInit();
 }
 
 //}}}
@@ -2583,7 +2612,7 @@ lozBoard.prototype.isAttacked = function(to, byCol) {
   
   //}}}
 
-  if (cwtch == 8) // this can be used towards king safety?
+  if (cwtch == 8)  // this can be used towards king safety?
     return 0;
 
   //{{{  pawns
@@ -3112,9 +3141,9 @@ lozNode.prototype.addMove = function (move) {
     var frPiece = frObj & PIECE_MASK;
 
     if ((frObj & COLOR_MASK) == WHITE)
-      next[0] = BASE_SLIDES + WS_PST[frPiece][to] - WS_PST[frPiece][fr];
+      next[0] = BASE_SLIDES + WM_PST[frPiece][to] - WM_PST[frPiece][fr];
     else
-      next[0] = BASE_SLIDES + BS_PST[frPiece][to] - BS_PST[frPiece][fr];
+      next[0] = BASE_SLIDES + BM_PST[frPiece][to] - BM_PST[frPiece][fr];
   }
 
   return;
@@ -3251,6 +3280,7 @@ lozStats.prototype.init = function () {
   this.moveTime  = 0;
   this.maxNodes  = 0;
   this.timeOut   = 0;
+  this.selDepth  = 0;
 }
 
 //}}}
@@ -3738,4 +3768,5 @@ lozza.go(spec);
 */
 
 //}}}
+
 
