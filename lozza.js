@@ -2,18 +2,15 @@
 // https://github.com/op12no2/lozza
 //
 
-var VERSION = '1.4';
+var VERSION = '1.5';
+var BUILD   = 1124;
 
-//{{{  readme
-/*
-
-  Lozza - a simple javascript UCI chess engine.
-
-*/
-
-//}}}
 //{{{  history
 /*
+
+27/08/14 v1.5
+
+27/08/14 Tweak LMR constants.
 
 08/08/14 v1.4
 
@@ -732,9 +729,9 @@ _pst2Black(WQUEEN_PST,  BQUEEN_PST);
 _pst2Black(WKING_PST,   BKING_PST);
 _pst2Black(WKING_PST2,  BKING_PST2);
 
-var WS_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST];  // opening eval.
-var WE_PST = [NULL_PST, WPAWN_PST2,  WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2]; // end game eval.
-var WM_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2]; // move ordering.
+var WS_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST];  // opening/middle eval.
+var WE_PST = [NULL_PST, WPAWN_PST2,  WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2]; // end eval.
+var WM_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2];
 
 var BS_PST = [NULL_PST, BPAWN_PST,   BKNIGHT_PST, BBISHOP_PST, BROOK_PST, BQUEEN_PST, BKING_PST];
 var BE_PST = [NULL_PST, BPAWN_PST2,  BKNIGHT_PST, BBISHOP_PST, BROOK_PST, BQUEEN_PST, BKING_PST2];
@@ -1287,10 +1284,11 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
   var alphaMate      = (alpha <= -MINMATE && alpha >= -MATE) || (alpha >= MINMATE && alpha <= MATE);
   var betaMate       = (beta  <= -MINMATE && beta  >= -MATE) || (beta  >= MINMATE && beta  <= MATE);
   var lmrs           = 0;
+  var standPat       = board.evaluate(turn);
 
   depth = (inCheck) ? depth + 1 : depth;
 
-  var doLMR = depth >= 3 && !inCheck && !betaMate;
+  var doLMR = depth >= 2 && !inCheck && !betaMate;
 
   node.cache();
 
@@ -1332,14 +1330,12 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     if (node.base < BASE_LMR)
       lmrs += 1;
     
-    if (doLMR && !alphaMate && lmrs > 10) {
+    if (doLMR && !alphaMate && lmrs > 9) {
     
       givesCheck = board.isKingAttacked(turn);
     
       if (!givesCheck) {
         R = 1;
-        if (lmrs > 20 && depth > 5)
-          R = 2;
       }
     }
     
@@ -1500,7 +1496,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
 
   //{{{  try tt
   
-  score = board.ttGet(node, depth, alpha, beta);
+  score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove.
   
   if (score != undefined) {
     return score;
@@ -1562,7 +1558,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
   var numLegalMoves  = 0;
   var givesCheck     = undefined;
   var lmrs           = 0;
-  var doLMR          = depth >= 3 && !inCheck && !betaMate;
+  var doLMR          = depth >= 2 && !inCheck && !betaMate;
 
   //{{{  IID
   
@@ -1620,15 +1616,13 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
     if (node.base < BASE_LMR)
       lmrs += 1;
     
-    if (doLMR && !alphaMate && lmrs > 5) {
+    if (doLMR && !alphaMate && lmrs > 9) {
     
       if (givesCheck == undefined)
         givesCheck = board.isKingAttacked(turn);
     
       if (!givesCheck) {
         R = 1;
-        if (lmrs > 20 && depth > 5)
-          R = 2;
       }
     }
     
@@ -1650,13 +1644,9 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
         score = -this.alphabeta(node.childNode, depth-1, nextTurn, -beta, -alpha);
     }
 
-    //{{{  unmake move
-    
     board.unmakeMove(node,move);
-    
+
     node.uncache();
-    
-    //}}}
 
     if (this.stats.timeOut)
       return;
@@ -1682,14 +1672,17 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
   if (numLegalMoves == 0) {
   
     if (inCheck)
-      bestScore = -MATE + node.ply;
+      return -MATE + node.ply;
   
     else
-      bestScore = CONTEMPT;
+      return CONTEMPT;
   
   }
   
   //}}}
+
+  if (bestScore >= beta)
+    this.uci.debug('MISSED BETA CUT');
 
   if (bestScore > oAlpha) {
     board.ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply);
@@ -1710,7 +1703,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
   var board    = this.board;
   var standPat = board.evaluate(turn);
-  var phase    = board.gPhase;
+  var gPhase   = board.gPhase;
 
   //{{{  housekeeping
   
@@ -1756,7 +1749,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
     //}}}
     //{{{  futile?
     
-    if (phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+    if (gPhase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
     
       board.unmakeMove(node,move);
     
@@ -3471,10 +3464,13 @@ lozNode.prototype.addMove = function (move) {
     var frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
     var frPiece = frObj & PIECE_MASK;
 
-    if ((frObj & COLOR_MASK) == WHITE)
-      next[0] = BASE_SLIDES + WM_PST[frPiece][to] - WM_PST[frPiece][fr];
-    else
-      next[0] = BASE_SLIDES + BM_PST[frPiece][to] - BM_PST[frPiece][fr];
+    if ((frObj & COLOR_MASK) == WHITE) {
+      next[0] = BASE_SLIDES + WM_PST[frPiece][to] - WM_PST[frPiece][fr];;
+    }
+    else {
+      next[0] = BASE_SLIDES + BM_PST[frPiece][to] - BM_PST[frPiece][fr];;
+    }
+
   }
 
   return;
@@ -3613,13 +3609,6 @@ lozStats.prototype.init = function () {
 //{{{  .lazyUpdate
 
 lozStats.prototype.lazyUpdate = function () {
-
-  //postMessage('info string ' + lastMessage);  //hack - never shows stop.
-
-  //if (__jsUCI && lastMessage.indexOf('stop') != -1) {
-  //  lozza.uci.debug('stop');
-  //  this.stats.timeOut = 1;
-  //}
 
   if (this.moveTime > 0 && ((Date.now() - this.startTime) > this.moveTime))
     this.timeOut = 1;
@@ -4011,10 +4000,9 @@ onmessage = function(e) {
     case 'ping':
       //{{{  ping
       
-      uci.send('info string Lozza version',VERSION,'is alive');
+      uci.send('info string Lozza version',VERSION,'build',BUILD,'is alive');
       
       break;
-      
       
       //}}}
 
@@ -4058,13 +4046,4 @@ onmessage = function(e) {
 //}}}
 
 var lozza = new lozChess()
-
-if ((typeof lastMessage) == 'undefined') {
-  __jsUCI = false;
-  lastMessage = '';  //so no errors when using native.
-}
-else {
-  __jsUCI = true;
-  postMessage('info string jsUCI detected');
-}
 
