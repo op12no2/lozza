@@ -1,10 +1,13 @@
 //
 // https://github.com/op12no2/lozza
 //
+// HACKS
+// mobility disabled.
+//
 
 var MAJOR = '1';
-var MINOR = '12';
-var BUILD = 6687;
+var MINOR = '13';
+var BUILD = 6750;
 
 //{{{  seed
 /**
@@ -566,6 +569,100 @@ var VALUE_QUEEN  = 975;
 var VALUE_VECTOR = [0,VALUE_PAWN,325,325,500,VALUE_QUEEN,10000];
 var RANK_VECTOR  = [0,1,         2,  2,  4,  5,          6];  // for move sorting.
 
+var B88 =   [26, 27, 28, 29, 30, 31, 32, 33,
+             38, 39, 40, 41, 42, 43, 44, 45,
+             50, 51, 52, 53, 54, 55, 56, 57,
+             62, 63, 64, 65, 66, 67, 68, 69,
+             74, 75, 76, 77, 78, 79, 80, 81,
+             86, 87, 88, 89, 90, 91, 92, 93,
+             98, 99, 100,101,102,103,104,105,
+             110,111,112,113,114,115,116,117];
+
+var COORDS =   ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+                '??', '??', 'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8', '??', '??',
+                '??', '??', 'a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7', '??', '??',
+                '??', '??', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '??', '??',
+                '??', '??', 'a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5', '??', '??',
+                '??', '??', 'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', '??', '??',
+                '??', '??', 'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', '??', '??',
+                '??', '??', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', '??', '??',
+                '??', '??', 'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', '??', '??',
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'];
+
+var NAMES    = ['-','P','N','B','R','Q','K','-'];
+var PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move.
+
+var RANK =   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
+              0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
+              0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
+              0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
+              0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
+              0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+              0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
+              0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+var FILE =   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+var CORNERS =[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+var MAP = [];
+
+MAP['p'] = B_PAWN;
+MAP['n'] = B_KNIGHT;
+MAP['b'] = B_BISHOP;
+MAP['r'] = B_ROOK;
+MAP['q'] = B_QUEEN;
+MAP['k'] = B_KING;
+MAP['P'] = W_PAWN;
+MAP['N'] = W_KNIGHT;
+MAP['B'] = W_BISHOP;
+MAP['R'] = W_ROOK;
+MAP['Q'] = W_QUEEN;
+MAP['K'] = W_KING;
+
+var UMAP = [];
+
+UMAP[B_PAWN]   = 'p';
+UMAP[B_KNIGHT] = 'n';
+UMAP[B_BISHOP] = 'b';
+UMAP[B_ROOK]   = 'r';
+UMAP[B_QUEEN]  = 'q';
+UMAP[B_KING]   = 'k';
+UMAP[W_PAWN]   = 'P';
+UMAP[W_KNIGHT] = 'N';
+UMAP[W_BISHOP] = 'B';
+UMAP[W_ROOK]   = 'R';
+UMAP[W_QUEEN]  = 'Q';
+UMAP[W_KING]   = 'K';
+
 var NULL_PST =        [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -607,7 +704,7 @@ var WPAWN_PSTE =      [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
 
 var WKNIGHT_PSTS =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
+                       0,   0, -99, -40, -30, -30, -30, -30, -40, -99,   0,   0,
                        0,   0, -40, -20,   0,   0,   0,   0,  20, -40,   0,   0,
                        0,   0, -30,   0,  10,  15,  15,  10,   0, -30,   0,   0,
                        0,   0, -30,   5,  15,  20,  20,  15,   5, -30,   0,   0,
@@ -735,122 +832,8 @@ var WKING_PSTE =      [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WPASSED_PSTS =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
-
-var WPASSED_PSTE =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,  99,  99,  99,  99,  99,  99,  99,  99,   0,   0,
-                       0,   0,  66,  66,  66,  66,  66,  66,  66,  66,   0,   0,
-                       0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
-                       0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
-                       0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
-                       0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
-
-var WDOUBLED_PSTS =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
-
-var WDOUBLED_PSTE =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
-
-var WCONNECT_PSTS =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
-
-var WCONNECT_PSTE =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
-
-var WISOLATE_PSTS =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
-
-var WISOLATE_PSTE =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
-
-function _pst2Black (from,to) {
-  for (var i=0; i < 12; i++) {
-    var frbase = i*12;
-    var tobase = (11-i)*12;
-    for (var j=0; j < 12; j++)
-      to[tobase+j] = from[frbase+j];
-  }
-}
-
-var BPAWN_PSTS   = Array(144);
-var BPAWN_PSTE   = Array(144);
+var BPAWN_PSTS   = Array(144);  // opening/middle.
+var BPAWN_PSTE   = Array(144);  // end.
 var BKNIGHT_PSTS = Array(144);
 var BKNIGHT_PSTE = Array(144);
 var BBISHOP_PSTS = Array(144);
@@ -862,125 +845,19 @@ var BQUEEN_PSTE  = Array(144);
 var BKING_PSTS   = Array(144);
 var BKING_PSTE   = Array(144);
 
-var BPASSED_PSTS  = Array(144);
-var BPASSED_PSTE  = Array(144);
-var BDOUBLED_PSTS = Array(144);
-var BDOUBLED_PSTE = Array(144);
-var BCONNECT_PSTS = Array(144);
-var BCONNECT_PSTE = Array(144);
-var BISOLATE_PSTS = Array(144);
-var BISOLATE_PSTE = Array(144);
+var WS_PST = [NULL_PST, WPAWN_PSTS, WKNIGHT_PSTS, WBISHOP_PSTS, WROOK_PSTS, WQUEEN_PSTS, WKING_PSTS];
+var WE_PST = [NULL_PST, WPAWN_PSTE, WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE];
 
-_pst2Black(WPAWN_PSTS,   BPAWN_PSTS);
-_pst2Black(WPAWN_PSTE,   BPAWN_PSTE);
-_pst2Black(WKNIGHT_PSTS, BKNIGHT_PSTS);
-_pst2Black(WKNIGHT_PSTE, BKNIGHT_PSTE);
-_pst2Black(WBISHOP_PSTS, BBISHOP_PSTS);
-_pst2Black(WBISHOP_PSTE, BBISHOP_PSTE);
-_pst2Black(WROOK_PSTS,   BROOK_PSTS);
-_pst2Black(WROOK_PSTE,   BROOK_PSTE);
-_pst2Black(WQUEEN_PSTS,  BQUEEN_PSTS);
-_pst2Black(WQUEEN_PSTE,  BQUEEN_PSTE);
-_pst2Black(WKING_PSTS,   BKING_PSTS);
-_pst2Black(WKING_PSTE,   BKING_PSTE);
+var BS_PST = [NULL_PST, BPAWN_PSTS, BKNIGHT_PSTS, BBISHOP_PSTS, BROOK_PSTS, BQUEEN_PSTS, BKING_PSTS];
+var BE_PST = [NULL_PST, BPAWN_PSTE, BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
 
-var WS_PST = [NULL_PST, WPAWN_PSTS,  WKNIGHT_PSTS, WBISHOP_PSTS, WROOK_PSTS, WQUEEN_PSTS, WKING_PSTS];  // opening/middle eval.
-var WE_PST = [NULL_PST, WPAWN_PSTE,  WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE]; // end eval.
-var WM_PST = [NULL_PST, WPAWN_PSTE,  WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE]; // move eval.
+var W_PST = [WPAWN_PSTS, WKNIGHT_PSTS, WBISHOP_PSTS, WROOK_PSTS, WQUEEN_PSTS, WKING_PSTS,
+             WPAWN_PSTE, WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE];
 
-var BS_PST = [NULL_PST, BPAWN_PSTS,  BKNIGHT_PSTS, BBISHOP_PSTS, BROOK_PSTS, BQUEEN_PSTS, BKING_PSTS];
-var BE_PST = [NULL_PST, BPAWN_PSTE,  BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
-var BM_PST = [NULL_PST, BPAWN_PSTE,  BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
+var B_PST = [BPAWN_PSTS, BKNIGHT_PSTS, BBISHOP_PSTS, BROOK_PSTS, BQUEEN_PSTS, BKING_PSTS,
+             BPAWN_PSTE, BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
 
-_pst2Black(WPASSED_PSTS,  BPASSED_PSTS);
-_pst2Black(WPASSED_PSTE,  BPASSED_PSTE);
-_pst2Black(WDOUBLED_PSTS, BDOUBLED_PSTS);
-_pst2Black(WDOUBLED_PSTE, BDOUBLED_PSTE);
-_pst2Black(WCONNECT_PSTS, BCONNECT_PSTS);
-_pst2Black(WCONNECT_PSTE, BCONNECT_PSTE);
-_pst2Black(WISOLATE_PSTS, BISOLATE_PSTS);
-_pst2Black(WISOLATE_PSTE, BISOLATE_PSTE);
-
-var B88 =   [26, 27, 28, 29, 30, 31, 32, 33,
-             38, 39, 40, 41, 42, 43, 44, 45,
-             50, 51, 52, 53, 54, 55, 56, 57,
-             62, 63, 64, 65, 66, 67, 68, 69,
-             74, 75, 76, 77, 78, 79, 80, 81,
-             86, 87, 88, 89, 90, 91, 92, 93,
-             98, 99, 100,101,102,103,104,105,
-             110,111,112,113,114,115,116,117];
-
-var COORDS =   ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-                '??', '??', 'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8', '??', '??',
-                '??', '??', 'a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7', '??', '??',
-                '??', '??', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '??', '??',
-                '??', '??', 'a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5', '??', '??',
-                '??', '??', 'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', '??', '??',
-                '??', '??', 'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', '??', '??',
-                '??', '??', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', '??', '??',
-                '??', '??', 'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', '??', '??',
-                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'];
-
-var NAMES    = ['-','P','N','B','R','Q','K','-'];
-var PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move.
-
-var RANK =   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
-              0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
-              0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
-              0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
-              0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
-              0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
-              0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
-              0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-var FILE =   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-var MAP = [];
-
-MAP['p'] = B_PAWN;
-MAP['n'] = B_KNIGHT;
-MAP['b'] = B_BISHOP;
-MAP['r'] = B_ROOK;
-MAP['q'] = B_QUEEN;
-MAP['k'] = B_KING;
-MAP['P'] = W_PAWN;
-MAP['N'] = W_KNIGHT;
-MAP['B'] = W_BISHOP;
-MAP['R'] = W_ROOK;
-MAP['Q'] = W_QUEEN;
-MAP['K'] = W_KING;
-
-var UMAP = [];
-
-UMAP[B_PAWN]   = 'p';
-UMAP[B_KNIGHT] = 'n';
-UMAP[B_BISHOP] = 'b';
-UMAP[B_ROOK]   = 'r';
-UMAP[B_QUEEN]  = 'q';
-UMAP[B_KING]   = 'k';
-UMAP[W_PAWN]   = 'P';
-UMAP[W_KNIGHT] = 'N';
-UMAP[W_BISHOP] = 'B';
-UMAP[W_ROOK]   = 'R';
-UMAP[W_QUEEN]  = 'Q';
-UMAP[W_KING]   = 'K';
+var STARRAY = Array(144);
 
 //}}}
 
@@ -1041,6 +918,79 @@ function lozChess () {
   for (var i=0; i < this.nodes.length; i++)
     this.nodes[i].board = this.board;
 
+  for (var pst=0; pst < W_PST.length; pst++) {
+    for (var i=0; i < 12; i++) {
+      var frbase = i*12;
+      var tobase = (11-i)*12;
+      for (var j=0; j < 12; j++) {
+        B_PST[pst][tobase+j] = W_PST[pst][frbase+j];
+      }
+    }
+  }
+
+  //{{{  init STARRAY
+  //
+  // STARRAY can be used when in check to filter moves that cannot possibly
+  // be legal without overhead.  Happily EP captures fall out in the wash
+  // since they are to a square that a knight would be checking the king on.
+  //
+  // e.g. with a king on A1, STARRAY[A1] =
+  //
+  // 1  0  0  0  0  0  0  2
+  // 1  0  0  0  0  0  2  0
+  // 1  0  0  0  0  2  0  0
+  // 1  0  0  0  2  0  0  0
+  // 1  0  0  2  0  0  0  0
+  // 1 -1  2  0  0  0  0  0
+  // 1  2 -1  0  0  0  0  0
+  // 0  3  3  3  3  3  3  3
+  //
+  // Now condsider a rook on H1.  Slides to H2-H7 are not considered because they
+  // do not hit a ray and thus cannot be used to block a check.  The rook slide
+  // to H8 hits a ray, but corners are special cases - you can't slide to a corner
+  // to block a check, so it's also ignored.  The slides to G1-B1 hit rays but the
+  // from and to rays are the same, so again these slides cannot block a check.
+  // Captures to any ray are always considered. -1 = knight attacks, so slides must
+  // be to rays > 0 to be considered at all.  This vastly reduces the number of
+  // moves to consider when in check and is available pretty much for free.  Captures
+  // could be further pruned by considering the piece type encountered - i.e. can it
+  // theoretically be giving check or not.
+  //
+  
+  for (var i=0; i < this.board.b.length; i++)
+    this.board.b[i] = EDGE;
+  
+  for (var i=0; i < B88.length; i++)
+    this.board.b[B88[i]] = NULL;
+  
+  for (var i=0; i < 144; i++) {
+    STARRAY[i] = Array(144);
+    for (var j=0; j < 144; j++)
+      STARRAY[i][j] = 0;
+  }
+  
+  for (var i=0; i < B88.length; i++) {
+    var sq = B88[i];
+    for (var j=0; j < KING_OFFSETS.length; j++) {
+      var offset = KING_OFFSETS[j];
+      for (var k=1; k < 8; k++) {
+        var dest = sq + k * offset;
+        if (this.board.b[dest] == EDGE)
+          break;
+        STARRAY[sq][dest] = j+1;
+      }
+    }
+    for (var j=0; j < KNIGHT_OFFSETS.length; j++) {
+      var offset = KNIGHT_OFFSETS[j];
+      var dest   = sq + offset;
+      if (this.board.b[dest] == EDGE)
+        continue;
+      STARRAY[sq][dest] = -1;
+    }
+  }
+  
+  //}}}
+
   return this;
 }
 
@@ -1070,7 +1020,10 @@ lozChess.prototype.newGameInit = function () {
 lozChess.prototype.position = function () {
 
   this.init();
-  return this.board.position();
+
+  var res = this.board.position();
+
+  return res;
 }
 
 //}}}
@@ -1082,6 +1035,8 @@ lozChess.prototype.go = function() {
   var spec  = this.uci.spec;
 
   //{{{  sort out spec
+  
+  this.stats.update();  // clear stats on host.
   
   var remTime = 0;
   
@@ -1109,7 +1064,7 @@ lozChess.prototype.go = function() {
     }
   
     if (remTime > 0)
-      this.stats.moveTime = Math.floor(remTime / movesToGo);
+      this.stats.moveTime = remTime / movesToGo | 0;
   }
   
   //}}}
@@ -1121,6 +1076,7 @@ lozChess.prototype.go = function() {
   var maxPly      = spec.depth;
   var bestMoveStr = '';
   var score       = 0;
+  var winDraw     = '';
 
   while (ply <= maxPly) {
 
@@ -1135,10 +1091,12 @@ lozChess.prototype.go = function() {
     if (score <= alpha || score >= beta) {
       //{{{  research
       
-      if (score >= beta)
-        this.uci.send('info string BETA', ply, score, '>=', beta);
-      else
-        this.uci.send('info string ALPHA', ply, score, '<=', alpha);
+      if (!this.uci.tuning) {
+        if (score >= beta)
+          this.uci.send('info string BETA', ply, alpha, '<', score, '>=', beta);
+        else
+          this.uci.send('info string ALPHA', ply, alpha, '>=', score, '<', beta);
+      }
       
       alpha = -INFINITY;
       beta  = INFINITY;
@@ -1163,23 +1121,44 @@ lozChess.prototype.go = function() {
     ply += 1;
   }
 
+  //{{{  send move
+  
   this.stats.update();
   this.stats.stop();
-
-  bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
-
+  
   board.makeMove(this.rootNode,this.stats.bestMove);
-
-  if (spec.txfen)
-    this.uci.send('bestmove',bestMoveStr,'txfen',board.fen());
-  else
-    this.uci.send('bestmove',bestMoveStr);
-
-  board.evaluate(board.turn)
-
-  this.uci.debug('phase',board.gPhase,'whis',board.wHistory[0][0],'bhis',board.bHistory[0][0]);
-  this.uci.debug(spec.board + ' ' + spec.rights + ' ' + spec.ep);
-  this.uci.debug(spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
+  
+  bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
+  winDraw     = board.isEnd(~board.turn & COLOR_MASK);
+  
+  if (this.uci.tuning) { // web ui (tuning).
+  
+    if (winDraw)
+      this.uci.send('end',winDraw);
+    else
+      this.uci.send('bestmove',bestMoveStr,ply);
+  }
+  
+  else {
+  
+    if (spec.txfen)  // web ui (play).
+      this.uci.send('bestmove',bestMoveStr,'txfen',board.fen());
+    else
+      this.uci.send('bestmove',bestMoveStr);  // UCI.
+  
+    if (spec.validate && winDraw)  // web ui (play).
+      this.uci.send('end',winDraw);
+  }
+  
+  if (!this.uci.tuning) {
+    this.uci.debug('phase',board.gPhase,'whis',board.wHistory[0][0],'bhis',board.bHistory[0][0]);
+    this.uci.debug(spec.board + ' ' + spec.rights + ' ' + spec.ep);
+    this.uci.debug(spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
+  }
+  
+  return bestMoveStr;
+  
+  //}}}
 }
 
 //}}}
@@ -1237,12 +1216,27 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     }
     
     //}}}
+    //{{{  ignore?
+    /*
+    if (!inCheck && this.uci.spec.ignore.length && this.uci.spec.ignore.indexOf(board.formatMove(move,UCI_FMT)) != -1) {
+    
+      board.unmakeMove(node,move);
+    
+      node.uncache();
+    
+      continue;
+    }
+    */
+    //}}}
 
     numLegalMoves++;
 
+    if (node.base < BASE_LMR)
+      numSlides += 1;
+
     //{{{  send current move to UCI
     
-    if (this.stats.splits > 3) {
+    if (!this.uci.tuning && this.stats.splits > 3) {
     
       this.uci.send('info currmove ' + board.formatMove(move,SAN_FMT) + ' currmovenumber ' + numLegalMoves);
     }
@@ -1250,12 +1244,9 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     //}}}
 
     givesCheck = board.isKingAttacked(turn);
-    safe       = !alphaMate && !(move & KEEPER_MASK) && !givesCheck;
+    safe       = !(move & KEEPER_MASK) && !givesCheck && !alphaMate;
 
     //{{{  E+R
-    
-    if (node.base < BASE_LMR)
-      numSlides += 1;
     
     E = 0;
     R = 0;
@@ -1306,7 +1297,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         
         this.stats.bestMove = move;
         
-        var absScore = Math.abs(score);
+        var absScore = Math.abs(score) | 0;
         var units    = 'cp';
         var uciScore = score;
         var pvStr    = board.getPVStr(node);
@@ -1314,12 +1305,13 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         
         if (absScore >= MINMATE && absScore <= MATE) {
           var units    = 'mate';
-          var uciScore = Math.floor((MATE - absScore) / 2);
+          var uciScore = (MATE - absScore) / 2 | 0;
           if (score < 0)
             uciScore = -uciScore;
         }
         
-        this.uci.send('info depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',pvStr);
+        if (!this.uci.tuning)
+          this.uci.send('info depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',pvStr);
         
         if (!board.ttGetMove(node))
           this.uci.debug('TT AWOL FOR',mv);
@@ -1330,7 +1322,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         if (pvStr.indexOf(mv) != 0)
           this.uci.debug('WRONG PV FOR',mv);
         
-        this.uci.send('info hashfull',Math.round(1000*board.hashUsed/board.ttSize));
+        if (!this.uci.tuning)
+          this.uci.send('info hashfull',Math.round(1000*board.hashUsed/board.ttSize));
         
         //}}}
       }
@@ -1467,7 +1460,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   R = 3;
   
-  if (!pvNode && !loneKing && standPat > beta && !betaMate && nullOK == NULL_Y && !inCheck) {
+  if (!pvNode && !loneKing && !betaMate && standPat > beta && nullOK == NULL_Y && !inCheck) {
   
     board.loHash ^= board.loEP[board.ep];
     board.hiHash ^= board.hiEP[board.ep];
@@ -1544,7 +1537,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
       numSlides += 1;
 
     givesCheck = board.isKingAttacked(turn);
-    safe       = !alphaMate && !(move & KEEPER_MASK) && !givesCheck;
+    safe       = !(move & KEEPER_MASK) && !givesCheck && !alphaMate;
 
     //{{{  prune
     
@@ -1631,7 +1624,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
     else
       return CONTEMPT;
-  
   }
   
   //}}}
@@ -1680,9 +1672,14 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
   alpha = (standPat > alpha) ? standPat : alpha;
 
+  //var inCheck = board.isKingAttacked(nextTurn);
+
   node.cache();
 
-  board.genQMoves(node, turn);
+  //if (inCheck)
+    //board.genMoves(node, turn);
+  //else
+    board.genQMoves(node, turn);
 
   while (move = node.getNextMove()) {
 
@@ -1735,7 +1732,119 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 }
 
 //}}}
-//{{{  .perft
+//{{{  .open*
+
+var OPENS = [8,6,4,2,2,2,2,2,2,2];
+var OPENH = [];
+var OPENN = 0;
+
+lozChess.prototype.openList = function () {
+
+  OPENH = [];
+  OPENN = 0;
+
+  this.uci.send = function () {
+    return;
+  }
+  this.uci.debug = function () {
+    return;
+  }
+
+  var moves = [];
+  this.openHelper(0,moves);
+  OPENH = [];
+}
+
+lozChess.prototype.openHelper = function (ply,moves) {
+
+  var ignore  = [];
+  var myMoves = [];
+
+  var s = '';
+  for (var i=0; i < moves.length; i++)
+     s += moves[i] + ' ';
+
+  for (var i=0; i < OPENS[ply]; i++) {
+
+    var best = this.openGetBest(moves, ignore);
+
+    myMoves = [];
+    for (var j=0; j < moves.length; j++)
+      myMoves.push(moves[j]);
+    myMoves.push(best);
+
+    if (ply == OPENS.length-1)
+      this.openSend(myMoves);
+    else
+      this.openHelper(ply+1,myMoves);
+
+    ignore.push(best);
+  }
+}
+
+lozChess.prototype.openSend = function (moves) {
+
+  postMessage('info string ' + ++OPENN);
+
+  var myMoves = [];
+  for (var i=0; i < moves.length; i++)
+    myMoves.push(moves[i]);
+  myMoves.sort();
+  var s = '';
+  for (var i=0; i < myMoves.length; i++)
+    s += myMoves[i];
+
+  if (OPENH[s] === 1) {
+    return;
+  }
+
+  OPENH[s] = 1;
+
+  var s = 'info string "';
+  for (var i=0; i < moves.length; i++) {
+    s += moves[i];
+    if (i != moves.length - 1)
+      s += ' ';
+  }
+  s += '",';
+  postMessage(s);
+}
+
+lozChess.prototype.openGetBest = function (moves, ignore) {
+
+  this.newGameInit();
+
+  var uci = this.uci;
+
+  uci.spec.board    = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+  uci.spec.turn     = 'w';
+  uci.spec.rights   = 'KQkq';
+  uci.spec.ep       = '-';
+  uci.spec.hmc      = 0;
+  uci.spec.fmc      = 1;
+  uci.spec.id       = '';
+  uci.spec.validate = 0;
+  uci.spec.fen      = '';
+  uci.spec.moves    = moves;
+
+  this.position();
+
+  uci.spec.depth     = uci.getInt('depth',0);
+  uci.spec.moveTime  = uci.getInt('movetime',500);
+  uci.spec.maxNodes  = uci.getInt('nodes',0);
+  uci.spec.wTime     = uci.getInt('wtime',0);
+  uci.spec.bTime     = uci.getInt('btime',0);
+  uci.spec.wInc      = uci.getInt('winc',0);
+  uci.spec.bInc      = uci.getInt('binc',0);
+  uci.spec.movesToGo = uci.getInt('movestogo',0);
+  uci.spec.txfen     = uci.getInt('txfen',0);
+  uci.spec.ignore    = ignore;
+
+  return this.go();
+}
+
+//}}}
+//{{{  .perft*
 
 lozChess.prototype.perft = function () {
 
@@ -1757,9 +1866,6 @@ lozChess.prototype.perft = function () {
   this.uci.send('info string',spec.id,spec.depth,moves,spec.moves,err);
 }
 
-//}}}
-//{{{  .perftSearch
-
 lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 
   this.stats.nodes++;
@@ -1774,9 +1880,14 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
   var nextTurn      = ~turn & COLOR_MASK;
   var numLegalMoves = 0;
 
+  var inCheck = board.isKingAttacked(nextTurn);
+
   node.cache();
 
-  board.genMoves(node, turn);
+  if (inCheck)
+    board.genMovesInCheck(node, turn);
+  else
+    board.genMoves(node, turn);
 
   while (move = node.getNextMove()) {
 
@@ -2022,7 +2133,7 @@ lozBoard.prototype.init = function () {
 
 lozBoard.prototype.position = function () {
 
-  var spec = lozza.uci.spec;
+  var spec = this.lozza.uci.spec;
 
   //{{{  board turn
   
@@ -2192,6 +2303,8 @@ lozBoard.prototype.position = function () {
   for (var i=0; i < spec.moves.length; i++) {
     if (!this.playMove(spec.moves[i]))
       return 0;
+    if (i == spec.moves.length - 1)
+      spec.fen = this.fen();
   }
 
   this.compact();
@@ -2244,15 +2357,8 @@ lozBoard.prototype.compact = function () {
     }
   }
   
-  /*
-  console.log('WHITE LIST ' + v.length);
-  for (var i=0; i<this.wCount; i++) {
-    console.log(this.b[this.wList[i]]);
-  }
-  */
-  
   if (this.b[this.wList[0]] != W_KING)
-    console.log('WHITE INDEX ERR');
+    this.lozza.uci.debug('WHITE INDEX ERR');
   
   //}}}
   //{{{  compact black list
@@ -2285,15 +2391,8 @@ lozBoard.prototype.compact = function () {
     }
   }
   
-  /*
-  console.log('BLACK LIST ' + v.length);
-  for (var i=0; i<this.bCount; i++) {
-    console.log(this.b[this.bList[i]]);
-  }
-  */
-  
   if (this.b[this.bList[0]] != B_KING)
-    console.log('BLACK INDEX ERR');
+    this.lozza.uci.debug('BLACK INDEX ERR');
   
   //}}}
 }
@@ -2466,34 +2565,41 @@ lozBoard.prototype.genMoves = function(node, turn) {
 }
 
 //}}}
-//{{{  .mobility
-//
-//  Pawns are ignored.  Connectivity for exmaple is in the pawn hash.
-//  As a simplification, pieces created by promoted pawns are ignored.
-//
+//{{{  .genMovesInCheck
 
+lozBoard.prototype.genMovesInCheck = function(node, turn) {
 
-var MOB_START = [0,0,2,2,1,1,0]
-var MOB_END   = [0,0,2,2,3,3,0]
+  node.numMoves    = 0;
+  node.sortedIndex = 0;
 
-lozBoard.prototype.mobility = function(turn) {
-
-  var mobS = 0;
-  var mobE = 0;
-  var b    = this.b;
+  var b = this.b;
 
   //{{{  colour based stuff
   
   if (turn == WHITE) {
   
-    var pList  = this.wList;
-    var pCount = this.wCount;
+    var pOffsetOrth  = WP_OFFSET_ORTH;
+    var pOffsetDiag1 = WP_OFFSET_DIAG1;
+    var pOffsetDiag2 = WP_OFFSET_DIAG2;
+    var pHomeRank    = 2;
+    var pPromoteRank = 8;
+    var pList        = this.wList;
+    var pCount       = this.wCount;
+    var ray          = STARRAY[this.wList[0]];
+    var myKing       = W_KING;
   }
   
   else {
   
-    var pList  = this.bList;
-    var pCount = this.bCount;
+    var pOffsetOrth  = BP_OFFSET_ORTH;
+    var pOffsetDiag1 = BP_OFFSET_DIAG1;
+    var pOffsetDiag2 = BP_OFFSET_DIAG2;
+    var pHomeRank    = 7;
+    var pPromoteRank = 1;
+    var pList        = this.bList;
+    var pCount       = this.bCount;
+    var ray          = STARRAY[this.bList[0]];
+    var myKing       = B_KING;
   }
   
   //}}}
@@ -2511,11 +2617,164 @@ lozBoard.prototype.mobility = function(turn) {
 
     var frObj   = this.b[fr];
     var frPiece = frObj & PIECE_MASK;
+    var frMove  = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
+    var rayFrom = ray[fr];
+
+    if (frPiece == PAWN) {
+      //{{{  pawn
+      
+      frMove |= MOVE_PAWN_MASK;
+      
+      var to        = fr + pOffsetOrth;
+      var toObj     = b[to];
+      var rayTo     = ray[to];
+      var keepSlide = rayTo > 0 && (rayTo != rayFrom) && !CORNERS[to];
+      
+      if (toObj == NULL) {
+      
+        if (RANK[to] == pPromoteRank && keepSlide)
+          node.addPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      
+        else {
+          if (keepSlide)
+            node.addMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      
+          if (RANK[fr] == pHomeRank) {
+      
+            to       += pOffsetOrth;
+            toObj     = b[to];
+            rayTo     = ray[to];
+            keepSlide = rayTo > 0 && (rayTo != rayFrom) && !CORNERS[to];
+      
+            if (toObj == NULL && keepSlide)
+              node.addMove(MOVE_EPMAKE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          }
+        }
+      }
+      
+      var to    = fr + pOffsetDiag1;
+      var toObj = b[to];
+      var rayTo = ray[to];
+      
+      if (toObj != NULL && toObj != EDGE && (toObj & COLOR_MASK) != turn && rayTo) {
+      
+        if (RANK[to] == pPromoteRank)
+          node.addPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        else
+          node.addMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      }
+      
+      else if (toObj == NULL && to == this.ep && rayTo)
+        node.addMove(MOVE_EPTAKE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      
+      var to    = fr + pOffsetDiag2;
+      var toObj = b[to];
+      var rayTo = ray[to];
+      
+      if (toObj != NULL && toObj != EDGE && (toObj & COLOR_MASK) != turn && rayTo) {
+      
+        if (RANK[to] == pPromoteRank)
+          node.addPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        else
+          node.addMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      }
+      
+      else if (toObj == NULL && to == this.ep && rayTo)
+        node.addMove(MOVE_EPTAKE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      
+      //}}}
+    }
+
+    else {
+      //{{{  not a pawn
+      
+      var offsets = OFFSETS[frPiece];
+      var limit   = LIMITS[frPiece];
+      
+      for (var dir=0; dir < offsets.length; dir++) {
+      
+        var offset = offsets[dir];
+      
+        for (var slide=1; slide<=limit; slide++) {
+      
+          var to    = fr + offset * slide;
+          var toObj = b[to];
+          var rayTo = ray[to];
+      
+          if (toObj == NULL) {
+            if (frObj == myKing || (rayTo > 0 && (rayTo != rayFrom) && !CORNERS[to]))
+              node.addMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      
+            continue;
+          }
+      
+          if (toObj == EDGE)
+            break;
+      
+          if ((toObj & COLOR_MASK) != turn) {
+            if (rayTo)
+              node.addMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          }
+      
+          break;
+        }
+      }
+      
+      //}}}
+    }
+
+    next++;
+    count++
+  }
+}
+
+//}}}
+//{{{  .mobility
+//
+//  Pawns are ignored.  Connectivity for exmaple is in the pawn hash.
+//  As a simplification, pieces created by promoted pawns are ignored.
+//
+
+var MOBSTART = 5;
+var MOBEND   = 5;
+
+lozBoard.prototype.mobility = function(turn) {
+
+  var mobS = 0;
+  var mobE = 0;
+  var b    = this.b;
+
+  //{{{  colour based stuff
+  
+  if (turn == WHITE) {
+  
+    var pList     = this.wList;
+    var pCount    = this.wCount - 1 - this.wCounts[PAWN];
+  }
+  
+  else {
+  
+    var pList     = this.bList;
+    var pCount    = this.bCount - 1 - this.bCounts[PAWN];
+  }
+  
+  //}}}
+
+  var next  = 1;  // ignore king.
+  var count = 0;
+
+  while (count < pCount) {
+
+    var fr = pList[next++];
+    if (!fr)
+      continue;
+
+    var frPiece = this.b[fr] & PIECE_MASK;
 
     if (frPiece == PAWN)
-      break;  // pieces are listed in value order.
+      continue;
 
-    //{{{  not a pawn
+    //{{{  piece mobility
     
     var offsets = OFFSETS[frPiece];
     var limit   = LIMITS[frPiece];
@@ -2530,38 +2789,24 @@ lozBoard.prototype.mobility = function(turn) {
         var toObj = b[to];
     
         if (toObj == NULL) {
-          mobS += MOB_START[frPiece];
-          mobE += MOB_END[frPiece];
+          mobS += MOBSTART;
+          mobE += MOBEND;
           continue;
         }
-    
-        break;
     
         if (toObj == EDGE)
           break;
     
-        var toPiece = toObj & COLOR_MASK;
+        mobS += MOBSTART;
+        mobE += MOBEND;
     
-        if ((toObj & COLOR_MASK) != turn) {
-          if (VALUE_VECTOR[toPiece] > VALUE_VECTOR[frPiece]) {
-            mobS += MOB_START[frPiece] * 8;
-            mobE += MOB_END[frPiece]   * 8;
-          }
-        }
-        else {
-          if (VALUE_VECTOR[toPiece] > VALUE_VECTOR[frPiece]) {
-            mobS += MOB_START[frPiece] * 8;
-            mobE += MOB_END[frPiece]   * 8;
-          }
-        }
         break;
       }
     }
     
     //}}}
 
-    next++;
-    count++
+    count++;
   }
 
   this.mobilityS = mobS;
@@ -3264,7 +3509,7 @@ lozBoard.prototype.isAttacked = function(to, byCol) {
       var frPiece = frObj & PIECE_MASK;
   
       if (frPiece == QUEEN || dir <= 3 && frPiece == BISHOP || dir > 3  && frPiece == ROOK)
-        return frObj;
+        return 1;
   
       break;
     }
@@ -3275,14 +3520,14 @@ lozBoard.prototype.isAttacked = function(to, byCol) {
   
   var attacker = KNIGHT | byCol;
   
-  if (b[to + -10] == attacker) return attacker;
-  if (b[to + -23] == attacker) return attacker;
-  if (b[to + -14] == attacker) return attacker;
-  if (b[to + -25] == attacker) return attacker;
-  if (b[to +  10] == attacker) return attacker;
-  if (b[to +  23] == attacker) return attacker;
-  if (b[to +  14] == attacker) return attacker;
-  if (b[to +  25] == attacker) return attacker;
+  if (b[to + -10] == attacker) return 1;
+  if (b[to + -23] == attacker) return 1;
+  if (b[to + -14] == attacker) return 1;
+  if (b[to + -25] == attacker) return 1;
+  if (b[to +  10] == attacker) return 1;
+  if (b[to +  23] == attacker) return 1;
+  if (b[to +  14] == attacker) return 1;
+  if (b[to +  25] == attacker) return 1;
   
   //}}}
 
@@ -3291,24 +3536,24 @@ lozBoard.prototype.isAttacked = function(to, byCol) {
 
   //{{{  pawns
   
-  if (byCol == BLACK && b[to + WP_OFFSET_DIAG1] == B_PAWN) return B_PAWN;
-  if (byCol == BLACK && b[to + WP_OFFSET_DIAG2] == B_PAWN) return B_PAWN;
-  if (byCol == WHITE && b[to + BP_OFFSET_DIAG1] == W_PAWN) return W_PAWN;
-  if (byCol == WHITE && b[to + BP_OFFSET_DIAG2] == W_PAWN) return W_PAWN;
+  if (byCol == BLACK && b[to + WP_OFFSET_DIAG1] == B_PAWN) return 1;
+  if (byCol == BLACK && b[to + WP_OFFSET_DIAG2] == B_PAWN) return 1;
+  if (byCol == WHITE && b[to + BP_OFFSET_DIAG1] == W_PAWN) return 1;
+  if (byCol == WHITE && b[to + BP_OFFSET_DIAG2] == W_PAWN) return 1;
   
   //}}}
   //{{{  kings
   
   var attacker = KING | byCol;
   
-  if (b[to + -11] == attacker) return attacker;
-  if (b[to + -13] == attacker) return attacker;
-  if (b[to + -12] == attacker) return attacker;
-  if (b[to + -1 ] == attacker) return attacker;
-  if (b[to +  11] == attacker) return attacker;
-  if (b[to +  13] == attacker) return attacker;
-  if (b[to +  12] == attacker) return attacker;
-  if (b[to +  1 ] == attacker) return attacker;
+  if (b[to + -11] == attacker) return 1;
+  if (b[to + -13] == attacker) return 1;
+  if (b[to + -12] == attacker) return 1;
+  if (b[to + -1 ] == attacker) return 1;
+  if (b[to +  11] == attacker) return 1;
+  if (b[to +  13] == attacker) return 1;
+  if (b[to +  12] == attacker) return 1;
+  if (b[to +  1 ] == attacker) return 1;
   
   //}}}
 
@@ -3357,11 +3602,13 @@ lozBoard.prototype.formatMove = function (move, fmt) {
   if (frPiece == PAWN)
     return toCoord + pro;
 
-  if (move == MOVE_E1G1 || move == MOVE_E8G8)
-    return '0-0';
+  if (move == MOVE_E1G1 || move == MOVE_E8G8) {
+    return 'O-O';
+  }
 
-  if (move == MOVE_E1C1 || move == MOVE_E8C8)
-    return '0-0-0';
+  if (move == MOVE_E1C1 || move == MOVE_E8C8) {
+    return 'O-O-O';
+  }
 
   return frName + toCoord;
 
@@ -3369,6 +3616,15 @@ lozBoard.prototype.formatMove = function (move, fmt) {
 
 //}}}
 //{{{  .evaluate
+
+var P_PASSED_S   = 20;
+var P_PASSED_E   = [0,0,30,30,30,30,66,99,99];
+var P_DOUBLED_S  = 10;
+var P_DOUBLED_E  = 10;
+var P_ISOLATE_S  = 5;
+var P_ISOLATE_E  = 5;
+var P_CONNECT_S  = 5;
+var P_CONNECT_E  = 5;
 
 lozBoard.prototype.evaluate = function (turn) {
 
@@ -3424,14 +3680,17 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  insufficient material?
   
-  if (numPieces == 2)                                  // K v K.
-    return CONTEMPT;
+  if (!this.verbose) {
   
-  if (numPieces == 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))    // K v K+N|B.
-    return CONTEMPT;
+    if (numPieces == 2)                                  // K v K.
+      return CONTEMPT;
   
-  if (numPieces == 4 && (wNumKnights || wNumBishops) && (bNumKnights || bNumBishops))  // K+N|B v K+N|B.
-    return CONTEMPT;
+    if (numPieces == 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))    // K v K+N|B.
+      return CONTEMPT;
+  
+    if (numPieces == 4 && (wNumKnights || wNumBishops) && (bNumKnights || bNumBishops))  // K+N|B v K+N|B.
+      return CONTEMPT;
+  }
   
   //}}}
   //{{{  pawns
@@ -3451,6 +3710,8 @@ lozBoard.prototype.evaluate = function (turn) {
   
     //{{{  phase 1
     
+    //{{{  white
+    
     this.wPawns[0] = 9;
     this.wPawns[1] = 9;
     this.wPawns[2] = 9;
@@ -3467,7 +3728,7 @@ lozBoard.prototype.evaluate = function (turn) {
     
     while (count < wNumPawns) {
     
-      sq = this.wList[next];
+      var sq = this.wList[next];
     
       if (!sq || this.b[sq] != W_PAWN) {
         next++;
@@ -3478,10 +3739,10 @@ lozBoard.prototype.evaluate = function (turn) {
       var file = FILE[sq];
     
       if (this.wPawns[file] != 9) {
-        pawnsS -= WDOUBLED_PSTS[sq];
-        pawnsE -= WDOUBLED_PSTE[sq];
+        pawnsS -= P_DOUBLED_S;
+        pawnsE -= P_DOUBLED_E;
         if (this.verbose) {
-          this.etrace('white doubled',-WDOUBLED_PSTS[sq],-WDOUBLED_PSTE[sq],COORDS[sq]);
+          this.etrace('white doubled',-P_DOUBLED_S,-P_DOUBLED_E,COORDS[sq]);
         }
       }
     
@@ -3491,6 +3752,9 @@ lozBoard.prototype.evaluate = function (turn) {
       count++;
       next++
     }
+    
+    //}}}
+    //{{{  black
     
     this.bPawns[0] = 0;
     this.bPawns[1] = 0;
@@ -3508,7 +3772,7 @@ lozBoard.prototype.evaluate = function (turn) {
     
     while (count < bNumPawns) {
     
-      sq = this.bList[next];
+      var sq = this.bList[next];
     
       if (!sq || this.b[sq] != B_PAWN) {
         next++;
@@ -3519,10 +3783,10 @@ lozBoard.prototype.evaluate = function (turn) {
       var file = FILE[sq];
     
       if (this.bPawns[file] != 0) {
-        pawnsS += BDOUBLED_PSTS[sq];
-        pawnsE += BDOUBLED_PSTE[sq];
+        pawnsS += P_DOUBLED_S;
+        pawnsE += P_DOUBLED_E;
         if (this.verbose) {
-          this.etrace('black doubled',BDOUBLED_PSTS[sq],BDOUBLED_PSTE[sq],COORDS[sq]);
+          this.etrace('black doubled',P_DOUBLED_S,P_DOUBLED_E,COORDS[sq]);
         }
       }
     
@@ -3534,14 +3798,18 @@ lozBoard.prototype.evaluate = function (turn) {
     }
     
     //}}}
+    
+    //}}}
     //{{{  phase 2
+    
+    //{{{  white
     
     var next  = this.firstWP;
     var count = 0;
     
     while (count < wNumPawns) {
     
-      sq = this.wList[next];
+      var sq = this.wList[next];
     
       if (!sq || this.b[sq] != W_PAWN) {
         next++;
@@ -3550,29 +3818,27 @@ lozBoard.prototype.evaluate = function (turn) {
     
       var rank = RANK[sq];
       var file = FILE[sq];
-      var pass = 1;
     
       if (rank >= this.bPawns[file-1] && rank >= this.bPawns[file] && rank >= this.bPawns[file+1]) {
-        pawnsS += WPASSED_PSTS[sq];
-        pawnsE += WPASSED_PSTE[sq];
-        pass   =  1;
+        pawnsS += P_PASSED_S;
+        pawnsE += P_PASSED_E[rank];
         if (this.verbose) {
-          this.etrace('white passed',WPASSED_PSTS[sq],WPASSED_PSTE[sq],COORDS[sq]);
+          this.etrace('white passed',P_PASSED_S,P_PASSED_E[rank],COORDS[sq]);
         }
       }
     
       if (this.b[sq+11] == W_PAWN || this.b[sq+13] == W_PAWN ) {
-        pawnsS += WCONNECT_PSTS[sq] * pass;
-        pawnsE += WCONNECT_PSTE[sq] * pass;
+        pawnsS += P_CONNECT_S;
+        pawnsE += P_CONNECT_E;
         if (this.verbose) {
-          this.etrace('white connect',WCONNECT_PSTS[sq],WCONNECT_PSTE[sq],COORDS[sq]);
+          this.etrace('white connect',P_CONNECT_S,P_CONNECT_E,COORDS[sq]);
         }
       }
       else if (this.wPawns[file-1] == 9 && this.wPawns[file+1] == 9) {
-        pawnsS -= WISOLATE_PSTS[sq];
-        pawnsE -= WISOLATE_PSTE[sq];
+        pawnsS -= P_ISOLATE_S;
+        pawnsE -= P_ISOLATE_E;
         if (this.verbose) {
-          this.etrace('white isolate',-WISOLATE_PSTS[sq],-WISOLATE_PSTE[sq],COORDS[sq]);
+          this.etrace('white isolate',-P_ISOLATE_S,-P_ISOLATE_E,COORDS[sq]);
         }
       }
     
@@ -3580,12 +3846,15 @@ lozBoard.prototype.evaluate = function (turn) {
       next++
     }
     
+    //}}}
+    //{{{  black
+    
     var next  = this.firstBP;
     var count = 0;
     
     while (count < bNumPawns) {
     
-      sq = this.bList[next];
+      var sq = this.bList[next];
     
       if (!sq || this.b[sq] != B_PAWN) {
         next++;
@@ -3597,32 +3866,33 @@ lozBoard.prototype.evaluate = function (turn) {
       var pass = 1;
     
       if (rank <= this.wPawns[file-1] && rank <= this.wPawns[file] && rank <= this.wPawns[file+1]) {
-        pawnsS -= BPASSED_PSTS[sq];
-        pawnsE -= BPASSED_PSTE[sq];
-        pass   =  1;
+        pawnsS -= P_PASSED_S;
+        pawnsE -= P_PASSED_E[rank];
         if (this.verbose) {
-          this.etrace('black passed',-BPASSED_PSTS[sq],-BPASSED_PSTE[sq],COORDS[sq]);
+          this.etrace('black passed',-P_PASSED_S,-P_PASSED_E[rank],COORDS[sq]);
         }
       }
     
       if (this.b[sq-11] == B_PAWN || this.b[sq-13] == B_PAWN ) {
-        pawnsS -= BCONNECT_PSTS[sq] * pass;
-        pawnsE -= BCONNECT_PSTE[sq] * pass;
+        pawnsS -= P_CONNECT_S;
+        pawnsE -= P_CONNECT_E;
         if (this.verbose) {
-          this.etrace('black connect',-BCONNECT_PSTS[sq],-BCONNECT_PSTE[sq],COORDS[sq]);
+          this.etrace('black connect',-P_CONNECT_S,-P_CONNECT_E,COORDS[sq]);
         }
       }
       else if (this.bPawns[file-1] == 0 && this.bPawns[file+1] == 0) {
-        pawnsS += BISOLATE_PSTS[sq];
-        pawnsE += BISOLATE_PSTE[sq];
+        pawnsS += P_ISOLATE_S;
+        pawnsE += P_ISOLATE_E;
         if (this.verbose) {
-          this.etrace('black isolate',BISOLATE_PSTS[sq],BISOLATE_PSTE[sq],COORDS[sq]);
+          this.etrace('black isolate',P_ISOLATE_S,P_ISOLATE_E,COORDS[sq]);
         }
       }
     
       count++;
       next++
     }
+    
+    //}}}
     
     //}}}
   
@@ -3723,8 +3993,9 @@ lozBoard.prototype.evaluate = function (turn) {
   }
   
   //}}}
-  //{{{  mobility (disabled)
-  /*
+  //{{{  mobility
+  /* hack
+  
   this.mobility(WHITE);
   
   evalS += this.mobilityS;
@@ -3742,11 +4013,20 @@ lozBoard.prototype.evaluate = function (turn) {
   if (this.verbose) {
     this.etrace('black mobility',this.mobilityS,this.mobilityE,'');
   }
+  
   */
   
   //}}}
 
   var e = ((evalS * (256 - this.gPhase)) + (evalE * this.gPhase)) >> 8;
+
+  if (this.verbose) {
+    this.genMoves(this.lozza.rootNode,turn);
+    var numMovesN = this.lozza.rootNode.numMoves;
+    this.genMovesInCheck(this.lozza.rootNode,turn);
+    var numMovesC = this.lozza.rootNode.numMoves;
+    this.etrace('moves',numMovesN,numMovesC,'');
+  }
 
   if (this.verbose) {
     this.etrace('final eval',evalS,evalE,e);
@@ -3764,8 +4044,7 @@ lozBoard.prototype.evaluate = function (turn) {
 
 lozBoard.prototype.rand32 = function () {
 
-  return Math.floor(Math.random() * 0xFFFFFFFF) + 1;
-
+  return Math.random() * 0xFFFFFFFF + 1 | 0;
 }
 
 //}}}
@@ -3941,8 +4220,8 @@ lozBoard.prototype.fen = function () {
   var fen = '';
   var n   = 0;
 
-  for (i=0; i < 8; i++) {
-    for (j=0; j < 8; j++) {
+  for (var i=0; i < 8; i++) {
+    for (var j=0; j < 8; j++) {
       var sq  = B88[i*8 + j]
       var obj = this.b[sq];
       if (obj == NULL)
@@ -4029,10 +4308,10 @@ lozBoard.prototype.getPVStr = function(node) {
   this.unmakeMove(node,move);
   node.uncache();
 
-  if (pv.indexOf(' ' + mv + ' ') === -1)
+  //if (pv.indexOf(' ' + mv + ' ') === -1)
     return mv + pv;
-  else
-    return mv;
+  //else
+    //return mv;
 }
 
 
@@ -4050,9 +4329,6 @@ lozBoard.prototype.etrace = function(info1,mid,end,info2) {
 
 lozBoard.prototype.addHistory = function (depth, move) {
 
-  //if (depth <=3)
-    //return;
-
   var toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_FROBJ_BITS;
 
   if (toObj)
@@ -4067,15 +4343,129 @@ lozBoard.prototype.addHistory = function (depth, move) {
     if (this.wHistory[frPiece][to] > this.wHistory[0][0])
       this.wHistory[0][0] = this.wHistory[frPiece][to];
     if (this.wHistory[frPiece][to] > BASE_BADTAKES)
-      board.lozza.uci.debug('W HIS OVERFLOW');
+      this.lozza.uci.debug('W HIS OVERFLOW');
   }
   else {
     this.bHistory[frPiece][to] += depth*depth;
     if (this.bHistory[frPiece][to] > this.bHistory[0][0])
       this.bHistory[0][0] = this.bHistory[frPiece][to];
     if (this.bHistory[frPiece][to] > BASE_BADTAKES)
-      board.lozza.uci.debug('B HIS OVERFLOW');
+      this.lozza.uci.debug('B HIS OVERFLOW');
   }
+}
+
+//}}}
+//{{{  .isEnd
+
+var WD = {}
+
+WD.tuning = {};
+
+WD.tuning.winBlack      = 'b';
+WD.tuning.winWhite      = 'w';
+WD.tuning.drawStalemate = 'd';
+WD.tuning.draw50        = 'd';
+WD.tuning.drawRep       = 'd';
+
+WD.playing = {};
+
+WD.playing.winBlack      = 'win by black';
+WD.playing.winWhite      = 'win by white';
+WD.playing.drawStalemate = 'draw by stalemate';
+WD.playing.draw50        = 'draw by 50 move rule';
+WD.playing.drawRep       = 'draw by threefold repetition';
+
+lozBoard.prototype.isEnd = function (turn) {
+
+  var spec = this.lozza.uci.spec;
+  var node = this.lozza.rootNode;
+
+  if (this.lozza.uci.tuning)
+    var strs = WD.tuning;
+  else
+    var strs = WD.playing;
+
+  var wInCheck = this.isKingAttacked(BLACK);
+  var bInCheck = this.isKingAttacked(WHITE);
+
+  var move = 0;
+
+  var wNumMoves = 0;
+  var bNumMoves = 0;
+
+  var wMoves = [];
+  var bMoves = [];
+
+  node.cache();
+
+  //{{{  wNumMoves
+  
+  this.genMoves(node, WHITE);
+  
+  while (move = node.getNextMove()) {
+  
+    this.makeMove(node,move);
+  
+    if (this.isKingAttacked(BLACK)) {
+      this.unmakeMove(node,move);
+      node.uncache();
+      continue;
+    }
+  
+    wMoves.push(move);
+    wNumMoves++;
+  
+    this.unmakeMove(node,move);
+    node.uncache();
+  }
+  
+  //}}}
+  //{{{  bNumMoves
+  
+  this.genMoves(node, BLACK);
+  
+  while (move = node.getNextMove()) {
+  
+    this.makeMove(node,move);
+  
+    if (this.isKingAttacked(WHITE)) {
+      this.unmakeMove(node,move);
+      node.uncache();
+      continue;
+    }
+  
+    bMoves.push(move);
+    bNumMoves++;
+  
+    this.unmakeMove(node,move);
+    node.uncache();
+  }
+  
+  //}}}
+
+  //{{{  draw/win?
+  
+  var wd = '';
+  
+  if (wNumMoves == 0 && wInCheck && turn == WHITE)
+    wd = strs.winBlack;
+  else if (bNumMoves == 0 && bInCheck && turn == BLACK)
+    wd = strs.winWhite;
+  else if (wNumMoves == 0 && turn == WHITE)
+    wd = strs.drawStalemate;
+  else if (bNumMoves == 0 && turn == BLACK)
+    wd = strs.drawStalemate;
+  else if (this.repHi - this.repLo >= 100)
+    wd = strs.draw50;
+  
+  for (var i=this.repHi-5; i >= this.repLo; i -= 2) {
+    if (this.repLoHash[i] == this.loHash && this.repHiHash[i] == this.hiHash)
+      wd = strs.drawRep;
+  }
+  
+  //}}}
+
+  return wd;
 }
 
 //}}}
@@ -4306,8 +4696,6 @@ lozNode.prototype.addMove = function (move) {
       next[0] = BASE_EVENTAKES + victim * 64 - attack;
     else
       next[0] = BASE_BADTAKES  + victim * 64 - attack;
-
-    return;
   }
 
   else {
@@ -4320,11 +4708,11 @@ lozNode.prototype.addMove = function (move) {
     var frCol   = frObj & COLOR_MASK;
 
     if (frCol == WHITE) {
-      var pst = WM_PST[frPiece];
+      var pst = WE_PST[frPiece];
       var his = board.wHistory[frPiece][to];
     }
     else {
-      var pst = BM_PST[frPiece];
+      var pst = BE_PST[frPiece];
       var his = board.bHistory[frPiece][to];
     }
 
@@ -4448,6 +4836,17 @@ lozNode.prototype.addKiller = function (score, move) {
 //{{{  lozStats
 
 function lozStats () {
+
+  this.startTime = 0;
+  this.splitTime = 0;
+  this.nodes     = 0;  // per analysis
+  this.ply       = 0;  // current ID root ply
+  this.splits    = 0;
+  this.moveTime  = 0;
+  this.maxNodes  = 0;
+  this.timeOut   = 0;
+  this.selDepth  = 0;
+  this.bestMove  = 0;
 }
 
 //}}}
@@ -4457,8 +4856,8 @@ lozStats.prototype.init = function () {
 
   this.startTime = Date.now();
   this.splitTime = 0;
-  this.nodes     = 0;  // per analysis
-  this.ply       = 0;  // current ID root ply
+  this.nodes     = 0;
+  this.ply       = 0;
   this.splits    = 0;
   this.moveTime  = 0;
   this.maxNodes  = 0;
@@ -4490,8 +4889,11 @@ lozStats.prototype.lazyUpdate = function () {
 
 lozStats.prototype.update = function () {
 
+  if (lozza.uci.tuning)
+    return;
+
   var tim = Date.now() - this.startTime;
-  var nps = Math.floor((this.nodes * 1000) / tim);
+  var nps = (this.nodes * 1000) / tim | 0;
 
   lozza.uci.send('info nodes',this.nodes,'time',tim,'nps',nps);
 }
@@ -4503,8 +4905,8 @@ lozStats.prototype.stop = function () {
 
   this.stopTime  = Date.now();
   this.time      = this.stopTime - this.startTime;
-  this.timeSec   = Math.round(this.time / 100) / 10;
-  this.nodesMega = Math.round(this.nodes / 100000) / 10;
+  this.timeSec   = Math.round(this.time / 100) / 10 | 0;
+  this.nodesMega = Math.round(this.nodes / 100000) / 10 | 0;
 }
 
 //}}}
@@ -4520,9 +4922,23 @@ function lozUCI () {
   this.tokens    = [];
   this.command   = '';
   this.spec      = {};
+  this.nodejs    = 0;
   this.debugging = true;
+  this.tuning    = false;
+  this.tune1     = 0;
 
   this.options = {};
+}
+
+//}}}
+//{{{  .post
+
+lozUCI.prototype.post = function (s) {
+
+  if (this.nodejs)
+    process.stdout.write(s + '\r\n');
+  else
+    postMessage(s);
 }
 
 //}}}
@@ -4535,8 +4951,7 @@ lozUCI.prototype.send = function () {
   for (var i = 0; i < arguments.length; i++)
     s += arguments[i] + ' ';
 
-  postMessage(s);
-  //console.log(s);
+  this.post(s);
 }
 
 //}}}
@@ -4554,9 +4969,9 @@ lozUCI.prototype.debug = function () {
 
   s = s.trim();
   if (s)
-    postMessage('info string debug ' + this.spec.id + ' ' + s);
+    this.post('info string debug ' + this.spec.id + ' ' + s);
   else
-    postMessage('info string');
+    this.post('info string');
 }
 
 //}}}
@@ -4626,6 +5041,9 @@ onmessage = function(e) {
     uci.tokens  = uci.message.split(' ');
     uci.command = uci.tokens[0];
 
+    if (!uci.command)
+      continue;
+
     switch (uci.command) {
 
     case 'position':
@@ -4639,6 +5057,8 @@ onmessage = function(e) {
       uci.spec.fmc      = 1;
       uci.spec.id       = '';
       uci.spec.validate = uci.getInt('validate',0);
+      
+      uci.spec.fen      = '';
       
       var arr = uci.getArr('fen','moves');
       
@@ -4663,7 +5083,7 @@ onmessage = function(e) {
       var valid = lozza.position();
       
       if (uci.spec.validate)
-        uci.send('valid', valid);
+        uci.send('valid', valid, 'txfen', uci.spec.fen);
       
       break;
       
@@ -4681,6 +5101,7 @@ onmessage = function(e) {
       uci.spec.bInc      = uci.getInt('binc',0);
       uci.spec.movesToGo = uci.getInt('movestogo',0);
       uci.spec.txfen     = uci.getInt('txfen',0);
+      uci.spec.ignore    = [];
       
       lozza.go();
       
@@ -4700,7 +5121,10 @@ onmessage = function(e) {
     case 'quit':
       //{{{  quit
       
-      close(); //kill worker
+      if (uci.nodejs)
+        process.exit();
+      else
+        close();
       
       break;
       
@@ -4713,6 +5137,22 @@ onmessage = function(e) {
         uci.debugging = true;
       else
         uci.debugging = false;
+      
+      break;
+      
+      //}}}
+
+    case 'tuning':
+      //{{{  tuning
+      
+      if (uci.getInt('tuning',0)) {
+        uci.tuning = true;
+        uci.tune1  = uci.getInt('tune1',0)
+        VALUE_QUEEN = uci.tune1;
+      }
+      
+      else
+        uci.tuning = false;
       
       break;
       
@@ -4802,6 +5242,15 @@ onmessage = function(e) {
       
       //}}}
 
+    case 'openings':
+      //{{{  openings
+      
+      lozza.openList();
+      
+      break;
+      
+      //}}}
+
     default:
       //{{{  ?
       
@@ -4820,4 +5269,26 @@ onmessage = function(e) {
 
 var lozza         = new lozChess()
 lozza.board.lozza = lozza;
+
+//{{{  handle node.js
+
+if (typeof(process) != 'undefined') {
+
+  lozza.uci.nodejs = 1;
+
+  process.stdin.setEncoding('utf8');
+
+  process.stdin.on('readable', function() {
+    var chunk = process.stdin.read();
+    if (chunk !== null) {
+      onmessage({data: chunk});
+    }
+  });
+
+  process.stdin.on('end', function() {
+    process.exit();
+  });
+}
+
+//}}}
 
