@@ -1417,11 +1417,11 @@ lozChess.prototype.go = function() {
 
     if (board.turn == WHITE) {
       totTime = spec.wTime;
-      incTIme = spec.wInc;
+      incTime = spec.wInc;
     }
     else {
       totTime = spec.bTime;
-      incTIme = spec.bInc;
+      incTime = spec.bInc;
     }
 
     //totTime = Math.round(totTime * (movesToGo - 1) / movesToGo);

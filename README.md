@@ -2,6 +2,8 @@
 # Lozza
 
 A Javascript UCI chess engine that can be used in a Web Worker and Node.
+Release versions are also available as a Windows binary;
+ping me if you would like a binary for a different platform.
 
 ## Hello world
 
