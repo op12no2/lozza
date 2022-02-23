@@ -2,22 +2,14 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD       = "2.1";
+var BUILD       = "2.2";
 var USEPAWNHASH = 1;
 var LICHESS     = 0;
 
 //{{{  history
 /*
 
-2.1 14/02/22 Non-linear mobility.
-2.1 11/02/22 Split up mobility into mobility, tightness and tension.
-2.1 28/01/22 Add Lichess support.
-2.1 21/01/22 Fixate on one square in Q search from depth -12.
-2.1 12/01/22 Retune using gd tuner.
-2.1 06/01/22 Add eval feature extraction code (for gd tuner) which is removed on release.
-2.1 06/01/22 Extract imbalance as a separate eval term.
-2.1 20/12/21 Handle old node versions WRT stdin.resume(). I think.
-2.1 17/12/21 Optimise pruning to pre makeMove().
+2.2 23/02/22 Don't use TT in PV node.
 
 */
 
@@ -1646,7 +1638,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 
   score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove.
 
-  if (score != TTSCORE_UNKNOWN) {
+  if (!pvNode && score != TTSCORE_UNKNOWN) {
     return score;
   }
 
@@ -1895,9 +1887,9 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
   //{{{  housekeeping
 
-  this.stats.checkTime();
-  if (this.stats.timeOut)
-    return;
+  //this.stats.checkTime();
+  //if (this.stats.timeOut)
+    //return;
 
   if (node.ply > this.stats.selDepth)
     this.stats.selDepth = node.ply;
@@ -5457,7 +5449,6 @@ lozBoard.prototype.evaluate = function (turn) {
     uci.send('info string','knights =     ',knightsS,knightsE);
     uci.send('info string','pawns =       ',pawnsS,pawnsE);
     uci.send('info string','tempo =       ',tempoS,tempoE);
-
   }
 
   //}}}
