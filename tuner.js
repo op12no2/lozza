@@ -13,16 +13,32 @@ board = lozza.board;
 var epds   = [];
 var params = [];
 
-var gEpdFile       = 'data/quiet-labeled2.epd';
-var gK             = 3.233;
+var gEpdFile       = 'data/quiet-labeled.epd';
+var gK             = 3.232;
+var gProb          = 5;
 
 var gOutFile       = 'gdtuner.txt';
 var gErrStep       = 10;
 var gLearningRate  = 0.1;
+var gMaxEpochs     = 400;
 
 //}}}
 //{{{  functions
 
+//{{{  getprob
+
+function getprob (r) {
+  if (r == '1/2-1/2')
+    return 0.5;
+  else if (r == '1-0')
+    return 1.0;
+  else if (r == '0-1')
+    return 0.0;
+  else
+    console.log('unknown result',r);
+}
+
+//}}}
 //{{{  is
 
 function is (obj,sq) {
@@ -102,10 +118,8 @@ function calcErr () {
 
     uci.spec.board    = epd.board;
     uci.spec.turn     = epd.turn;
-//    uci.spec.rights   = epd.rights;
-//    uci.spec.ep       = epd.ep;
-    uci.spec.rights   = '-';
-    uci.spec.ep       = '-';
+    uci.spec.rights   = epd.rights;
+    uci.spec.ep       = epd.ep;
     uci.spec.fmc      = 0;
     uci.spec.hmc      = 0;
     uci.spec.id       = '';
@@ -118,7 +132,7 @@ function calcErr () {
     var ev = board.evaluate(board.turn);
 
     if (board.turn == BLACK)
-      ev = -ev;
+      ev = -ev;               // undo negamax.
 
     var sg = sigmoid(ev);
 
@@ -151,7 +165,7 @@ function loga (p,s) {
 
 function logpst (p,s) {
 
-  return loga(p,s);
+  //return loga(p,s);
 
   var a = Array(p.length);
 
@@ -416,22 +430,41 @@ function grunt () {
   console.log('num params =', numParams);
   console.log('batch size =', batchSize);
   console.log('num batches =', numBatches);
+  console.log('epochs =', gMaxEpochs);
   
   var K2 = gK / 200.0;
   
-  while (1) {
+  while (gMaxEpochs--) {
+  
+    //{{{  reset adagrad
+    
+    //for (var i=0; i < numParams; i++)
+      //params[i].ag = 0;
+    
+    //}}}
   
     if (epoch % gErrStep == 0) {
+      //{{{  report loss
+      
       err = calcErr();
+      
       console.log(epoch,err,err-lastErr);
+      
       lastErr = err;
+      
       saveparams(err,epoch);
+      
+      //}}}
+      //{{{  check for crazy values
+      /*
       for (var i=0; i < numParams; i++) {
         var p = params[i];
         var delta = Math.abs(p.v - p.a[p.i]);
         if (delta > 5 && p.s)
           console.log(p.s,p.v,p.a[p.i],delta);
       }
+      */
+      //}}}
     }
     else {
       process.stdout.write(epoch+'\r');
@@ -448,16 +481,15 @@ function grunt () {
       //}}}
       //{{{  accumulate gradients
       
-      for (var i=batch*batchSize; i < (batch+1)*batchSize; i++) {
+      //for (var i=batch*batchSize; i < (batch+1)*batchSize; i++) {
+      for (var i=0; i < batchSize; i++) {
       
-        var epd = epds[i];
+        var epd = epds[Math.random() * epds.length | 0];
       
         uci.spec.board    = epd.board;
         uci.spec.turn     = epd.turn;
-        //uci.spec.rights   = epd.rights;
-        //uci.spec.ep       = epd.ep;
-        uci.spec.rights   = '-';
-        uci.spec.ep       = '-';
+        uci.spec.rights   = epd.rights;
+        uci.spec.ep       = epd.ep;
         uci.spec.fmc      = 0;
         uci.spec.hmc      = 0;
         uci.spec.id       = 'id' + j;
@@ -515,6 +547,8 @@ function grunt () {
     }
   }
   
+  console.log('Done',err);
+  
   //}}}
 
   process.exit();
@@ -558,7 +592,7 @@ rl.on('line', function (line) {
   if (thisPosition % 100000 == 0)
     process.stdout.write(thisPosition+'\r');
 
-  line = line.replace(/(\r\n|\n|\r)/gm,'');
+  line = line.replace(/(\r\n|\n|\r|;|")/gm,'');
 
   line = line.trim();
   if (!line.length)
@@ -566,20 +600,17 @@ rl.on('line', function (line) {
 
   var parts = line.split(' ');
 
-  if (parts.length && parts.length != 5) {
+  if (parts.length && parts.length != 6) {
     console.log('file format',line);
     process.exit();
   }
 
-//  epds.push({board:   parts[0],
-//             turn:    parts[1],
-//             rights:  parts[2],
-//             ep:      parts[3],
-//             prob:    parseFloat(parts[4])});
+  epds.push({board:   parts[0],
+             turn:    parts[1],
+             rights:  parts[2],
+             ep:      parts[3],
+             prob:    getprob(parts[gProb])});
 
-  epds.push({board: parts[0],
-             turn:  parts[1],
-             prob:  parseFloat(parts[4])});
 });
 
 rl.on('close', function(){
