@@ -14,13 +14,13 @@ var epds   = [];
 var params = [];
 
 var gEpdFile       = 'data/quiet-labeled.epd';
-var gK             = 3.232;
+var gK             = 3.17;
 var gProb          = 5;
 
 var gOutFile       = 'gdtuner.txt';
 var gErrStep       = 10;
 var gLearningRate  = 0.1;
-var gMaxEpochs     = 400;
+var gMaxEpochs     = 4000;
 
 //}}}
 //{{{  functions
@@ -214,7 +214,8 @@ function saveparams (err, epochs) {
 
   var out = '';
 
-  out += loga(VALUE_VECTOR,     'VALUE_VECTOR   ');
+  out += loga(VALUE_VECTOR_S,   'VALUE_VECTOR_S ');
+  out += loga(VALUE_VECTOR_E,   'VALUE_VECTOR_E ');
 
   out += logpst(WPAWN_PSTS,     'WPAWN_PSTS     ');
   out += logpst(WPAWN_PSTE,     'WPAWN_PSTE     ');
@@ -247,8 +248,10 @@ function saveparams (err, epochs) {
 
   out += loga(EV,               'EV             ');
 
-  out += loga(WSTORM,           'WSTORM         ');
-  out += loga(WSHELTER,         'WSHELTER       ');
+  out += loga(KNET_6_SAMEP_S,   'KNET_6_SAMEP_S ');
+  out += loga(KNET_6_OPPOP_S,   'KNET_6_OPPOP_S ');
+  out += loga(KNET_6_SAMEO_S,   'KNET_6_SAMEO_S ');
+  out += loga(KNET_6_OPPOO_S,   'KNET_6_OPPOO_S ');
 
   out += loga(IMBALN_S,         'IMBALN_S       ');
   out += loga(IMBALN_E,         'IMBALN_E       ');
@@ -293,10 +296,15 @@ function grunt () {
 
   //{{{  create params
   
-  addp('', VALUE_VECTOR, KNIGHT, function (piece,mg,eg) {return (board.wCounts[KNIGHT] - board.bCounts[KNIGHT]);});
-  addp('', VALUE_VECTOR, BISHOP, function (piece,mg,eg) {return (board.wCounts[BISHOP] - board.bCounts[BISHOP]);});
-  addp('', VALUE_VECTOR, ROOK,   function (piece,mg,eg) {return (board.wCounts[ROOK]   - board.bCounts[ROOK]);});
-  addp('', VALUE_VECTOR, QUEEN,  function (piece,mg,eg) {return (board.wCounts[QUEEN]  - board.bCounts[QUEEN]);});
+  addp('', VALUE_VECTOR_S, KNIGHT, function (piece,mg,eg) {return (board.wCounts[KNIGHT] - board.bCounts[KNIGHT]) * mg;});
+  addp('', VALUE_VECTOR_S, BISHOP, function (piece,mg,eg) {return (board.wCounts[BISHOP] - board.bCounts[BISHOP]) * mg;});
+  addp('', VALUE_VECTOR_S, ROOK,   function (piece,mg,eg) {return (board.wCounts[ROOK]   - board.bCounts[ROOK])   * mg;});
+  addp('', VALUE_VECTOR_S, QUEEN,  function (piece,mg,eg) {return (board.wCounts[QUEEN]  - board.bCounts[QUEEN])  * mg;});
+  addp('', VALUE_VECTOR_E, PAWN,   function (piece,mg,eg) {return (board.wCounts[PAWN]   - board.bCounts[PAWN])   * eg;});
+  addp('', VALUE_VECTOR_E, KNIGHT, function (piece,mg,eg) {return (board.wCounts[KNIGHT] - board.bCounts[KNIGHT]) * eg;});
+  addp('', VALUE_VECTOR_E, BISHOP, function (piece,mg,eg) {return (board.wCounts[BISHOP] - board.bCounts[BISHOP]) * eg;});
+  addp('', VALUE_VECTOR_E, ROOK,   function (piece,mg,eg) {return (board.wCounts[ROOK]   - board.bCounts[ROOK])   * eg;});
+  addp('', VALUE_VECTOR_E, QUEEN,  function (piece,mg,eg) {return (board.wCounts[QUEEN]  - board.bCounts[QUEEN])  * eg;});
   
   for (var i=8; i < 56; i++) {
     var sq = B88[i];
@@ -335,11 +343,12 @@ function grunt () {
     addp('', IMBALQ_E, i, function (pawns,mg,eg) {return (board.wCounts[QUEEN]  * (board.wCounts[PAWN] == pawns) - board.bCounts[QUEEN]  * (board.bCounts[PAWN] == pawns)) * eg});
   }
   
-  for (var i=0; i < WSHELTER.length; i++) {
-    addp('', WSHELTER, i, function (row,mg,eg) {return board.features.wShelter[row] * mg;});
-    addp('', WSTORM,   i, function (row,mg,eg) {return board.features.wStorm[row]   * mg;});
+  for (var i=0; i < 6; i++) {
+    addp('', KNET_6_SAMEP_S, i, function (i,mg,eg) {return board.features.knet6SameP[i] * mg;});
+    addp('', KNET_6_OPPOP_S, i, function (i,mg,eg) {return board.features.knet6OppoP[i] * mg;});
+    addp('', KNET_6_SAMEO_S, i, function (i,mg,eg) {return board.features.knet6SameO[i] * mg;});
+    addp('', KNET_6_OPPOO_S, i, function (i,mg,eg) {return board.features.knet6OppoO[i] * mg;});
   }
-  addp('k penalty s', EV, iKING_PENALTY, function (i,mg,eg) {return board.features.kingPenalty * mg;});
   
   for (var i=0; i < MOBN_S.length; i++) {
     addp('', MOBN_S, i, function (mob,mg,eg) {return board.features.mobN[mob] * mg});
@@ -422,7 +431,7 @@ function grunt () {
   
   var epoch      = 0;
   var numParams  = params.length;
-  var batchSize  = 10000;
+  var batchSize  = 7250;
   var numBatches = epds.length / batchSize | 0;
   var err        = 0;
   var lastErr    = 0;
@@ -435,13 +444,6 @@ function grunt () {
   var K2 = gK / 200.0;
   
   while (gMaxEpochs--) {
-  
-    //{{{  reset adagrad
-    
-    //for (var i=0; i < numParams; i++)
-      //params[i].ag = 0;
-    
-    //}}}
   
     if (epoch % gErrStep == 0) {
       //{{{  report loss
@@ -465,6 +467,12 @@ function grunt () {
       }
       */
       //}}}
+      //{{{  reset adagrad
+      
+      for (var i=0; i < numParams; i++)
+        params[i].ag = 0;
+      
+      //}}}
     }
     else {
       process.stdout.write(epoch+'\r');
@@ -485,6 +493,7 @@ function grunt () {
       for (var i=0; i < batchSize; i++) {
       
         var epd = epds[Math.random() * epds.length | 0];
+        //var epd = epds[i];
       
         uci.spec.board    = epd.board;
         uci.spec.turn     = epd.turn;
