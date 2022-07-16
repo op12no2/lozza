@@ -16,7 +16,6 @@ Note that lozza.js has tuning and debug code marked with ##ifdef, which will _si
 Windows: findstr -V ##ifdef lozza.js > mylozza.js
 Linux:   grep -v \#\#ifdef lozza.js > mylozza.js
 ```
-You should also change the TTSIZE constant from a power of 22 to 24 if using long time controls; i.e. minutes not seconds per game.
 
 Here is a little example to do a 10 ply search:-
 
@@ -48,8 +47,6 @@ You can try them here:-
 
 https://op12no2.github.io/lozza-ui
 
-https://lichess.org/@/lozzaBot
-
 ## Play Lozza offline in chess user interfaces
 
 https://github.com/op12no2/lozza/releases
@@ -65,7 +62,5 @@ http://ccrl.chessdom.com/ccrl/4040 - CCRL rating list
 https://github.com/AndyGrant/Ethereal/blob/master/Tuning.pdf - A nice overview of gradient descent
 
 http://wbec-ridderkerk.nl/html/UCIProtocol.html - UCI protocol
-
-https://www.npmjs.com/package/pkg - Tool used to package Lozza into executables
 
 https://github.com/davidbau/seedrandom - Random number generator used for Zobrist hashing

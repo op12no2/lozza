@@ -4,7 +4,7 @@
 
 lozza.newGameInit();
 
-//{{{  globals
+zeroparams();  // CHECK!
 
 fs    = lozza.uci.nodefs;
 uci   = lozza.uci;
@@ -13,16 +13,19 @@ board = lozza.board;
 var epds   = [];
 var params = [];
 
-var gEpdFile       = 'data/quiet-labeled.epd';
 var gK             = 3.17;
-var gProb          = 5;
-
-var gOutFile       = 'gdtuner.txt';
-var gErrStep       = 10;
+var gPrefix        = 'data_min_';
+var gSuffix        = '_sf';
+var gNumFiles      = 1;              // first file is <gPrefix>0<gSuffix>.epd etc.
+var gUseScore      = true;           // train against sigmoid(score) not sigmoid (wdl).
+var gWDLIndex      = 4;              // or the score if gUseScore is set.
+var gBatchSize     = 10000;
 var gLearningRate  = 0.1;
-var gMaxEpochs     = 4000;
+var gResetAdagrad  = false;
+var gOutFile       = 'gdtuner.txt';
+var gErrStep       = 10;             // update results and get loss rate.
+var gMaxEpochs     = 2000;
 
-//}}}
 //{{{  functions
 
 //{{{  getprob
@@ -109,12 +112,15 @@ function sigmoid (x) {
 
 function calcErr () {
 
+  //console.log('calc err in');
+
   var err = 0;
-  var num = epds.length;
+  var num = Vtotal;
 
   for (var i=0; i < num; i++) {
 
-    var epd = epds[i];
+    var vi  = Vindex(i);
+    var epd = epds[vi];
 
     uci.spec.board    = epd.board;
     uci.spec.turn     = epd.turn;
@@ -127,7 +133,6 @@ function calcErr () {
 
     lozza.position();
 
-    var sf = epd.sfeval;
     var pr = epd.prob;
     var ev = board.evaluate(board.turn);
 
@@ -144,7 +149,18 @@ function calcErr () {
     err += (pr-sg) * (pr-sg);
   }
 
+  //console.log('calc err out');
+
   return err / num;
+}
+
+//}}}
+//{{{  zeroa
+
+function zeroa (a,s) {
+
+  for (var i=0; i < a.length; i++)
+    a[i] = 0;
 }
 
 //}}}
@@ -197,25 +213,48 @@ var lastOut = '';
 function saveparams (err, epochs) {
 
   var d    = new Date();
-  var out1 = '//{{{  tuned feature weights\r\n\r\n';
+  var out1 = '//{{{  ' + BUILD + ' tuned feature weights\r\n';
 
-  out1 += '// data=' + gEpdFile;
+  out1 += '//';
   out1 += '\r\n';
-  out1 += '// features=' + params.length;
+  out1 += '// prefix = ' + gPrefix;
   out1 += '\r\n';
-  out1 += '// k='+gK;
+  out1 += '// suffix = ' + gSuffix;
   out1 += '\r\n';
-  out1 += '// loss='+err;
+  out1 += '// num files = ' + gNumFiles;
   out1 += '\r\n';
-  out1 += '// epochs='+epochs;
+  out1 += '// use score = ' + gUseScore;
   out1 += '\r\n';
-  out1 += '// last update '+d;
+  out1 += '// wdl index = ' + gWDLIndex;
+  out1 += '\r\n';
+  out1 += '// num positions = ' + Vtotal;
+  out1 += '\r\n';
+  out1 += '// num features = ' + params.length;
+  out1 += '\r\n';
+  out1 += '// batch size = ' + gBatchSize;
+  out1 += '\r\n';
+  out1 += '// num batches = ' + (Vtotal/gBatchSize|0);
+  out1 += '\r\n';
+  out1 += '// learning rate = ' + gLearningRate;
+  out1 += '\r\n';
+  out1 += '// report rate = ' + gErrStep;
+  out1 += '\r\n';
+  out1 += '// k = ' + gK;
+  out1 += '\r\n';
+  out1 += '// reset adagrad = ' + gResetAdagrad;
+  out1 += '\r\n';
+  out1 += '// loss = ' + err;
+  out1 += '\r\n';
+  out1 += '// epochs = ' + epochs;
+  out1 += '\r\n';
+  out1 += '// last update = ' + d;
+  out1 += '\r\n';
+  out1 += '//';
   out1 += '\r\n\r\n';
 
   var out = '';
 
-  out += loga(VALUE_VECTOR_S,   'VALUE_VECTOR_S ');
-  out += loga(VALUE_VECTOR_E,   'VALUE_VECTOR_E ');
+  out += loga(VALUE_VECTOR,     'VALUE_VECTOR   ');
 
   out += logpst(WPAWN_PSTS,     'WPAWN_PSTS     ');
   out += logpst(WPAWN_PSTE,     'WPAWN_PSTE     ');
@@ -246,12 +285,10 @@ function saveparams (err, epochs) {
   out += logpst(WOUTPOST,       'WOUTPOST       ');
   out += logpst(BOUTPOST,       'BOUTPOST       ');
 
-  out += loga(EV,               'EV             ');
+  out += loga(WSHELTER,         'WSHELTER       ');
+  out += loga(WSTORM,           'WSTORM         ');
 
-  out += loga(KNET_6_SAMEP_S,   'KNET_6_SAMEP_S ');
-  out += loga(KNET_6_OPPOP_S,   'KNET_6_OPPOP_S ');
-  out += loga(KNET_6_SAMEO_S,   'KNET_6_SAMEO_S ');
-  out += loga(KNET_6_OPPOO_S,   'KNET_6_OPPOO_S ');
+  out += loga(EV,               'EV             ');
 
   out += loga(IMBALN_S,         'IMBALN_S       ');
   out += loga(IMBALN_E,         'IMBALN_E       ');
@@ -285,6 +322,72 @@ function saveparams (err, epochs) {
 }
 
 //}}}
+//{{{  zeroparams
+
+function zeroparams () {
+
+  //zeroa(VALUE_VECTOR,   'VALUE_VECTOR   ');
+
+  //VALUE_VECTOR[PAWN]   = 100;
+  //VALUE_VECTOR[KNIGHT] = 299;
+  //VALUE_VECTOR[BISHOP] = 315;
+  //VALUE_VECTOR[ROOK]   = 482;
+  //VALUE_VECTOR[QUEEN]  = 919;
+  //VALUE_VECTOR[KING]   = 10000;
+
+  //zeroa(WPAWN_PSTS,     'WPAWN_PSTS     ');
+  //zeroa(WPAWN_PSTE,     'WPAWN_PSTE     ');
+  //zeroa(WKNIGHT_PSTS,   'WKNIGHT_PSTS   ');
+  //zeroa(WKNIGHT_PSTE,   'WKNIGHT_PSTE   ');
+  //zeroa(WBISHOP_PSTS,   'WBISHOP_PSTS   ');
+  //zeroa(WBISHOP_PSTE,   'WBISHOP_PSTE   ');
+  //zeroa(WROOK_PSTS,     'WROOK_PSTS     ');
+  //zeroa(WROOK_PSTE,     'WROOK_PSTE     ');
+  //zeroa(WQUEEN_PSTS,    'WQUEEN_PSTS    ');
+  //zeroa(WQUEEN_PSTE,    'WQUEEN_PSTE    ');
+  //zeroa(WKING_PSTS,     'WKING_PSTS     ');
+  //zeroa(WKING_PSTE,     'WKING_PSTE     ');
+
+  //zeroa(BPAWN_PSTS,     'BPAWN_PSTS     ');
+  //zeroa(BPAWN_PSTE,     'BPAWN_PSTE     ');
+  //zeroa(BKNIGHT_PSTS,   'BKNIGHT_PSTS   ');
+  //zeroa(BKNIGHT_PSTE,   'BKNIGHT_PSTE   ');
+  //zeroa(BBISHOP_PSTS,   'BBISHOP_PSTS   ');
+  //zeroa(BBISHOP_PSTE,   'BBISHOP_PSTE   ');
+  //zeroa(BROOK_PSTS,     'BROOK_PSTS     ');
+  //zeroa(BROOK_PSTE,     'BROOK_PSTE     ');
+  //zeroa(BQUEEN_PSTS,    'BQUEEN_PSTS    ');
+  //zeroa(BQUEEN_PSTE,    'BQUEEN_PSTE    ');
+  //zeroa(BKING_PSTS,     'BKING_PSTS     ');
+  //zeroa(BKING_PSTE,     'BKING_PSTE     ');
+
+  //zeroa(IMBALN_S);
+  //zeroa(IMBALN_E);
+  //zeroa(IMBALB_S);
+  //zeroa(IMBALB_E);
+  //zeroa(IMBALR_S);
+  //zeroa(IMBALR_E);
+  //zeroa(IMBALQ_S);
+  //zeroa(IMBALQ_E);
+
+  //zeroa(MOBN_S);
+  //zeroa(MOBN_E);
+  //zeroa(MOBB_S);
+  //zeroa(MOBB_E);
+  //zeroa(MOBR_S);
+  //zeroa(MOBR_E);
+  //zeroa(MOBQ_S);
+  //zeroa(MOBQ_E);
+
+  zeroa(EV);
+
+  zeroa(WSHELTER);
+  zeroa(WSTORM);
+  EV[iKING_PENALTY] = 10;
+
+}
+
+//}}}
 //{{{  grunt
 
 function grunt () {
@@ -294,18 +397,15 @@ function grunt () {
   //findK();
   //process.exit();
 
+  console.log('creating params...');
+
   //{{{  create params
   
-  addp('', VALUE_VECTOR_S, KNIGHT, function (piece,mg,eg) {return (board.wCounts[KNIGHT] - board.bCounts[KNIGHT]) * mg;});
-  addp('', VALUE_VECTOR_S, BISHOP, function (piece,mg,eg) {return (board.wCounts[BISHOP] - board.bCounts[BISHOP]) * mg;});
-  addp('', VALUE_VECTOR_S, ROOK,   function (piece,mg,eg) {return (board.wCounts[ROOK]   - board.bCounts[ROOK])   * mg;});
-  addp('', VALUE_VECTOR_S, QUEEN,  function (piece,mg,eg) {return (board.wCounts[QUEEN]  - board.bCounts[QUEEN])  * mg;});
-  addp('', VALUE_VECTOR_E, PAWN,   function (piece,mg,eg) {return (board.wCounts[PAWN]   - board.bCounts[PAWN])   * eg;});
-  addp('', VALUE_VECTOR_E, KNIGHT, function (piece,mg,eg) {return (board.wCounts[KNIGHT] - board.bCounts[KNIGHT]) * eg;});
-  addp('', VALUE_VECTOR_E, BISHOP, function (piece,mg,eg) {return (board.wCounts[BISHOP] - board.bCounts[BISHOP]) * eg;});
-  addp('', VALUE_VECTOR_E, ROOK,   function (piece,mg,eg) {return (board.wCounts[ROOK]   - board.bCounts[ROOK])   * eg;});
-  addp('', VALUE_VECTOR_E, QUEEN,  function (piece,mg,eg) {return (board.wCounts[QUEEN]  - board.bCounts[QUEEN])  * eg;});
-  
+  //addp('', VALUE_VECTOR, KNIGHT, function (piece,mg,eg) {return (board.wCounts[KNIGHT] - board.bCounts[KNIGHT])});
+  //addp('', VALUE_VECTOR, BISHOP, function (piece,mg,eg) {return (board.wCounts[BISHOP] - board.bCounts[BISHOP])});
+  //addp('', VALUE_VECTOR, ROOK,   function (piece,mg,eg) {return (board.wCounts[ROOK]   - board.bCounts[ROOK])});
+  //addp('', VALUE_VECTOR, QUEEN,  function (piece,mg,eg) {return (board.wCounts[QUEEN]  - board.bCounts[QUEEN])});
+  /*
   for (var i=8; i < 56; i++) {
     var sq = B88[i];
     addp('', WPAWN_PSTS, sq, function (sq,mg,eg) {return (is(W_PAWN,sq) - is(B_PAWN,wbmap(sq))) * mg;});
@@ -325,13 +425,18 @@ function grunt () {
     addp('', WKING_PSTS,   sq, function (sq,mg,eg) {return (is(W_KING,sq)   - is(B_KING,  wbmap(sq))) * mg;});
     addp('', WKING_PSTE,   sq, function (sq,mg,eg) {return (is(W_KING,sq)   - is(B_KING,  wbmap(sq))) * eg;});
   }
-  
+  */
+  for (var i=0; i < WSHELTER.length; i++) {
+    addp('', WSHELTER, i, function (row,mg,eg) {return board.features.wShelter[row] * mg;});
+    addp('', WSTORM,   i, function (row,mg,eg) {return board.features.wStorm[row]   * mg;});
+  }
+  addp('k penalty s', EV, iKING_PENALTY, function (i,mg,eg) {return board.features.kingPenalty * mg;});
+  /*
   var ko =[51,52,53,54,55,56,63,64,65,66,67,68,75,76,77,78,79,80]; //knight outpost squares
   for (var i=0; i < ko.length; i++) {
     var sq = ko[i];
     addp('', WOUTPOST, sq, function (sq,mg,eg) {return board.features.wOutpost[sq] * mg;});
   }
-  
   for (var i=0; i <= 8; i++) {
     addp('', IMBALN_S, i, function (pawns,mg,eg) {return (board.wCounts[KNIGHT] * (board.wCounts[PAWN] == pawns) - board.bCounts[KNIGHT] * (board.bCounts[PAWN] == pawns)) * mg});
     addp('', IMBALN_E, i, function (pawns,mg,eg) {return (board.wCounts[KNIGHT] * (board.wCounts[PAWN] == pawns) - board.bCounts[KNIGHT] * (board.bCounts[PAWN] == pawns)) * eg});
@@ -342,14 +447,6 @@ function grunt () {
     addp('', IMBALQ_S, i, function (pawns,mg,eg) {return (board.wCounts[QUEEN]  * (board.wCounts[PAWN] == pawns) - board.bCounts[QUEEN]  * (board.bCounts[PAWN] == pawns)) * mg});
     addp('', IMBALQ_E, i, function (pawns,mg,eg) {return (board.wCounts[QUEEN]  * (board.wCounts[PAWN] == pawns) - board.bCounts[QUEEN]  * (board.bCounts[PAWN] == pawns)) * eg});
   }
-  
-  for (var i=0; i < 6; i++) {
-    addp('', KNET_6_SAMEP_S, i, function (i,mg,eg) {return board.features.knet6SameP[i] * mg;});
-    addp('', KNET_6_OPPOP_S, i, function (i,mg,eg) {return board.features.knet6OppoP[i] * mg;});
-    addp('', KNET_6_SAMEO_S, i, function (i,mg,eg) {return board.features.knet6SameO[i] * mg;});
-    addp('', KNET_6_OPPOO_S, i, function (i,mg,eg) {return board.features.knet6OppoO[i] * mg;});
-  }
-  
   for (var i=0; i < MOBN_S.length; i++) {
     addp('', MOBN_S, i, function (mob,mg,eg) {return board.features.mobN[mob] * mg});
     addp('', MOBN_E, i, function (mob,mg,eg) {return board.features.mobN[mob] * eg});
@@ -425,21 +522,20 @@ function grunt () {
   addp('', EV, iATT_B,                function (i,mg,eg) {return board.features.attB               * mg;});
   addp('', EV, iATT_R,                function (i,mg,eg) {return board.features.attR               * mg;});
   addp('', EV, iATT_Q,                function (i,mg,eg) {return board.features.attQ               * mg;});
-  
+  */
   //}}}
+
+  console.log('tuning...');
+
   //{{{  tune params
+  
+  console.log('positions =',Vtotal);
   
   var epoch      = 0;
   var numParams  = params.length;
-  var batchSize  = 7250;
-  var numBatches = epds.length / batchSize | 0;
+  var numBatches = Vtotal / gBatchSize | 0;
   var err        = 0;
   var lastErr    = 0;
-  
-  console.log('num params =', numParams);
-  console.log('batch size =', batchSize);
-  console.log('num batches =', numBatches);
-  console.log('epochs =', gMaxEpochs);
   
   var K2 = gK / 200.0;
   
@@ -450,7 +546,7 @@ function grunt () {
       
       err = calcErr();
       
-      console.log(epoch,err,err-lastErr);
+      console.log(epoch, err, err-lastErr);
       
       lastErr = err;
       
@@ -469,8 +565,10 @@ function grunt () {
       //}}}
       //{{{  reset adagrad
       
-      for (var i=0; i < numParams; i++)
-        params[i].ag = 0;
+      if (gResetAdagrad) {
+        for (var i=0; i < numParams; i++)
+          params[i].ag = 0;
+      }
       
       //}}}
     }
@@ -489,11 +587,10 @@ function grunt () {
       //}}}
       //{{{  accumulate gradients
       
-      //for (var i=batch*batchSize; i < (batch+1)*batchSize; i++) {
-      for (var i=0; i < batchSize; i++) {
+      for (var i=batch*gBatchSize; i < (batch+1)*gBatchSize; i++) {
       
-        var epd = epds[Math.random() * epds.length | 0];
-        //var epd = epds[i];
+        var vi  = Vindex(i);
+        var epd = epds[vi];
       
         uci.spec.board    = epd.board;
         uci.spec.turn     = epd.turn;
@@ -528,7 +625,7 @@ function grunt () {
       
       for (var i=0; i < numParams; i++) {
         var p    = params[i];
-        var gr   = K2 * p.gr / batchSize;
+        var gr   = K2 * p.gr / gBatchSize;
         p.ag     += gr * gr;
         p.a[p.i] -= (gLearningRate / Math.sqrt(p.ag + 1e-8)) * gr;  // adagrad
       }
@@ -564,103 +661,82 @@ function grunt () {
 }
 
 //}}}
+//{{{  readfile
+
+function readfile() {
+
+  //process.stdout.write(Vfileno+'\r');
+
+  var data  = fs.readFileSync('data/' + gPrefix + Vfileno + gSuffix + '.epd', 'utf8');
+  var lines = data.split('\n');
+
+  data = '';
+  epds = [];
+
+  for (var i=0; i < lines.length; i++) {
+
+    var line = lines[i];
+
+    line = line.replace(/(\r\n|\n|\r)/gm,'');
+    line = line.trim();
+
+    if (!line.length)
+      continue;
+
+    var parts = line.split(' ');
+
+    if (!parts.length)
+      continue;
+
+    if (gUseScore)
+      var train = sigmoid(parseFloat(parts[gWDLIndex]));
+    else
+      var train = getprob(parts[gWDLIndex]);
+
+    epds.push({board:   parts[0],
+               turn:    parts[1],
+               rights:  parts[2],
+               ep:      parts[3],
+               prob:    train});
+  }
+}
 
 //}}}
-//{{{  log
+//{{{  Vindex
 
-console.log('data =',                  gEpdFile);
-console.log('k =',                     gK);
-console.log('learning rate =',         gLearningRate);
-console.log('loss display rate = 1 in',gErrStep);
+function Vindex(n) {
 
-//}}}
-//{{{  check sigmoid
+  var f = Vf[n];
+  var i = Vi[n];
 
-//for (var i=-600;i<=600;i+=100) {
-  //console.log(i,sigmoid(i));
-//}
-
-//}}}
-//{{{  kick it off
-
-var thisPosition = 0;
-
-const readline = require('readline');
-
-const rl = readline.createInterface({
-    input: fs.createReadStream(gEpdFile),
-    output: process.stdout,
-    crlfDelay: Infinity,
-    terminal: false
-});
-
-rl.on('line', function (line) {
-
-  thisPosition += 1;
-
-  if (thisPosition % 100000 == 0)
-    process.stdout.write(thisPosition+'\r');
-
-  line = line.replace(/(\r\n|\n|\r|;|")/gm,'');
-
-  line = line.trim();
-  if (!line.length)
-    return;
-
-  var parts = line.split(' ');
-
-  if (parts.length && parts.length != 6) {
-    console.log('file format',line);
-    process.exit();
+  if (Vfileno != f) {
+    Vfileno = f;
+    readfile();
   }
 
-  epds.push({board:   parts[0],
-             turn:    parts[1],
-             rights:  parts[2],
-             ep:      parts[3],
-             prob:    getprob(parts[gProb])});
-
-});
-
-rl.on('close', function(){
-  console.log('positions =',epds.length);
-  //{{{  count win, lose, draw
-  //
-  // Just to make sure the file has been parsed OK.
-  //
-  
-  var wins = 0;
-  var loss = 0;
-  var draw = 0;
-  
-  for (var i=0; i < epds.length; i++) {
-  
-    if (i % 100000 == 0)
-      process.stdout.write(i+'\r');
-  
-    var epd = epds[i];
-  
-    if (epd.prob == 1.0)
-      wins++;
-  
-    else if (epd.prob == 0.0)
-      loss++;
-  
-    else if (epd.prob == 0.5)
-      draw++;
-  
-    else {
-      console.log('not a prob',epd.prob);
-      process.exit();
-    }
-  }
-  
-  console.log('wins =',wins,'losses =',loss,'draws =',draw);
-  console.log('error check =',epds.length - wins - draw - loss,'(should be 0)');
-  
-  //}}}
-  grunt();
-});
+  return i;
+}
 
 //}}}
+
+//}}}
+
+var Vf      = [];
+var Vi      = [];
+var Vtotal  = 0;
+var Vfileno = 0;
+
+console.log('indexing files...');
+
+for (var i=0; i < gNumFiles; i++) {
+  Vfileno = i;
+  readfile();
+  for (var j=0; j < epds.length; j++) {
+    Vf[Vtotal] = i;
+    Vi[Vtotal] = j;
+    Vtotal++;
+  }
+}
+
+grunt();
 
