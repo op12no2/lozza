@@ -1,933 +1,726 @@
+
+// messy/hakky code
+
+//{{{  lang fold
+/*
+
+*/
+
+//}}}
+
+const id_suffix = '';
+
+const ACTI_RELU   = 1;
+const ACTI_CRELU  = 2;
+const ACTI_SRELU  = 3;
+const ACTI_SCRELU = 4;
+
+const fs = require('fs');
+const readline = require('readline');
+const { exec } = require('child_process');
+const path = require('path');
+//const fs = require('fs').promises;
+
+const dataFiles       = ['data/data1.shuf','data/data2.shuf'];
+
+const acti            = ACTI_RELU;
+const hiddenSize      = 75;
+const interp          = 0.5;
+
+const shuffle         = true;
+const batchSize       = 500;
+const learningRate    = 0.001;
+const K               = 100;
+const useL2Reg        = false;
+const useAdamW        = false;
+
+const reportRate      = 50;   // mean batch loss freq during epoch
+const lossRate        = 50;   // dataset loss freq
+const epochs          = 10000;
+const inputSize       = 768;
+const outputSize      = 1;
+const maxActiveInputs = 32;
+const beta1           = 0.9;
+const beta2           = 0.999;
+const epsilon         = 1e-7;
+const l2RegFactor     = 0.001;
+const weightDecay     = 0.01;
+
+const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + id_suffix;
+console.log(id);
+
+//{{{  line constants
 //
-// Copy lozza.js above here.
+// 0                         1    2      3  4    5   6     7    8         9           10             11
+// 8/8/8/8/6p1/5nk1/p7/3RrK2 w    -      -  3    169 -1124 d1e1 n         c           -              0.0
+// board                     turn rights ep game ply score move noisy n|- incheck c|- givescheck g|- wdl 0.0|0.5|1.0
 //
 
-RELEASE = 0;
-
-lozza.newGameInit();
-
-fs    = lozza.uci.nodefs;
-uci   = lozza.uci;
-board = lozza.board;
-
-var epds   = [];
-var params = [];
-
-var gK             = 1.43;
-var gFile          = 'quiet-labeled.epd';
-var gWDLIndex      = 5;
-var gBatchSize     = 10000;
-var gOutFile       = 'tuner.txt';
-var gMaxEpochs     = 20000;
-
-//{{{  1. add weight id
-
-var iATT_N                = 100;
-var iATT_B                = 200;
-var iATT_R                = 300;
-var iATT_Q                = 400;
-var iPAWN_DOUBLED_S       = 500;
-var iPAWN_DOUBLED_E       = 600;
-var iPAWN_ISOLATED_S      = 700;
-var iPAWN_ISOLATED_E      = 800;
-var iPAWN_BACKWARD_S      = 900;
-var iPAWN_BACKWARD_E      = 1000;
-var iPAWN_PASSED_OFFSET_S = 1100;
-var iPAWN_PASSED_OFFSET_E = 1200;
-var iPAWN_PASSED_MULT_S   = 1300;
-var iPAWN_PASSED_MULT_E   = 1400;
-var iPAWN_OFFSET_S        = 1500;
-var iPAWN_OFFSET_E        = 1600;
-var iPAWN_MULT_S          = 1700;
-var iPAWN_MULT_E          = 1800;
-var iPAWN_PASS_FREE       = 1900;
-var iPAWN_PASS_UNSTOP     = 2000;
-var iPAWN_PASS_KING1      = 2100;
-var iPAWN_PASS_KING2      = 2200;
-var iPAWN_CHAIN_S         = 2300;
-var iPAWN_CHAIN_E         = 2400;
-var iTWOBISHOPS_S         = 2500;
-var iTWOBISHOPS_E         = 2600;
-var iROOK7TH_S            = 2700;
-var iROOK7TH_E            = 2800;
-var iROOKOPEN_S           = 2900;
-var iROOKOPEN_E           = 3000;
-var iROOKDOUBLED_S        = 3001;
-var iROOKDOUBLED_E        = 3002;
-var iQUEEN7TH_S           = 3100;
-var iQUEEN7TH_E           = 3200;
-var iTRAPPED_S            = 3300;
-var iTRAPPED_E            = 3400;
-var iKING_PENALTY         = 3500;
-var iTIGHT_NS             = 3800;
-var iTIGHT_NE             = 3900;
-var iTIGHT_BS             = 4000;
-var iTIGHT_BE             = 4100;
-var iTIGHT_RS             = 4200;
-var iTIGHT_RE             = 4300;
-var iTIGHT_QS             = 4400;
-var iTIGHT_QE             = 4500;
-var iTENSE_NS             = 4600;
-var iTENSE_NE             = 4700;
-var iTENSE_BS             = 4800;
-var iTENSE_BE             = 4900;
-var iTENSE_RS             = 5000;
-var iTENSE_RE             = 5100;
-var iTENSE_QS             = 5200;
-var iTENSE_QE             = 5300;
-var iMOBN_S               = 5400;
-var iMOBN_E               = 5500;
-var iMOBN_S0              = 5600;
-var iMOBN_E0              = 5700;
-var iMOBB_S               = 5800;
-var iMOBB_E               = 5900;
-var iMOBB_S0              = 6000;
-var iMOBB_E0              = 6100;
-var iMOBR_S               = 6200;
-var iMOBR_E               = 6300;
-var iMOBR_S0              = 6400;
-var iMOBR_E0              = 6500;
-var iMOBQ_S               = 6600;
-var iMOBQ_E               = 6700;
-var iMOBQ_S0              = 6800;
-var iMOBQ_E0              = 6900;
-var iXRAY_BS              = 7000;
-var iXRAY_BE              = 7100;
-var iXRAY_RS              = 7200;
-var iXRAY_RE              = 7300;
-var iXRAY_QS              = 7400;
-var iXRAY_QE              = 7500;
+const PART_BOARD      = 0;
+const PART_TURN       = 1;
+const PART_RIGHTS     = 2;
+const PART_EP         = 3;
+const PART_GAME       = 4;
+const PART_PLY        = 5;
+const PART_SCORE      = 6;
+const PART_MOVE       = 7;
+const PART_NOISY      = 8;
+const PART_INCHECK    = 9;
+const PART_GIVESCHECK = 10;
+const PART_WDL        = 11;
 
 //}}}
-//{{{  2. add to tweak()
 
-function tweak(a,i,v) {
+let minLoss = 9999;
+let numBatches = 0;
 
-  if (a) {
-    a[i] = a[i] + v;
-    return a[i];
-  }
+//{{{  myround
 
-  switch (i) {
-    case iPAWN_CHAIN_S:         return PAWN_CHAIN_S         += v;
-    case iPAWN_CHAIN_E:         return PAWN_CHAIN_E         += v;
-    case iPAWN_DOUBLED_S:       return PAWN_DOUBLED_S       += v;
-    case iPAWN_DOUBLED_E:       return PAWN_DOUBLED_E       += v;
-    case iPAWN_ISOLATED_S:      return PAWN_ISOLATED_S      += v;
-    case iPAWN_ISOLATED_E:      return PAWN_ISOLATED_E      += v;
-    case iPAWN_BACKWARD_S:      return PAWN_BACKWARD_S      += v;
-    case iPAWN_BACKWARD_E:      return PAWN_BACKWARD_E      += v;
-    case iPAWN_PASSED_OFFSET_S: return PAWN_PASSED_OFFSET_S += v;
-    case iPAWN_PASSED_OFFSET_E: return PAWN_PASSED_OFFSET_E += v;
-    case iPAWN_PASSED_MULT_S:   return PAWN_PASSED_MULT_S   += v;
-    case iPAWN_PASSED_MULT_E:   return PAWN_PASSED_MULT_E   += v;
-    case iPAWN_OFFSET_S:        return PAWN_OFFSET_S        += v;
-    case iPAWN_OFFSET_E:        return PAWN_OFFSET_E        += v;
-    case iPAWN_MULT_S:          return PAWN_MULT_S          += v;
-    case iPAWN_MULT_E:          return PAWN_MULT_E          += v;
-    case iPAWN_PASS_FREE:       return PAWN_PASS_FREE       += v;
-    case iPAWN_PASS_UNSTOP:     return PAWN_PASS_UNSTOP     += v;
-    case iPAWN_PASS_KING1:      return PAWN_PASS_KING1      += v;
-    case iPAWN_PASS_KING2:      return PAWN_PASS_KING2      += v;
-    case iATT_N:                return ATT_N                += v;
-    case iATT_B:                return ATT_B                += v;
-    case iATT_R:                return ATT_R                += v;
-    case iATT_Q:                return ATT_Q                += v;
-    case iTWOBISHOPS_S:         return TWOBISHOPS_S         += v;
-    case iTWOBISHOPS_E:         return TWOBISHOPS_E         += v;
-    case iROOK7TH_S:            return ROOK7TH_S            += v;
-    case iROOK7TH_E:            return ROOK7TH_E            += v;
-    case iROOKOPEN_S:           return ROOKOPEN_S           += v;
-    case iROOKOPEN_E:           return ROOKOPEN_E           += v;
-    case iROOKDOUBLED_S:        return ROOK_DOUBLED_S       += v;
-    case iROOKDOUBLED_E:        return ROOK_DOUBLED_E       += v;
-    case iQUEEN7TH_S:           return QUEEN7TH_S           += v;
-    case iQUEEN7TH_E:           return QUEEN7TH_E           += v;
-    case iTRAPPED_S:            return TRAPPED_S            += v;
-    case iTRAPPED_E:            return TRAPPED_E            += v;
-    case iKING_PENALTY:         return KING_PENALTY         += v;
-    case iTIGHT_NS:             return TIGHT_NS             += v;
-    case iTIGHT_NE:             return TIGHT_NE             += v;
-    case iTIGHT_BS:             return TIGHT_BS             += v;
-    case iTIGHT_BE:             return TIGHT_BE             += v;
-    case iTIGHT_RS:             return TIGHT_RS             += v;
-    case iTIGHT_RE:             return TIGHT_RE             += v;
-    case iTIGHT_QS:             return TIGHT_QS             += v;
-    case iTIGHT_QE:             return TIGHT_QE             += v;
-    case iTENSE_NS:             return TENSE_NS             += v;
-    case iTENSE_NE:             return TENSE_NE             += v;
-    case iTENSE_BS:             return TENSE_BS             += v;
-    case iTENSE_BE:             return TENSE_BE             += v;
-    case iTENSE_RS:             return TENSE_RS             += v;
-    case iTENSE_RE:             return TENSE_RE             += v;
-    case iTENSE_QS:             return TENSE_QS             += v;
-    case iTENSE_QE:             return TENSE_QE             += v;
-    case iMOBN_S:               return MOBN_S               += v;
-    case iMOBN_E:               return MOBN_E               += v;
-    case iMOBN_S0:              return MOBN_S0              += v;
-    case iMOBN_E0:              return MOBN_E0              += v;
-    case iMOBB_S:               return MOBB_S               += v;
-    case iMOBB_E:               return MOBB_E               += v;
-    case iMOBB_S0:              return MOBB_S0              += v;
-    case iMOBB_E0:              return MOBB_E0              += v;
-    case iMOBR_S:               return MOBR_S               += v;
-    case iMOBR_E:               return MOBR_E               += v;
-    case iMOBR_S0:              return MOBR_S0              += v;
-    case iMOBR_E0:              return MOBR_E0              += v;
-    case iMOBQ_S:               return MOBQ_S               += v;
-    case iMOBQ_E:               return MOBQ_E               += v;
-    case iMOBQ_S0:              return MOBQ_S0              += v;
-    case iMOBQ_E0:              return MOBQ_E0              += v;
-    case iXRAY_BS:              return XRAY_BS              += v;
-    case iXRAY_BE:              return XRAY_BE              += v;
-    case iXRAY_RS:              return XRAY_RS              += v;
-    case iXRAY_RE:              return XRAY_RE              += v;
-    case iXRAY_QS:              return XRAY_QS              += v;
-    case iXRAY_QE:              return XRAY_QE              += v;
+function myround(x) {
+  return Math.sign(x) * Math.round(Math.abs(x));
+}
+
+//}}}
+//{{{  shuffle
+
+async function shuffleFile(filePath) {
+
+  const tempFile = `${filePath}.tmp`;
+
+  return new Promise((resolve, reject) => {
+    // Shuffle the file and write it to a temporary file
+    exec(`shuf ${filePath} > ${tempFile}`, (err, stdout, stderr) => {
+      if (err) {
+        reject(`Error shuffling file: ${stderr}`);
+        return;
+      }
+
+      // After shuffling, move the temporary file to overwrite the original file
+      exec(`mv ${tempFile} ${filePath}`, (err, stdout, stderr) => {
+        if (err) {
+          reject(`Error moving file: ${stderr}`);
+        } else {
+          resolve(`Shuffled: ${filePath}`);
+        }
+      });
+    });
+  });
+}
+
+async function shuffleAllFiles(files) {
+  try {
+    const shufflePromises = files.map(file => shuffleFile(file));
+    const results = await Promise.all(shufflePromises);
+    //results.forEach(result => console.log(result));
+  } catch (error) {
+    console.error(error);
   }
 }
 
 //}}}
-//{{{  3. add to output
+//{{{  createLineStream
 
-var lastOut = '';
-
-function saveparams (err, epochs) {
-
-  var d    = new Date();
-  var out1 = '//{{{  eval weights\r\n';
-
-  out1 += '//';
-  out1 += '\r\n';
-  out1 += '// file = ' + gFile;
-  out1 += '\r\n';
-  out1 += '// num positions = ' + epds.length;
-  out1 += '\r\n';
-  out1 += '// num features = ' + params.length;
-  out1 += '\r\n';
-  out1 += '// k = ' + gK;
-  out1 += '\r\n';
-  out1 += '// loss = ' + err;
-  out1 += '\r\n';
-  out1 += '// epochs = ' + epochs;
-  out1 += '\r\n';
-  out1 += '// last update = ' + d;
-  out1 += '\r\n';
-  out1 += '//';
-  out1 += '\r\n\r\n';
-
-  var out = '';
-
-  out += loga(MATERIAL, 'MATERIAL');
-
-  out += '\r\n';
-
-  out +=  'var PAWN_CHAIN_S         = ' + PAWN_CHAIN_S + ';\r\n';
-  out +=  'var PAWN_CHAIN_E         = ' + PAWN_CHAIN_E + ';\r\n';
-  out +=  'var PAWN_DOUBLED_S       = ' + PAWN_DOUBLED_S + ';\r\n';
-  out +=  'var PAWN_DOUBLED_E       = ' + PAWN_DOUBLED_E + ';\r\n';
-  out +=  'var PAWN_ISOLATED_S      = ' + PAWN_ISOLATED_S + ';\r\n';
-  out +=  'var PAWN_ISOLATED_E      = ' + PAWN_ISOLATED_E + ';\r\n';
-  out +=  'var PAWN_BACKWARD_S      = ' + PAWN_BACKWARD_S + ';\r\n';
-  out +=  'var PAWN_BACKWARD_E      = ' + PAWN_BACKWARD_E + ';\r\n';
-  out +=  'var PAWN_PASSED_OFFSET_S = ' + PAWN_PASSED_OFFSET_S + ';\r\n';
-  out +=  'var PAWN_PASSED_OFFSET_E = ' + PAWN_PASSED_OFFSET_E + ';\r\n';
-  out +=  'var PAWN_PASSED_MULT_S   = ' + PAWN_PASSED_MULT_S + ';\r\n';
-  out +=  'var PAWN_PASSED_MULT_E   = ' + PAWN_PASSED_MULT_E + ';\r\n';
-  out +=  'var PAWN_OFFSET_S        = ' + PAWN_OFFSET_S + ';\r\n';
-  out +=  'var PAWN_OFFSET_E        = ' + PAWN_OFFSET_E + ';\r\n';
-  out +=  'var PAWN_MULT_S          = ' + PAWN_MULT_S + ';\r\n';
-  out +=  'var PAWN_MULT_E          = ' + PAWN_MULT_E + ';\r\n';
-  out +=  'var PAWN_PASS_FREE       = ' + PAWN_PASS_FREE + ';\r\n';
-  out +=  'var PAWN_PASS_UNSTOP     = ' + PAWN_PASS_UNSTOP + ';\r\n';
-  out +=  'var PAWN_PASS_KING1      = ' + PAWN_PASS_KING1 + ';\r\n';
-  out +=  'var PAWN_PASS_KING2      = ' + PAWN_PASS_KING2 + ';\r\n';
-  out +=  'var ATT_N                = ' + ATT_N + ';\r\n';
-  out +=  'var ATT_B                = ' + ATT_B + ';\r\n';
-  out +=  'var ATT_R                = ' + ATT_R + ';\r\n';
-  out +=  'var ATT_Q                = ' + ATT_Q + ';\r\n';
-  out +=  'var TWOBISHOPS_S         = ' + TWOBISHOPS_S + ';\r\n';
-  out +=  'var TWOBISHOPS_E         = ' + TWOBISHOPS_E + ';\r\n';
-  out +=  'var ROOK7TH_S            = ' + ROOK7TH_S + ';\r\n';
-  out +=  'var ROOK7TH_E            = ' + ROOK7TH_E + ';\r\n';
-  out +=  'var ROOKOPEN_S           = ' + ROOKOPEN_S + ';\r\n';
-  out +=  'var ROOKOPEN_E           = ' + ROOKOPEN_E + ';\r\n';
-  out +=  'var ROOK_DOUBLED_S       = ' + ROOK_DOUBLED_S + ';\r\n';
-  out +=  'var ROOK_DOUBLED_E       = ' + ROOK_DOUBLED_E + ';\r\n';
-  out +=  'var QUEEN7TH_S           = ' + QUEEN7TH_S + ';\r\n';
-  out +=  'var QUEEN7TH_E           = ' + QUEEN7TH_E + ';\r\n';
-  out +=  'var TRAPPED_S            = ' + TRAPPED_S + ';\r\n';
-  out +=  'var TRAPPED_E            = ' + TRAPPED_E + ';\r\n';
-  out +=  'var KING_PENALTY         = ' + KING_PENALTY + ';\r\n';
-  out +=  'var TIGHT_NS             = ' + TIGHT_NS + ';\r\n';
-  out +=  'var TIGHT_NE             = ' + TIGHT_NE + ';\r\n';
-  out +=  'var TIGHT_BS             = ' + TIGHT_BS + ';\r\n';
-  out +=  'var TIGHT_BE             = ' + TIGHT_BE + ';\r\n';
-  out +=  'var TIGHT_RS             = ' + TIGHT_RS + ';\r\n';
-  out +=  'var TIGHT_RE             = ' + TIGHT_RE + ';\r\n';
-  out +=  'var TIGHT_QS             = ' + TIGHT_QS + ';\r\n';
-  out +=  'var TIGHT_QE             = ' + TIGHT_QE + ';\r\n';
-  out +=  'var TENSE_NS             = ' + TENSE_NS + ';\r\n';
-  out +=  'var TENSE_NE             = ' + TENSE_NE + ';\r\n';
-  out +=  'var TENSE_BS             = ' + TENSE_BS + ';\r\n';
-  out +=  'var TENSE_BE             = ' + TENSE_BE + ';\r\n';
-  out +=  'var TENSE_RS             = ' + TENSE_RS + ';\r\n';
-  out +=  'var TENSE_RE             = ' + TENSE_RE + ';\r\n';
-  out +=  'var TENSE_QS             = ' + TENSE_QS + ';\r\n';
-  out +=  'var TENSE_QE             = ' + TENSE_QE + ';\r\n';
-  out +=  'var MOBN_S               = ' + MOBN_S + ';\r\n';
-  out +=  'var MOBN_E               = ' + MOBN_E + ';\r\n';
-  out +=  'var MOBN_S0              = ' + MOBN_S0 + ';\r\n';
-  out +=  'var MOBN_E0              = ' + MOBN_E0 + ';\r\n';
-  out +=  'var MOBB_S               = ' + MOBB_S + ';\r\n';
-  out +=  'var MOBB_E               = ' + MOBB_E + ';\r\n';
-  out +=  'var MOBB_S0              = ' + MOBB_S0 + ';\r\n';
-  out +=  'var MOBB_E0              = ' + MOBB_E0 + ';\r\n';
-  out +=  'var MOBR_S               = ' + MOBR_S + ';\r\n';
-  out +=  'var MOBR_E               = ' + MOBR_E + ';\r\n';
-  out +=  'var MOBR_S0              = ' + MOBR_S0 + ';\r\n';
-  out +=  'var MOBR_E0              = ' + MOBR_E0 + ';\r\n';
-  out +=  'var MOBQ_S               = ' + MOBQ_S + ';\r\n';
-  out +=  'var MOBQ_E               = ' + MOBQ_E + ';\r\n';
-  out +=  'var MOBQ_S0              = ' + MOBQ_S0 + ';\r\n';
-  out +=  'var MOBQ_E0              = ' + MOBQ_E0 + ';\r\n';
-  out +=  'var XRAY_BS              = ' + XRAY_BS + ';\r\n';
-  out +=  'var XRAY_BE              = ' + XRAY_BE + ';\r\n';
-  out +=  'var XRAY_RS              = ' + XRAY_RS + ';\r\n';
-  out +=  'var XRAY_RE              = ' + XRAY_RE + ';\r\n';
-  out +=  'var XRAY_QS              = ' + XRAY_QS + ';\r\n';
-  out +=  'var XRAY_QE              = ' + XRAY_QE + ';\r\n';
-
-  out += '\r\n';
-
-  out += logpst(WPAWN_PSTS,   'WPAWN_PSTS');
-  out += logpst(WPAWN_PSTE,   'WPAWN_PSTE');
-  out += logpst(WKNIGHT_PSTS, 'WKNIGHT_PSTS');
-  out += logpst(WKNIGHT_PSTE, 'WKNIGHT_PSTE');
-  out += logpst(WBISHOP_PSTS, 'WBISHOP_PSTS');
-  out += logpst(WBISHOP_PSTE, 'WBISHOP_PSTE');
-  out += logpst(WROOK_PSTS,   'WROOK_PSTS');
-  out += logpst(WROOK_PSTE,   'WROOK_PSTE');
-  out += logpst(WQUEEN_PSTS,  'WQUEEN_PSTS');
-  out += logpst(WQUEEN_PSTE,  'WQUEEN_PSTE');
-  out += logpst(WKING_PSTS,   'WKING_PSTS');
-  out += logpst(WKING_PSTE,   'WKING_PSTE');
-
-  out += logpst(BPAWN_PSTS,   'BPAWN_PSTS');
-  out += logpst(BPAWN_PSTE,   'BPAWN_PSTE');
-  out += logpst(BKNIGHT_PSTS, 'BKNIGHT_PSTS');
-  out += logpst(BKNIGHT_PSTE, 'BKNIGHT_PSTE');
-  out += logpst(BBISHOP_PSTS, 'BBISHOP_PSTS');
-  out += logpst(BBISHOP_PSTE, 'BBISHOP_PSTE');
-  out += logpst(BROOK_PSTS,   'BROOK_PSTS');
-  out += logpst(BROOK_PSTE,   'BROOK_PSTE');
-  out += logpst(BQUEEN_PSTS,  'BQUEEN_PSTS');
-  out += logpst(BQUEEN_PSTE,  'BQUEEN_PSTE');
-  out += logpst(BKING_PSTS,   'BKING_PSTS');
-  out += logpst(BKING_PSTE,   'BKING_PSTE');
-
-  out += logpst(WOUTPOST, 'WOUTPOST');
-  out += logpst(BOUTPOST, 'BOUTPOST');
-
-  out += loga(WSHELTER, 'WSHELTER');
-  out += loga(WSTORM,   'WSTORM  ');
-
-  out += '\r\n';
-
-  out += loga(IMBALN_S, 'IMBALN_S');
-  out += loga(IMBALN_E, 'IMBALN_E');
-  out += loga(IMBALB_S, 'IMBALB_S');
-  out += loga(IMBALB_E, 'IMBALB_E');
-  out += loga(IMBALR_S, 'IMBALR_S');
-  out += loga(IMBALR_E, 'IMBALR_E');
-  out += loga(IMBALQ_S, 'IMBALQ_S');
-  out += loga(IMBALQ_E, 'IMBALQ_E');
-
-  //out += '\r\n';
-
-  out = out + '\r\n//}}}\r\n';
-
-  fs.writeFileSync(gOutFile, out1+out);
+async function* createLineStream(filenames) {
+  for (const filename of filenames) {
+    const fileStream = fs.createReadStream(filename);
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
+    });
+    for await (const line of rl) {
+      yield line;
+    }
+    rl.close();
+  }
 }
 
 //}}}
-//{{{  4. add to tuning
+//{{{  lerp
 
-function createParams() {
-
-  addp('knight', MATERIAL, KNIGHT);
-  addp('bishop', MATERIAL, BISHOP);
-  addp('rook',   MATERIAL, ROOK);
-  addp('queen',  MATERIAL, QUEEN);
-
-  for (var i=0; i <= 8; i++) {
-    addp('n_imbal_s_'+i, IMBALN_S, i);
-    addp('n_imbal_e_'+i, IMBALN_E, i);
-    addp('b_imbal_s_'+i, IMBALB_S, i);
-    addp('b_imbal_e_'+i, IMBALB_E, i);
-    addp('r_imbal_s_'+i, IMBALR_S, i);
-    addp('r_imbal_e_'+i, IMBALR_E, i);
-    addp('q_imbal_s_'+i, IMBALQ_S, i);
-    addp('q_imbal_e_'+i, IMBALQ_E, i);
-  }
-
-  for (var i=8; i < 56; i++) {
-    var sq = B88[i];
-    addp('wp_pst_s_'+COORDS[sq], WPAWN_PSTS, sq);
-    addp('wp_pst_s_'+COORDS[sq], WPAWN_PSTE, sq);
-  }
-
-  for (var i=0; i < 64; i++) {
-    var sq = B88[i];
-    addp('wn_pst_s_'+COORDS[sq], WKNIGHT_PSTS, sq);
-    addp('wn_pst_e_'+COORDS[sq], WKNIGHT_PSTE, sq);
-    addp('wb_pst_s_'+COORDS[sq], WBISHOP_PSTS, sq);
-    addp('wb_pst_e_'+COORDS[sq], WBISHOP_PSTE, sq);
-    addp('wr_pst_s_'+COORDS[sq], WROOK_PSTS,   sq);
-    addp('wr_pst_e_'+COORDS[sq], WROOK_PSTE,   sq);
-    addp('wq_pst_s_'+COORDS[sq], WQUEEN_PSTS,  sq);
-    addp('wq_pst_e_'+COORDS[sq], WQUEEN_PSTE,  sq);
-    addp('wk_pst_s_'+COORDS[sq], WKING_PSTS,   sq);
-    addp('wk_pst_e_'+COORDS[sq], WKING_PSTE,   sq);
-  }
-
-  for (var i=0; i < WSHELTER.length; i++) {
-    addp('shelter_'+i, WSHELTER, i);
-    addp('storm_'+i,   WSTORM,   i);
-  }
-  addp('k penalty s', null, iKING_PENALTY);
-
-  var ko =[51,52,53,54,55,56,63,64,65,66,67,68,75,76,77,78,79,80]; //knight outpost squares
-  for (var i=0; i < ko.length; i++) {
-    var sq = ko[i];
-    addp('outpost_'+COORDS[sq], WOUTPOST, sq);
-  }
-
-  addp('n_mob_s',  null, iMOBN_S);
-  addp('n_mob_e',  null, iMOBN_E);
-  addp('n_mob_s0', null, iMOBN_S0);
-  addp('n_mob_e0', null, iMOBN_E0);
-  addp('b_mob_s',  null, iMOBB_S);
-  addp('b_mob_e',  null, iMOBB_E);
-  addp('b_mob_s0', null, iMOBB_S0);
-  addp('b_mob_e0', null, iMOBB_E0);
-  addp('r_mob_s',  null, iMOBR_S);
-  addp('r_mob_e',  null, iMOBR_E);
-  addp('r_mob_s0', null, iMOBR_S0);
-  addp('r_mob_e0', null, iMOBR_E0);
-  addp('q_mob_s',  null, iMOBQ_S);
-  addp('q_mob_e',  null, iMOBQ_E);
-  addp('q_mob_s0', null, iMOBQ_S0);
-  addp('q_mob_e0', null, iMOBQ_E0);
-
-  addp('n_tight_s', null, iTIGHT_NS);
-  addp('n_tight_e', null, iTIGHT_NE);
-  addp('b_tight_s', null, iTIGHT_BS);
-  addp('b_tight_e', null, iTIGHT_BE);
-  addp('r_tight_s', null, iTIGHT_RS);
-  addp('r_tight_e', null, iTIGHT_RE);
-  addp('q_tight_s', null, iTIGHT_QS);
-  addp('q_tight_e', null, iTIGHT_QE);
-
-  addp('n_tense_s', null, iTENSE_NS);
-  addp('n_tense_e', null, iTENSE_NE);
-  addp('b_tense_s', null, iTENSE_BS);
-  addp('b_tense_e', null, iTENSE_BE);
-  addp('r_tense_s', null, iTENSE_RS);
-  addp('r_tense_e', null, iTENSE_RE);
-  addp('q_tense_s', null, iTENSE_QS);
-  addp('q_tense_e', null, iTENSE_QE);
-
-  addp('p_chain_s',      null, iPAWN_CHAIN_S);
-  addp('p_chain_e',      null, iPAWN_CHAIN_E);
-  addp('p_doubled_s',    null, iPAWN_DOUBLED_S);
-  addp('p_doubled_e',    null, iPAWN_DOUBLED_E);
-  addp('p_backward_s',   null, iPAWN_BACKWARD_S);
-  addp('p_backward_e',   null, iPAWN_BACKWARD_E);
-  addp('p_isolated_s',   null, iPAWN_ISOLATED_S);
-  addp('p_isolated_e',   null, iPAWN_ISOLATED_E);
-  addp('p_passoffset_s', null, iPAWN_PASSED_OFFSET_S);
-  addp('p_passoffset_e', null, iPAWN_PASSED_OFFSET_E);
-  addp('p_passmult_s',   null, iPAWN_PASSED_MULT_S);
-  addp('p_passmult_s',   null, iPAWN_PASSED_MULT_E);
-  addp('p_candoffset_s', null, iPAWN_OFFSET_S);
-  addp('p_candoffset_e', null, iPAWN_OFFSET_E);
-  addp('p_candmult_s',   null, iPAWN_MULT_S);
-  addp('p_candmult_e',   null, iPAWN_MULT_E);
-  addp('p_passfree',     null, iPAWN_PASS_FREE);
-  addp('p_passunstop',   null, iPAWN_PASS_UNSTOP);
-  addp('p_passking1',    null, iPAWN_PASS_KING1);
-  addp('p_passking2',    null, iPAWN_PASS_KING2);
-
-  addp('bispair_s', null, iTWOBISHOPS_S);
-  addp('bispair_e', null, iTWOBISHOPS_E);
-
-  addp('rook7th_s',   null, iROOK7TH_S);
-  addp('rook7th_e',   null, iROOK7TH_E);
-  addp('rookopen_s',  null, iROOKOPEN_S);
-  addp('rookopen_e',  null, iROOKOPEN_E);
-  addp('r_doubled_s', null, iROOKDOUBLED_S);
-  addp('r_doubled_e', null, iROOKDOUBLED_E);
-
-  addp('queen7th_s', null, iQUEEN7TH_S);
-  addp('queen7th_e', null, iQUEEN7TH_E);
-
-  addp('trapped_s', null, iTRAPPED_S);
-  addp('trapped_e', null, iTRAPPED_E);
-
-  addp('n_att', null, iATT_N);
-  addp('b_att', null, iATT_B);
-  addp('r_att', null, iATT_R);
-  addp('q_att', null, iATT_Q);
-
-  addp('b_xray_s', null, iXRAY_BS);
-  addp('b_xray_e', null, iXRAY_BE);
-  addp('r_xray_s', null, iXRAY_RS);
-  addp('r_xray_e', null, iXRAY_RE);
-  addp('q_xray_s', null, iXRAY_QS);
-  addp('q_xray_e', null, iXRAY_QE);
+function lerp(eval, wdl, t) {
+  let sg = sigmoid(eval);
+  let l = sg + (wdl - sg) * t;
+  return l;
 }
 
 //}}}
+//{{{  optiName
 
-//{{{  functions
-
-//{{{  wbmap
-
-function wbmap (sq) {
-  var m = (143-sq)/12|0;
-  return 12*m + sq%12;
-}
-
-//}}}
-//{{{  getprob
-
-function getprob (r) {
-  if (r == '1/2-1/2')
-    return 0.5;
-  else if (r == '1-0')
-    return 1.0;
-  else if (r == '0-1')
-    return 0.0;
-  else if (r == '"1/2-1/2"')
-    return 0.5;
-  else if (r == '"1-0"')
-    return 1.0;
-  else if (r == '"0-1"')
-    return 0.0;
+function optiName() {
+  if (useAdamW)
+    return "adamw";
   else
-    console.log('unknown result',r);
+    return "adam";
+  end
 }
 
 //}}}
-//{{{  findK
+//{{{  activations
 
-function findK () {
+function sigmoid(x) {
+  return 1 / (1 + Math.exp(-x / K));
+}
 
-  console.log('computing k');
+function relu(x) {
+  return Math.max(0, x);
+}
 
-  cacheEval();
+function drelu(x) {
+  return x > 0 ? 1 : 0;
+}
 
-  var min  = INFINITY;
-  var step = 1.0;
-  var x    = 1.0;
-  var err  = 0;
-  var dp   = 4;
+function crelu(x) {
+  return Math.min(Math.max(x, 0), 1);
+}
 
-  while (dp) {
-    gK = x;
-    err = calcCachedErr();
-    if (err <  min) {
-      min = err;
-      x += step;
-    }
-    else {
-      console.log(gK-step,err,step);
-      dp--;
-      step = -step / 10.0;
-      x += step;
-      min = INFINITY;
-    }
+function dcrelu(x) {
+  return (x > 0 && x < 1) ? 1 : 0;
+}
+
+function srelu(x) {
+  return Math.max(0, x) * Math.max(0, x);
+}
+
+function dsrelu(x) {
+  return x > 0 ? 2*x : 0;
+}
+
+function screlu(x) {
+  const y = Math.min(Math.max(x, 0), 1);
+  return y * y;
+}
+
+function dscrelu(x) {
+  return (x > 0 && x < 1) ? 2*x : 0;
+}
+
+function activationFunction(x) {
+  switch (acti) {
+    case ACTI_RELU:
+      return relu(x);
+    case ACTI_CRELU:
+      return crelu(x);
+    case ACTI_SRELU:
+      return srelu(x);
+    case ACTI_SCRELU:
+      return screlu(x);
+  }
+}
+
+function activationDerivative(x) {
+  switch (acti) {
+    case ACTI_RELU:
+      return drelu(x);
+    case ACTI_CRELU:
+      return dcrelu(x);
+    case ACTI_SRELU:
+      return dsrelu(x);
+    case ACTI_SCRELU:
+      return dscrelu(x);
+  }
+}
+
+function activationName(x) {
+  switch (acti) {
+    case ACTI_RELU:
+      return "relu";
+    case ACTI_CRELU:
+      return "crelu";
+    case ACTI_SRELU:
+      return "srelu";
+    case ACTI_SCRELU:
+      return "screlu";
   }
 }
 
 //}}}
-//{{{  tweakK
+//{{{  initializeParameters
 
-function tweakK () {
+function initializeParameters() {
 
-  console.log('tweaking k');
+    const scale = Math.sqrt(2 / inputSize);
 
-  var x     = 0.01;
-  var oldK  = gK;
-  var thisE = 0;
-  var minE  = calcErr();
-  var oldE  = minE;
+    const params = {
+      W1: new Float32Array(inputSize * hiddenSize).map(() => (Math.random() * 2 - 1) * scale),
+      b1: new Float32Array(hiddenSize).fill(0),
+      W2: new Float32Array(hiddenSize).map(() => (Math.random() * 2 - 1) * scale),
+      b2: 0,
+      vW1: new Float32Array(inputSize * hiddenSize).fill(0),
+      vb1: new Float32Array(hiddenSize).fill(0),
+      vW2: new Float32Array(hiddenSize).fill(0),
+      vb2: 0,
+      sW1: new Float32Array(inputSize * hiddenSize).fill(0),
+      sb1: new Float32Array(hiddenSize).fill(0),
+      sW2: new Float32Array(hiddenSize).fill(0),
+      sb2: 0
+    };
 
-  console.log('init k =', oldK, 'loss =', oldE);
-
-  for (var i=0; i < 100; i++) {
-    gK += x;
-    thisE = calcErr();
-    console.log('when k =', gK, 'loss =', thisE);
-    if (thisE < minE) {
-      minE = thisE;
-    }
-    else {
-      gK -= x;
-      break;
-    }
-  }
-
-  var upK = gK;
-  var upE = minE;
-
-  //console.log('up k =', upK, upE);
-
-  gK   = oldK;
-  minE = oldE;
-
-  for (var i=0; i < 100; i++) {
-    gK -= x;
-    thisE = calcErr();
-    console.log('when k =', gK, 'loss =', thisE);
-    if (thisE < minE) {
-      minE = thisE;
-    }
-    else {
-      gK += x;
-      break;
-    }
-  }
-
-  var downK = gK;
-  var downE = minE;
-
-  //console.log('down k =', downK, downE);
-
-  gK = oldK;
-
-  if (upE < oldE) {
-    gK   = upK;
-    oldE = upE;
-  }
-
-  if (downE < oldE)
-    gK = downK;
+    return params;
 }
 
 //}}}
-//{{{  addp
+//{{{  saveModel
 
-function addp (s,a,i) {
+function saveModel(loss, params, epochs) {
 
-  var v0 = tweak(a,i,0);
+  const actiName = activationName(acti);
+  const opt      = optiName();
 
-  params.push({s: s, a: a, i: i, v0: v0, inc: 1});
-}
+  var o = '//{{{  weights\r\n';
 
-//}}}
-//{{{  sigmoid
+  o += 'const net_h1_size     = '  + hiddenSize             + ';\r\n';
+  o += 'const net_lr          = '  + learningRate           + ';\r\n';
+  o += 'const net_activation  = '  + actiName               + ';\r\n';
+  o += 'const net_stretch     = '  + K                      + ';\r\n';
+  o += 'const net_interp      = '  + interp                 + ';\r\n';
+  o += 'const net_batch_size  = '  + batchSize              + ';\r\n';
+  o += 'const net_num_batches = '  + numBatches             + ';\r\n';
+  o += 'const net_positions   = '  + numBatches * batchSize + ';\r\n';
+  o += 'const net_opt         = "' + opt                    + '";\r\n';
+  o += 'const net_shuffle     = "' + shuffle                + '";\r\n';
+  o += 'const net_l2_reg      = '  + useL2Reg               + ';\r\n';
+  o += 'const net_epochs      = '  + epochs                 + ';\r\n';
+  o += 'const net_loss        = '  + loss                   + ';\r\n';
 
-function sigmoid (x) {
-  return 1.0 / (1.0 + Math.pow(10.0,-gK*x/400.0));
-}
+  o += '//{{{  weights\r\n';
 
-//}}}
-//{{{  calcErr
-
-function calcErr () {
-
-  //{{{  sync black stuff
+  //{{{  write h1 weights
   
-  for (var i=0; i < 144; i++) {
-    BPAWN_PSTS[wbmap(i)]   = WPAWN_PSTS[i];
-    BPAWN_PSTE[wbmap(i)]   = WPAWN_PSTE[i];
-    BKNIGHT_PSTS[wbmap(i)] = WKNIGHT_PSTS[i];
-    BKNIGHT_PSTE[wbmap(i)] = WKNIGHT_PSTE[i];
-    BBISHOP_PSTS[wbmap(i)] = WBISHOP_PSTS[i];
-    BBISHOP_PSTE[wbmap(i)] = WBISHOP_PSTE[i];
-    BROOK_PSTS[wbmap(i)]   = WROOK_PSTS[i];
-    BROOK_PSTE[wbmap(i)]   = WROOK_PSTE[i];
-    BQUEEN_PSTS[wbmap(i)]  = WQUEEN_PSTS[i];
-    BQUEEN_PSTE[wbmap(i)]  = WQUEEN_PSTE[i];
-    BKING_PSTS[wbmap(i)]   = WKING_PSTS[i];
-    BKING_PSTE[wbmap(i)]   = WKING_PSTE[i];
-    BOUTPOST[wbmap(i)]     = WOUTPOST[i];
+  o += 'const net_h1_w = Array(768);\r\n';
+  
+  var a = params.W1;
+  var a2 = [];
+  
+  for (var i=0; i < 768; i++) {
+    a2 = [];
+    const j = i * hiddenSize;
+    for (var k=0; k < hiddenSize; k++) {
+      a2.push(a[j+k]);
+    }
+    o += 'net_h1_w[' + i + ']  = new Float32Array([' + a2.toString() + ']);\r\n';
   }
   
   //}}}
+  //{{{  write h1 biases
+  
+  var a = params.b1;
+  
+  o += 'const net_h1_b = new Float32Array([' + a.toString() + ']);\r\n';
+  
+  //}}}
+  //{{{  write o weights
+  
+  var a = params.W2;
+  
+  o += 'const net_o_w = new Float32Array([' + a.toString() + ']);\r\n';
+  
+  //}}}
+  //{{{  write o bias
+  
+  var a = params.b2;
+  
+  o += 'const net_o_b = ' + a.toString() + ';\r\n';
+  
+  //}}}
 
-  var err = 0;
+  o += '\r\n//}}}\r\n';
+  o += '\r\n//}}}\r\n\r\n';
 
-  for (var i=0; i < epds.length; i++) {
+  const weightsFile= 'data/weights_' + id + '_' + epochs + '.js';
 
-    var epd = epds[i];
+  fs.writeFileSync(weightsFile, o);
+}
 
-    uci.spec.board    = epd.board;
-    uci.spec.turn     = epd.turn;
-    uci.spec.rights   = epd.rights;
-    uci.spec.ep       = epd.ep;
-    uci.spec.fmc      = 0;
-    uci.spec.hmc      = 0;
-    uci.spec.id       = '';
-    uci.spec.moves    = [];
+//}}}
+//{{{  forwardPropagation
 
-    lozza.position();
+function forwardPropagation(activeIndices, params) {
 
-    var pr = epd.prob;
-    var ev = board.evaluate(board.turn);
+  const Z1 = new Float32Array(activeIndices.length * hiddenSize);
+  const A1 = new Float32Array(activeIndices.length * hiddenSize);
+  const Z2 = new Float32Array(activeIndices.length);
+  const A2 = new Float32Array(activeIndices.length);
 
-    if (board.turn == BLACK)
-      ev = -ev;               // undo negamax.
+  for (let i = 0; i < activeIndices.length; i++) {
+    for (let j = 0; j < hiddenSize; j++) {
+      Z1[i * hiddenSize + j] = params.b1[j];
+      for (const idx of activeIndices[i]) {
+        Z1[i * hiddenSize + j] += params.W1[idx * hiddenSize + j];
+      }
+      A1[i * hiddenSize + j] = activationFunction(Z1[i * hiddenSize + j]);
+    }
+    Z2[i] = params.b2;
+    for (let j = 0; j < hiddenSize; j++) {
+      Z2[i] += A1[i * hiddenSize + j] * params.W2[j];
+    }
+    A2[i] = sigmoid(Z2[i]);
+  }
 
-    var sg = sigmoid(ev);
+  return { Z1, A1, Z2, A2 };
+}
 
-    if (isNaN(ev) || isNaN(pr) || isNaN(sg) || sg > 1.0 || pr > 1.0 || sg < 0.0 || pr < 0.0) {
-      console.log('nan eek',pr,sg,ev);
+//}}}
+//{{{  backwardPropagation
+
+function backwardPropagation(activeIndices, targets, params, forward) {
+
+  const m = activeIndices.length;
+  const dZ2 = new Float32Array(m);
+  const dW2 = new Float32Array(hiddenSize);
+
+  let db2 = 0;
+
+  const dA1 = new Float32Array(m * hiddenSize);
+  const dZ1 = new Float32Array(m * hiddenSize);
+  const dW1 = new Float32Array(inputSize * hiddenSize);
+  const db1 = new Float32Array(hiddenSize);
+
+  for (let i = 0; i < m; i++) {
+    dZ2[i] = forward.A2[i] - targets[i];
+    db2 += dZ2[i];
+    for (let j = 0; j < hiddenSize; j++) {
+      dW2[j] += dZ2[i] * forward.A1[i * hiddenSize + j];
+      dA1[i * hiddenSize + j] = dZ2[i] * params.W2[j];
+      dZ1[i * hiddenSize + j] = dA1[i * hiddenSize + j] * activationDerivative(forward.Z1[i * hiddenSize + j]);
+      db1[j] += dZ1[i * hiddenSize + j];
+      for (const idx of activeIndices[i]) {
+        dW1[idx * hiddenSize + j] += dZ1[i * hiddenSize + j];
+      }
+    }
+  }
+
+  for (let j = 0; j < hiddenSize; j++) {
+    dW2[j] /= m;
+    db1[j] /= m;
+  }
+
+  db2 /= m;
+
+  for (let i = 0; i < inputSize * hiddenSize; i++) {
+    dW1[i] /= m;
+  }
+
+  return { dW1, db1, dW2, db2 };
+}
+
+//}}}
+//{{{  updateParameters
+
+function updateParameters(params, grads, t) {
+
+  const updateParam = (param, grad, v, s, i) => {
+    v[i] = beta1 * v[i] + (1 - beta1) * grad[i];
+    s[i] = beta2 * s[i] + (1 - beta2) * grad[i] * grad[i];
+    const vCorrected = v[i] / (1 - Math.pow(beta1, t));
+    const sCorrected = s[i] / (1 - Math.pow(beta2, t));
+    let update = learningRate * vCorrected / (Math.sqrt(sCorrected) + epsilon);
+    if (useL2Reg) {
+      update -= l2RegFactor * param[i]; // Apply L2 regularization
+    }
+    if (useAdamW) {
+      param[i] -= learningRate * weightDecay * param[i]; // ADAMW weight decay
+    }
+    return param[i] - update;
+  };
+
+  for (let i = 0; i < inputSize * hiddenSize; i++) {
+    params.W1[i] = updateParam(params.W1, grads.dW1, params.vW1, params.sW1, i);
+  }
+
+  for (let i = 0; i < hiddenSize; i++) {
+    params.b1[i] = updateParam(params.b1, grads.db1, params.vb1, params.sb1, i);
+    params.W2[i] = updateParam(params.W2, grads.dW2, params.vW2, params.sW2, i);
+  }
+
+  params.b2 = updateParam([params.b2], [grads.db2], [params.vb2], [params.sb2], 0);
+
+  return params;
+}
+
+//}}}
+//{{{  decodeLine
+
+//{{{  constants
+
+const WHITE = 0;
+const BLACK = 1;
+
+const PAWN = 0;
+const KNIGHT = 1;
+const BISHOP = 2;
+const ROOK = 3;
+const QUEEN = 4;
+const KING = 5;
+
+const chPce = {
+  'k': KING, 'q': QUEEN, 'r': ROOK, 'b': BISHOP, 'n': KNIGHT, 'p': PAWN,
+  'K': KING, 'Q': QUEEN, 'R': ROOK, 'B': BISHOP, 'N': KNIGHT, 'P': PAWN
+};
+
+const chCol = {
+  'k': BLACK, 'q': BLACK, 'r': BLACK, 'b': BLACK, 'n': BLACK, 'p': BLACK,
+  'K': WHITE, 'Q': WHITE, 'R': WHITE, 'B': WHITE, 'N': WHITE, 'P': WHITE
+};
+
+const chNum = {'8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2, '1': 1};
+
+//}}}
+
+function decodeLine(line) {
+
+  const parts = line.split(' ');
+
+  const board = parts[PART_BOARD].trim();
+  const eval  = parseFloat(parts[PART_SCORE].trim());
+  const wdl   = parseFloat(parts[PART_WDL].trim());
+
+  var x = 0;
+  var sq = 0;
+
+  const activeIndices = [];
+
+  let target = 0.0;
+
+  if (!skipP(parts,eval,wdl)) {
+
+    //{{{  decode board
+    
+    for (var j = 0; j < board.length; j++) {
+      var ch = board.charAt(j);
+      if (ch == '/')
+        continue;
+      var num = chNum[ch];
+      if (typeof (num) == 'undefined') {
+        if (chCol[ch] == WHITE)
+          x = 0 + chPce[ch] * 64 + sq;
+        else if (chCol[ch] == BLACK)
+          x = 384 + chPce[ch] * 64 + sq;
+        else {
+          console.log(j,board.length,'colour',board,ch.charCodeAt(0),chCol[ch],'                        ');
+          console.log(j,board.length,'colour',board,ch.charCodeAt(0),chCol[ch]);
+          console.log(line);
+          process.exit();
+        }
+        activeIndices.push(x);
+        sq++;
+      }
+      else {
+        sq += num;
+      }
+    }
+    
+    //}}}
+
+    target = lerp(eval,wdl,interp);
+  }
+
+  return {activeIndices, target: [target]};
+}
+
+//}}}
+//{{{  skipP
+
+function skipP (parts,eval,wdl) {
+
+  const noisy = parts[PART_NOISY].trim();
+  if (noisy == 'n')
+    return true;
+
+  const inCh  = parts[PART_INCHECK].trim();
+  if (inCh == 'c')
+    return true;
+
+  const gvCh  = parts[PART_GIVESCHECK].trim();
+  if (gvCh == 'g')
+    return true;
+
+  if (parts[PART_MOVE].trim().length == 5)  // promotion
+    return true;
+
+  if (wdl == 0.5 && Math.abs(eval) > 300)
+    return true;
+
+  return false;
+}
+
+//}}}
+//{{{  train
+
+async function train(filenames) {
+
+  //{{{  randomise
+  
+  let now = new Date();
+  let midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  let n = Math.floor((now - midnight) / 1000);
+  for (let i=0; i < n; i++)
+    Math.random();
+  
+  //}}}
+
+  let params = initializeParameters();
+  let datasetLoss = 0;
+
+  numBatches = await calculateNumBatches(filenames);
+  saveModel(0, params, 0);
+
+  console.log(id, 'hidden',hiddenSize,'acti',activationName(acti),'stretch',K,'shuffle',shuffle,'batchsize',batchSize,'lr',learningRate,'interp',interp,'num batches',numBatches,'filtered positions',numBatches*batchSize);
+
+  let t = 0;
+
+  for (let epoch = 0; epoch < epochs; epoch++) {
+    //{{{  train epoch
+    
+    const lineStream = createLineStream(filenames);
+    
+    let batchActiveIndices = [];
+    let batchTargets = [];
+    let totalLoss = 0;
+    let batchCount = 0;
+    
+    for await (const line of lineStream) {
+      const {activeIndices, target} = decodeLine(line);
+      if (activeIndices.length) {
+        //{{{  use this position
+        
+        batchActiveIndices.push(activeIndices);
+        batchTargets.push(target[0]);
+        
+        if (batchActiveIndices.length === batchSize) {
+        
+          t++;
+        
+          const forward = forwardPropagation(batchActiveIndices, params);
+          const grads = backwardPropagation(batchActiveIndices, batchTargets, params, forward);
+        
+          params = updateParameters(params, grads, t);
+        
+          const batchLoss = forward.A2.reduce((sum, pred, i) =>
+            sum + Math.pow(pred - batchTargets[i], 2), 0) / batchSize;
+        
+          totalLoss += batchLoss;
+          batchCount++;
+        
+          batchActiveIndices = [];
+          batchTargets = [];
+        
+          if (batchCount % reportRate === 0) {
+            process.stdout.write(`${id} Epoch ${epoch + 1}, Batch ${batchCount}/${numBatches}, Mean Batch Loss: ${totalLoss / batchCount}\r`);
+          }
+        }
+        
+        //}}}
+      }
+    }
+    
+    console.log(`${id} Epoch ${epoch + 1} completed. Mean Batch Loss: ${totalLoss / batchCount}`);
+    
+    //{{{  calc dataset loss
+    
+    if ((epoch + 1) % lossRate === 0) {
+    
+      let marker = '';
+      datasetLoss = await calculateDatasetLoss(filenames, params);
+    
+      if (datasetLoss < minLoss) {
+        minLoss = datasetLoss;
+        marker = '***';
+      }
+    
+      console.log(`${id} Dataset Loss after ${epoch + 1} epochs: ${datasetLoss} ${marker}`);
+    }
+    
+    else {
+      datasetLoss = totalLoss / batchCount;
+    }
+    
+    //}}}
+    
+    saveModel(datasetLoss, params, epoch + 1);
+    
+    if (shuffle)
+      await shuffleAllFiles(dataFiles);
+    
+    //}}}
+  }
+
+  return params;
+}
+
+//}}}
+//{{{  calculateNumBatches
+
+async function calculateNumBatches(filenames) {
+
+  const lineStream = createLineStream(filenames);
+
+  let count = 0;
+
+  for await (const line of lineStream) {
+
+    const parts = line.split(' ');
+
+    if (parts.length != 12) {
+      console.log('line format', line, parts.length);
       process.exit();
     }
 
-    err += (pr-sg) * (pr-sg);
-  }
+    const eval = parseFloat(parts[PART_SCORE].trim());
+    const wdl  = parseFloat(parts[PART_WDL].trim());
 
-  return err / epds.length;
-}
+    if (!skipP(parts,eval,wdl)) {
 
-//}}}
-//{{{  calcCachedErr
+      count++;
 
-function calcCachedErr () {
-
-  var err = 0;
-
-  for (var i=0; i < epds.length; i++) {
-
-    var epd = epds[i];
-    var sg  = sigmoid(epd.eval);
-    var pr  = epd.prob;
-
-    err += (pr-sg) * (pr-sg);
-  }
-
-  return err / epds.length;
-}
-
-//}}}
-//{{{  cacheEval
-
-function cacheEval () {
-
-  //{{{  sync
-  
-  for (var i=0; i < 144; i++) {
-    BPAWN_PSTS[wbmap(i)]   = WPAWN_PSTS[i];
-    BPAWN_PSTE[wbmap(i)]   = WPAWN_PSTE[i];
-    BKNIGHT_PSTS[wbmap(i)] = WKNIGHT_PSTS[i];
-    BKNIGHT_PSTE[wbmap(i)] = WKNIGHT_PSTE[i];
-    BBISHOP_PSTS[wbmap(i)] = WBISHOP_PSTS[i];
-    BBISHOP_PSTE[wbmap(i)] = WBISHOP_PSTE[i];
-    BROOK_PSTS[wbmap(i)]   = WROOK_PSTS[i];
-    BROOK_PSTE[wbmap(i)]   = WROOK_PSTE[i];
-    BQUEEN_PSTS[wbmap(i)]  = WQUEEN_PSTS[i];
-    BQUEEN_PSTE[wbmap(i)]  = WQUEEN_PSTE[i];
-    BKING_PSTS[wbmap(i)]   = WKING_PSTS[i];
-    BKING_PSTE[wbmap(i)]   = WKING_PSTE[i];
-    BOUTPOST[wbmap(i)]     = WOUTPOST[i];
-  }
-  
-  //}}}
-
-  var err = 0;
-
-  for (var i=0; i < epds.length; i++) {
-
-    var epd = epds[i];
-
-    uci.spec.board    = epd.board;
-    uci.spec.turn     = epd.turn;
-    uci.spec.rights   = epd.rights;
-    uci.spec.ep       = epd.ep;
-    uci.spec.fmc      = 0;
-    uci.spec.hmc      = 0;
-    uci.spec.id       = '';
-    uci.spec.moves    = [];
-
-    lozza.position();
-
-    var ev = board.evaluate(board.turn);
-
-    if (board.turn == BLACK)
-      ev = -ev;               // undo negamax.
-
-    epd.eval = ev;
-  }
-}
-
-//}}}
-//{{{  loga
-
-function loga (p,s) {
-
-  var a = Array(p.length);
-
-  for (var i=0; i < p.length; i++)
-    a[i] = p[i];
-
-  return 'const ' + s + ' = [' + a.toString() + '];\r\n';
-}
-
-//}}}
-//{{{  logpst
-
-function logpst (p,s,_myround) {
-
-  var a = Array(p.length);
-
-  for (var i=0; i < p.length; i++)
-    a[i] = p[i];
-
-  var o = 'const ';
-
-  o = o + s + ' = [';
-
-  for (var i=0; i < 144; i++) {
-    if ((i % 12) == 0)
-      o = o + '\r\n  ';
-    o = o + a[i].toString().padStart(4,' ');
-    if (i < 143)
-      o = o + ', ';
-  }
-
-  o = o + '\r\n];\r\n\r\n';
-
-  return o;
-}
-
-//}}}
-//{{{  grunt
-
-function grunt () {
-
-  lozza.newGameInit();
-
-  //findK();
-  //tweakK();
-  //process.exit();
-
-  console.log('k =', gK);
-  console.log('positions =',epds.length);
-
-  createParams();
-  console.log('params =',params.length);
-
-  console.log('calculating initial loss...');
-
-  var epoch    = 0;
-  var err      = 0;
-  var bestErr  = calcErr();
-  var lastErr  = bestErr;
-  var changes  = 1;
-
-  console.log('initial loss =',bestErr);
-
-  while (changes > 0) {
-
-    changes = 0;
-
-    for (var i=0; i < params.length; i++) {
-
-      process.stdout.write(i+'\r');
-
-      var p = params[i];
-
-      tweak(p.a,p.i,p.inc);
-      err = calcErr();
-      if (err < bestErr) {
-        saveparams(err,epoch);
-        //{{{  show change
-        
-        var v0 = p.v0;
-        var v  = tweak(p.a,p.i,0);
-        
-        console.log(epoch,p.s,v0,'-->',v);
-        
-        //}}}
-        changes++;
-        bestErr = err;
-        continue;
-      }
-      else {
-        tweak(p.a,p.i,-p.inc);
-      }
-
-      tweak(p.a,p.i,-p.inc);
-      err = calcErr();
-      if (err < bestErr) {
-        p.inc = -p.inc;
-        saveparams(err,epoch);
-        //{{{  show change
-        
-        var v0 = p.v0;
-        var v  = tweak(p.a,p.i,0);
-        
-        console.log(epoch,p.s,v0,'--<',v);
-        
-        //}}}
-        changes++;
-        bestErr = err;
-        continue;
-      }
-      else {
-        tweak(p.a,p.i,p.inc);
-      }
+      if ((count % 1000000) == 0)
+        process.stdout.write(count + '\r');
     }
-
-    epoch++;
-    console.log(epoch,bestErr,changes,lastErr-bestErr,'                ');
-    lastErr = bestErr;
   }
+
+  return count / batchSize | 0;
+}
+
+//}}}
+//{{{  calculateDatasetLoss
+
+async function calculateDatasetLoss(filenames, params) {
+
+  const lineStream = createLineStream(filenames);
+
+  let totalLoss = 0;
+  let count = 0;
+
+  for await (const line of lineStream) {
+    const {activeIndices, target} = decodeLine(line);
+    if (activeIndices.length) {
+      //{{{  use this position
+      
+      const forward = forwardPropagation([activeIndices], params);
+      
+      const loss = Math.pow(forward.A2[0] - target[0], 2);
+      
+      totalLoss += loss;
+      
+      count++;
+      
+      if ((count % 100000) == 0)
+        process.stdout.write(count + '\r');
+      
+      //}}}
+    }
+  }
+
+  numBatches = count / batchSize | 0;
+
+  return totalLoss / count;
 }
 
 //}}}
 
-//}}}
-
-//{{{  load the epds
-
-var data  = fs.readFileSync('data/' + gFile, 'utf8');
-var lines = data.split('\n');
-
-data = '';
-epds = [];
-
-for (var i=0; i < lines.length; i++) {
-
-  var line = lines[i];
-
-  line = line.replace(/(\r\n|\n|\r|"|;)/gm,'');
-  line = line.trim();
-
-  if (!line.length)
-    continue;
-
-  var parts = line.split(' ');
-
-  if (!parts.length)
-    continue;
-
-  epds.push({board:   parts[0],
-             turn:    parts[1],
-             rights:  parts[2],
-             ep:      parts[3],
-             prob:    getprob(parts[gWDLIndex])});
-}
-
-lines = [];
-
-//}}}
-
-grunt();
-
-process.exit();
+train(dataFiles).then(params => {
+    console.log('Training completed.');
+}).catch(error => {
+    console.error('Error during training:', error);
+});
 

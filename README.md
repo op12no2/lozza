@@ -1,14 +1,14 @@
+If you are testing Lozza please use the release not the repo version; thanks.
+
 # Lozza
 
-A Javascript chess engine inspired by Fabien Letouzey's Fruit 2.1. 
+A UCI Javascript chess engine. Try her here:-
 
-It's easy to use Lozza in your web projects by firing it up a web worker and then communicating using the UCI protocol.
+https://op12no2.github.io/lozza-ui
 
-Lozza code is folded using ```{{{``` and ```}}}``` (emacs convention) and most easily read using an editor with a folding capability.
+## Basic use in your web pages
 
-## Basic use
-
-All you need is ```lozza.js``` from the root of the repo. 
+All you need is ```lozza.js``` from the latest release.  
 
 Here is a little example to do a 10 ply search:-
 
@@ -20,8 +20,8 @@ lozza.onmessage = function (e) {
                                          //parse messages from here as required
 };
 
-lozza.postMessage('uci');                // get build etc
-lozza.postMessage('ucinewgame');         // reset TT
+lozza.postMessage('uci');                // lozza uses the uci communication protocol
+lozza.postMessage('ucinewgame');         // reset tt
 lozza.postMessage('position startpos');
 lozza.postMessage('go depth 10');        // 10 ply search
 ```
@@ -30,9 +30,11 @@ Try this example here:-
 
 https://op12no2.github.io/lozza-ui/ex.htm
 
+Please note that Lozza's code is folded using ```{{{``` and ```}}}``` (emacs convention) and most easily read using an editor with a folding capability.
+
 ## More examples
 
-A sister repo has more examples for playing and analysing etc. with Lozza.
+A sister repo has more web-based examples for playing and analysing etc. with Lozza.
 
 https://github.com/op12no2/lozza-ui
 
@@ -40,106 +42,57 @@ You can try them here:-
 
 https://op12no2.github.io/lozza-ui
 
-## Testing and tuning
-
-There are various scripts in the testing directory that can be run with ```Node.js```. For example:-
-
-```
-cd test
-node tuner
-```
-
-Training data used is Alexandru Moșoi's (Zurichess) ```quiet-labeled.epd```. 
-
-There is a web-based PERFT script that can be run here:-
-
-https://op12no2.github.io/lozza-ui/perft.htm
-
-I use Windows, but any platform with a ```Node.js``` executable is suitable for testing and tuning.
-
-In a ```Node.js``` script you can call Lozza's functional interface directly (e.g. see ```tuner.js```) or call Lozza's UCI interface like this (e.g. see ```perft.js```):-
-
-```
-var depth = 10;
-onmessage({data: 'ucinewgame\nposition startpos'});  // separate multiple UCI commands with \n
-onmessage({data: 'go depth ' + depth});
-```
-
-Lozza has a little utility function called ```docmd``` to make this a little easier:-
-
-```
-var depth = 10;
-docmd('ucinewgame\nposition startpos');  // separate multiple UCI commands with \n
-docmd('go depth ' + depth);
-```
-
-After a search, the best move is in ```lozza.stats.bestMove``` in binary form (see constants). You can format it like this:-
-
-```
-console.log(lozza.board.formatMove(lozza.stats.bestMove, UCI_FMT);  // e.g. g1f3
-console.log(lozza.board.formatMove(lozza.stats.bestMove, SAN_FMT);  // e.g. Nf3
-```
-
-To type UCI commands into Lozza directly, just fire it up with ```Node.js```:-
-
-```
-> cd _location of lozza.js_
-> node lozza
-```
-
-Lozza has some UCI command extensions and shortcuts detailed here:-
-
-https://op12no2.github.io/lozza-ui/consolehelp.htm
-
-That may well be out of date. Check the ```switch``` statement in the ```onmessage``` function for the coalface.
-
-You can supply UCI commands on invocation like this for example:-
-
-```
-> cd _location of lozza.js_
-> node lozza ucinewgame "position startpos" "go depth 10"
-```
-There is also a web-based UCI console here:-
-
-https://op12no2.github.io/lozza-ui/console.htm
-
-The ```bench``` command allows a quick check for tweaks that should not affect search. It's a node count across various FENs at depth 9 and takes a few seconds to run:-
-
-```
-> cd _location of lozza.js_
-> node lozza bench quit
-nodes 4625388 8993
-_tweak something_
-> node lozza bench quit
-nodes 4625388 9121
-```
-
-The node counts should match, like they do above. The times will vary from run to run even without any changes to the code.
-
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess. Download the latest release and then follow the instructions in the ```readme.txt``` file.  Any platform that supports ```Node.js``` can be targetted. 
+As a UCI engine Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess. Download the latest release and then follow the instructions in the ```readme.txt``` file.  Any platform that supports ```Node.js``` can be targetted. 
 
 https://github.com/op12no2/lozza/releases
-  
+
+## Fire up Lozza from the command line
+
+Lozza accesses stdio via ```Node.js``` and will run on any platfrom that supports ```Node.js```.  To type UCI commands into Lozza, start ```Node.js``` with ```lozza.js``` or ```lozza``` as the parameter and then enter UCI commands. For example:-
+
+```
+> node lozza
+ucinewgame
+position startpos
+eval
+go depth 10
+quit
+```
+Commands can also be given on invocation, for example:-
+
+```
+> node lozza ucinewgame bench "position startpos" board "go movetime 100" quit
+```
+
+## Commands specific to Lozza
+
+```eval``` displays the current evaluation of the board.
+
+```board``` displays the board as a FEN string.
+
+```bench``` does a cumulative node count while searching a list of FENs, displaying the total and the time it took. It's particularly useful when checking that changes that should not affect searching have in fact not affected searching.  
+
+```et``` tests the UE part of NNUE.
+
+```pt``` performs a sequence of PERFT tests. 
+
+```net``` displays network properties.
+
+```datagen``` performs internal data generation for use with ```trainer.js```. The command I currently use to generate data for the trainer is ```node lozza "dagaten file $RANDOM$RANDOM$RANDOM.fen games 60000 softnodes 6000 hardnodes 1000000 rand 10 first 16" q```. Run on as many threads as possible and repeated as necessary. See the ```datagen``` script in the ```scripts``` directory.
+
 ## Acknowledgements
 
-https://www.chessprogramming.org/Fruit - Fruit
+https://www.chessprogramming.org/Main_Page - Chess programming wiki.
 
-https://www.chessprogramming.org/Main_Page - Chess programming wiki
+https://computerchess.org.uk/ccrl/4040 - CCRL rating list.
 
-http://talkchess.com - TalkChess forums
+https://www.wbec-ridderkerk.nl/html/UCIProtocol.html - UCI protocol.
 
-http://ccrl.chessdom.com/ccrl/4040 - CCRL rating list
+https://discord.gg/uM8J3x46 - Engine Programming Discord - thanks for the help with NNUE/datagen.
 
-https://www.chessprogramming.org/Texel%27s_Tuning_Method - Texel tuning
+https://talkchess.com - Talkchess forums.
 
-http://wbec-ridderkerk.nl/html/UCIProtocol.html - UCI protocol
+https://www.chessprogramming.org/Fruit - Fruit 2.1.
 
-https://github.com/davidbau/seedrandom - Random number generator used for Zobrist hashing
-
-https://cutechess.com - Cute Chess
-
-https://bitbucket.org/zurichess/tuner/downloads - Alexandru Moșoi's quiet-labeled.epd
-
-https://nodejs.org - Node.js
