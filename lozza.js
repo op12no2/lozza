@@ -2,13 +2,14 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD      = "3.2";
+var BUILD      = "3.3";
 var SILENT     = 0;
 var RANDOMEVAL = 0;
 
 //{{{  history
 /*
 
+3.3 20/10/24 Make sure all UE updates are a single accumulator loop.
 3.2 18/10/24 Defer UE to after legal check (doh!) and don't check pre-determined legal moves.
 3.1 18/10/24 Minor tweaks for datagen + net command.
 3   03/10/24 Integrate the NNUE from my Cwtch experiment (https://github.com/op12no2/cwtch).
@@ -2226,6 +2227,7 @@ net_h1_w[764]  = new Float32Array([3.8183207511901855,-2.708390474319458,-1.6135
 net_h1_w[765]  = new Float32Array([4.741455078125,-1.1137266159057617,-0.9781399965286255,0.04013197496533394,-0.1440659910440445,1.2372630834579468,0.7024387717247009,-6.007985591888428,-0.5770779848098755,-0.616640031337738,4.446721076965332,-5.1523661613464355,-7.875485420227051,13.577398300170898,2.2154176235198975,6.397941589355469,0.6515485644340515,-2.172898292541504,-2.232800245285034,-0.7932312488555908,2.503459930419922,3.180631637573242,0.27773457765579224,-3.7078006267547607,2.301664113998413,-4.214573383331299,0.7647824883460999,2.7060530185699463,-2.667825937271118,0.9822705388069153,9.271265029907227,3.3663277626037598,0.911651611328125,-2.010524272918701,1.8467950820922852,1.463231086730957,1.6791081428527832,-2.4386415481567383,-0.9673141241073608,-0.2414148598909378,1.4873846769332886,3.7150309085845947,2.8136324882507324,3.8442044258117676,-7.092846393585205,-4.20925760269165,-4.495813846588135,2.5768167972564697,-0.5058012008666992,1.2238997220993042,0.6113271713256836,3.294161558151245,-8.094476699829102,0.24688071012496948,-3.011279582977295,3.487058401107788,3.004672050476074,-4.474938869476318,0.49324601888656616,11.438673973083496,-0.480712890625,-14.499845504760742,5.333112716674805,0.4578856825828552,-0.8865796327590942,2.1318392753601074,-3.043887138366699,1.3620942831039429,-2.5412468910217285,3.365576982498169,-0.14927540719509125,6.069802284240723,-1.7086048126220703,0.9502655267715454,-1.8462064266204834]);
 net_h1_w[766]  = new Float32Array([6.638539791107178,1.6674084663391113,0.4137633740901947,1.3747941255569458,-0.4537231922149658,2.2113585472106934,0.21054388582706451,-6.981611728668213,2.2178449630737305,-2.9885807037353516,4.033234119415283,-1.7286609411239624,-7.810939788818359,13.79193115234375,5.376427173614502,6.529285430908203,2.5652143955230713,-1.0047430992126465,-4.637183666229248,1.6150649785995483,4.2646803855896,-0.3304450511932373,3.308295726776123,-1.423250675201416,0.9767909049987793,1.9871807098388672,1.6840059757232666,1.4833242893218994,-2.5600972175598145,0.9479972720146179,6.957848072052002,3.6803739070892334,-0.842251718044281,0.22957995533943176,3.2232184410095215,0.6202780604362488,0.5894933342933655,0.22163167595863342,-1.4390686750411987,-0.46514999866485596,0.7064532041549683,1.402392029762268,2.2987794876098633,2.2934978008270264,-11.072320938110352,-6.532909870147705,-0.9379124641418457,2.988539218902588,-8.4725341796875,0.26418742537498474,0.9295092821121216,3.474269390106201,-6.237044811248779,2.2733657360076904,-3.9107015132904053,4.6709747314453125,4.102855205535889,-5.377500534057617,0.08406754583120346,11.108585357666016,0.5604257583618164,-15.061431884765625,5.51470422744751,0.4963299036026001,3.27150297164917,2.519624710083008,-5.340766429901123,-0.5097340941429138,-2.9554569721221924,1.3156744241714478,0.9288292527198792,6.067168235778809,0.23470953106880188,-4.855709552764893,-2.245863199234009]);
 net_h1_w[767]  = new Float32Array([5.480619430541992,3.176178455352783,4.723515510559082,-1.1851301193237305,-1.402148962020874,3.1611955165863037,2.437413454055786,-4.881662368774414,3.2282307147979736,-1.7449393272399902,3.702674627304077,0.4888525605201721,-2.3058409690856934,13.917642593383789,5.262474060058594,5.38726806640625,1.4808554649353027,-3.0238726139068604,0.514806866645813,-3.2593061923980713,1.2652148008346558,-2.298748254776001,4.920391082763672,-1.5326318740844727,1.4941250085830688,1.83518385887146,4.763726711273193,-1.1631121635437012,1.8117326498031616,3.105010986328125,8.97026252746582,2.857480525970459,0.49592289328575134,-2.1059296131134033,-0.4338875710964203,-2.104719877243042,3.551093816757202,-0.4187396764755249,-3.4107120037078857,-0.6200313568115234,0.7967665195465088,3.1332616806030273,3.8098881244659424,3.3918659687042236,-1.428875207901001,-3.672095775604248,-0.17804265022277832,2.7853221893310547,-8.538366317749023,1.4971550703048706,0.8421540856361389,5.643537998199463,-0.667672336101532,-2.7469115257263184,-13.664093971252441,3.0115673542022705,3.5586767196655273,-3.7129526138305664,-0.6451084017753601,11.109535217285156,-1.5684468746185303,-16.536924362182617,1.3999783992767334,0.01335078850388527,4.458054542541504,1.9612077474594116,-4.644765377044678,-16.03461265563965,-3.72172212600708,3.6088383197784424,-3.936713218688965,4.7870001792907715,-0.9352517127990723,-3.3750109672546387,-14.23178482055664]);
+
 const net_h1_b = new Float32Array([6.477323055267334,2.5536978244781494,-3.9688446521759033,-2.3336141109466553,-0.061542753130197525,7.183679580688477,1.4991885423660278,2.4518799781799316,-0.8457461595535278,1.0913586616516113,-5.167308330535889,1.6381522417068481,-0.7379017472267151,-27.51385498046875,-1.1509876251220703,-8.082765579223633,1.631334900856018,5.116913318634033,0.29249781370162964,2.3051156997680664,2.9925057888031006,-0.7995637059211731,0.7433803081512451,7.8116841316223145,2.8965933322906494,-1.7689365148544312,1.7248717546463013,3.5595641136169434,-2.571838140487671,3.0583407878875732,1.6703944206237793,-3.361363410949707,5.474216938018799,6.347845554351807,-0.22419419884681702,4.998739719390869,3.7996702194213867,2.6758174896240234,-3.199553966522217,4.468014240264893,-2.412780284881592,0.20432965457439423,2.637094497680664,7.522510528564453,4.3356852531433105,-2.861727714538574,2.246126413345337,4.292486667633057,2.83068585395813,0.1679636836051941,5.612147331237793,3.9081878662109375,-0.45083460211753845,0.03788158297538757,1.6610829830169678,-4.620119094848633,-4.2033538818359375,0.8488142490386963,8.503194808959961,-22.90364646911621,7.035909652709961,-0.5356159210205078,-1.6211016178131104,6.639861106872559,3.8764798641204834,-6.5641374588012695,-2.0038061141967773,1.237640380859375,-2.6060452461242676,0.5237760543823242,3.5322763919830322,-7.324878692626953,0.16079182922840118,6.15279483795166,3.374457597732544]);
 const net_o_w = new Float32Array([0.31829988956451416,0.28862375020980835,0.21569932997226715,4.9506425857543945,-0.6309553980827332,-0.20665566623210907,-0.5604863166809082,-0.2177639603614807,0.9643228054046631,0.1942477971315384,2.078939437866211,0.15508560836315155,-0.17308448255062103,110.7342300415039,0.22078315913677216,1.5087594985961914,0.2558758556842804,-0.17158691585063934,0.2134598046541214,-0.28969240188598633,-0.20762430131435394,0.16776610910892487,-0.16420461237430573,0.18348293006420135,-0.3400742709636688,-0.2637800872325897,-0.26366695761680603,0.1985762119293213,-0.32331958413124084,-0.20373515784740448,-0.14971284568309784,1.0873254537582397,0.18654212355613708,-0.1864330768585205,-0.1673254817724228,-0.18220046162605286,0.19192807376384735,0.34065574407577515,-0.14829511940479279,-1.430988073348999,0.8791604042053223,0.226754292845726,-0.2545020580291748,0.19919949769973755,-0.2010326385498047,0.24848638474941254,0.18506157398223877,0.24377760291099548,2.4363203048706055,-0.20688310265541077,-3.5274977684020996,0.30155250430107117,0.17028456926345825,0.21181418001651764,0.2039337456226349,-1.8347985744476318,-1.481314778327942,-0.22694756090641022,-0.2538584768772125,-65.97967529296875,-0.19388443231582642,0.1638716459274292,-0.291176974773407,3.0932705402374268,0.18186883628368378,-10.258939743041992,0.2790646255016327,-0.15682582557201385,0.16517746448516846,-0.6912543773651123,0.17185842990875244,1.4373533725738525,-0.2225254327058792,0.18763141334056854,-0.23461827635765076]);
 const net_o_b = 3.8075811018411025;
@@ -2233,6 +2235,13 @@ const net_o_b = 3.8075811018411025;
 //}}}
 
 //}}}
+
+//hack until trainer is uupdated
+net_h1_w[768] = new Float32Array(net_h1_size).fill(0);
+if (net_h1_w.length != 769) {
+  console.log('oops');
+  process.exit();
+}
 
 //{{{  lozChess class
 
@@ -2376,13 +2385,18 @@ function lozChess () {
   }
   
   for (var i=0; i < 64; i++) {
+  
     const j = B88[i];
+  
+    IMAP[0][j] = 768;
+  
     IMAP[W_PAWN][j]   = 0   + (PAWN-1)   * 64 + i;
     IMAP[W_KNIGHT][j] = 0   + (KNIGHT-1) * 64 + i;
     IMAP[W_BISHOP][j] = 0   + (BISHOP-1) * 64 + i;
     IMAP[W_ROOK][j]   = 0   + (ROOK-1)   * 64 + i;
     IMAP[W_QUEEN][j]  = 0   + (QUEEN-1)  * 64 + i;
     IMAP[W_KING][j]   = 0   + (KING-1)   * 64 + i;
+  
     IMAP[B_PAWN][j]   = 384 + (PAWN-1)   * 64 + i;
     IMAP[B_KNIGHT][j] = 384 + (KNIGHT-1) * 64 + i;
     IMAP[B_BISHOP][j] = 384 + (BISHOP-1) * 64 + i;
@@ -2579,7 +2593,8 @@ lozChess.prototype.go = function() {
   if (lozzaHost == HOST_WEB) {
     this.stats.stop();
     this.report('end',lastScore,lastDepth);
-    board.makeMove(this.rootNode,this.stats.bestMove);
+    board.makeMoveA(this.rootNode,this.stats.bestMove);
+    board.makeMoveB(this.rootNode,this.stats.bestMove);
   }
 
   bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
@@ -3275,7 +3290,7 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 
   while (move = node.getNextMove()) {
 
-    board.makeMove(node,move);
+    board.makeMoveA(node,move);
 
     //{{{  legal?
     
@@ -3289,6 +3304,8 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
     }
     
     //}}}
+
+    board.makeMoveB(node,move);
 
     numLegalMoves++;
 
@@ -3340,16 +3357,12 @@ function lozBoard () {
   this.firstBP = 0;
   this.firstWP = 0;
 
-  //this.runningEvalS = 0;  // these are all cached across make/unmakeMove.
-  //this.runningEvalE = 0;
   this.rights       = 0;
   this.ep           = 0;
   this.repLo        = 0;
   this.repHi        = 0;
   this.loHash       = 0;
   this.hiHash       = 0;
-  //this.ploHash      = 0;
-  //this.phiHash      = 0;
   this.net_h1_a     = new Float32Array(net_h1_size);
 
   // use separate typed arrays to save space.  optimiser probably has a go anyway but better
@@ -3362,19 +3375,6 @@ function lozBoard () {
   this.ttMove    = new Uint32Array(TTSIZE); // see constants for structure.
   this.ttEval    = new Int16Array(TTSIZE);
   this.ttScore   = new Int16Array(TTSIZE);
-
-  //this.pttLo     = new Int32Array(PTTSIZE);
-  //this.pttHi     = new Int32Array(PTTSIZE);
-  //this.pttFlags  = new Uint8Array(PTTSIZE);
-  //this.pttScoreS = new Int16Array(PTTSIZE);
-  //this.pttScoreE = new Int16Array(PTTSIZE);
-  //this.pttwLeast = new Uint32Array(PTTSIZE);
-  //this.pttbLeast = new Uint32Array(PTTSIZE);
-  //this.pttwMost  = new Uint32Array(PTTSIZE);
-  //this.pttbMost  = new Uint32Array(PTTSIZE);
-
-  //this.ttType.fill(TT_EMPTY);
-  //this.pttFlags.fill(TT_EMPTY);
 
   this.turn = 0;
 
@@ -3477,9 +3477,6 @@ lozBoard.prototype.init = function () {
 
   this.loHash = 0;
   this.hiHash = 0;
-
-  //this.ploHash = 0;
-  //this.phiHash = 0;
 
   this.repLo = 0;
   this.repHi = 0;
@@ -3596,11 +3593,6 @@ lozBoard.prototype.position = function () {
         this.loHash ^= this.loPieces[col>>>3][piece-1][sq];
         this.hiHash ^= this.hiPieces[col>>>3][piece-1][sq];
   
-        //if (piece == PAWN) {
-          //this.ploHash ^= this.loPieces[col>>>3][0][sq];
-          //this.phiHash ^= this.hiPieces[col>>>3][0][sq];
-        //}
-  
         this.phase -= VPHASE[piece];
   
         sq++;
@@ -3626,60 +3618,6 @@ lozBoard.prototype.position = function () {
   
   this.loHash ^= this.loEP[this.ep];
   this.hiHash ^= this.hiEP[this.ep];
-  
-  //}}}
-
-  //{{{  init running evals
-  
-  //this.runningEvalS = 0;
-  //this.runningEvalE = 0;
-  
-  var next  = 0;
-  var count = 0;
-  
-  while (count < this.wCount) {
-  
-    sq = this.wList[next];
-  
-    if (!sq) {
-      next++;
-      continue;
-    }
-  
-    var piece = this.b[sq] & PIECE_MASK;
-  
-    //this.runningEvalS += MATERIAL[piece];
-    //this.runningEvalS += WS_PST[piece][sq];
-    //this.runningEvalE += MATERIAL[piece];
-    //this.runningEvalE += WE_PST[piece][sq];
-  
-    count++;
-    next++
-  }
-  
-  var next  = 0;
-  var count = 0;
-  
-  while (count < this.bCount) {
-  
-    sq = this.bList[next];
-  
-    if (!sq) {
-      next++;
-      continue;
-    }
-  
-    var piece = this.b[sq] & PIECE_MASK;
-  
-    //this.runningEvalS -= MATERIAL[piece];
-    //this.runningEvalS -= BS_PST[piece][sq];
-    //this.runningEvalE -= MATERIAL[piece];
-    //this.runningEvalE -= BE_PST[piece][sq];
-  
-    count++;
-    next++
-  }
-  
   
   //}}}
 
@@ -4509,411 +4447,6 @@ lozBoard.prototype.genQMovesTo = function(node, turn, sq) {
 }
 
 //}}}
-//{{{  .makeMove
-
-lozBoard.prototype.makeMove = function (node,move) {
-
-  var b = this.b;
-  var z = this.z;
-
-  var fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  var to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  var toObj   = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
-  var frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-  var frPiece = frObj & PIECE_MASK;
-  var frCol   = frObj & COLOR_MASK;
-  var frColI  = frCol >>> 3;
-
-  //{{{  slide piece
-  
-  b[fr] = NULL;
-  b[to] = frObj;
-  
-  node.frZ = z[fr];
-  node.toZ = z[to];
-  
-  z[fr] = NO_Z;
-  z[to] = node.frZ;
-  
-  this.loHash ^= this.loPieces[frColI][frPiece-1][fr];
-  this.hiHash ^= this.hiPieces[frColI][frPiece-1][fr];
-  
-  this.loHash ^= this.loPieces[frColI][frPiece-1][to];
-  this.hiHash ^= this.hiPieces[frColI][frPiece-1][to];
-  
-  //if (frPiece == PAWN) {
-    //this.ploHash ^= this.loPieces[frColI][PAWN-1][fr];
-    //this.phiHash ^= this.hiPieces[frColI][PAWN-1][fr];
-    //this.ploHash ^= this.loPieces[frColI][PAWN-1][to];
-    //this.phiHash ^= this.hiPieces[frColI][PAWN-1][to];
-  //}
-  
-  if (frCol == WHITE) {
-  
-    this.wList[node.frZ] = to;
-  
-    //this.runningEvalS -= WS_PST[frPiece][fr];
-    //this.runningEvalS += WS_PST[frPiece][to];
-    //this.runningEvalE -= WE_PST[frPiece][fr];
-    //this.runningEvalE += WE_PST[frPiece][to];
-  }
-  
-  else {
-  
-    this.bList[node.frZ] = to;
-  
-    //this.runningEvalS += BS_PST[frPiece][fr];
-    //this.runningEvalS -= BS_PST[frPiece][to];
-    //this.runningEvalE += BE_PST[frPiece][fr];
-    //this.runningEvalE -= BE_PST[frPiece][to];
-  }
-  
-  //}}}
-  //{{{  clear rights?
-  
-  if (this.rights) {
-  
-    this.loHash ^= this.loRights[this.rights];
-    this.hiHash ^= this.hiRights[this.rights];
-  
-    this.rights &= MASK_RIGHTS[fr] & MASK_RIGHTS[to];
-  
-    this.loHash ^= this.loRights[this.rights];
-    this.hiHash ^= this.hiRights[this.rights];
-  }
-  
-  //}}}
-  //{{{  capture?
-  
-  if (toObj) {
-  
-    this.netCapture(frObj,fr,toObj,to)
-  
-    var toPiece = toObj & PIECE_MASK;
-    var toCol   = toObj & COLOR_MASK;
-    var toColI  = toCol >>> 3;
-  
-    this.loHash ^= this.loPieces[toColI][toPiece-1][to];
-    this.hiHash ^= this.hiPieces[toColI][toPiece-1][to];
-  
-    //if (toPiece == PAWN) {
-      //this.ploHash ^= this.loPieces[toColI][PAWN-1][to];
-      //this.phiHash ^= this.hiPieces[toColI][PAWN-1][to];
-    //}
-  
-    this.phase += VPHASE[toPiece];
-  
-    if (toCol == WHITE) {
-  
-      this.wList[node.toZ] = EMPTY;
-  
-      //this.runningEvalS -= MATERIAL[toPiece];
-      //this.runningEvalS -= WS_PST[toPiece][to];
-      //this.runningEvalE -= MATERIAL[toPiece];
-      //this.runningEvalE -= WE_PST[toPiece][to];
-  
-      this.wCounts[toPiece]--;
-      this.wCount--;
-    }
-  
-    else {
-  
-      this.bList[node.toZ] = EMPTY;
-  
-      //this.runningEvalS += MATERIAL[toPiece];
-      //this.runningEvalS += BS_PST[toPiece][to];
-      //this.runningEvalE += MATERIAL[toPiece];
-      //this.runningEvalE += BE_PST[toPiece][to];
-  
-      this.bCounts[toPiece]--;
-      this.bCount--;
-    }
-  }
-  
-  else
-    this.netMove(frObj,fr,to)
-  
-  //}}}
-  //{{{  reset EP
-  
-  this.loHash ^= this.loEP[this.ep];
-  this.hiHash ^= this.hiEP[this.ep];
-  
-  this.ep = 0;
-  
-  this.loHash ^= this.loEP[this.ep];
-  this.hiHash ^= this.hiEP[this.ep];
-  
-  //}}}
-
-  if (move & MOVE_SPECIAL_MASK) {
-    //{{{  ikky stuff
-    
-    if (frCol == WHITE) {
-    
-      var ep = to + 12;
-    
-      if (move & MOVE_EPMAKE_MASK) {
-    
-        this.loHash ^= this.loEP[this.ep];
-        this.hiHash ^= this.hiEP[this.ep];
-    
-        this.ep = ep;
-    
-        this.loHash ^= this.loEP[this.ep];
-        this.hiHash ^= this.hiEP[this.ep];
-      }
-    
-      else if (move & MOVE_EPTAKE_MASK) {
-    
-        this.netDel(B_PAWN,ep);
-    
-        b[ep]    = NULL;
-        node.epZ = z[ep];
-        z[ep]    = NO_Z;
-    
-        this.bList[node.epZ] = EMPTY;
-    
-        this.loHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
-        this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
-    
-        //this.ploHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
-        //this.phiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
-    
-        //this.runningEvalS += VALUE_PAWN;
-        //this.runningEvalS += BS_PST[PAWN][ep];  // sic.
-        //this.runningEvalE += VALUE_PAWN;
-        //this.runningEvalE += BE_PST[PAWN][ep];  // sic.
-    
-        this.bCounts[PAWN]--;
-        this.bCount--;
-      }
-    
-      else if (move & MOVE_PROMOTE_MASK) {
-    
-        var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
-        b[to]   = WHITE | pro;
-    
-        this.netPromote(W_PAWN,pro,to);
-    
-        this.loHash ^= this.loPieces[I_WHITE][PAWN-1][to];
-        this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][to];
-        this.loHash ^= this.loPieces[I_WHITE][pro-1][to];
-        this.hiHash ^= this.hiPieces[I_WHITE][pro-1][to];
-    
-        //this.ploHash ^= this.loPieces[0][PAWN-1][to];
-        //this.phiHash ^= this.hiPieces[0][PAWN-1][to];
-    
-        //this.runningEvalS -= VALUE_PAWN;
-        //this.runningEvalS -= WS_PST[PAWN][to];
-        //this.runningEvalE -= VALUE_PAWN;
-        //this.runningEvalE -= WE_PST[PAWN][to];
-    
-        this.wCounts[PAWN]--;
-    
-        //this.runningEvalS += MATERIAL[pro];
-        //this.runningEvalS += WS_PST[pro][to];
-        //this.runningEvalE += MATERIAL[pro];
-        //this.runningEvalE += WE_PST[pro][to];
-    
-        this.wCounts[pro]++;
-    
-        this.phase -= VPHASE[pro];
-      }
-    
-      else if (move == MOVE_E1G1) {
-    
-        b[H1] = NULL;
-        b[F1] = W_ROOK;
-        z[F1] = z[H1];
-        z[H1] = NO_Z;
-    
-        this.netMove(W_ROOK,H1,F1);
-    
-        this.wList[z[F1]] = F1;
-    
-        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][H1];
-        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][H1];
-        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][F1];
-        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][F1];
-    
-        //this.runningEvalS -= WS_PST[ROOK][H1];
-        //this.runningEvalS += WS_PST[ROOK][F1];
-        //this.runningEvalE -= WE_PST[ROOK][H1];
-        //this.runningEvalE += WE_PST[ROOK][F1];
-      }
-    
-      else if (move == MOVE_E1C1) {
-    
-        b[A1] = NULL;
-        b[D1] = W_ROOK;
-        z[D1] = z[A1];
-        z[A1] = NO_Z;
-    
-        this.netMove(W_ROOK,A1,D1);
-    
-        this.wList[z[D1]] = D1;
-    
-        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][A1];
-        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][A1];
-        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][D1];
-        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][D1];
-    
-        //this.runningEvalS -= WS_PST[ROOK][A1];
-        //this.runningEvalS += WS_PST[ROOK][D1];
-        //this.runningEvalE -= WE_PST[ROOK][A1];
-        //this.runningEvalE += WE_PST[ROOK][D1];
-      }
-    }
-    
-    else {
-    
-      var ep = to - 12;
-    
-      if (move & MOVE_EPMAKE_MASK) {
-    
-        this.loHash ^= this.loEP[this.ep];
-        this.hiHash ^= this.hiEP[this.ep];
-    
-        this.ep = ep;
-    
-        this.loHash ^= this.loEP[this.ep];
-        this.hiHash ^= this.hiEP[this.ep];
-      }
-    
-      else if (move & MOVE_EPTAKE_MASK) {
-    
-        this.netDel(W_PAWN,ep);
-    
-        b[ep]    = NULL;
-        node.epZ = z[ep];
-        z[ep]    = NO_Z;
-    
-        this.wList[node.epZ] = EMPTY;
-    
-        this.loHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
-        this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
-    
-        //this.ploHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
-        //this.phiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
-    
-        //this.runningEvalS -= VALUE_PAWN;
-        //this.runningEvalS -= WS_PST[PAWN][ep];  // sic.
-        //this.runningEvalE -= VALUE_PAWN;
-        //this.runningEvalE -= WE_PST[PAWN][ep];  // sic.
-    
-        this.wCounts[PAWN]--;
-        this.wCount--;
-      }
-    
-      else if (move & MOVE_PROMOTE_MASK) {
-    
-        var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
-        b[to]   = BLACK | pro;
-    
-        this.netPromote(B_PAWN,pro|BLACK,to);
-    
-        this.loHash ^= this.loPieces[I_BLACK][PAWN-1][to];
-        this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
-        this.loHash ^= this.loPieces[I_BLACK][pro-1][to];
-        this.hiHash ^= this.hiPieces[I_BLACK][pro-1][to];
-    
-        //this.ploHash ^= this.loPieces[I_BLACK][PAWN-1][to];
-        //this.phiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
-    
-        //this.runningEvalS += VALUE_PAWN;
-        //this.runningEvalS += BS_PST[PAWN][to];
-        //this.runningEvalE += VALUE_PAWN;
-        //this.runningEvalE += BE_PST[PAWN][to];
-    
-        this.bCounts[PAWN]--;
-    
-        //this.runningEvalS -= MATERIAL[pro];
-        //this.runningEvalS -= BS_PST[pro][to];
-        //this.runningEvalE -= MATERIAL[pro];
-        //this.runningEvalE -= BE_PST[pro][to];
-    
-        this.bCounts[pro]++;
-    
-        this.phase -= VPHASE[pro];
-      }
-    
-      else if (move == MOVE_E8G8) {
-    
-        b[H8] = NULL;
-        b[F8] = B_ROOK;
-        z[F8] = z[H8];
-        z[H8] = NO_Z;
-    
-        this.netMove(B_ROOK,H8,F8);
-    
-        this.bList[z[F8]] = F8;
-    
-        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][H8];
-        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][H8];
-        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][F8];
-        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][F8];
-    
-        //this.runningEvalS += BS_PST[ROOK][H8];
-        //this.runningEvalS -= BS_PST[ROOK][F8];
-        //this.runningEvalE += BE_PST[ROOK][H8];
-        //this.runningEvalE -= BE_PST[ROOK][F8];
-      }
-    
-      else if (move == MOVE_E8C8) {
-    
-        b[A8] = NULL;
-        b[D8] = B_ROOK;
-        z[D8] = z[A8];
-        z[A8] = NO_Z;
-    
-        this.netMove(B_ROOK,A8,D8);
-    
-        this.bList[z[D8]] = D8;
-    
-        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][A8];
-        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][A8];
-        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][D8];
-        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][D8];
-    
-        //this.runningEvalS += BS_PST[ROOK][A8];
-        //this.runningEvalS -= BS_PST[ROOK][D8];
-        //this.runningEvalE += BE_PST[ROOK][A8];
-        //this.runningEvalE -= BE_PST[ROOK][D8];
-      }
-    }
-    
-    //}}}
-  }
-
-  //{{{  flip turn in hash
-  
-  this.loHash ^= this.loTurn;
-  this.hiHash ^= this.hiTurn;
-  
-  //}}}
-  //{{{  push rep hash
-  //
-  //  Repetitions are cancelled by pawn moves, castling, captures, EP
-  //  and promotions; i.e. moves that are not reversible.  The nearest
-  //  repetition is 5 indexes back from the current one and then that
-  //  and every other one entry is a possible rep.  Can also check for
-  //  50 move rule by testing hi-lo > 100 - it's not perfect because of
-  //  the pawn move reset but it's a type 2 error, so safe.
-  //
-  
-  this.repLoHash[this.repHi] = this.loHash;
-  this.repHiHash[this.repHi] = this.hiHash;
-  
-  this.repHi++;
-  
-  if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece == PAWN)
-    this.repLo = this.repHi;
-  
-  //}}}
-}
-
-//}}}
 //{{{  .makeMoveA
 
 lozBoard.prototype.makeMoveA = function (node,move) {
@@ -4946,31 +4479,12 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   this.loHash ^= this.loPieces[frColI][frPiece-1][to];
   this.hiHash ^= this.hiPieces[frColI][frPiece-1][to];
   
-  //if (frPiece == PAWN) {
-    //this.ploHash ^= this.loPieces[frColI][PAWN-1][fr];
-    //this.phiHash ^= this.hiPieces[frColI][PAWN-1][fr];
-    //this.ploHash ^= this.loPieces[frColI][PAWN-1][to];
-    //this.phiHash ^= this.hiPieces[frColI][PAWN-1][to];
-  //}
-  
   if (frCol == WHITE) {
-  
     this.wList[node.frZ] = to;
-  
-    //this.runningEvalS -= WS_PST[frPiece][fr];
-    //this.runningEvalS += WS_PST[frPiece][to];
-    //this.runningEvalE -= WE_PST[frPiece][fr];
-    //this.runningEvalE += WE_PST[frPiece][to];
   }
   
   else {
-  
     this.bList[node.frZ] = to;
-  
-    //this.runningEvalS += BS_PST[frPiece][fr];
-    //this.runningEvalS -= BS_PST[frPiece][to];
-    //this.runningEvalE += BE_PST[frPiece][fr];
-    //this.runningEvalE -= BE_PST[frPiece][to];
   }
   
   //}}}
@@ -4992,8 +4506,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   
   if (toObj) {
   
-    //this.netCapture(frObj,fr,toObj,to)
-  
     var toPiece = toObj & PIECE_MASK;
     var toCol   = toObj & COLOR_MASK;
     var toColI  = toCol >>> 3;
@@ -5001,21 +4513,11 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     this.loHash ^= this.loPieces[toColI][toPiece-1][to];
     this.hiHash ^= this.hiPieces[toColI][toPiece-1][to];
   
-    //if (toPiece == PAWN) {
-      //this.ploHash ^= this.loPieces[toColI][PAWN-1][to];
-      //this.phiHash ^= this.hiPieces[toColI][PAWN-1][to];
-    //}
-  
     this.phase += VPHASE[toPiece];
   
     if (toCol == WHITE) {
   
       this.wList[node.toZ] = EMPTY;
-  
-      //this.runningEvalS -= MATERIAL[toPiece];
-      //this.runningEvalS -= WS_PST[toPiece][to];
-      //this.runningEvalE -= MATERIAL[toPiece];
-      //this.runningEvalE -= WE_PST[toPiece][to];
   
       this.wCounts[toPiece]--;
       this.wCount--;
@@ -5025,18 +4527,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   
       this.bList[node.toZ] = EMPTY;
   
-      //this.runningEvalS += MATERIAL[toPiece];
-      //this.runningEvalS += BS_PST[toPiece][to];
-      //this.runningEvalE += MATERIAL[toPiece];
-      //this.runningEvalE += BE_PST[toPiece][to];
-  
       this.bCounts[toPiece]--;
       this.bCount--;
     }
   }
-  
-  //else
-    //this.netMove(frObj,fr,to)
   
   //}}}
   //{{{  reset EP
@@ -5082,14 +4576,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         this.loHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
         this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
     
-        //this.ploHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
-        //this.phiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
-    
-        //this.runningEvalS += VALUE_PAWN;
-        //this.runningEvalS += BS_PST[PAWN][ep];  // sic.
-        //this.runningEvalE += VALUE_PAWN;
-        //this.runningEvalE += BE_PST[PAWN][ep];  // sic.
-    
         this.bCounts[PAWN]--;
         this.bCount--;
       }
@@ -5099,28 +4585,12 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]   = WHITE | pro;
     
-        //this.netPromote(W_PAWN,pro,to);
-    
         this.loHash ^= this.loPieces[I_WHITE][PAWN-1][to];
         this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][to];
         this.loHash ^= this.loPieces[I_WHITE][pro-1][to];
         this.hiHash ^= this.hiPieces[I_WHITE][pro-1][to];
     
-        //this.ploHash ^= this.loPieces[0][PAWN-1][to];
-        //this.phiHash ^= this.hiPieces[0][PAWN-1][to];
-    
-        //this.runningEvalS -= VALUE_PAWN;
-        //this.runningEvalS -= WS_PST[PAWN][to];
-        //this.runningEvalE -= VALUE_PAWN;
-        //this.runningEvalE -= WE_PST[PAWN][to];
-    
         this.wCounts[PAWN]--;
-    
-        //this.runningEvalS += MATERIAL[pro];
-        //this.runningEvalS += WS_PST[pro][to];
-        //this.runningEvalE += MATERIAL[pro];
-        //this.runningEvalE += WE_PST[pro][to];
-    
         this.wCounts[pro]++;
     
         this.phase -= VPHASE[pro];
@@ -5133,8 +4603,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         z[F1] = z[H1];
         z[H1] = NO_Z;
     
-        //this.netMove(W_ROOK,H1,F1);
-    
         this.wList[z[F1]] = F1;
     
         this.loHash ^= this.loPieces[I_WHITE][ROOK-1][H1];
@@ -5142,10 +4610,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         this.loHash ^= this.loPieces[I_WHITE][ROOK-1][F1];
         this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][F1];
     
-        //this.runningEvalS -= WS_PST[ROOK][H1];
-        //this.runningEvalS += WS_PST[ROOK][F1];
-        //this.runningEvalE -= WE_PST[ROOK][H1];
-        //this.runningEvalE += WE_PST[ROOK][F1];
       }
     
       else if (move == MOVE_E1C1) {
@@ -5155,8 +4619,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         z[D1] = z[A1];
         z[A1] = NO_Z;
     
-        //this.netMove(W_ROOK,A1,D1);
-    
         this.wList[z[D1]] = D1;
     
         this.loHash ^= this.loPieces[I_WHITE][ROOK-1][A1];
@@ -5164,10 +4626,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         this.loHash ^= this.loPieces[I_WHITE][ROOK-1][D1];
         this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][D1];
     
-        //this.runningEvalS -= WS_PST[ROOK][A1];
-        //this.runningEvalS += WS_PST[ROOK][D1];
-        //this.runningEvalE -= WE_PST[ROOK][A1];
-        //this.runningEvalE += WE_PST[ROOK][D1];
       }
     }
     
@@ -5188,8 +4646,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
       else if (move & MOVE_EPTAKE_MASK) {
     
-        //this.netDel(W_PAWN,ep);
-    
         b[ep]    = NULL;
         node.epZ = z[ep];
         z[ep]    = NO_Z;
@@ -5198,14 +4654,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.loHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
         this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
-    
-        //this.ploHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
-        //this.phiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
-    
-        //this.runningEvalS -= VALUE_PAWN;
-        //this.runningEvalS -= WS_PST[PAWN][ep];  // sic.
-        //this.runningEvalE -= VALUE_PAWN;
-        //this.runningEvalE -= WE_PST[PAWN][ep];  // sic.
     
         this.wCounts[PAWN]--;
         this.wCount--;
@@ -5216,28 +4664,12 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]   = BLACK | pro;
     
-        //this.netPromote(B_PAWN,pro|BLACK,to);
-    
         this.loHash ^= this.loPieces[I_BLACK][PAWN-1][to];
         this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
         this.loHash ^= this.loPieces[I_BLACK][pro-1][to];
         this.hiHash ^= this.hiPieces[I_BLACK][pro-1][to];
     
-        //this.ploHash ^= this.loPieces[I_BLACK][PAWN-1][to];
-        //this.phiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
-    
-        //this.runningEvalS += VALUE_PAWN;
-        //this.runningEvalS += BS_PST[PAWN][to];
-        //this.runningEvalE += VALUE_PAWN;
-        //this.runningEvalE += BE_PST[PAWN][to];
-    
         this.bCounts[PAWN]--;
-    
-        //this.runningEvalS -= MATERIAL[pro];
-        //this.runningEvalS -= BS_PST[pro][to];
-        //this.runningEvalE -= MATERIAL[pro];
-        //this.runningEvalE -= BE_PST[pro][to];
-    
         this.bCounts[pro]++;
     
         this.phase -= VPHASE[pro];
@@ -5250,8 +4682,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         z[F8] = z[H8];
         z[H8] = NO_Z;
     
-        //this.netMove(B_ROOK,H8,F8);
-    
         this.bList[z[F8]] = F8;
     
         this.loHash ^= this.loPieces[I_BLACK][ROOK-1][H8];
@@ -5259,10 +4689,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         this.loHash ^= this.loPieces[I_BLACK][ROOK-1][F8];
         this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][F8];
     
-        //this.runningEvalS += BS_PST[ROOK][H8];
-        //this.runningEvalS -= BS_PST[ROOK][F8];
-        //this.runningEvalE += BE_PST[ROOK][H8];
-        //this.runningEvalE -= BE_PST[ROOK][F8];
       }
     
       else if (move == MOVE_E8C8) {
@@ -5272,8 +4698,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         z[D8] = z[A8];
         z[A8] = NO_Z;
     
-        //this.netMove(B_ROOK,A8,D8);
-    
         this.bList[z[D8]] = D8;
     
         this.loHash ^= this.loPieces[I_BLACK][ROOK-1][A8];
@@ -5281,10 +4705,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         this.loHash ^= this.loPieces[I_BLACK][ROOK-1][D8];
         this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][D8];
     
-        //this.runningEvalS += BS_PST[ROOK][A8];
-        //this.runningEvalS -= BS_PST[ROOK][D8];
-        //this.runningEvalE += BE_PST[ROOK][A8];
-        //this.runningEvalE -= BE_PST[ROOK][D8];
       }
     }
     
@@ -5323,407 +4743,74 @@ lozBoard.prototype.makeMoveA = function (node,move) {
 
 lozBoard.prototype.makeMoveB = function (node,move) {
 
-  //var b = this.b;
-  //var z = this.z;
-
-  var fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  var to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  var toObj   = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
-  var frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-  var frPiece = frObj & PIECE_MASK;
-  var frCol   = frObj & COLOR_MASK;
-  //var frColI  = frCol >>> 3;
-
-  //{{{  slide piece
-  
-  //b[fr] = NULL;
-  //b[to] = frObj;
-  
-  //node.frZ = z[fr];
-  //node.toZ = z[to];
-  
-  //z[fr] = NO_Z;
-  //z[to] = node.frZ;
-  
-  //this.loHash ^= this.loPieces[frColI][frPiece-1][fr];
-  //this.hiHash ^= this.hiPieces[frColI][frPiece-1][fr];
-  
-  //this.loHash ^= this.loPieces[frColI][frPiece-1][to];
-  //this.hiHash ^= this.hiPieces[frColI][frPiece-1][to];
-  
-  //if (frPiece == PAWN) {
-    //this.ploHash ^= this.loPieces[frColI][PAWN-1][fr];
-    //this.phiHash ^= this.hiPieces[frColI][PAWN-1][fr];
-    //this.ploHash ^= this.loPieces[frColI][PAWN-1][to];
-    //this.phiHash ^= this.hiPieces[frColI][PAWN-1][to];
-  //}
-  
-  //if (frCol == WHITE) {
-  
-    //this.wList[node.frZ] = to;
-  
-    //this.runningEvalS -= WS_PST[frPiece][fr];
-    //this.runningEvalS += WS_PST[frPiece][to];
-    //this.runningEvalE -= WE_PST[frPiece][fr];
-    //this.runningEvalE += WE_PST[frPiece][to];
-  //}
-  
-  //else {
-  
-    //this.bList[node.frZ] = to;
-  
-    //this.runningEvalS += BS_PST[frPiece][fr];
-    //this.runningEvalS -= BS_PST[frPiece][to];
-    //this.runningEvalE += BE_PST[frPiece][fr];
-    //this.runningEvalE -= BE_PST[frPiece][to];
-  //}
-  
-  //}}}
-  //{{{  clear rights?
-  
-  //if (this.rights) {
-  
-  //  this.loHash ^= this.loRights[this.rights];
-  //  this.hiHash ^= this.hiRights[this.rights];
-  
-  //  this.rights &= MASK_RIGHTS[fr] & MASK_RIGHTS[to];
-  
-  //  this.loHash ^= this.loRights[this.rights];
-  //  this.hiHash ^= this.hiRights[this.rights];
-  //}
-  
-  //}}}
-  //{{{  capture?
-  
-  if (toObj) {
-  
-    this.netCapture(frObj,fr,toObj,to)
-  
-    //var toPiece = toObj & PIECE_MASK;
-    //var toCol   = toObj & COLOR_MASK;
-    //var toColI  = toCol >>> 3;
-  
-    //this.loHash ^= this.loPieces[toColI][toPiece-1][to];
-    //this.hiHash ^= this.hiPieces[toColI][toPiece-1][to];
-  
-    //if (toPiece == PAWN) {
-      //this.ploHash ^= this.loPieces[toColI][PAWN-1][to];
-      //this.phiHash ^= this.hiPieces[toColI][PAWN-1][to];
-    //}
-  
-    //this.phase += VPHASE[toPiece];
-  
-    //if (toCol == WHITE) {
-  
-      //this.wList[node.toZ] = EMPTY;
-  
-      //this.runningEvalS -= MATERIAL[toPiece];
-      //this.runningEvalS -= WS_PST[toPiece][to];
-      //this.runningEvalE -= MATERIAL[toPiece];
-      //this.runningEvalE -= WE_PST[toPiece][to];
-  
-      //this.wCounts[toPiece]--;
-      //this.wCount--;
-    //}
-  
-    //else {
-  
-      //this.bList[node.toZ] = EMPTY;
-  
-      //this.runningEvalS += MATERIAL[toPiece];
-      //this.runningEvalS += BS_PST[toPiece][to];
-      //this.runningEvalE += MATERIAL[toPiece];
-      //this.runningEvalE += BE_PST[toPiece][to];
-  
-      //this.bCounts[toPiece]--;
-      //this.bCount--;
-    //}
-  }
-  
-  else
-    this.netMove(frObj,fr,to)
-  
-  //}}}
-  //{{{  reset EP
-  
-  //this.loHash ^= this.loEP[this.ep];
-  //this.hiHash ^= this.hiEP[this.ep];
-  
-  //this.ep = 0;
-  
-  //this.loHash ^= this.loEP[this.ep];
-  //this.hiHash ^= this.hiEP[this.ep];
-  
-  //}}}
+  const fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  const to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  const toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const frCol = frObj & COLOR_MASK;
 
   if (move & MOVE_SPECIAL_MASK) {
     //{{{  ikky stuff
     
     if (frCol == WHITE) {
     
-      var ep = to + 12;
+      const ep = to + 12;
     
-      //if (move & MOVE_EPMAKE_MASK) {
+      if (move & MOVE_EPMAKE_MASK) {
+        this.netMove(frObj,fr,to);
+      }
     
-        //this.loHash ^= this.loEP[this.ep];
-        //this.hiHash ^= this.hiEP[this.ep];
-    
-        //this.ep = ep;
-    
-        //this.loHash ^= this.loEP[this.ep];
-        //this.hiHash ^= this.hiEP[this.ep];
-      //}
-    
-      //else if (move & MOVE_EPTAKE_MASK) {
-      if (move & MOVE_EPTAKE_MASK) {
-    
-        this.netDel(B_PAWN,ep);
-    
-        //b[ep]    = NULL;
-        //node.epZ = z[ep];
-        //z[ep]    = NO_Z;
-    
-        //this.bList[node.epZ] = EMPTY;
-    
-        //this.loHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
-        //this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
-    
-        //this.ploHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
-        //this.phiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
-    
-        //this.runningEvalS += VALUE_PAWN;
-        //this.runningEvalS += BS_PST[PAWN][ep];  // sic.
-        //this.runningEvalE += VALUE_PAWN;
-        //this.runningEvalE += BE_PST[PAWN][ep];  // sic.
-    
-        //this.bCounts[PAWN]--;
-        //this.bCount--;
+      else if (move & MOVE_EPTAKE_MASK) {
+        this.netEpCapture(frObj,fr,to,B_PAWN,ep);
       }
     
       else if (move & MOVE_PROMOTE_MASK) {
-    
-        var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
-        //b[to]   = WHITE | pro;
-    
-        this.netPromote(W_PAWN,pro,to);
-    
-        //this.loHash ^= this.loPieces[I_WHITE][PAWN-1][to];
-        //this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][to];
-        //this.loHash ^= this.loPieces[I_WHITE][pro-1][to];
-        //this.hiHash ^= this.hiPieces[I_WHITE][pro-1][to];
-    
-        //this.ploHash ^= this.loPieces[0][PAWN-1][to];
-        //this.phiHash ^= this.hiPieces[0][PAWN-1][to];
-    
-        //this.runningEvalS -= VALUE_PAWN;
-        //this.runningEvalS -= WS_PST[PAWN][to];
-        //this.runningEvalE -= VALUE_PAWN;
-        //this.runningEvalE -= WE_PST[PAWN][to];
-    
-        //this.wCounts[PAWN]--;
-    
-        //this.runningEvalS += MATERIAL[pro];
-        //this.runningEvalS += WS_PST[pro][to];
-        //this.runningEvalE += MATERIAL[pro];
-        //this.runningEvalE += WE_PST[pro][to];
-    
-        //this.wCounts[pro]++;
-    
-        //this.phase -= VPHASE[pro];
+        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        this.netPromote2(W_PAWN,fr,to,toObj,pro|WHITE);
       }
     
       else if (move == MOVE_E1G1) {
-    
-        //b[H1] = NULL;
-        //b[F1] = W_ROOK;
-        //z[F1] = z[H1];
-        //z[H1] = NO_Z;
-    
-        this.netMove(W_ROOK,H1,F1);
-    
-        //this.wList[z[F1]] = F1;
-    
-        //this.loHash ^= this.loPieces[I_WHITE][ROOK-1][H1];
-        //this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][H1];
-        //this.loHash ^= this.loPieces[I_WHITE][ROOK-1][F1];
-        //this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][F1];
-    
-        //this.runningEvalS -= WS_PST[ROOK][H1];
-        //this.runningEvalS += WS_PST[ROOK][F1];
-        //this.runningEvalE -= WE_PST[ROOK][H1];
-        //this.runningEvalE += WE_PST[ROOK][F1];
+        this.netCastle(W_KING,fr,to,W_ROOK,H1,F1);
       }
     
       else if (move == MOVE_E1C1) {
-    
-        //b[A1] = NULL;
-        //b[D1] = W_ROOK;
-        //z[D1] = z[A1];
-        //z[A1] = NO_Z;
-    
-        this.netMove(W_ROOK,A1,D1);
-    
-        //this.wList[z[D1]] = D1;
-    
-        //this.loHash ^= this.loPieces[I_WHITE][ROOK-1][A1];
-        //this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][A1];
-        //this.loHash ^= this.loPieces[I_WHITE][ROOK-1][D1];
-        //this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][D1];
-    
-        //this.runningEvalS -= WS_PST[ROOK][A1];
-        //this.runningEvalS += WS_PST[ROOK][D1];
-        //this.runningEvalE -= WE_PST[ROOK][A1];
-        //this.runningEvalE += WE_PST[ROOK][D1];
+        this.netCastle(W_KING,fr,to,W_ROOK,A1,D1);
       }
     }
     
     else {
     
-      var ep = to - 12;
+      const ep = to - 12;
     
-      //if (move & MOVE_EPMAKE_MASK) {
+      if (move & MOVE_EPMAKE_MASK) {
+        this.netMove(frObj,fr,to);
+      }
     
-        //this.loHash ^= this.loEP[this.ep];
-        //this.hiHash ^= this.hiEP[this.ep];
-    
-        //this.ep = ep;
-    
-        //this.loHash ^= this.loEP[this.ep];
-        //this.hiHash ^= this.hiEP[this.ep];
-      //}
-    
-      //else if (move & MOVE_EPTAKE_MASK) {
-      if (move & MOVE_EPTAKE_MASK) {
-    
-        this.netDel(W_PAWN,ep);
-    
-        //b[ep]    = NULL;
-        //node.epZ = z[ep];
-        //z[ep]    = NO_Z;
-    
-        //this.wList[node.epZ] = EMPTY;
-    
-        //this.loHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
-        //this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
-    
-        //this.ploHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
-        //this.phiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
-    
-        //this.runningEvalS -= VALUE_PAWN;
-        //this.runningEvalS -= WS_PST[PAWN][ep];  // sic.
-        //this.runningEvalE -= VALUE_PAWN;
-        //this.runningEvalE -= WE_PST[PAWN][ep];  // sic.
-    
-        //this.wCounts[PAWN]--;
-        //this.wCount--;
+      else if (move & MOVE_EPTAKE_MASK) {
+        this.netEpCapture(frObj,fr,to,W_PAWN,ep);
       }
     
       else if (move & MOVE_PROMOTE_MASK) {
-    
-        var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
-        //b[to]   = BLACK | pro;
-    
-        this.netPromote(B_PAWN,pro|BLACK,to);
-    
-        //this.loHash ^= this.loPieces[I_BLACK][PAWN-1][to];
-        //this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
-        //this.loHash ^= this.loPieces[I_BLACK][pro-1][to];
-        //this.hiHash ^= this.hiPieces[I_BLACK][pro-1][to];
-    
-        //this.ploHash ^= this.loPieces[I_BLACK][PAWN-1][to];
-        //this.phiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
-    
-        //this.runningEvalS += VALUE_PAWN;
-        //this.runningEvalS += BS_PST[PAWN][to];
-        //this.runningEvalE += VALUE_PAWN;
-        //this.runningEvalE += BE_PST[PAWN][to];
-    
-        //this.bCounts[PAWN]--;
-    
-        //this.runningEvalS -= MATERIAL[pro];
-        //this.runningEvalS -= BS_PST[pro][to];
-        //this.runningEvalE -= MATERIAL[pro];
-        //this.runningEvalE -= BE_PST[pro][to];
-    
-        //this.bCounts[pro]++;
-    
-        //this.phase -= VPHASE[pro];
+        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        this.netPromote2(B_PAWN,fr,to,toObj,pro|BLACK);
       }
     
       else if (move == MOVE_E8G8) {
-    
-        //b[H8] = NULL;
-        //b[F8] = B_ROOK;
-        //z[F8] = z[H8];
-        //z[H8] = NO_Z;
-    
-        this.netMove(B_ROOK,H8,F8);
-    
-        //this.bList[z[F8]] = F8;
-    
-        //this.loHash ^= this.loPieces[I_BLACK][ROOK-1][H8];
-        //this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][H8];
-        //this.loHash ^= this.loPieces[I_BLACK][ROOK-1][F8];
-        //this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][F8];
-    
-        //this.runningEvalS += BS_PST[ROOK][H8];
-        //this.runningEvalS -= BS_PST[ROOK][F8];
-        //this.runningEvalE += BE_PST[ROOK][H8];
-        //this.runningEvalE -= BE_PST[ROOK][F8];
+        this.netCastle(B_KING,fr,to,B_ROOK,H8,F8);
       }
     
       else if (move == MOVE_E8C8) {
-    
-        //b[A8] = NULL;
-        //b[D8] = B_ROOK;
-        //z[D8] = z[A8];
-        //z[A8] = NO_Z;
-    
-        this.netMove(B_ROOK,A8,D8);
-    
-        //this.bList[z[D8]] = D8;
-    
-        //this.loHash ^= this.loPieces[I_BLACK][ROOK-1][A8];
-        //this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][A8];
-        //this.loHash ^= this.loPieces[I_BLACK][ROOK-1][D8];
-        //this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][D8];
-    
-        //this.runningEvalS += BS_PST[ROOK][A8];
-        //this.runningEvalS -= BS_PST[ROOK][D8];
-        //this.runningEvalE += BE_PST[ROOK][A8];
-        //this.runningEvalE -= BE_PST[ROOK][D8];
+        this.netCastle(B_KING,fr,to,B_ROOK,A8,D8);
       }
     }
     
     //}}}
   }
-/*
-  //{{{  flip turn in hash
-  
-  this.loHash ^= this.loTurn;
-  this.hiHash ^= this.hiTurn;
-  
-  //}}}
-  //{{{  push rep hash
-  //
-  //  Repetitions are cancelled by pawn moves, castling, captures, EP
-  //  and promotions; i.e. moves that are not reversible.  The nearest
-  //  repetition is 5 indexes back from the current one and then that
-  //  and every other one entry is a possible rep.  Can also check for
-  //  50 move rule by testing hi-lo > 100 - it's not perfect because of
-  //  the pawn move reset but it's a type 2 error, so safe.
-  //
-  
-  this.repLoHash[this.repHi] = this.loHash;
-  this.repHiHash[this.repHi] = this.hiHash;
-  
-  this.repHi++;
-  
-  if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece == PAWN)
-    this.repLo = this.repHi;
-  
-  //}}}
-*/
+
+  else {
+    this.netCapture(frObj,fr,toObj,to);
+  }
+
 }
 
 //}}}
@@ -6256,11 +5343,7 @@ lozBoard.prototype.ttInit = function () {
   this.loHash = 0;
   this.hiHash = 0;
 
-  //this.ploHash = 0;
-  //this.phiHash = 0;
-
   this.ttType.fill(TT_EMPTY);
-  //this.pttFlags.fill(TT_EMPTY);
 
   this.hashUsed = 0;
 }
@@ -6272,9 +5355,6 @@ lozBoard.prototype.hashCheck = function (turn) {
 
   var loHash = 0;
   var hiHash = 0;
-
-  //var ploHash = 0;
-  //var phiHash = 0;
 
   if (turn) {
     loHash ^= this.loTurn;
@@ -6300,10 +5380,6 @@ lozBoard.prototype.hashCheck = function (turn) {
     loHash ^= this.loPieces[col>>>3][piece-1][sq];
     hiHash ^= this.hiPieces[col>>>3][piece-1][sq];
 
-    //if (piece == PAWN) {
-      //ploHash ^= this.loPieces[col>>>3][0][sq];
-      //phiHash ^= this.hiPieces[col>>>3][0][sq];
-    //}
   }
 
   if (this.loHash != loHash)
@@ -6312,11 +5388,6 @@ lozBoard.prototype.hashCheck = function (turn) {
   if (this.hiHash != hiHash)
     console.log('*************** HI',this.hiHash,hiHash);
 
-  //if (this.ploHash != ploHash)
-    //console.log('************* PLO',this.ploHash,ploHash);
-
-  //if (this.phiHash != phiHash)
-    //console.log('************* PHI',this.phiHash,phiHash);
 }
 
 //}}}
@@ -6393,7 +5464,7 @@ lozBoard.prototype.playMove = function (moveStr) {
 
   while (move = node.getNextMove()) {
 
-    this.makeMove(node,move);
+    this.makeMoveA(node,move);
 
     var attacker = this.isKingAttacked(nextTurn);
 
@@ -6408,6 +5479,7 @@ lozBoard.prototype.playMove = function (moveStr) {
     var fMove = this.formatMove(move,UCI_FMT);
 
     if (moveStr == fMove || moveStr+'q' == fMove) {
+      this.makeMoveB(node,move);
       this.turn = ~this.turn & COLOR_MASK;
       return true;
     }
@@ -6436,7 +5508,8 @@ lozBoard.prototype.getPVStr = function(node,move,depth) {
     return '';
 
   node.cache();
-  this.makeMove(node,move);
+  this.makeMoveA(node,move);
+  //this.makeMoveB(node,move);
 
   var mv = this.formatMove(move, this.mvFmt);
   var pv = ' ' + this.getPVStr(node.childNode,0,depth-1);
@@ -6664,6 +5737,62 @@ lozBoard.prototype.netPromote = function (pawnObj,promoteObj,sq) {
 }
 
 //}}}
+//{{{  .netPromote2
+
+lozBoard.prototype.netPromote2 = function (pawnObj,pawnFr,pawnTo,captureObj,promoteObj) {
+
+  const i1 = inputIndex(pawnObj,    pawnFr);
+  const i2 = inputIndex(captureObj, pawnTo);
+  const i3 = inputIndex(promoteObj, pawnTo);
+
+  const h1 = net_h1_w[i1];
+  const h2 = net_h1_w[i2];
+  const h3 = net_h1_w[i3];
+
+  for (let h=0; h < net_h1_size; h+=1) {
+    this.net_h1_a[h] += h3[h] - h2[h] - h1[h];
+  }
+}
+
+//}}}
+//{{{  .netEpCapture
+
+lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj,ep) {
+
+  const i1 = inputIndex(pawnObj, pawnFr);
+  const i2 = inputIndex(pawnObj, pawnTo);
+  const i3 = inputIndex(pawnCaptureObj, ep);
+
+  const h1 = net_h1_w[i1];
+  const h2 = net_h1_w[i2];
+  const h3 = net_h1_w[i3];
+
+  for (let h=0; h < net_h1_size; h+=1) {
+    this.net_h1_a[h] += h2[h] - h1[h] - h3[h];
+  }
+}
+
+//}}}
+//{{{  .netCastle
+
+lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,rookTo) {
+
+  const i1 = inputIndex(kingObj, kingFr);
+  const i2 = inputIndex(kingObj, kingTo);
+  const i3 = inputIndex(rookObj, rookFr);
+  const i4 = inputIndex(rookObj, rookTo);
+
+  const h1 = net_h1_w[i1];
+  const h2 = net_h1_w[i2];
+  const h3 = net_h1_w[i3];
+  const h4 = net_h1_w[i4];
+
+  for (let h=0; h < net_h1_size; h+=1) {
+    this.net_h1_a[h] += h2[h] - h1[h] + h4[h] - h3[h];
+  }
+}
+
+//}}}
 
 //}}}
 //{{{  lozNode class
@@ -6704,16 +5833,12 @@ function lozNode (parentNode) {
 
   this.net_h1_a = new Float32Array(net_h1_size);
 
-  //this.C_runningEvalS = 0;      // cached before move generation and restored after each unmakeMove.
-  //this.C_runningEvalE = 0;
   this.C_rights       = 0;
   this.C_ep           = 0;
   this.C_repLo        = 0;
   this.C_repHi        = 0;
   this.C_loHash       = 0;
   this.C_hiHash       = 0;
-  //this.C_ploHash      = 0;
-  //this.C_phiHash      = 0;
 
   this.toZ = 0;                 // move to square index (captures) to piece list - cached during make|unmakeMove.
   this.frZ = 0;                 // move from square index to piece list          - ditto.
@@ -6754,16 +5879,12 @@ lozNode.prototype.cache = function() {
 
   var board = this.board;
 
-  //this.C_runningEvalS = board.runningEvalS;
-  //this.C_runningEvalE = board.runningEvalE
   this.C_rights       = board.rights;
   this.C_ep           = board.ep;
   this.C_repLo        = board.repLo;
   this.C_repHi        = board.repHi;
   this.C_loHash       = board.loHash;
   this.C_hiHash       = board.hiHash;
-  //this.C_ploHash      = board.ploHash;
-  //this.C_phiHash      = board.phiHash;
   this.net_h1_a.set(board.net_h1_a);
 }
 
@@ -6774,16 +5895,12 @@ lozNode.prototype.uncache = function() {
 
   var board = this.board;
 
-  //board.runningEvalS   = this.C_runningEvalS;
-  //board.runningEvalE   = this.C_runningEvalE;
   board.rights         = this.C_rights;
   board.ep             = this.C_ep;
   board.repLo          = this.C_repLo;
   board.repHi          = this.C_repHi;
   board.loHash         = this.C_loHash;
   board.hiHash         = this.C_hiHash;
-  //board.ploHash        = this.C_ploHash;
-  //board.phiHash        = this.C_phiHash;
   board.net_h1_a.set(this.net_h1_a);
 }
 
@@ -7304,6 +6421,7 @@ lozUCI.prototype.getArr = function (key, to) {
 
 const BENCHFENS = [
 
+"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkQ - 0 1",
 "r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq a6 0 14",
 "4rrk1/2p1b1p1/p1p3q1/4p3/2P2n1p/1P1NR2P/PB3PP1/3R1QK1 b - - 2 24",
 "r3qbrk/6p1/2b2pPp/p3pP1Q/PpPpP2P/3P1B2/2PB3K/R5R1 w - - 16 42",
@@ -7779,7 +6897,7 @@ onmessage = function(e) {
       let maxWeight = -9999;
       let minWeight = 9999;
       
-      for (let i=0; i < net_h1_w.length; i++) {
+      for (let i=0; i < 768; i++) {
         for (let j=0; j < net_h1_size; j++) {
           const w = Math.abs(net_h1_w[i][j]);
           if (w < minWeight)

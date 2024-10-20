@@ -11,14 +11,14 @@ const ACTI_SCRELU     = 4;
 
 //}}}
 
-const id_suffix       = '';                         // to manually modify the weights filename.
+const id_suffix       = '';                          // to manually modify the weights filename.
 const dataFiles       = ['data/datagen.filtered2'];  // list of files generated with filter.js.
 const acti            = ACTI_SRELU;
-const hiddenSize      = 75;
+const hiddenSize      = 96;
 const shuffle         = true;
 const batchSize       = 500;
 const learningRate    = 0.001;
-const interp          = 0.75;                       // must be same as in filter.js.
+const interp          = 0.5;                        // must be same as in filter.js.
 const K               = 100;                        // must be same as in filter.js.
 const useL2Reg        = false;
 const useAdamW        = false;
@@ -48,7 +48,7 @@ const { exec }        = require('child_process');
 
 const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + id_suffix;
 console.log(id);
-console.log(dataFiles.toString();
+console.log(dataFiles.toString());
 
 //{{{  myround
 
@@ -251,7 +251,7 @@ function saveModel(loss, params, epochs) {
 
   //{{{  write h1 weights
   
-  o += 'const net_h1_w = Array(768);\r\n';
+  o += 'const net_h1_w = Array(769);\r\n';
   
   var a = params.W1;
   var a2 = [];
@@ -264,6 +264,8 @@ function saveModel(loss, params, epochs) {
     }
     o += 'net_h1_w[' + i + ']  = new Float32Array([' + a2.toString() + ']);\r\n';
   }
+  
+  o += "net_h1_w[768] = new Float32Array(net_h1_size).fill(0);\r\n";
   
   //}}}
   //{{{  write h1 biases
