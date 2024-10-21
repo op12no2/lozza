@@ -86,7 +86,7 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
 
 ## Creating your own nets
 
-Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Around 100M positions were used for the Lozza 3 net. Contact me if you are interested in building a different net for your project; it's very straightforward. Essentially the process is:-
+Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Around 200M positions were used for the Lozza 3.4 net. Contact me if you are interested in building a different net for your project; it's very straightforward. Essentially the process is:-
 
 ```
 mkdir data
