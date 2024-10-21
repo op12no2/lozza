@@ -2,7 +2,7 @@ If you are testing Lozza please use the latest release and not the coalface from
 
 # Lozza
 
-A UCI Javascript chess engine using a small unquantised single-accumulator srelu 768x96x1 NNUE for evaluation. Try her here:-
+A UCI Javascript chess engine using a small unquantised single-accumulator srelu NNUE for evaluation. Try her here:-
 
 https://op12no2.github.io/lozza-ui
 
@@ -86,7 +86,7 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
 
 ## Creating your own nets
 
-Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Around 200M positions were used for the Lozza 3.4 net. Contact me if you are interested in building a different net for your project; it's very straightforward. Essentially the process is:-
+Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in building a different net for your project; it's very straightforward. Essentially the process is:-
 
 ```
 mkdir data
