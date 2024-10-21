@@ -2,13 +2,14 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD      = "3.3";
+var BUILD      = "3.4";
 var SILENT     = 0;
 var RANDOMEVAL = 0;
 
 //{{{  history
 /*
 
+3.4 21/10/24 bigger net 768x96x1 srelu.
 3.3 20/10/24 Make sure all UE updates are a single accumulator loop.
 3.2 18/10/24 Defer UE to after legal check (doh!) and don't check pre-determined legal moves.
 3.1 18/10/24 Minor tweaks for datagen + net command.
@@ -187,6 +188,7 @@ var IS_K      = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0];
 var IS_KN     = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];
 
 var IS_W      = [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+var IS_WNK    = [0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WE     = [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WP     = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WN     = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -197,6 +199,7 @@ var IS_WRQ    = [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WQ     = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 var IS_B      = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
+var IS_BNK    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0];
 var IS_BE     = [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
 var IS_BP     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
 var IS_BN     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
@@ -4766,7 +4769,7 @@ lozBoard.prototype.makeMoveB = function (node,move) {
     
       else if (move & MOVE_PROMOTE_MASK) {
         const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
-        this.netPromote2(W_PAWN,fr,to,toObj,pro|WHITE);
+        this.netPromote(W_PAWN,fr,to,toObj,pro|WHITE);
       }
     
       else if (move == MOVE_E1G1) {
@@ -4792,7 +4795,7 @@ lozBoard.prototype.makeMoveB = function (node,move) {
     
       else if (move & MOVE_PROMOTE_MASK) {
         const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
-        this.netPromote2(B_PAWN,fr,to,toObj,pro|BLACK);
+        this.netPromote(B_PAWN,fr,to,toObj,pro|BLACK);
       }
     
       else if (move == MOVE_E8G8) {
@@ -5723,23 +5726,7 @@ lozBoard.prototype.netCapture = function (frObj,fr,toObj,to) {
 //}}}
 //{{{  .netPromote
 
-lozBoard.prototype.netPromote = function (pawnObj,promoteObj,sq) {
-
-  const i1 = inputIndex(pawnObj,    sq);
-  const i2 = inputIndex(promoteObj, sq);
-
-  const h1 = net_h1_w[i1];
-  const h2 = net_h1_w[i2];
-
-  for (let h=0; h < net_h1_size; h+=1) {
-    this.net_h1_a[h] += h2[h] - h1[h];
-  }
-}
-
-//}}}
-//{{{  .netPromote2
-
-lozBoard.prototype.netPromote2 = function (pawnObj,pawnFr,pawnTo,captureObj,promoteObj) {
+lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promoteObj) {
 
   const i1 = inputIndex(pawnObj,    pawnFr);
   const i2 = inputIndex(captureObj, pawnTo);
