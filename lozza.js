@@ -2,13 +2,14 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD      = "3.4";
+var BUILD      = "3.5";
 var SILENT     = 0;
 var RANDOMEVAL = 0;
 
 //{{{  history
 /*
 
+3.5 23/10/24 Allow successive NMP and beta pruning.
 3.4 21/10/24 Bigger net 768x128x1 srelu.
 3.3 20/10/24 Make sure all UE updates are a single accumulator loop.
 3.2 18/10/24 Defer UE to after legal check (doh!) and don't check pre-determined legal moves.
@@ -65,8 +66,6 @@ var MAX_MOVES       = 250;
 var INFINITY        = 30000;              // limited by lozza.board.ttScore bits.
 var MATE            = 20000;
 var MINMATE         = MATE - 2*MAX_PLY;
-var NULL_Y          = 1;
-var NULL_N          = 0;
 var INCHECK_UNKNOWN = MATE + 1;
 var TTSCORE_UNKNOWN = MATE + 2;
 var EMPTY           = 0;
@@ -2714,12 +2713,12 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     //}}}
 
     if (numLegalMoves == 1) {
-      score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);
+      score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
     }
     else {
-      score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, NULL_Y, givesCheck);
+      score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
       if (!this.stats.timeOut && score > alpha) {
-        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);
+        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
       }
     }
 
@@ -2785,7 +2784,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
 //}}}
 //{{{  .alphabeta
 
-lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK, inCheck) {
+lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, inCheck) {
 
   //{{{  housekeeping
   
@@ -2863,7 +2862,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var E         = 0;
   var lonePawns = (turn == WHITE && board.wCount == board.wCounts[PAWN]+1) || (turn == BLACK && board.bCount == board.bCounts[PAWN]+1);
   var eval      = INFINITY;
-  var doBeta    = !pvNode && !inCheck && !lonePawns && nullOK == NULL_Y && !board.betaMate(beta);
+  var doBeta    = !pvNode && !inCheck && !lonePawns && !board.betaMate(beta);
 
   //{{{  prune?
   
@@ -2896,7 +2895,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     board.loHash ^= board.loTurn;
     board.hiHash ^= board.hiTurn;
   
-    score = -this.alphabeta(node.childNode, depth-R-1, nextTurn, -beta, -beta+1, NULL_N, INCHECK_UNKNOWN);
+    score = -this.alphabeta(node.childNode, depth-R-1, nextTurn, -beta, -beta+1, INCHECK_UNKNOWN);
   
     node.uncache();
   
@@ -2943,7 +2942,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   if (doIID) {
   
-    this.alphabeta(node, depth-2, turn, alpha, beta, NULL_N, inCheck);
+    this.alphabeta(node, depth-2, turn, alpha, beta, inCheck);
     board.ttGet(node, 0, alpha, beta);
   }
   
@@ -3023,18 +3022,18 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 
     if (pvNode) {
       if (numLegalMoves == 1)
-        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);
+        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
       else {
-        score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, NULL_Y, givesCheck);
+        score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
         if (!this.stats.timeOut && score > alpha) {
-          score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);
+          score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
         }
       }
     }
     else {
-      score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);  // ZW by implication.
+      score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -beta, -alpha, givesCheck);  // ZW by implication.
       if (R && !this.stats.timeOut && score > alpha)
-        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);
+        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
     }
 
     //{{{  unmake move
