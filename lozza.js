@@ -9,6 +9,7 @@ var RANDOMEVAL = 0;
 //{{{  history
 /*
 
+3.6 24/10/24 Simplify search recursion.
 3.5 23/10/24 Allow successive NMP and beta pruning.
 3.4 21/10/24 Bigger net 768x128x1 srelu.
 3.3 20/10/24 Make sure all UE updates are a single accumulator loop.
@@ -2700,7 +2701,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
       E = 1;
     }
     
-    else if (doLMR) {
+    else if (doLMR && numLegalMoves > 1) {
     
       givesCheck = board.isKingAttacked(turn);
       keeper     = node.base >= BASE_LMR || (move & KEEPER_MASK) || givesCheck || board.alphaMate(alpha);
@@ -2712,15 +2713,15 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     
     //}}}
 
-    if (numLegalMoves == 1) {
-      score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
-    }
-    else {
+    const nullWindow = numLegalMoves > 1 || R;
+
+    score = alpha;
+
+    if (nullWindow)
       score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
-      if (!this.stats.timeOut && score > alpha) {
-        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
-      }
-    }
+
+    if (!nullWindow || score > alpha)
+     score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
 
     //{{{  unmake move
     
@@ -3020,21 +3021,15 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, inCheck
 
     numLegalMoves++;
 
-    if (pvNode) {
-      if (numLegalMoves == 1)
-        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
-      else {
-        score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
-        if (!this.stats.timeOut && score > alpha) {
-          score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
-        }
-      }
-    }
-    else {
-      score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -beta, -alpha, givesCheck);  // ZW by implication.
-      if (R && !this.stats.timeOut && score > alpha)
-        score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
-    }
+    const nullWindow = (pvNode && numLegalMoves > 1) || R;
+
+    score = alpha;
+
+    if (nullWindow)
+      score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
+
+    if (!nullWindow || score > alpha)
+      score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
 
     //{{{  unmake move
     
