@@ -2,7 +2,7 @@ If you are testing Lozza please use the latest release and not the coalface from
 
 # Lozza
 
-A UCI Javascript chess engine using a small unquantised single-accumulator srelu NNUE for evaluation. Try her here:-
+A UCI Javascript chess engine using a small NNUE for evaluation. Try her here:-
 
 https://op12no2.github.io/lozza-ui
 
@@ -86,18 +86,7 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
 
 ## Creating your own nets
 
-Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in building a different net for your project; it's very straightforward. Essentially the process is:-
-
-```
-mkdir data
-node datagen             // run on as many PCs/threads as possible - see the scripts subdirectory for the script I use.
-cat data/*.fen > data/x  // collate all the data into a single file.
-node filter              // reads x and writes y filtering noisy moves and checks - but configurable.
-shuf data/y > data/x     // shuffle the data back into x. 
-node trainer             // uses x to train a net - lots of config options like layer size, score-wdl ratio, batch size, 
-                         // activation, optimiser etc. writes nets for every epoch for easy testing (see data sub-dir).
-                         // The nets can be pasted into lozza.js replacing the existing one. No other changes are needed.
-```                 
+Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in building a different net for your project; it's very straightforward.
 
 ## Acknowledgements
 
