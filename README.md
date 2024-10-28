@@ -86,7 +86,7 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
 
 ## Creating your own nets
 
-Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in building a different net for your project; it's very straightforward.
+Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in building a different net for your project; it's very straightforward and of course you can alternatively use your own data with trainer.js.
 
 ## Acknowledgements
 
