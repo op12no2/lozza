@@ -2,13 +2,14 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD      = "3.5";
+var BUILD      = "3.7";
 var SILENT     = 0;
 var RANDOMEVAL = 0;
 
 //{{{  history
 /*
 
+3.7 29/10/24 Optimise castling a bit.
 3.6 24/10/24 Simplify search recursion.
 3.5 23/10/24 Allow successive NMP and beta pruning.
 3.4 21/10/24 Bigger net 768x128x1 srelu.
@@ -2867,7 +2868,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, inCheck
 
   //{{{  prune?
   
-  if (doBeta && depth <= 2 && ((eval = board.getEval(eval,node,turn)) - depth * 200) >= beta) {
+  if (doBeta && depth <= 4 && ((eval = board.getEval(eval,node,turn)) - depth * 200) >= beta) {
     return beta;
   }
   
@@ -3731,15 +3732,15 @@ lozBoard.prototype.genMoves = function(node, turn) {
     var pList        = this.wList;
     var theirKingSq  = this.bList[0];
     var pCount       = this.wCount;
-    var CAPTURE      = IS_B;
+    var CAPTURE      = IS_BNK;
     var aligned      = ALIGNED[this.wList[0]];
   
     if (rights) {
   
-      if ((rights & WHITE_RIGHTS_KING)  && b[F1] == NULL && b[G1] == NULL                  && !this.isAttacked(F1,BLACK) && !this.isAttacked(E1,BLACK))
+      if ((rights & WHITE_RIGHTS_KING)  && !b[F1] && !b[G1]           && b[SQG2] != B_KING && b[SQH2] != B_KING && !this.isAttacked(F1,BLACK))
         node.addCastle(MOVE_E1G1);
   
-      if ((rights & WHITE_RIGHTS_QUEEN) && b[B1] == NULL && b[C1] == NULL && b[D1] == NULL && !this.isAttacked(D1,BLACK) && !this.isAttacked(E1,BLACK))
+      if ((rights & WHITE_RIGHTS_QUEEN) && !b[B1] && !b[C1] && !b[D1] && b[SQB2] != B_KING && b[SQC2] != B_KING && !this.isAttacked(D1,BLACK))
         node.addCastle(MOVE_E1C1);
     }
   }
@@ -3755,15 +3756,15 @@ lozBoard.prototype.genMoves = function(node, turn) {
     var pList        = this.bList;
     var theirKingSq  = this.wList[0];
     var pCount       = this.bCount;
-    var CAPTURE      = IS_W;
+    var CAPTURE      = IS_WNK;
     var aligned      = ALIGNED[this.bList[0]];
   
     if (rights) {
   
-      if ((rights & BLACK_RIGHTS_KING)  && b[F8] == NULL && b[G8] == NULL &&                  !this.isAttacked(F8,WHITE) && !this.isAttacked(E8,WHITE))
+      if ((rights & BLACK_RIGHTS_KING)  && !b[F8] && !b[G8]           && b[SQG7] != B_KING && b[SQH7] != B_KING && !this.isAttacked(F8,WHITE))
         node.addCastle(MOVE_E8G8);
   
-      if ((rights & BLACK_RIGHTS_QUEEN) && b[B8] == NULL && b[C8] == NULL && b[D8] == NULL && !this.isAttacked(D8,WHITE) && !this.isAttacked(E8,WHITE))
+      if ((rights & BLACK_RIGHTS_QUEEN) && !b[B8] && !b[C8] && !b[D8] && b[SQB7] != B_KING && b[SQC7] != B_KING && !this.isAttacked(D8,WHITE))
         node.addCastle(MOVE_E8C8);
     }
   }
@@ -4114,7 +4115,7 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     var pList        = this.wList;
     var theirKingSq  = this.bList[0];
     var pCount       = this.wCount;
-    var CAPTURE      = IS_B;
+    var CAPTURE      = IS_BNK;
     var aligned      = ALIGNED[this.wList[0]];
   }
   
@@ -4127,7 +4128,7 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     var pList        = this.bList;
     var theirKingSq  = this.wList[0];
     var pCount       = this.bCount;
-    var CAPTURE      = IS_W;
+    var CAPTURE      = IS_WNK;
     var aligned      = ALIGNED[this.bList[0]];
   }
   
@@ -4290,7 +4291,7 @@ lozBoard.prototype.genQMovesTo = function(node, turn, sq) {
     var pList        = this.wList;
     var theirKingSq  = this.bList[0];
     var pCount       = this.wCount;
-    var CAPTURE      = IS_B;
+    var CAPTURE      = IS_BNK;
     var aligned      = ALIGNED[this.wList[0]];
   }
   
@@ -4303,7 +4304,7 @@ lozBoard.prototype.genQMovesTo = function(node, turn, sq) {
     var pList        = this.bList;
     var theirKingSq  = this.wList[0];
     var pCount       = this.bCount;
-    var CAPTURE      = IS_W;
+    var CAPTURE      = IS_WNK;
     var aligned      = ALIGNED[this.bList[0]];
   }
   
