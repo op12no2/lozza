@@ -2,13 +2,14 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD      = "3.8";
+var BUILD      = "3.9";
 var SILENT     = 0;
 var RANDOMEVAL = 0;
 
 //{{{  history
 /*
 
+3.9 31/10/24 Prune QS with quickSee(). Only count nodes that iterate moves.
 3.8 30/10/24 Put eval in TT before search.
 3.7 29/10/24 Optimise castling a bit.
 3.6 24/10/24 Simplify search recursion.
@@ -272,6 +273,9 @@ var WP_OFFSET_DIAG2 = -11;
 var BP_OFFSET_ORTH  = 12;
 var BP_OFFSET_DIAG1 = 13;
 var BP_OFFSET_DIAG2 = 11;
+
+var WB_OFFSET_DIAG1 = [WP_OFFSET_DIAG1,BP_OFFSET_DIAG1];
+var WB_OFFSET_DIAG2 = [WP_OFFSET_DIAG2,BP_OFFSET_DIAG2];
 
 var KNIGHT_OFFSETS  = [25,-25,23,-23,14,-14,10,-10];
 var BISHOP_OFFSETS  = [11,-11,13,-13];
@@ -2443,6 +2447,20 @@ lozChess.prototype.position = function () {
 }
 
 //}}}
+//{{{  .report
+
+lozChess.prototype.report = function(units,value,depth) {
+
+  var depthStr = 'depth ' + depth + ' seldepth ' + this.stats.selDepth;
+  var scoreStr = 'score ' + units + ' ' + value;
+  var nodeStr  = this.stats.nodeStr();
+  var hashStr  = 'hashfull ' + (1000 * this.board.hashUsed / TTSIZE | 0);
+  var pvStr    = 'pv ' + this.board.getPVStr(this.rootNode,this.stats.bestMove,depth);
+
+  this.uci.send('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
+}
+
+//}}}
 //{{{  .go
 
 lozChess.prototype.go = function() {
@@ -2602,20 +2620,6 @@ lozChess.prototype.go = function() {
   bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
 
   this.uci.send('bestmove',bestMoveStr);
-}
-
-//}}}
-//{{{  .report
-
-lozChess.prototype.report = function(units,value,depth) {
-
-  var depthStr = 'depth ' + depth + ' seldepth ' + this.stats.selDepth;
-  var scoreStr = 'score ' + units + ' ' + value;
-  var nodeStr  = this.stats.nodeStr();
-  var hashStr  = 'hashfull ' + (1000 * this.board.hashUsed / TTSIZE | 0);
-  var pvStr    = 'pv ' + this.board.getPVStr(this.rootNode,this.stats.bestMove,depth);
-
-  this.uci.send('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 }
 
 //}}}
@@ -2846,8 +2850,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   
   //}}}
 
-  this.stats.nodes++;
-
   //{{{  try tt
   
   score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove and node.hashEval.
@@ -2964,6 +2966,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
 
   if (this.stats.timeOut)
     return;
+
+  this.stats.nodes++;
 
   while (move = node.getNextMove()) {
 
@@ -3104,8 +3108,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
 
 lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
-  this.stats.nodes++;
-
   //{{{  housekeeping
   
   if (node.ply > this.stats.selDepth)
@@ -3168,12 +3170,17 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
       board.genQMoves(node, turn);
   }
 
+  this.stats.nodes++;
+
   while (move = node.getNextMove()) {
 
     //{{{  prune?
     
     if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+      continue;
+    }
     
+    if (!inCheck && board.quickSee(turn, move) < 0) {
       continue;
     }
     
@@ -5789,6 +5796,45 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
     this.net_h1_a[h] += h2[h] - h1[h] + h4[h] - h3[h];
   }
 }
+
+//}}}
+//{{{  .quickSee
+
+const QS = [0,0,3,3,5,9,0];
+
+lozBoard.prototype.quickSee = function (turn, move) {
+
+  if (move & MOVE_SPECIAL_MASK)
+    return 0;
+
+  const frObj = moveFromObj(move);
+  const frPiece = objPiece(frObj);
+
+  if (frPiece == PAWN)
+    return 0;
+
+  const toObj = moveToObj(move);
+  const to    = moveToSq(move);
+
+  const cx = colourIndex(turn);
+
+  const nextTurn = colourToggle(turn);
+
+  const p1 = this.b[to + WB_OFFSET_DIAG1[cx]] == (PAWN | nextTurn);
+  const p2 = this.b[to + WB_OFFSET_DIAG2[cx]] == (PAWN | nextTurn);
+
+  if (!toObj && (p1 || p2))
+    return -1;
+
+  const toPiece = objPiece(toObj);
+  const dodgy   = QS[frPiece] > QS[toPiece];
+
+  if (dodgy && (p1 || p2))
+    return -1;
+
+  return 0;
+}
+
 
 //}}}
 
