@@ -2,22 +2,23 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD      = "3.11";
+var BUILD      = "3.12";
 var SILENT     = 0;
 var RANDOMEVAL = 0;
 
 //{{{  history
 /*
 
+3.12 17/11/24 Use hash move in q search.
 3.11 07/11/24 Optmise deferral of h1 accumulator update a bit more.
-3.10 06/11/24 Fix some web stuff.
+3.10 06/11/24 Fix some web stuff. Add improving indicator.
 3.9  31/10/24 Prune QS with quickSee(). Only count nodes that iterate moves.
 3.8  30/10/24 Put eval in TT before search.
 3.7  29/10/24 Optimise castling a bit.
 3.6  24/10/24 Simplify search recursion.
 3.5  23/10/24 Allow successive NMP and beta pruning.
 3.4  21/10/24 Bigger net 768x128x1 srelu.
-3.3  20/10/24 Make sure all UE updates are a single accumulator loop.
+3.3  20/10/24 Make sure all UE updates (e.g. castling) are a single accumulator loop.
 3.2  18/10/24 Defer UE to after legal check (doh!) and don't check pre-determined legal moves.
 3.1  18/10/24 Minor tweaks for datagen + net command.
 3    03/10/24 Integrate the NNUE from my Cwtch experiment (https://github.com/op12no2/cwtch).
@@ -2635,7 +2636,7 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
   
   if (!node.childNode) {
     this.stats.timeOut = 1;
-    return;
+    return 0;
   }
   
   //}}}
@@ -2668,7 +2669,7 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
     board.genMoves(node, turn);
 
   if (this.stats.timeOut)
-    return;
+    return 0;
 
   while (move = node.getNextMove()) {
 
@@ -2729,7 +2730,7 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
     if (nullWindow)
       score = -this.search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
 
-    if (!nullWindow || score > alpha)
+    if (!this.stats.timeOut && (!nullWindow || score > alpha))
      score = -this.search(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
 
     //{{{  unmake move
@@ -2741,9 +2742,8 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
     
     //}}}
 
-    if (this.stats.timeOut) {
-      return;
-    }
+    if (this.stats.timeOut)
+      return 0;
 
     if (score > bestScore) {
 
@@ -2801,12 +2801,12 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   
   if (!node.childNode) {
     this.stats.timeOut = 1;
-    return;
+    return 0;
   }
   
   this.stats.checkTime();
   if (this.stats.timeOut)
-    return;
+    return 0;
   
   if (node.ply > this.stats.selDepth)
     this.stats.selDepth = node.ply;
@@ -2845,21 +2845,16 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   //}}}
   //{{{  horizon
   
-  if (depth <= 0) {
-  
-    score = this.qSearch(node, -1, turn, alpha, beta, 0);
-  
-    return score;
-  }
+  if (depth <= 0)
+    return this.qSearch(node, -1, turn, alpha, beta, 0);
   
   //}}}
   //{{{  try tt
   
   score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove and node.hashEval.
   
-  if (!pvNode && score != TTSCORE_UNKNOWN) {
+  if (!pvNode && score != TTSCORE_UNKNOWN)
     return score;
-  }
   
   //}}}
 
@@ -2893,7 +2888,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   //{{{  beta prune
   
   if (doBeta && depth <= 4 && (ev - depth * 200) >= beta)
-  
     return beta;
   
   //}}}
@@ -2928,7 +2922,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     node.uncacheB();
   
     if (this.stats.timeOut)
-      return;
+      return 0;
   
     if (score >= beta) {
       if (board.betaMate(score))
@@ -2937,7 +2931,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     }
   
     if (this.stats.timeOut)
-      return;
+      return 0;
   }
   
   R = 0;
@@ -2975,7 +2969,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   }
   
   if (this.stats.timeOut)
-    return;
+    return 0;
   
   //}}}
 
@@ -2988,15 +2982,14 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     board.genMoves(node, turn);
 
   if (this.stats.timeOut)
-    return;
+    return 0;
 
   this.stats.nodes++;
 
   while (move = node.getNextMove()) {
 
-    if (node.base < BASE_LMR) {
+    if (node.base < BASE_LMR)
       numSlides++;
-    }
 
     //{{{  extend/reduce/prune
     
@@ -3018,7 +3011,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
         givesCheck = board.isKingAttacked(turn);
         board.unmakePseudoMove(move);
     
-        if (doLMP && !givesCheck && numSlides > depth*5) {
+        if (doLMP && !givesCheck && numSlides > depth*(5)) {
           continue;
         }
     
@@ -3060,7 +3053,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     if (nullWindow)
       score = -this.search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
 
-    if (!nullWindow || score > alpha)
+    if (!this.stats.timeOut && (!nullWindow || score > alpha))
       score = -this.search(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
 
     //{{{  unmake move
@@ -3073,7 +3066,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     //}}}
 
     if (this.stats.timeOut)
-      return;
+      return 0;
 
     if (score > bestScore) {
 
@@ -3137,9 +3130,8 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   if (node.ply > this.stats.selDepth)
     this.stats.selDepth = node.ply;
   
-  if (!node.childNode) {
+  if (!node.childNode)
     return this.board.evaluate(turn);
-  }
   
   //}}}
 
@@ -3156,9 +3148,8 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
   var score = board.ttGet(node, 0, alpha, beta);  // sets/clears node.hashMove and node.hashEval.
 
-  if (score != TTSCORE_UNKNOWN) {
+  if (score != TTSCORE_UNKNOWN)
     return score;
-  }
 
   if (depth > -2) {
     var inCheck = board.isKingAttacked(nextTurn);
@@ -3245,6 +3236,9 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
     
     //}}}
 
+    if (this.stats.timeOut)
+      return 0;
+
     if (score > alpha) {
       if (score >= beta) {
         board.ttPut(TT_BETA, 0, beta, 0, node.ply, alpha, beta, ev);
@@ -3260,10 +3254,8 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   // if not in check and numLegalMoves is only needed if in check.
   //
   
-  if (inCheck && numLegalMoves == 0) {
-  
+  if (inCheck && numLegalMoves == 0)
      return -MATE + node.ply;
-  }
   
   //}}}
 
@@ -3339,8 +3331,6 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
     
     //}}}
 
-    //board.makeMoveB(node);
-
     numLegalMoves++;
 
     var numNodes = this.perftSearch(node.childNode, depth-1, nextTurn);
@@ -3352,7 +3342,6 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
     board.unmakeMove(node,move);
     
     node.uncacheA();
-    //node.uncacheB();
     
     //}}}
 
@@ -3566,7 +3555,7 @@ lozBoard.prototype.init = function () {
 
 lozBoard.prototype.position = function () {
 
-  var spec = lozza.uci.spec;
+  const spec = lozza.uci.spec;
 
   //{{{  board turn
   
@@ -3584,7 +3573,7 @@ lozBoard.prototype.position = function () {
   
   this.rights = 0;
   
-  for (var i=0; i < spec.rights.length; i++) {
+  for (let i=0; i < spec.rights.length; i++) {
   
     var ch = spec.rights.charAt(i);
   
@@ -3608,7 +3597,7 @@ lozBoard.prototype.position = function () {
   var nw = 0;
   var nb = 0;
   
-  for (var j=0; j < spec.board.length; j++) {
+  for (let j=0; j < spec.board.length; j++) {
   
     var ch  = spec.board.charAt(j);
     var chn = parseInt(ch);
@@ -3631,7 +3620,6 @@ lozBoard.prototype.position = function () {
           nw++;
           this.wCounts[piece]++;
           this.wCount++;
-          //this.netAdd(obj,sq);
         }
   
         else {
@@ -3641,7 +3629,6 @@ lozBoard.prototype.position = function () {
           nb++;
           this.bCounts[piece]++;
           this.bCount++;
-          //this.netAdd(obj,sq);
         }
   
         this.loHash ^= this.loPieces[col>>>3][piece-1][sq];
@@ -3655,7 +3642,7 @@ lozBoard.prototype.position = function () {
   
     else {
   
-      for (var k=0; k < chn; k++) {
+      for (let k=0; k < chn; k++) {
         this.b[sq] = NULL;
         sq++;
       }
@@ -3677,7 +3664,7 @@ lozBoard.prototype.position = function () {
 
   this.compact();
 
-  for (var i=0; i < spec.moves.length; i++) {
+  for (let i=0; i < spec.moves.length; i++) {
     if (!this.playMove(spec.moves[i]))
       return 0;
   }
@@ -3685,10 +3672,10 @@ lozBoard.prototype.position = function () {
   this.compact();
   this.netUpdate();
 
-  for (var i=0; i < 7; i++)
+  for (let i=0; i < 7; i++)
     this.wHistory[i].fill(0);
 
-  for (var i=0; i < 7; i++)
+  for (let i=0; i < 7; i++)
     this.bHistory[i].fill(0);
 
   return 1;
@@ -3696,6 +3683,10 @@ lozBoard.prototype.position = function () {
 
 //}}}
 //{{{  .playMove
+//
+// Assumes the accumulator will be computed with .netUpdate
+// after all the moves have been played.
+//
 
 lozBoard.prototype.playMove = function (moveStr) {
 
@@ -3746,7 +3737,7 @@ lozBoard.prototype.compact = function () {
   
   var v = [];
   
-  for (var i=0; i<16; i++) {
+  for (let i=0; i<16; i++) {
     if (this.wList[i])
       v.push(this.wList[i]);
   }
@@ -3755,7 +3746,7 @@ lozBoard.prototype.compact = function () {
     return lozza.board.b[b] - lozza.board.b[a];
   });
   
-  for (var i=0; i<16; i++) {
+  for (let i=0; i<16; i++) {
     if (i < v.length) {
       this.wList[i] = v[i];
       this.z[v[i]]  = i;
@@ -3765,7 +3756,7 @@ lozBoard.prototype.compact = function () {
   }
   
   this.firstWP = 0;
-  for (var i=0; i<16; i++) {
+  for (let i=0; i<16; i++) {
     if (this.b[this.wList[i]] == W_PAWN) {
       this.firstWP = i;
       break;
@@ -3778,7 +3769,7 @@ lozBoard.prototype.compact = function () {
   
   var v = [];
   
-  for (var i=0; i<16; i++) {
+  for (let i=0; i<16; i++) {
     if (this.bList[i])
       v.push(this.bList[i]);
   }
@@ -3787,7 +3778,7 @@ lozBoard.prototype.compact = function () {
     return lozza.board.b[b] - lozza.board.b[a];
   });
   
-  for (var i=0; i<16; i++) {
+  for (let i=0; i<16; i++) {
     if (i < v.length) {
       this.bList[i] = v[i];
       this.z[v[i]]  = i;
@@ -3797,13 +3788,12 @@ lozBoard.prototype.compact = function () {
   }
   
   this.firstBP = 0;
-  for (var i=0; i<16; i++) {
+  for (let i=0; i<16; i++) {
     if (this.b[this.bList[i]] == B_PAWN) {
       this.firstBP = i;
       break;
     }
   }
-  
   
   //}}}
 }
@@ -4545,16 +4535,16 @@ lozBoard.prototype.genQMovesTo = function(node, turn, sq) {
 
 lozBoard.prototype.makeMoveA = function (node,move) {
 
-  var b = this.b;
-  var z = this.z;
+  const b = this.b;
+  const z = this.z;
 
-  var fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  var to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  var toObj   = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
-  var frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-  var frPiece = frObj & PIECE_MASK;
-  var frCol   = frObj & COLOR_MASK;
-  var frColI  = frCol >>> 3;
+  const fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  const to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  const toObj   = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
+  const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const frPiece = frObj & PIECE_MASK;
+  const frCol   = frObj & COLOR_MASK;
+  const frColI  = frCol >>> 3;
 
   //{{{  slide piece
   
@@ -4600,9 +4590,9 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   
   if (toObj) {
   
-    var toPiece = toObj & PIECE_MASK;
-    var toCol   = toObj & COLOR_MASK;
-    var toColI  = toCol >>> 3;
+    const toPiece = toObj & PIECE_MASK;
+    const toCol   = toObj & COLOR_MASK;
+    const toColI  = toCol >>> 3;
   
     this.loHash ^= this.loPieces[toColI][toPiece-1][to];
     this.hiHash ^= this.hiPieces[toColI][toPiece-1][to];
@@ -4647,7 +4637,7 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
     if (frCol == WHITE) {
     
-      var ep = to + 12;
+      const ep = to + 12;
     
       if (move & MOVE_EPMAKE_MASK) {
     
@@ -4666,8 +4656,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.netPrepare(this.netEpCapture,frObj,fr,to,B_PAWN,ep);
     
-        //this.netDel(B_PAWN,ep);
-    
         b[ep]    = NULL;
         node.epZ = z[ep];
         z[ep]    = NO_Z;
@@ -4683,8 +4671,8 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
       else if (move & MOVE_PROMOTE_MASK) {
     
-        var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
-        b[to]   = WHITE | pro;
+        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        b[to]     = WHITE | pro;
     
         this.netPrepare(this.netPromote,W_PAWN,fr,to,toObj,pro|WHITE);
     
@@ -4738,7 +4726,7 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
     else {
     
-      var ep = to - 12;
+      const ep = to - 12;
     
       if (move & MOVE_EPMAKE_MASK) {
     
@@ -4772,8 +4760,8 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
       else if (move & MOVE_PROMOTE_MASK) {
     
-        var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
-        b[to]   = BLACK | pro;
+        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        b[to]     = BLACK | pro;
     
         this.netPrepare(this.netPromote,B_PAWN,fr,to,toObj,pro|BLACK);
     
@@ -4869,14 +4857,14 @@ lozBoard.prototype.makeMoveB = function (node) {
 
 lozBoard.prototype.unmakeMove = function (node,move) {
 
-  var b = this.b;
-  var z = this.z;
+  const b = this.b;
+  const z = this.z;
 
-  var fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  var to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  var toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
-  var frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-  var frCol = frObj & COLOR_MASK;
+  const fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  const to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  const toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const frCol = frObj & COLOR_MASK;
 
   b[fr] = frObj;
   b[to] = toObj;
@@ -4893,8 +4881,8 @@ lozBoard.prototype.unmakeMove = function (node,move) {
   
   if (toObj) {
   
-    var toPiece = toObj & PIECE_MASK;
-    var toCol   = toObj & COLOR_MASK;
+    const toPiece = toObj & PIECE_MASK;
+    const toCol   = toObj & COLOR_MASK;
   
     this.phase -= VPHASE[toPiece];
   
@@ -4922,7 +4910,7 @@ lozBoard.prototype.unmakeMove = function (node,move) {
     
     if ((frObj & COLOR_MASK) == WHITE) {
     
-      var ep = to + 12;
+      const ep = to + 12;
     
       if (move & MOVE_EPTAKE_MASK) {
     
@@ -4937,7 +4925,7 @@ lozBoard.prototype.unmakeMove = function (node,move) {
     
       else if (move & MOVE_PROMOTE_MASK) {
     
-        var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
     
         this.wCounts[PAWN]++;
         this.wCounts[pro]--;
@@ -4968,7 +4956,7 @@ lozBoard.prototype.unmakeMove = function (node,move) {
     
     else {
     
-      var ep = to - 12;
+      const ep = to - 12;
     
       if (move & MOVE_EPTAKE_MASK) {
     
@@ -4983,7 +4971,7 @@ lozBoard.prototype.unmakeMove = function (node,move) {
     
       else if (move & MOVE_PROMOTE_MASK) {
     
-        var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
     
         this.bCounts[PAWN]++;
         this.bCounts[pro]--;
@@ -5021,11 +5009,11 @@ lozBoard.prototype.unmakeMove = function (node,move) {
 
 lozBoard.prototype.makePseudoMove = function (move) {
 
-  var b = this.b;
+  const b = this.b;
 
-  var fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  var to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  var frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  const to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
 
   b[fr] = NULL;
   b[to] = frObj;
@@ -5036,11 +5024,11 @@ lozBoard.prototype.makePseudoMove = function (move) {
 
 lozBoard.prototype.unmakePseudoMove = function (move) {
 
-  var b = this.b;
+  const b = this.b;
 
-  var fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  var to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  var frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  const to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
 
   b[fr] = frObj;
   b[to] = NULL;
@@ -5059,7 +5047,8 @@ lozBoard.prototype.isKingAttacked = function(byCol) {
 
 lozBoard.prototype.isAttacked = function(to, byCol) {
 
-  var b  = this.b;
+  const b  = this.b;
+
   var fr = 0;
 
   //{{{  colour stuff
@@ -5082,8 +5071,8 @@ lozBoard.prototype.isAttacked = function(to, byCol) {
     var BQ = IS_BBQ;
   }
   
-  var knight = KNIGHT | byCol;
-  var king   = KING   | byCol;
+  const knight = KNIGHT | byCol;
+  const king   = KING   | byCol;
   
   //}}}
 
@@ -5192,19 +5181,19 @@ lozBoard.prototype.evaluate = function (turn) {
 
   //{{{  init
   
-  var numPieces = this.wCount + this.bCount;
+  const numPieces = this.wCount + this.bCount;
   
-  var wNumQueens  = this.wCounts[QUEEN];
-  var wNumRooks   = this.wCounts[ROOK];
-  var wNumBishops = this.wCounts[BISHOP];
-  var wNumKnights = this.wCounts[KNIGHT];
-  var wNumPawns   = this.wCounts[PAWN];
+  const wNumQueens  = this.wCounts[QUEEN];
+  const wNumRooks   = this.wCounts[ROOK];
+  const wNumBishops = this.wCounts[BISHOP];
+  const wNumKnights = this.wCounts[KNIGHT];
+  const wNumPawns   = this.wCounts[PAWN];
   
-  var bNumQueens  = this.bCounts[QUEEN];
-  var bNumRooks   = this.bCounts[ROOK];
-  var bNumBishops = this.bCounts[BISHOP];
-  var bNumKnights = this.bCounts[KNIGHT];
-  var bNumPawns   = this.bCounts[PAWN];
+  const bNumQueens  = this.bCounts[QUEEN];
+  const bNumRooks   = this.bCounts[ROOK];
+  const bNumBishops = this.bCounts[BISHOP];
+  const bNumKnights = this.bCounts[KNIGHT];
+  const bNumPawns   = this.bCounts[PAWN];
   
   //}}}
   //{{{  draw?
@@ -5257,13 +5246,11 @@ lozBoard.prototype.evaluate = function (turn) {
 
 lozBoard.prototype.getEval = function (ev,node,turn) {
 
-  if (ev != INFINITY) {
-    return ev;                   // We've already got it.
-  }
+  if (ev != INFINITY)
+    return ev;                     // We've already got it.
 
-  if (node.hashEval != INFINITY) {
+  if (node.hashEval != INFINITY)
     return node.hashEval;          // Use the TT value
-  }
 
   return this.evaluate(turn);      // Fallback on calulating it.
 }
@@ -5273,13 +5260,12 @@ lozBoard.prototype.getEval = function (ev,node,turn) {
 
 lozBoard.prototype.rand32 = function () {
 
-  var r = randoms[nextRandom];
+  const r = randoms[nextRandom];
 
   nextRandom++;
 
-  if (nextRandom == 4000) {
+  if (nextRandom == 4000)
     lozza.uci.send('info','run out of randoms');
-  }
 
   return r;
 }
@@ -5289,14 +5275,10 @@ lozBoard.prototype.rand32 = function () {
 
 lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta,ev) {
 
-  var idx = this.loHash & TTMASK;
+  const idx = this.loHash & TTMASK;
 
   if (depth == 0 && this.ttType[idx] != TT_EMPTY && this.ttDepth[idx] > 0)
     return;  // don't let qsearch tt entries overwrite search tt entries.
-
-  //if (this.ttType[idx] == TT_EXACT && this.loHash == this.ttLo[idx] && this.hiHash == this.ttHi[idx] && this.ttDepth[idx] > depth && this.ttScore[idx] > alpha && this.ttScore[idx] < beta) {
-    //return;
-  //}
 
   if (this.ttType[idx] == TT_EMPTY)
     this.hashUsed++;
@@ -5321,22 +5303,20 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta,ev) {
 
 lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
 
-  var idx   = this.loHash & TTMASK;
-  var type  = this.ttType[idx];
+  const idx   = this.loHash & TTMASK;
+  const type  = this.ttType[idx];
 
   node.hashMove = 0;
   node.hashEval = INFINITY;
 
-  if (type == TT_EMPTY) {
+  if (type == TT_EMPTY)
     return TTSCORE_UNKNOWN;
-  }
 
-  var lo = this.ttLo[idx];
-  var hi = this.ttHi[idx];
+  const lo = this.ttLo[idx];
+  const hi = this.ttHi[idx];
 
-  if (lo != this.loHash || hi != this.hiHash) {
+  if (lo != this.loHash || hi != this.hiHash)
     return TTSCORE_UNKNOWN;
-  }
 
   //
   // Set the hash move before the depth check
@@ -5346,9 +5326,8 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
   node.hashMove = this.ttMove[idx];
   node.hashEval = this.ttEval[idx];
 
-  if (this.ttDepth[idx] < depth) {
+  if (this.ttDepth[idx] < depth)
     return TTSCORE_UNKNOWN;
-  }
 
   var score = this.ttScore[idx];
 
@@ -5358,17 +5337,14 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
   else if (score >= MINMATE && score <= MATE)
     score -= node.ply;
 
-  if (type == TT_EXACT) {
+  if (type == TT_EXACT)
     return score;
-   }
 
-  if (type == TT_ALPHA && score <= alpha) {
+  if (type == TT_ALPHA && score <= alpha)
     return score;
-  }
 
-  if (type == TT_BETA && score >= beta) {
+  if (type == TT_BETA && score >= beta)
     return score;
-  }
 
   return TTSCORE_UNKNOWN;
 }
@@ -5378,7 +5354,7 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
 
 lozBoard.prototype.ttGetMove = function (node) {
 
-  var idx = this.loHash & TTMASK;
+  const idx = this.loHash & TTMASK;
 
   if (this.ttType[idx] != TT_EMPTY && this.ttLo[idx] == this.loHash && this.ttHi[idx] == this.hiHash)
     return this.ttMove[idx];
@@ -5391,11 +5367,10 @@ lozBoard.prototype.ttGetMove = function (node) {
 
 lozBoard.prototype.ttUpdateEval = function (ev) {
 
-  var idx = this.loHash & TTMASK;
+  const idx = this.loHash & TTMASK;
 
-  if (this.ttType[idx] != TT_EMPTY && this.ttLo[idx] == this.loHash && this.ttHi[idx] == this.hiHash) {
+  if (this.ttType[idx] != TT_EMPTY && this.ttLo[idx] == this.loHash && this.ttHi[idx] == this.hiHash)
     this.ttEval[idx] = ev;
-  }
 }
 
 //}}}
@@ -5712,50 +5687,27 @@ lozBoard.prototype.netReset = function () {
 
 //}}}
 //{{{  .netPrepare
+//
+//  Note the UE needed so it can be done after a legal move is confirmed.
+//
 
-lozBoard.prototype.netPrepare = function (func,a,b,c,d,e,f) {
+lozBoard.prototype.netPrepare = function (ueFunc,ueA,ueB,ueC,ueD,ueE,ueF) {
 
-  this.ueFunc = func;
+  this.ueFunc = ueFunc;
 
-  this.ueA = a;
-  this.ueB = b;
-  this.ueC = c;
-  this.ueD = d;
-  this.ueE = e;
-  this.ueF = f;
+  this.ueA = ueA;
+  this.ueB = ueB;
+  this.ueC = ueC;
+  this.ueD = ueD;
+  this.ueE = ueE;
+  this.ueF = ueF;
 
-}
-
-//}}}
-//{{{  .netAdd
-
-lozBoard.prototype.netAdd = function (obj, sq) {
-
-  const i   = inputIndex(obj, sq);
-  const h1i = net_h1_w[i];
-
-  for (let h=0; h < net_h1_size; h+=1) {
-    this.net_h1_a[h] += h1i[h];
-  }
-}
-
-//}}}
-//{{{  .netDel
-
-lozBoard.prototype.netDel = function (obj, sq) {
-
-  const i   = inputIndex(obj, sq);
-  const h1i = net_h1_w[i];
-
-  for (let h=0; h < net_h1_size; h+=1) {
-    this.net_h1_a[h] -= h1i[h];
-  }
 }
 
 //}}}
 //{{{  .netMove
 
-lozBoard.prototype.netMove = function (frObj,fr,to) {
+lozBoard.prototype.netMove = function (frObj,fr,to,dx,ex,fx) {
 
   const i1 = inputIndex(frObj, fr);
   const i2 = inputIndex(frObj, to);
@@ -5771,7 +5723,7 @@ lozBoard.prototype.netMove = function (frObj,fr,to) {
 //}}}
 //{{{  .netCapture
 
-lozBoard.prototype.netCapture = function (frObj,fr,toObj,to) {
+lozBoard.prototype.netCapture = function (frObj,fr,toObj,to,ex,fx) {
 
   const i1 = inputIndex(frObj, fr);
   const i2 = inputIndex(toObj, to);
@@ -5781,15 +5733,22 @@ lozBoard.prototype.netCapture = function (frObj,fr,toObj,to) {
   const h2 = net_h1_w[i2];
   const h3 = net_h1_w[i3];
 
-  for (let h=0; h < net_h1_size; h+=1) {
-    this.net_h1_a[h] += h3[h] - h2[h] - h1[h];
+  for (let h=0; h < net_h1_size; h+=8) {
+    this.net_h1_a[h+0] += h3[h+0] - h2[h+0] - h1[h+0];
+    this.net_h1_a[h+1] += h3[h+1] - h2[h+1] - h1[h+1];
+    this.net_h1_a[h+2] += h3[h+2] - h2[h+2] - h1[h+2];
+    this.net_h1_a[h+3] += h3[h+3] - h2[h+3] - h1[h+3];
+    this.net_h1_a[h+4] += h3[h+4] - h2[h+4] - h1[h+4];
+    this.net_h1_a[h+5] += h3[h+5] - h2[h+5] - h1[h+5];
+    this.net_h1_a[h+6] += h3[h+6] - h2[h+6] - h1[h+6];
+    this.net_h1_a[h+7] += h3[h+7] - h2[h+7] - h1[h+7];
   }
 }
 
 //}}}
 //{{{  .netPromote
 
-lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promoteObj) {
+lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promoteObj,fx) {
 
   const i1 = inputIndex(pawnObj,    pawnFr);
   const i2 = inputIndex(captureObj, pawnTo);
@@ -5807,7 +5766,7 @@ lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promo
 //}}}
 //{{{  .netEpCapture
 
-lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj,ep) {
+lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj,ep,fx) {
 
   const i1 = inputIndex(pawnObj, pawnFr);
   const i2 = inputIndex(pawnObj, pawnTo);
@@ -5966,14 +5925,15 @@ lozNode.prototype.init = function() {
 
 lozNode.prototype.cache = function() {
 
-  var board = this.board;
+  const board = this.board;
 
-  this.C_rights       = board.rights;
-  this.C_ep           = board.ep;
-  this.C_repLo        = board.repLo;
-  this.C_repHi        = board.repHi;
-  this.C_loHash       = board.loHash;
-  this.C_hiHash       = board.hiHash;
+  this.C_rights = board.rights;
+  this.C_ep     = board.ep;
+  this.C_repLo  = board.repLo;
+  this.C_repHi  = board.repHi;
+  this.C_loHash = board.loHash;
+  this.C_hiHash = board.hiHash;
+
   this.net_h1_a.set(board.net_h1_a);
 }
 
@@ -5982,7 +5942,7 @@ lozNode.prototype.cache = function() {
 
 lozNode.prototype.uncacheA = function() {
 
-  var board = this.board;
+  const board = this.board;
 
   board.rights = this.C_rights;
   board.ep     = this.C_ep;
@@ -5998,7 +5958,7 @@ lozNode.prototype.uncacheA = function() {
 
 lozNode.prototype.uncacheB = function() {
 
-  var board = this.board;
+  const board = this.board;
 
   board.net_h1_a.set(this.net_h1_a);
 
@@ -6040,8 +6000,7 @@ lozNode.prototype.getNextMove = function () {
 lozNode.prototype.addSlide = function (move) {
 
   const m = moveClean(move);
-
-  var n = this.numMoves++;
+  const n = this.numMoves++;
 
   this.moves[n] = move;
 
@@ -6072,11 +6031,11 @@ lozNode.prototype.addSlide = function (move) {
 
 lozNode.prototype.slideBase = function (move) {
 
-    var to      = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-    var fr      = (move & MOVE_FR_MASK)    >>> MOVE_FR_BITS;
-    var frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-    var frPiece = frObj & PIECE_MASK;
-    var frCol   = frObj & COLOR_MASK;
+    const to      = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+    const fr      = (move & MOVE_FR_MASK)    >>> MOVE_FR_BITS;
+    const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+    const frPiece = frObj & PIECE_MASK;
+    const frCol   = frObj & COLOR_MASK;
 
     if (frCol == WHITE) {
       var pst = WM_PST[frPiece];
@@ -6100,8 +6059,7 @@ lozNode.prototype.slideBase = function (move) {
 lozNode.prototype.addCastle = function (move) {
 
   const m = moveClean(move);
-
-  var n = this.numMoves++;
+  const n = this.numMoves++;
 
   this.moves[n] = move;
 
@@ -6133,8 +6091,7 @@ lozNode.prototype.addCastle = function (move) {
 lozNode.prototype.addCapture = function (move) {
 
   const m = moveClean(move);
-
-  var n = this.numMoves++;
+  const n = this.numMoves++;
 
   this.moves[n] = move;
 
@@ -6219,8 +6176,7 @@ lozNode.prototype.addPromotion = function (move) {
 lozNode.prototype.addEPTake = function (move) {
 
   const m = moveClean(move);
-
-  var n = this.numMoves++;
+  const n = this.numMoves++;
 
   this.moves[n] = move | MOVE_EPTAKE_MASK;
 
@@ -6235,19 +6191,23 @@ lozNode.prototype.addEPTake = function (move) {
 
 lozNode.prototype.addQMove = function (move) {
 
-  var n = this.numMoves++;
+  const m = moveClean(move);
+  const n = this.numMoves++;
 
   this.moves[n] = move;
 
-  if (move & MOVE_PROMOTE_MASK)
+  if (m == this.hashMove)
+    this.ranks[n] = BASE_HASH;
+
+  else if (move & MOVE_PROMOTE_MASK)
     this.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS); // QRBN.
 
   else if (move & MOVE_EPTAKE_MASK)
     this.ranks[n] = BASE_EPTAKES;
 
   else {
-    var victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    var attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
 
     if (victim > attack)
       this.ranks[n] = BASE_GOODTAKES + victim * 64 - attack;
@@ -6316,7 +6276,7 @@ lozNode.prototype.addKiller = function (score, move) {
     return;
   }
 
-  var tmp      = this.killer1;
+  const tmp    = this.killer1;
   this.killer1 = move;
   this.killer2 = tmp;
 }
@@ -6838,9 +6798,10 @@ onmessage = function(e) {
       
         var fen = BENCHFENS[i];
       
-        SILENT = 0;
-        uci.send(fen);
-        SILENT = 1;
+        process.stdout.write(i.toString() + '\r');
+        //SILENT = 0;
+        //uci.send(fen);
+        //SILENT = 1;
       
         docmd('ucinewgame');
         docmd('position fen ' + fen);
