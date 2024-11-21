@@ -2,13 +2,14 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD      = "3.12";
+var BUILD      = "3.13";
 var SILENT     = 0;
 var RANDOMEVAL = 0;
 
 //{{{  history
 /*
 
+3.13 21/11/24 Move futility alpha test to move loop.
 3.12 17/11/24 Use hash move in q search.
 3.11 07/11/24 Optmise deferral of h1 accumulator update a bit more.
 3.10 06/11/24 Fix some web stuff. Add improving indicator.
@@ -315,6 +316,19 @@ var COORDS = ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', 
 
 var NAMES    = ['-','P','N','B','R','Q','K','-'];
 var PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move.
+
+const CENTRE = [0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+                0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+                0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+                0, 0, 2, 6,  8,  10, 10, 8,  6,  2, 0, 0,
+                0, 0, 3, 8,  15, 18, 18, 15, 8,  3, 0, 0,
+                0, 0, 4, 10, 18, 28, 28, 18, 10, 4, 0, 0,
+                0, 0, 4, 10, 18, 28, 28, 19, 10, 4, 0, 0,
+                0, 0, 3, 8,  15, 18, 18, 15, 8,  3, 0, 0,
+                0, 0, 2, 6,  8,  10, 10, 8,  6,  2, 0, 0,
+                0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+                0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+                0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0];
 
 var RANK = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2903,7 +2917,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   
   R = 3;
   
-  if (doBeta && depth > 2 && ev > (beta - improving * 0)) {
+  if (doBeta && depth > 2 && ev > (beta - improving * 0)) {  // hack
   
     board.loHash ^= board.loEP[board.ep];
     board.hiHash ^= board.hiEP[board.ep];
@@ -2946,7 +2960,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   var numSlides      = 0;
   var givesCheck     = INCHECK_UNKNOWN;
   var keeper         = false;
-  var doFutility     = !inCheck && depth <= 4 && (ev + depth * 120) < alpha && !lonePawns;
+  var doFutility     = !inCheck && depth <= 4 && !lonePawns;
   var doLMR          = !inCheck && depth >= 3;
   var doLMP          = !pvNode && !inCheck && depth <= 2 && !lonePawns;
   var doIID          = !node.hashMove && pvNode && depth > 3;
@@ -3015,7 +3029,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
           continue;
         }
     
-        if (doFutility && !givesCheck) {
+        if (doFutility && (ev + depth * 120) < alpha && !givesCheck) {
           continue;
         }
     

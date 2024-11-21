@@ -11,17 +11,16 @@ const ACTI_SCRELU     = 4;
 
 //}}}
 
-const id_suffix       = '';                          // to manually modify the weights filename.
-const dataFiles       = ['data/datagen.filtered2'];  // list of files generated with filter.js.
+const id_suffix       = '';                         // to manually modify the weights filename.
+const dataFiles       = ['data/datagen.filtered'];  // list of files generated with filter.js.
 const acti            = ACTI_SRELU;
-const hiddenSize      = 96;
+const hiddenSize      = 136;
 const shuffle         = true;
 const batchSize       = 500;
 const learningRate    = 0.001;
 const interp          = 0.5;                        // must be same as in filter.js.
 const K               = 100;                        // must be same as in filter.js.
-const useL2Reg        = false;
-const useAdamW        = false;
+const flippy          = false;                      // additionally present flipped positions/lerps
 
 //{{{  config 2
 
@@ -33,8 +32,6 @@ const maxActiveInputs = 32;
 const beta1           = 0.9;
 const beta2           = 0.999;
 const epsilon         = 1e-7;
-const l2RegFactor     = 0.001;
-const weightDecay     = 0.01;
 
 //}}}
 //{{{  modules
@@ -50,6 +47,20 @@ const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) +
 console.log(id);
 console.log(dataFiles.toString());
 
+//{{{  flipIndex
+
+function flipIndex(index) {
+
+  const section = Math.floor(index / 64);
+  const square  = index % 64;
+
+  const flippedSquare  = square ^ 56;
+  const flippedSection = (section + 6) % 12;
+
+  return flippedSection * 64 + flippedSquare;
+}
+
+//}}}
 //{{{  myround
 
 function myround(x) {
@@ -105,6 +116,22 @@ async function* createLineStream(filenames) {
     });
     for await (const line of rl) {
       yield line;
+      if (flippy) {
+        //{{{  flip the line into line2
+        
+        let line2 = '';
+        
+        const parts = line.split(',');
+        
+        for (let i=0; i <= parts.length-2; i++) {
+          line2 += (i==0 ? '' : ',') + flipIndex(Number(parts[i]));
+        }
+        
+        line2 += ',' + -Number(parts[parts.length-1]);
+        
+        //}}}
+        yield line2;
+      }
     }
     rl.close();
   }
@@ -114,11 +141,7 @@ async function* createLineStream(filenames) {
 //{{{  optiName
 
 function optiName() {
-  if (useAdamW)
-    return "adamw";
-  else
-    return "adam";
-  end
+  return "adam";
 }
 
 //}}}
@@ -243,7 +266,6 @@ function saveModel(loss, params, epochs) {
   o += 'const net_batch_size  = '  + batchSize              + ';\r\n';
   o += 'const net_opt         = "' + opt                    + '";\r\n';
   o += 'const net_shuffle     = "' + shuffle                + '";\r\n';
-  o += 'const net_l2_reg      = '  + useL2Reg               + ';\r\n';
   o += 'const net_epochs      = '  + epochs                 + ';\r\n';
   o += 'const net_loss        = '  + loss                   + ';\r\n';
 
@@ -381,12 +403,6 @@ function updateParameters(params, grads, t) {
     const vCorrected = v[i] / (1 - Math.pow(beta1, t));
     const sCorrected = s[i] / (1 - Math.pow(beta2, t));
     let update = learningRate * vCorrected / (Math.sqrt(sCorrected) + epsilon);
-    if (useL2Reg) {
-      update -= l2RegFactor * param[i]; // Apply L2 regularization
-    }
-    if (useAdamW) {
-      param[i] -= learningRate * weightDecay * param[i]; // ADAMW weight decay
-    }
     return param[i] - update;
   };
 
