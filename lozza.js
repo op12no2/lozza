@@ -6973,7 +6973,6 @@ onmessage = function(e) {
       uci.send('interp', net_interp);
       uci.send('batch size', net_batch_size);
       uci.send('opt', net_opt);
-      uci.send('l2reg', net_l2_reg);
       uci.send('epochs', net_epochs);
       uci.send('loss', net_loss);
       

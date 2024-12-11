@@ -14,10 +14,10 @@ const fs = require('fs');
 const readline = require('readline');
 const path = require('path');
 
-const rawFiles = ['data/datagen.fen'];        // list of .fen files via datagen.js or same format.
-const filterFile = 'data/datagen.filtered2';  // file to write for trainer.js.
+const rawFiles = ['data/gen3a.fen'];       // list of .fen files via datagen.js or same format.
+const filterFile = 'data/gen3q.filtered';  // file to write for trainer.js.
 
-const interp = 0.75;
+const interp = 0.5;
 const K      = 100;
 
 const PART_BOARD      = 0;
@@ -29,15 +29,38 @@ const PART_PLY        = 5;
 const PART_SCORE      = 6;
 const PART_INCHECK    = 7;
 const PART_NOISY      = 8;
-const PART_WDL        = 9;
+const PART_FLIP       = 9;
+const PART_WDL        = 10;
 
-var indexes = [];
-var target = 0.0;
+var indexes = [];  // global for decodeLine
+var target = 0.0;  // global for decodeLine
+
 var o = '';
 var n = 0;
 
 fs.writeFileSync(filterFile,o);
 
+//{{{  skipP
+
+function skipP (parts) {
+
+  const noisy = parts[PART_NOISY].trim();
+  if (noisy == 'n')
+    return true;
+
+  const inCh  = parts[PART_INCHECK].trim();
+  if (inCh == 'c')
+    return true;
+
+  //const inCh  = parts[PART_FLIP].trim();
+  //if (inCh == 'f')
+  //  return true;
+
+
+  return false;
+}
+
+//}}}
 //{{{  sigmoid
 
 function sigmoid(x) {
@@ -145,22 +168,6 @@ function decodeLine(line) {
       return;
     }
   }
-}
-
-//}}}
-//{{{  skipP
-
-function skipP (parts) {
-
-  const noisy = parts[PART_NOISY].trim();
-  if (noisy == 'n')
-    return true;
-
-  const inCh  = parts[PART_INCHECK].trim();
-  if (inCh == 'c')
-    return true;
-
-  return false;
 }
 
 //}}}

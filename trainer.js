@@ -11,16 +11,15 @@ const ACTI_SCRELU     = 4;
 
 //}}}
 
-const id_suffix       = '';                         // to manually modify the weights filename.
-const dataFiles       = ['data/datagen.filtered'];  // list of files generated with filter.js.
+const id_suffix       = '';                       // to manually modify the weights filename.
+const dataFiles       = ['data/gen3a.filtered'];  // list of files generated with filter.js.
 const acti            = ACTI_SRELU;
-const hiddenSize      = 136;
+const hiddenSize      = 128;
 const shuffle         = true;
 const batchSize       = 500;
 const learningRate    = 0.001;
-const interp          = 0.5;                        // must be same as in filter.js.
-const K               = 100;                        // must be same as in filter.js.
-const flippy          = false;                      // additionally present flipped positions/lerps
+const interp          = 0.5;    // for weights file only - must be same as in filter.js.
+const K               = 100;    // for weights file only - must be same as in filter.js.
 
 //{{{  config 2
 
@@ -116,22 +115,6 @@ async function* createLineStream(filenames) {
     });
     for await (const line of rl) {
       yield line;
-      if (flippy) {
-        //{{{  flip the line into line2
-        
-        let line2 = '';
-        
-        const parts = line.split(',');
-        
-        for (let i=0; i <= parts.length-2; i++) {
-          line2 += (i==0 ? '' : ',') + flipIndex(Number(parts[i]));
-        }
-        
-        line2 += ',' + -Number(parts[parts.length-1]);
-        
-        //}}}
-        yield line2;
-      }
     }
     rl.close();
   }
