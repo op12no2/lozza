@@ -7204,7 +7204,7 @@ for (let g=0; g < gamesLimit; g++) {
     const noisy   = moveIsNoisy(move);
     const fen     = lozza.board.fen(lozza.board.turn);
     const score   = (turn == BLACK ? -lozza.stats.bestScore : lozza.stats.bestScore);
-    const attrib  = (inCheck ? ' c' : ' -') + (noisy ? ' n' : ' -');
+    const attrib  = (inCheck ? 'c' : '-') + ' ' + (noisy ? 'n' : '-');
   
     if (ply > reportLimit) {
       fens.push(fen);

@@ -15,7 +15,7 @@ const readline = require('readline');
 const path = require('path');
 
 const rawFiles = ['data/gen3a.fen'];       // list of .fen files via datagen.js or same format.
-const filterFile = 'data/gen3q.filtered';  // file to write for trainer.js.
+const filterFile = 'data/gen3a.filtered';  // file to write for trainer.js.
 
 const interp = 0.5;
 const K      = 100;
@@ -45,17 +45,34 @@ fs.writeFileSync(filterFile,o);
 function skipP (parts) {
 
   const noisy = parts[PART_NOISY].trim();
+
+  if (noisy != '-' && noisy != 'n') {
+    console.log('noisy',noisy);
+    process.exit();
+  }
+
   if (noisy == 'n')
     return true;
 
-  const inCh  = parts[PART_INCHECK].trim();
+  const inCh = parts[PART_INCHECK].trim();
+
+  if (inCh != '-' && inCh != 'c') {
+    console.log('inCh',inCh);
+    process.exit();
+  }
+
   if (inCh == 'c')
     return true;
 
-  //const inCh  = parts[PART_FLIP].trim();
-  //if (inCh == 'f')
+  //const flip = parts[PART_FLIP].trim();
+  //
+  //if (flip != '-' && flip != 'f') {
+  //  console.log('flip',flip);
+  //  process.exit();
+  //}
+  //
+  //if (flip == 'f')
   //  return true;
-
 
   return false;
 }
@@ -109,10 +126,6 @@ function decodeLine(line) {
 
   const parts = line.split(' ');
 
-  const board = parts[PART_BOARD].trim();
-  const score = parseFloat(parts[PART_SCORE].trim());
-  const wdl   = parseFloat(parts[PART_WDL].trim());
-
   indexes = [];
   target = 0;
 
@@ -120,6 +133,15 @@ function decodeLine(line) {
   var sq = 0;
 
   if (!skipP(parts)) {
+
+    const board = parts[PART_BOARD].trim();
+    const score = parseFloat(parts[PART_SCORE].trim());
+    const wdl   = parseFloat(parts[PART_WDL].trim());
+
+    if (wdl != 0.0 && wdl != 1.0 && wdl != 0.5) {
+      console.log('wdl',wdl);
+      process.exit();
+    }
 
     //{{{  decode board
     
@@ -156,6 +178,11 @@ function decodeLine(line) {
 
     target = lerp(score,wdl,interp);
 
+    if (Math.abs(target) > 1.0 || Math.abs(target) < 0.0) {
+      console.log('target',target);
+      process.exit();
+    }
+
     if (indexes.length > 32) {
       console.log('too many pieces - skipping',indexes.length, line);
       indexes = [];
@@ -182,7 +209,8 @@ async function* createLineStream() {
     });
     for await (const line of rl) {
       const cleanLine = line.replace(/[\0\r\n]/g, '');
-      yield cleanLine;
+      const hackLine  = cleanLine.replace(/  /g, ' ');
+      yield hackLine;
     }
     rl.close();
   }
