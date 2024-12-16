@@ -97,7 +97,7 @@ Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```traine
 
 ## Acknowledgements
 
-https//nodejs.org - ```Node.js```
+https://nodejs.org - ```Node.js```
 
 https://www.chessprogramming.org/Main_Page - Chess programming wiki.
 
