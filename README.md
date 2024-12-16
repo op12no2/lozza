@@ -71,7 +71,7 @@ Commands can also be given on invocation, for example:-
 ```
 > node lozza ucinewgame bench "position startpos" board "go movetime 100" quit
 ```
-The UCI protocol is not fully implemented; see the ```lozUCI``` class in ```lozza.js``` fro details.
+The UCI protocol is not fully implemented; see the ```lozUCI``` class in ```lozza.js``` for details.
 
 Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
 
