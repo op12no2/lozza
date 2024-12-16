@@ -1,4 +1,4 @@
-If you are testing Lozza please use the latest release and not the coalface from the repo; which is usually broken in some way; thanks.
+If you are testing Lozza please use the latest release and not the repo coalface, which is usually broken in some way; thanks.
 
 # Lozza
 
