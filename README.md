@@ -8,6 +8,10 @@ https://op12no2.github.io/lozza-ui
 
 Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via ```Node.js``` and on pretty-much any platform (see below). Note however that Lozza is relatively slow compared to compiled engines of a similar design, which also makes her relatively weak. 
 
+## Project constraints
+
+Hand-coded (as opposed to Emscripten) Javascript for everything including training and tuning. Self data generation, with the exception of the first dataset which was ```lichess-big3-resolved.epd + quiet_labeled.epd```. 
+
 ## Basic use in a browser
 
 All you need is ```lozza.js``` from the latest release.  
@@ -67,6 +71,7 @@ Commands can also be given on invocation, for example:-
 ```
 > node lozza ucinewgame bench "position startpos" board "go movetime 100" quit
 ```
+The UCI protocol is not fully implemented; see the ```lozUCI``` class in ```lozza.js``` fro details.
 
 Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
 
@@ -80,6 +85,8 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
 
 ```et``` tests the UE part of NNUE.
 
+```perft``` does a PERFT on the current position.
+
 ```pt``` performs a sequence of PERFT tests. 
 
 ```net``` displays network properties.
@@ -90,13 +97,15 @@ Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```traine
 
 ## Acknowledgements
 
+https//nodejs.org - ```Node.js```
+
 https://www.chessprogramming.org/Main_Page - Chess programming wiki.
 
 https://computerchess.org.uk/ccrl/4040 - CCRL rating list.
 
-https://www.wbec-ridderkerk.nl/html/UCIProtocol.html - UCI protocol.
+https://backscattering.de/chess/uci - UCI protocol.
 
-https://discord.gg/uM8J3x46 - Engine Programming Discord - thanks for the help with NNUE/datagen concepts.
+https://discord.gg/uM8J3x46 - Engine Programming Discord.
 
 https://talkchess.com - Talkchess forums.
 
