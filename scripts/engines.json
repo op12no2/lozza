@@ -1,0 +1,23 @@
+[
+{
+  "name": "coal",
+  "command": "/home/xyzzy/.nvm/versions/node/v22.3.0/bin/node /home/xyzzy/lozza/lozza.js",
+  "protocol": "uci"
+},
+{
+  "name": "cand",
+  "command": "/home/xyzzy/.nvm/versions/node/v22.3.0/bin/node /home/xyzzy/lozza/lozzacand.js",
+  "protocol": "uci"
+},
+{
+  "name": "rel",
+  "command": "/home/xyzzy/.nvm/versions/node/v22.3.0/bin/node /home/xyzzy/lozza/lozzarelease.js",
+  "protocol": "uci"
+},
+{
+  "name": "tt",
+  "command": "/home/xyzzy/.nvm/versions/node/v22.3.0/bin/node /home/xyzzy/lozza/tt51.js",
+  "protocol": "uci"
+}
+]
+

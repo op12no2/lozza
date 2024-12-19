@@ -1,0 +1,55 @@
+
+--{{{  try
+
+take pv out of tt
+train 2 nets with queens and without
+root sort
+use adjacent not dist
+rank killers before captures
+try killers in qs (bad takes)
+add centre to ranking to stop lots of same scores e.g. NxP
+dont use rank vec, use piece itself
+decrease depth not iid
+try ignore beta when beta pruning
+ditto alpha with alpha pruning and futility
+quicksee in slide ranking
+output buckets based on game phase or numpieces (available) or mid/end game etc
+corrhist
+conthist
+improving
+lmp - tell move iterator - quicker
+test removing or simplifying lonepawns (do in position)
+test not using incheck in qs
+remove king from isattached etc - dont capture king - catsle conditionals a la cwtch - tried but not working
+training - use flipped positions
+try pesto move rank psts
+tempo
+move drawn stuff from eval into isdraw
+swapping move list psts for move ranking based on queens on board or not - poss in position
+full width window searches based on movetime not constant - e.g. log?
+push harry
+
+--}}}
+
+'lozza.js'
+'datagen.js'
+'filter.js'
+'trainer.js'
+
+'lozzacand.js'
+'lozzarepo.js'    // last repo update
+'lozza3.js'       // release/lozza.js with ^23 TT + n command + bench 12 deep
+
+'data/weights_srelu_128_5_10.js'
+
+'release\lozza.js'
+'release\readme.txt'
+
+------------------------------------------
+
+'tt51.js'
+
+'deadends3.js'
+'deadends2.js'
+'deadends1.js'
+
