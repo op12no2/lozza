@@ -44,9 +44,10 @@ const { exec }        = require('child_process');
 //}}}
 
 const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + id_suffix;
+
 console.log(id);
-console.log(dataFiles.toString());
-console.log(validationFile);
+console.log(id, 'data files', dataFiles.toString());
+console.log(id, 'validation file', validationFile);
 
 //{{{  myround
 
@@ -471,7 +472,7 @@ async function train(filenames) {
           batchTargets = [];
         
           if (batchCount % reportRate === 0) {
-            process.stdout.write(`${id} Epoch ${epoch + 1}, Batch ${batchCount}, Mean Batch Loss: ${totalLoss / batchCount}\r`);
+            process.stdout.write(`${id} epoch ${epoch + 1} batch ${batchCount} bloss ${totalLoss / batchCount}\r`);
           }
         }
         
@@ -479,21 +480,13 @@ async function train(filenames) {
       }
     }
     
-    console.log();
-    
     // Save model after training epoch
     saveModel(totalLoss/batchCount, params, epoch + 1);
     
     // Validate model
     try {
       const validationLoss = await validateModel(params);
-      console.log(id, 'Epoch', epoch+1, `Validation Loss: ${validationLoss}`);
-    
-      // Check for potential overfitting
-      if (validationLoss > prevValidationLoss * 1.1) {
-        console.warn(`WARNING: Validation loss increased significantly. Potential overfitting detected.`);
-      }
-    
+      console.log(id, 'epoch', epoch+1, 'batch', batchCount, 'bloss', totalLoss/batchCount, 'vloss', validationLoss, 'overfit', validationLoss/prevValidationLoss);
       prevValidationLoss = validationLoss;
     } catch (error) {
       console.error('Validation failed:', error);
