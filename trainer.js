@@ -11,8 +11,9 @@ const ACTI_SCRELU     = 4;
 
 //}}}
 
-const id_suffix       = '';                       // to manually modify the weights filename.
-const dataFiles       = ['data/gen3a.filtered'];  // list of files generated with filter.js.
+const id_suffix       = 'v';                                            // to manually modify the weights filename.
+const dataFiles       = ['data/gen3a.filtered','data/gen3b.filtered'];  // list of files generated with filter.js.
+const validationFile = 'data/gen3v.filtered';
 const acti            = ACTI_SRELU;
 const hiddenSize      = 128;
 const shuffle         = true;
@@ -45,21 +46,8 @@ const { exec }        = require('child_process');
 const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + id_suffix;
 console.log(id);
 console.log(dataFiles.toString());
+console.log(validationFile);
 
-//{{{  flipIndex
-
-function flipIndex(index) {
-
-  const section = Math.floor(index / 64);
-  const square  = index % 64;
-
-  const flippedSquare  = square ^ 56;
-  const flippedSection = (section + 6) % 12;
-
-  return flippedSection * 64 + flippedSquare;
-}
-
-//}}}
 //{{{  myround
 
 function myround(x) {
@@ -438,6 +426,7 @@ async function train(filenames) {
   //}}}
 
   let params = initializeParameters();
+  let prevValidationLoss = Infinity;
 
   saveModel(0, params, 0);
 
@@ -492,7 +481,23 @@ async function train(filenames) {
     
     console.log();
     
+    // Save model after training epoch
     saveModel(totalLoss/batchCount, params, epoch + 1);
+    
+    // Validate model
+    try {
+      const validationLoss = await validateModel(params);
+      console.log(id, 'Epoch', epoch+1, `Validation Loss: ${validationLoss}`);
+    
+      // Check for potential overfitting
+      if (validationLoss > prevValidationLoss * 1.1) {
+        console.warn(`WARNING: Validation loss increased significantly. Potential overfitting detected.`);
+      }
+    
+      prevValidationLoss = validationLoss;
+    } catch (error) {
+      console.error('Validation failed:', error);
+    }
     
     if (shuffle)
       await shuffleAllFiles(dataFiles);
@@ -501,6 +506,46 @@ async function train(filenames) {
   }
 
   return params;
+}
+
+//}}}
+//{{{  validateModel
+
+function validateModel(params) {
+  return new Promise((resolve, reject) => {
+    const fileStream = fs.createReadStream(validationFile);
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
+    });
+
+    let totalLoss = 0;
+    let sampleCount = 0;
+
+    rl.on('line', (line) => {
+      const {activeIndices, target} = decodeLine(line);
+
+      if (activeIndices.length) {
+        const forward = forwardPropagation(
+          [activeIndices],
+          params
+        );
+
+        const loss = Math.pow(forward.A2[0] - target[0], 2);
+        totalLoss += loss;
+        sampleCount++;
+      }
+    });
+
+    rl.on('close', () => {
+      const validationLoss = totalLoss / sampleCount;
+      resolve(validationLoss);
+    });
+
+    rl.on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
 //}}}
