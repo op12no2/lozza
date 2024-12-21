@@ -14,8 +14,8 @@ const fs = require('fs');
 const readline = require('readline');
 const path = require('path');
 
-const rawFiles = ['data/gen3b.fen'];       // list of .fen files via datagen.js or same format.
-const filterFile = 'data/gen3b.filtered';  // file to write for trainer.js.
+const rawFiles = ['data/gen3a.fen'];       // list of .fen files via datagen.js or same format.
+const filterFile = 'data/gen3a.filtered';  // file to write for trainer.js.
 
 const interp = 0.5;
 const K      = 100;
