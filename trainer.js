@@ -13,14 +13,13 @@ const ACTI_SCRELU     = 4;
 
 const id_suffix       = 'v';                                            // to manually modify the weights filename.
 const dataFiles       = ['data/gen3a.filtered','data/gen3b.filtered'];  // list of files generated with filter.js.
-const validationFile = 'data/gen3v.filtered';
+const validationFile  = 'data/gen3v.filtered';
 const acti            = ACTI_SRELU;
 const hiddenSize      = 128;
 const shuffle         = true;
 const batchSize       = 500;
 const learningRate    = 0.001;
-const interp          = 0.5;    // for weights file only - must be same as in filter.js.
-const K               = 100;    // for weights file only - must be same as in filter.js.
+const K               = 100;   // **** must be same as filter.js
 
 //{{{  config 2
 
@@ -43,7 +42,7 @@ const { exec }        = require('child_process');
 
 //}}}
 
-const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + id_suffix;
+const id = activationName() + '_' + hiddenSize + '_' + id_suffix;
 
 console.log(id);
 console.log(id, 'data files', dataFiles.toString());
@@ -223,25 +222,9 @@ function initializeParameters() {
 //}}}
 //{{{  saveModel
 
-function saveModel(loss, params, epochs) {
-
-  const actiName = activationName(acti);
-  const opt      = optiName();
+function saveModel(params,e) {
 
   var o = '//{{{  weights\r\n';
-
-  o += 'const net_h1_size     = '  + hiddenSize             + ';\r\n';
-  o += 'const net_lr          = '  + learningRate           + ';\r\n';
-  o += 'const net_activation  = '  + actiName               + ';\r\n';
-  o += 'const net_stretch     = '  + K                      + ';\r\n';
-  o += 'const net_interp      = '  + interp                 + ';\r\n';
-  o += 'const net_batch_size  = '  + batchSize              + ';\r\n';
-  o += 'const net_opt         = "' + opt                    + '";\r\n';
-  o += 'const net_shuffle     = "' + shuffle                + '";\r\n';
-  o += 'const net_epochs      = '  + epochs                 + ';\r\n';
-  o += 'const net_loss        = '  + loss                   + ';\r\n';
-
-  o += '//{{{  weights\r\n';
 
   //{{{  write h1 weights
   
@@ -284,12 +267,47 @@ function saveModel(loss, params, epochs) {
   
   //}}}
 
-  o += '\r\n//}}}\r\n';
   o += '\r\n//}}}\r\n\r\n';
 
-  const weightsFile= 'data/weights_' + id + '_' + epochs + '.js';
+  const weightsFile= 'data/weights_' + id + '_' + e + '.js';
 
   fs.writeFileSync(weightsFile, o);
+}
+
+//}}}
+//{{{  saveBinaryModel
+
+function saveBinaryModel(params,e) {
+
+  const weightsFile= 'data/weights_' + id + '_' + e + '.bin';
+
+  // Combine all weights and biases into a single buffer
+  const bufferSize =
+    params.W1.length * Float32Array.BYTES_PER_ELEMENT +
+    params.b1.length * Float32Array.BYTES_PER_ELEMENT +
+    params.W2.length * Float32Array.BYTES_PER_ELEMENT +
+    Float32Array.BYTES_PER_ELEMENT; // for b2 (scalar)
+
+  const buffer = Buffer.alloc(bufferSize);
+  let offset = 0;
+
+  // Write W1
+  Buffer.from(new Float32Array(params.W1).buffer).copy(buffer, offset);
+  offset += params.W1.length * Float32Array.BYTES_PER_ELEMENT;
+
+  // Write b1
+  Buffer.from(new Float32Array(params.b1).buffer).copy(buffer, offset);
+  offset += params.b1.length * Float32Array.BYTES_PER_ELEMENT;
+
+  // Write W2
+  Buffer.from(new Float32Array(params.W2).buffer).copy(buffer, offset);
+  offset += params.W2.length * Float32Array.BYTES_PER_ELEMENT;
+
+  // Write b2
+  Buffer.from(new Float32Array([params.b2]).buffer).copy(buffer, offset);
+
+  // Save the binary file
+  fs.writeFileSync(weightsFile, buffer);
 }
 
 //}}}
@@ -429,9 +447,10 @@ async function train(filenames) {
   let params = initializeParameters();
   let prevValidationLoss = Infinity;
 
-  saveModel(0, params, 0);
+  saveModel(params,0);
+  saveBinaryModel(params,0);
 
-  console.log(id, 'hidden',hiddenSize,'acti',activationName(acti),'stretch',K,'shuffle',shuffle,'batchsize',batchSize,'lr',learningRate,'interp',interp);
+  console.log(id, 'hidden',hiddenSize,'acti',activationName(acti),'shuffle',shuffle,'batchsize',batchSize,'lr',learningRate);
 
   let t = 0;
 
@@ -480,13 +499,16 @@ async function train(filenames) {
       }
     }
     
-    // Save model after training epoch
-    saveModel(totalLoss/batchCount, params, epoch + 1);
+    saveModel(params,epoch+1);
+    saveBinaryModel(params,epoch+1);
     
-    // Validate model
     try {
       const validationLoss = await validateModel(params);
-      console.log(id, 'epoch', epoch+1, 'batch', batchCount, 'bloss', totalLoss/batchCount, 'vloss', validationLoss, 'overfit', validationLoss/prevValidationLoss);
+      if (validationLoss > prevValidationLoss)
+        var of = '*****';
+      else
+        var of = '     ';
+      console.log(id, 'epoch', epoch+1, 'batch', batchCount, 'bloss', totalLoss/batchCount, 'vloss', validationLoss, 'overfit', validationLoss/prevValidationLoss, of);
       prevValidationLoss = validationLoss;
     } catch (error) {
       console.error('Validation failed:', error);
