@@ -10,7 +10,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 ## Project constraints
 
-Hand-coded (as opposed to Emscripten) Javascript for everything including training and tuning. Self data generation, with the exception of the first training dataset which was ```lichess-big3-resolved.epd + quiet_labeled.epd```. 
+Hand-coded (as opposed to Emscripten) Javascript for everything including training and tuning. Self data generation, with the exception of the _boot_ dataset which was ```lichess-big3-resolved.epd + quiet_labeled.epd```. 
 
 ## Basic use in a browser
 
@@ -73,7 +73,7 @@ Commands can also be given on invocation, for example:-
 ```
 The UCI protocol is not fully implemented; see the ```lozUCI``` class in ```lozza.js``` for details.
 
-Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
+Alternatives to ```Node.js``` are ```Bun``` and ```Deno``` but a few tweaks may be needed.
 
 ## Commands specific to Lozza
 
@@ -97,7 +97,7 @@ Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```traine
 
 ## Using Lozza nets
 
-Lozza's ```.bin``` network files are a simple concatenation of little-endian unquantized float32 weights and biases representing a single perspective/accumulator: (768*128 weights + 128 biases) + (128 weights + 1 bias).  See ```saveBinaryModel``` in ```trainer.js``` and ```lozBoard.prototype.netLoad``` in ```lozza.js```. The activation function is squared ReLU - ```srelu``` in ```lozza.js```. See also ```lozBoard.prototype.net*``` for accumulator updates etc.   
+Lozza's ```.bin``` network file is a simple concatenation of little-endian unquantized float32 weights and biases representing a single perspective/accumulator: (768*128 weights + 128 biases) + (128 weights + 1 bias).  See ```saveBinaryModel``` in ```trainer.js``` and ```lozBoard.prototype.netLoad``` in ```lozza.js```. The activation function is squared ReLU - ```srelu``` in ```lozza.js```. See also ```lozBoard.prototype.net*``` for accumulator updates etc.   
 
 ## Acknowledgements
 
