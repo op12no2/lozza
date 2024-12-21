@@ -95,6 +95,10 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno```.
 
 Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in training a different net for your project; it's very straightforward.
 
+## Using Lozza nets
+
+Lozza's ```.bin``` network files are a simple concatenation of little-endian unquantized float32 weights and biases representing a single perspective/accumulator: (768*128 weights + 128 biases) + (128 weights + 1 bias).  See ```saveBinaryModel``` in ```trainer.js``` and ```lozBoard.prototype.netLoad``` in ```lozza.js```. The activation function is squared ReLU - ```srelu``` in ```lozza.js```. See also ```lozBoard.prototype.net*``` for accumulator updates etc.   
+
 ## Acknowledgements
 
 https://nodejs.org - ```Node.js```
