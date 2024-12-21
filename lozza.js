@@ -90,7 +90,7 @@ function screlu(x) {
 //{{{  dev/release
 
 const TTSIZE           = 1 << 23;
-const net_weights_file = 'data/weights_srelu_128_v_1.bin';
+const net_weights_file = __dirname + '/data/weights_srelu_128_v_1.bin';
 
 //}}}
 //{{{  constants
@@ -4723,7 +4723,7 @@ lozBoard.prototype.netLoad = function (kingObj,kingFr,kingTo,rookObj,rookFr,rook
   //{{{  .net_h1_w
   
   for (let i = 0; i < net_i_size; i++) {
-    this.net_h1_w[i] = new Float32Array(128);
+    this.net_h1_w[i] = new Float32Array(net_h1_size);
     const h = i * net_h1_size;
     for (let j = 0; j < net_h1_size; j++) {
       this.net_h1_w[i][j] = dataView[h + j];
