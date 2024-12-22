@@ -97,7 +97,7 @@ function screlu(x) {
 //
 
 const TTSIZE           = 1 << 23;
-const net_weights_file = __dirname + '/data/weights_srelu_128_v_6.bin';
+const net_weights_file = __dirname + '/data/weights_srelu_128_89.bin';
 const bench_depth      = 11;
 
 //}}}
