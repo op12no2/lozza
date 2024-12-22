@@ -87,7 +87,7 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno``` but a few tweaks may 
 
 ```perft``` does a PERFT on the current position.
 
-```pt``` performs a sequence of PERFT tests. 
+```pt``` performs a timed sequence of PERFT tests. 
 
 ```net``` displays network properties.
 
