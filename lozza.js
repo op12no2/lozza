@@ -2,9 +2,7 @@
 // https://github.com/op12no2/lozza
 //
 
-var BUILD      = "3.15";
-var SILENT     = 0;
-var RANDOMEVAL = 0;
+const BUILD = "3.15";
 
 //{{{  history
 /*
@@ -30,6 +28,12 @@ var RANDOMEVAL = 0;
 
 //}}}
 
+//{{{  globals
+
+var SILENT     = 0;
+var RANDOMEVAL = 0;
+
+//}}}
 //{{{  detect host
 
 const HOST_WEB     = 0;
@@ -88,9 +92,13 @@ function screlu(x) {
 
 //}}}
 //{{{  dev/release
+//
+// also comment out RANDOMEVAL stuff in evaluate.
+//
 
 const TTSIZE           = 1 << 23;
-const net_weights_file = __dirname + '/data/weights_srelu_128_v_1.bin';
+const net_weights_file = __dirname + '/data/weights_srelu_128_v_6.bin';
+const bench_depth      = 11;
 
 //}}}
 //{{{  constants
@@ -4703,24 +4711,48 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
 //}}}
 //{{{  .netLoad
 
-lozBoard.prototype.netLoad = function (kingObj,kingFr,kingTo,rookObj,rookFr,rookTo) {
+lozBoard.prototype.netLoad = function () {
 
   const fs = require('fs');
 
+  if (!fs.existsSync(net_weights_file)) {
+    console.log('missing weights file', net_weights_file);
+    process.exit();
+  }
+
+  const a = net_weights_file.split('_');
+
+  if (parseInt(a[2]) != net_h1_size) {
+    console.log('contradictory h1 size', net_h1_size, a[2]);
+    process.exit();
+  }
+
+  if (a[1] != net_activation.name) {
+    console.log('contradictory activation', net_activation.name, a[1]);
+    process.exit();
+  }
+
   const buffer = fs.readFileSync(net_weights_file);
 
-  const W1Size = net_i_size * net_h1_size;
+  const w1Size = net_i_size * net_h1_size;
   const b1Size = net_h1_size;
-  const W2Size = net_h1_size;
+  const w2Size = net_h1_size;
   const b2Size = 1;
 
-  let offset = 0;
+  const bufferLen = (w1Size + b1Size + w2Size + b2Size) * Float32Array.BYTES_PER_ELEMENT;
 
-  this.net_h1_w = new Array(net_i_size + 1);
+  if (buffer.length != bufferLen) {
+    console.log('malformed weights file', net_weights_file, 'expected', bufferLen, 'bytes');
+    process.exit();
+  }
+
+  let offset = 0;
 
   const dataView = new Float32Array(buffer.buffer, offset);
 
   //{{{  .net_h1_w
+  
+  this.net_h1_w = new Array(net_i_size + 1);
   
   for (let i = 0; i < net_i_size; i++) {
     this.net_h1_w[i] = new Float32Array(net_h1_size);
@@ -4735,7 +4767,7 @@ lozBoard.prototype.netLoad = function (kingObj,kingFr,kingTo,rookObj,rookFr,rook
   //}}}
   //{{{  .net_h1_b
   
-  offset += W1Size * Float32Array.BYTES_PER_ELEMENT;
+  offset += w1Size * Float32Array.BYTES_PER_ELEMENT;
   
   this.net_h1_b = new Float32Array(buffer.buffer, offset, b1Size);
   
@@ -4744,12 +4776,12 @@ lozBoard.prototype.netLoad = function (kingObj,kingFr,kingTo,rookObj,rookFr,rook
   
   offset += b1Size * Float32Array.BYTES_PER_ELEMENT;
   
-  this.net_o_w = new Float32Array(buffer.buffer, offset, W2Size);
+  this.net_o_w = new Float32Array(buffer.buffer, offset, w2Size);
   
   //}}}
   //{{{  .net_o_b
   
-  offset += W2Size * Float32Array.BYTES_PER_ELEMENT;
+  offset += w2Size * Float32Array.BYTES_PER_ELEMENT;
   
   this.net_o_b = new Float32Array(buffer.buffer, offset, b2Size)[0];
   
@@ -5723,7 +5755,7 @@ onmessage = function(e) {
         docmd('ucinewgame');
         docmd('position fen ' + fen);
         docmd('id bench' + i);
-        docmd('go depth 11');
+        docmd('go depth ' + bench_depth);
       
         lozza.stats.stop();
       
@@ -5872,6 +5904,7 @@ onmessage = function(e) {
       uci.send('i size', net_i_size);
       uci.send('h1 size', net_h1_size);
       uci.send('activation', net_activation);
+      uci.send('weights', net_weights_file);
       
       let maxWeight = -9999;
       let minWeight = 9999;
@@ -5927,15 +5960,15 @@ onmessage = function(e) {
 var lozza         = new lozChess();
 lozza.board.lozza = lozza;
 
-lozza.board.netLoad();
-
-//{{{  node interface
+//{{{  stdio
 
 if (lozzaHost == HOST_NODEJS) {
 
-  var USERESUME = parseFloat(process.version.substring(1)) > 9;
+  lozza.board.netLoad();
 
   lozza.uci.nodefs = require('fs');
+
+  var USERESUME = parseFloat(process.version.substring(1)) > 9;
 
   process.stdin.setEncoding('utf8');
 
@@ -5952,7 +5985,7 @@ if (lozzaHost == HOST_NODEJS) {
     process.exit();
   });
 
-  lozza.uci.argv();  // process command line args.
+  lozza.uci.argv();
 }
 
 //}}}
