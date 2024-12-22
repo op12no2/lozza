@@ -1,6 +1,7 @@
 
 --{{{  try
 
+perspective!
 take pv out of tt
 train 2 nets with queens and without
 root sort
@@ -20,8 +21,7 @@ improving
 lmp - tell move iterator - quicker
 test removing or simplifying lonepawns (do in position)
 test not using incheck in qs
-remove king from isattached etc - dont capture king - catsle conditionals a la cwtch - tried but not working
-training - use flipped positions
+remove king from isattached etc - dont capture king - castle conditionals a la cwtch - tried but not working
 try pesto move rank psts
 tempo
 move drawn stuff from eval into isdraw
@@ -40,12 +40,17 @@ push harry
 'lozzarepo.js'    // last repo update
 'lozza3.js'       // release/lozza.js with ^23 TT + n command + bench 12 deep
 
-'data/weights_srelu_128_5_10.js'
+'data/weights_srelu_128_v_1.js'
 
 'release\lozza.js'
 'release\readme.txt'
 
+'cctry'
+'prof'
+
 ------------------------------------------
+
+'cwtch.js'
 
 'deadends3.js'
 'deadends2.js'
