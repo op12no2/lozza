@@ -1,11 +1,11 @@
 #!/bin/bash
 
-tc="tc=0/60+1"
+tc="tc=0/20+0.2"
 
 e1="-engine conf=coal $tc"
 e2="-engine conf=cand $tc"
 
-threads=4
+threads=1
 
 m="-recover -concurrency $threads"
 
@@ -23,7 +23,7 @@ v="-ratinginterval 10"
 
 f="-pgnout data/$RANDOM$RANDOM.pgn fi"
 
-echo $e1 $e2 $t $r $d $o $v $m $s $f
+echo $e1 $e2 $t $r $d $o $v $m $s 
 
-../cutechess-ob $e1 $e2 $t $r $d $o $v $m $s $f $1 
+../cutechess-ob $e1 $e2 $t $r $d $o $v $m $s $1 
 
