@@ -2,11 +2,12 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "3.15";
+const BUILD = "3.16";
 
 //{{{  history
 /*
 
+3.16 23/12/24 Add perspective (unused).
 3.15 21/12/24 Read net from a file.
 3.14 20/12/24 Use the Mersene Twister from cwtch for randoms.
 3.13 21/11/24 Move futility alpha test to move loop.
@@ -107,6 +108,7 @@ const net_activation   = srelu;
 const net_h1_size      = 128;
 const net_i_size       = 768;
 const IMAP             = Array(16);
+const IFLIP            = Array(net_i_size+1);
 
 const MATERIAL = [0,100,394,388,588,1207,10000];
 
@@ -1019,20 +1021,56 @@ function movePromotePiece (move) {
   return ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;
 }
 
-function formatMove (move) {
+function formatMove (move, fmt) {
 
   if (move == 0)
-    return 'NaM';
+    return 'NULL';
 
-  const fr = moveFromSq(move);
-  const to = moveToSq(move);
+  var fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  var to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  var toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
+  var frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
 
-  const frCoord = COORDS[fr];
-  const toCoord = COORDS[to];
+  var frCoord = COORDS[fr];
+  var toCoord = COORDS[to];
 
-  const pro = (move & MOVE_PROMOTE_MASK) ? OBJ_CHAR[movePromotePiece(move)|BLACK] : '';
+  var frPiece = frObj & PIECE_MASK;
+  var frCol   = frObj & COLOR_MASK;
+  var frName  = NAMES[frPiece];
 
-  return frCoord + toCoord + pro;
+  var toPiece = toObj & PIECE_MASK;
+  var toCol   = toObj & COLOR_MASK;
+  var toName  = NAMES[toPiece];
+
+  if (move & MOVE_PROMOTE_MASK)
+    var pro = PROMOTES[(move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS];
+  else
+    var pro = '';
+
+  if (fmt == UCI_FMT)
+    return frCoord + toCoord + pro;
+
+  if (pro)
+    pro = '=' + pro.toUpperCase();
+
+  if (toObj != NULL) {
+    if (frPiece == PAWN)
+      return frCoord + 'x' + toCoord + pro;
+    else
+      return frName + 'x' + toCoord;
+  }
+
+  if (frPiece == PAWN)
+    return toCoord + pro;
+
+  if (move == MOVE_E1G1 || move == MOVE_E8G8)
+    return 'O-O';
+
+  if (move == MOVE_E1C1 || move == MOVE_E8C8)
+    return 'O-O-O';
+
+  return frName + toCoord;
+
 }
 
 //}}}
@@ -1062,10 +1100,52 @@ function colourToggle (c) {
   return ~c & COLOUR_MASK;
 }
 
-function flip (sq) {
+function flipSq (sq) {
   let m = (143 - sq) / 12 | 0;
   return 12*m + sq%12;
 }
+
+function flipFen (fen) {
+
+  const [board, color, castling, enPassant, halfmove, fullmove] = fen.split(' ');
+
+  const mirroredBoard = board.split('/').reverse().map(row => {
+    return row.split('').map(char => {
+      if (char === char.toUpperCase()) {
+        return char.toLowerCase();
+      } else if (char === char.toLowerCase()) {
+        return char.toUpperCase();
+      }
+      return char;
+    }).join('');
+  }).join('/');
+
+  const mirroredColor = color === 'w' ? 'b' : 'w';
+
+  const mirrorCastling = castling.split('').map(right => {
+    switch(right) {
+      case 'K': return 'k';
+      case 'Q': return 'q';
+      case 'k': return 'K';
+      case 'q': return 'Q';
+      default: return right;
+    }
+  }).join('');
+
+  const mirroredEnPassant = enPassant === '-' ? '-' :
+    enPassant[0] + (9 - parseInt(enPassant[1]));
+
+  const newFen = [
+    mirroredBoard,
+    mirroredColor,
+    mirrorCastling || '-',
+    mirroredEnPassant,
+    halfmove,
+    fullmove
+  ].join(' ');
+
+  return newFen;
+};
 
 //}}}
 //{{{  prng primitives
@@ -1119,6 +1199,18 @@ function twisterRand() {
 }
 
 twisterInit(0x9E3779B9);
+
+//}}}
+//{{{  net primitives
+
+function flipIndex (index) {
+  const section = Math.floor(index / 64);
+  const square = index % 64;
+  const flippedSquare = square ^ 56;
+  const flippedSection = (section + 6) % 12;
+  const flippedIndex = flippedSection * 64 + flippedSquare;
+  return flippedIndex;
+}
 
 //}}}
 
@@ -1290,6 +1382,15 @@ function lozChess () {
   }
   
   //}}}
+  //{{{  IFLIP
+  
+  for (var i=0; i < net_i_size; i++) {
+    IFLIP[i] = flipIndex(i);
+  }
+  
+  IFLIP[net_i_size] = net_i_size;
+  
+  //}}}
 
   return this;
 }
@@ -1455,28 +1556,28 @@ lozChess.prototype.go = function() {
 
       delta += delta / 2 | 0;
 
-      //{{{  lower bound?
+      //{{{  upper bound?
       
       if (score <= alpha) {
       
         alpha = Math.max(-INFINITY, score - delta);
         beta  = Math.min(INFINITY, ((alpha + beta) / 2) | 0);
       
-        this.report('lowerbound',score,depth);
+        this.report('upperbound',score,depth);
       
         if (!this.stats.maxNodes)
           this.stats.bestMove = 0;
       }
       
       //}}}
-      //{{{  upper bound?
+      //{{{  lower bound?
       
       else if (score >= beta) {
       
         alpha = Math.max(-INFINITY, ((alpha + beta) / 2) | 0);
         beta  = Math.min(INFINITY,  score + delta);
       
-        this.report('upperbound',score,depth);
+        this.report('lowerbound',score,depth);
       
         //depth = Math.max(1,depth-1);
       }
@@ -1495,8 +1596,9 @@ lozChess.prototype.go = function() {
     board.makeMoveB(this.rootNode);
   }
 
-  bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
+  bestMoveStr = formatMove(this.stats.bestMove,UCI_FMT);
 
+  this.uci.send('info score cp', this.stats.bestScore);
   this.uci.send('bestmove',bestMoveStr);
 }
 
@@ -1572,7 +1674,7 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
     //{{{  send current move to UCI?
     
     if (this.stats.nodes > 10000000)
-      this.uci.send('info currmove ' + board.formatMove(move,SAN_FMT) + ' currmovenumber ' + numLegalMoves);
+      this.uci.send('info currmove ' + formatMove(move,SAN_FMT) + ' currmovenumber ' + numLegalMoves);
     
     //}}}
 
@@ -1764,6 +1866,14 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   
   if (doBeta && depth <= 4 && (ev - depth * 200) >= beta)
     return beta;
+  
+  //}}}
+  //{{{  alpha prune
+  
+  //var doAlpha = !pvNode && !inCheck && !lonePawns && !board.alphaMate(alpha);
+  
+  //if (doAlpha && depth <= 5 && (ev + 1000) <= alpha)
+    //return alpha;
   
   //}}}
 
@@ -2221,7 +2331,7 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
     //}}}
 
     if (node.root) {
-      var fmove = board.formatMove(move,SAN_FMT);
+      var fmove = formatMove(move,SAN_FMT);
       this.uci.send('info currmove ' + fmove + ' currmovenumber ' + numLegalMoves);
       if (inner)
         this.uci.send('info string',fmove,numNodes);
@@ -2271,6 +2381,7 @@ function lozBoard () {
   this.loHash       = 0;
   this.hiHash       = 0;
   this.net_h1_a     = new Float32Array(net_h1_size);
+  //this.net_h2_a     = new Float32Array(net_h1_size);
 
   // use separate typed arrays to save space.  optimiser probably has a go anyway but better
   // to be explicit at the expense of some conversion.  total width is 16 bytes.
@@ -2587,7 +2698,7 @@ lozBoard.prototype.playMove = function (moveStr) {
       continue;
     }
 
-    var fMove = this.formatMove(move,UCI_FMT);
+    var fMove = formatMove(move,UCI_FMT);
 
     if (moveStr == fMove || moveStr+'q' == fMove) {
       this.turn = ~this.turn & COLOR_MASK;
@@ -3993,61 +4104,6 @@ lozBoard.prototype.isAttacked = function(to, byCol) {
 
 
 //}}}
-//{{{  .formatMove
-
-lozBoard.prototype.formatMove = function (move, fmt) {
-
-  if (move == 0)
-    return 'NULL';
-
-  var fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  var to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  var toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
-  var frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-
-  var frCoord = COORDS[fr];
-  var toCoord = COORDS[to];
-
-  var frPiece = frObj & PIECE_MASK;
-  var frCol   = frObj & COLOR_MASK;
-  var frName  = NAMES[frPiece];
-
-  var toPiece = toObj & PIECE_MASK;
-  var toCol   = toObj & COLOR_MASK;
-  var toName  = NAMES[toPiece];
-
-  if (move & MOVE_PROMOTE_MASK)
-    var pro = PROMOTES[(move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS];
-  else
-    var pro = '';
-
-  if (fmt == UCI_FMT)
-    return frCoord + toCoord + pro;
-
-  if (pro)
-    pro = '=' + pro.toUpperCase();
-
-  if (toObj != NULL) {
-    if (frPiece == PAWN)
-      return frCoord + 'x' + toCoord + pro;
-    else
-      return frName + 'x' + toCoord;
-  }
-
-  if (frPiece == PAWN)
-    return toCoord + pro;
-
-  if (move == MOVE_E1G1 || move == MOVE_E8G8)
-    return 'O-O';
-
-  if (move == MOVE_E1C1 || move == MOVE_E8C8)
-    return 'O-O-O';
-
-  return frName + toCoord;
-
-}
-
-//}}}
 //{{{  .evaluate
 
 lozBoard.prototype.evaluate = function (turn) {
@@ -4411,7 +4467,7 @@ lozBoard.prototype.getPVStr = function (node, move, depth) {
   node.cache();
   this.makeMoveA(node,move);
 
-  const mv = this.formatMove(move, this.mvFmt);
+  const mv = formatMove(move, this.mvFmt);
   const pv = ' ' + this.getPVStr(node.childNode, 0, depth-1);
 
   this.unmakeMove(node, move);
@@ -4517,10 +4573,12 @@ lozBoard.prototype.netUpdate = function (turn) {
     if (!frObj)
       continue;
 
-    const index = IMAP[frObj][fr];
+    const i1 = IMAP[frObj][fr];
+    const i2 = IFLIP[i1];
 
-    for (let i=0; i < net_h1_size; i++) {
-      this.net_h1_a[i] += this.net_h1_w[index][i];
+    for (let h=0; h < net_h1_size; h++) {
+      this.net_h1_a[h] += this.net_h1_w[i1][h];
+      //this.net_h2_a[h] += this.net_h1_w[i2][h];
     }
   }
 
@@ -4559,7 +4617,7 @@ lozBoard.prototype.netSlowEval = function (turn) {
   let e = this.net_o_b;
 
   for (let i=0; i < net_h1_size; i++) {
-    e += thhis.net_o_w[i] * net_activation(h1[i]);
+    e += this.net_o_w[i] * net_activation(h1[i]);
   }
 
   return e * cx | 0;
@@ -4589,6 +4647,7 @@ lozBoard.prototype.netFastEval = function (turn) {
 lozBoard.prototype.netReset = function () {
 
   this.net_h1_a.set(this.net_h1_b);
+  //this.net_h2_a.set(this.net_h1_b);
 
 }
 
@@ -4619,11 +4678,15 @@ lozBoard.prototype.netMove = function (frObj,fr,to,dx,ex,fx) {
   const i1 = IMAP[frObj][fr];
   const i2 = IMAP[frObj][to];
 
-  const h1 = this.net_h1_w[i1];
-  const h2 = this.net_h1_w[i2];
+  const h1a = this.net_h1_w[i1];
+  const h1b = this.net_h1_w[i2];
+
+  const h2a = this.net_h1_w[IFLIP[i1]];
+  const h2b = this.net_h1_w[IFLIP[i2]];
 
   for (let h=0; h < net_h1_size; h+=1) {
-    this.net_h1_a[h] += h2[h] - h1[h];
+    this.net_h1_a[h] += h1b[h] - h1a[h];
+    //this.net_h2_a[h] += h2b[h] - h2a[h];
   }
 }
 
@@ -4636,19 +4699,17 @@ lozBoard.prototype.netCapture = function (frObj,fr,toObj,to,ex,fx) {
   const i2 = IMAP[toObj][to];
   const i3 = IMAP[frObj][to];
 
-  const h1 = this.net_h1_w[i1];
-  const h2 = this.net_h1_w[i2];
-  const h3 = this.net_h1_w[i3];
+  const h1a = this.net_h1_w[i1];
+  const h1b = this.net_h1_w[i2];
+  const h1c = this.net_h1_w[i3];
 
-  for (let h=0; h < net_h1_size; h+=8) {
-    this.net_h1_a[h+0] += h3[h+0] - h2[h+0] - h1[h+0];
-    this.net_h1_a[h+1] += h3[h+1] - h2[h+1] - h1[h+1];
-    this.net_h1_a[h+2] += h3[h+2] - h2[h+2] - h1[h+2];
-    this.net_h1_a[h+3] += h3[h+3] - h2[h+3] - h1[h+3];
-    this.net_h1_a[h+4] += h3[h+4] - h2[h+4] - h1[h+4];
-    this.net_h1_a[h+5] += h3[h+5] - h2[h+5] - h1[h+5];
-    this.net_h1_a[h+6] += h3[h+6] - h2[h+6] - h1[h+6];
-    this.net_h1_a[h+7] += h3[h+7] - h2[h+7] - h1[h+7];
+  const h2a = this.net_h1_w[IFLIP[i1]];
+  const h2b = this.net_h1_w[IFLIP[i2]];
+  const h2c = this.net_h1_w[IFLIP[i3]];
+
+  for (let h=0; h < net_h1_size; h++) {
+    this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
+    //this.net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
 }
 
@@ -4661,12 +4722,17 @@ lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promo
   const i2 = IMAP[captureObj][pawnTo];
   const i3 = IMAP[promoteObj][pawnTo];
 
-  const h1 = this.net_h1_w[i1];
-  const h2 = this.net_h1_w[i2];
-  const h3 = this.net_h1_w[i3];
+  const h1a = this.net_h1_w[i1];
+  const h1b = this.net_h1_w[i2];
+  const h1c = this.net_h1_w[i3];
+
+  const h2a = this.net_h1_w[IFLIP[i1]];
+  const h2b = this.net_h1_w[IFLIP[i2]];
+  const h2c = this.net_h1_w[IFLIP[i3]];
 
   for (let h=0; h < net_h1_size; h+=1) {
-    this.net_h1_a[h] += h3[h] - h2[h] - h1[h];
+    this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
+    //this.net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
 }
 
@@ -4679,12 +4745,17 @@ lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj
   const i2 = IMAP[pawnObj][pawnTo];
   const i3 = IMAP[pawnCaptureObj][ep];
 
-  const h1 = this.net_h1_w[i1];
-  const h2 = this.net_h1_w[i2];
-  const h3 = this.net_h1_w[i3];
+  const h1a = this.net_h1_w[i1];
+  const h1b = this.net_h1_w[i2];
+  const h1c = this.net_h1_w[i3];
+
+  const h2a = this.net_h1_w[IFLIP[i1]];
+  const h2b = this.net_h1_w[IFLIP[i2]];
+  const h2c = this.net_h1_w[IFLIP[i3]];
 
   for (let h=0; h < net_h1_size; h+=1) {
-    this.net_h1_a[h] += h2[h] - h1[h] - h3[h];
+    this.net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
+    //this.net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
   }
 }
 
@@ -4698,37 +4769,46 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
   const i3 = IMAP[rookObj][rookFr];
   const i4 = IMAP[rookObj][rookTo];
 
-  const h1 = this.net_h1_w[i1];
-  const h2 = this.net_h1_w[i2];
-  const h3 = this.net_h1_w[i3];
-  const h4 = this.net_h1_w[i4];
+  const h1a = this.net_h1_w[i1];
+  const h1b = this.net_h1_w[i2];
+  const h1c = this.net_h1_w[i3];
+  const h1d = this.net_h1_w[i4];
+
+  const h2a = this.net_h1_w[IFLIP[i1]];
+  const h2b = this.net_h1_w[IFLIP[i2]];
+  const h2c = this.net_h1_w[IFLIP[i3]];
+  const h2d = this.net_h1_w[IFLIP[i4]];
 
   for (let h=0; h < net_h1_size; h+=1) {
-    this.net_h1_a[h] += h2[h] - h1[h] + h4[h] - h3[h];
+    this.net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
+    //this.net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
   }
 }
 
 //}}}
 //{{{  .netLoad
 
+const Q1 = 1;
+const Q2 = 1;
+
 lozBoard.prototype.netLoad = function () {
 
   const fs = require('fs');
 
   if (!fs.existsSync(net_weights_file)) {
-    console.log('missing weights file', net_weights_file);
+    console.log('info missing weights file', net_weights_file);
     process.exit();
   }
 
   const a = net_weights_file.split('_');
 
   if (parseInt(a[2]) != net_h1_size) {
-    console.log('contradictory h1 size', net_h1_size, a[2]);
+    console.log('info contradictory h1 size', net_h1_size, a[2]);
     process.exit();
   }
 
   if (a[1] != net_activation.name) {
-    console.log('contradictory activation', net_activation.name, a[1]);
+    console.log('info contradictory activation', net_activation.name, a[1]);
     process.exit();
   }
 
@@ -4742,7 +4822,7 @@ lozBoard.prototype.netLoad = function () {
   const bufferLen = (w1Size + b1Size + w2Size + b2Size) * Float32Array.BYTES_PER_ELEMENT;
 
   if (buffer.length != bufferLen) {
-    console.log('malformed weights file', net_weights_file, 'expected', bufferLen, 'bytes');
+    console.log('info malformed weights file', net_weights_file, 'expected', bufferLen, 'bytes');
     process.exit();
   }
 
@@ -4786,6 +4866,26 @@ lozBoard.prototype.netLoad = function () {
   this.net_o_b = new Float32Array(buffer.buffer, offset, b2Size)[0];
   
   //}}}
+
+  //{{{  quantize
+  /*
+  for (let i = 0; i < net_i_size; i++) {
+    for (let j = 0; j < net_h1_size; j++) {
+      this.net_h1_w[i][j] = this.net_h1_w[i][j] / Q1;
+    }
+  }
+  
+  for (let j = 0; j < net_h1_size; j++) {
+    this.net_h1_b[j] = this.net_h1_b[j] / Q1;
+  }
+  
+  for (let j = 0; j < net_h1_size; j++) {
+    this.net_o_w[j] = this.net_o_w[j] / Q2;
+  }
+  */
+  
+  //}}}
+
 }
 
 //}}}
@@ -4829,6 +4929,7 @@ function lozNode (parentNode) {
   this.ev          = 0;
 
   this.net_h1_a = new Float32Array(net_h1_size);
+  //this.net_h2_a = new Float32Array(net_h1_size);
 
   this.C_rights       = 0;
   this.C_ep           = 0;
@@ -4884,6 +4985,7 @@ lozNode.prototype.cache = function() {
   this.C_hiHash = board.hiHash;
 
   this.net_h1_a.set(board.net_h1_a);
+  //this.net_h2_a.set(board.net_h2_a);
 }
 
 //}}}
@@ -4910,6 +5012,7 @@ lozNode.prototype.uncacheB = function() {
   const board = this.board;
 
   board.net_h1_a.set(this.net_h1_a);
+  //board.net_h2_a.set(this.net_h2_a);
 
 }
 
@@ -5884,11 +5987,20 @@ onmessage = function(e) {
       
       for (let i=0; i < BENCHFENS.length; i++) {
       
+        console.log();
+      
         const fen = BENCHFENS[i];
       
         docmd('ucinewgame');
         docmd('position fen ' + fen);
-        uci.send(fen)
+        uci.send(fen, 'fen')
+        docmd('e');
+      
+        const flippedFen = flipFen(fen);
+      
+        docmd('ucinewgame');
+        docmd('position fen ' + flippedFen);
+        uci.send(flippedFen, 'flipped fen')
         docmd('e');
       }
       
@@ -5900,6 +6012,8 @@ onmessage = function(e) {
     case 'n': {
       //{{{  net info
       
+      const I16 = 32767;
+      
       uci.send('build', BUILD);
       uci.send('i size', net_i_size);
       uci.send('h1 size', net_h1_size);
@@ -5908,7 +6022,6 @@ onmessage = function(e) {
       
       let maxWeight = -9999;
       let minWeight = 9999;
-      
       for (let i=0; i < net_i_size; i++) {
         for (let j=0; j < net_h1_size; j++) {
           const w = Math.abs(lozza.board.net_h1_w[i][j]);
@@ -5918,13 +6031,23 @@ onmessage = function(e) {
             maxWeight = w;
         }
       }
-      
       uci.send('min h1 weight', minWeight);
-      uci.send('max h1 weight', maxWeight);
+      uci.send('max h1 weight', maxWeight, I16/maxWeight);
       
       maxWeight = -9999;
       minWeight = 9999;
+      for (let j=0; j < net_h1_size; j++) {
+        const w = Math.abs(lozza.board.net_h1_b[j]);
+        if (w < minWeight)
+          minWeight = w;
+        if (w > maxWeight)
+          maxWeight = w;
+      }
+      uci.send('min h1 bias', minWeight);
+      uci.send('max h1 bias', maxWeight, I16/maxWeight);
       
+      maxWeight = -9999;
+      minWeight = 9999;
       for (let j=0; j < net_h1_size; j++) {
         const w = Math.abs(lozza.board.net_o_w[j]);
         if (w < minWeight)
@@ -5932,9 +6055,10 @@ onmessage = function(e) {
         if (w > maxWeight)
           maxWeight = w;
       }
-      
       uci.send('min o weight', minWeight);
-      uci.send('max o weight', maxWeight);
+      uci.send('max o weight', maxWeight, I16/maxWeight);
+      
+      uci.send('o bias', lozza.board.net_o_b, I16/lozza.board.net_o_b);
       
       break;
       
@@ -5964,18 +6088,21 @@ lozza.board.lozza = lozza;
 
 if (lozzaHost == HOST_NODEJS) {
 
+  const nodeVer = parseFloat(process.version.substring(1))
+  if (nodeVer < 22) {
+    console.log('info Lozza needs at least Node v22');
+    process.exit();
+  }
+
   lozza.board.netLoad();
 
   lozza.uci.nodefs = require('fs');
 
-  var USERESUME = parseFloat(process.version.substring(1)) > 9;
-
   process.stdin.setEncoding('utf8');
 
   process.stdin.on('readable', function() {
-    var chunk = process.stdin.read();
-    if (USERESUME)
-      process.stdin.resume();
+    const chunk = process.stdin.read();
+    process.stdin.resume();
     if (chunk !== null) {
       onmessage({data: chunk});
     }

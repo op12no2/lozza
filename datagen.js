@@ -7212,6 +7212,8 @@ for (let g=0; g < gamesLimit; g++) {
       attribs.push(attrib);
       flips.push('-');
   
+      // include filpped positions in the data but allow them to be filtered
+  
       fens.push(flipFen(fen));
       scores.push(-score);
       attribs.push(attrib);

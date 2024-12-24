@@ -220,61 +220,6 @@ function initializeParameters() {
 }
 
 //}}}
-//{{{  saveModel
-
-function saveModel(params,e) {
-
-  var o = '//{{{  weights\r\n';
-
-  //{{{  write h1 weights
-  
-  o += 'const net_h1_w = Array(769);\r\n';
-  
-  var a = params.W1;
-  var a2 = [];
-  
-  for (var i=0; i < 768; i++) {
-    a2 = [];
-    const j = i * hiddenSize;
-    for (var k=0; k < hiddenSize; k++) {
-      a2.push(a[j+k]);
-    }
-    o += 'net_h1_w[' + i + ']  = new Float32Array([' + a2.toString() + ']);\r\n';
-  }
-  
-  o += "net_h1_w[768] = new Float32Array(net_h1_size).fill(0);\r\n";
-  
-  //}}}
-  //{{{  write h1 biases
-  
-  var a = params.b1;
-  
-  o += 'const net_h1_b = new Float32Array([' + a.toString() + ']);\r\n';
-  
-  //}}}
-  //{{{  write o weights
-  
-  var a = params.W2;
-  
-  o += 'const net_o_w = new Float32Array([' + a.toString() + ']);\r\n';
-  
-  //}}}
-  //{{{  write o bias
-  
-  var a = params.b2;
-  
-  o += 'const net_o_b = ' + a.toString() + ';\r\n';
-  
-  //}}}
-
-  o += '\r\n//}}}\r\n\r\n';
-
-  const weightsFile= 'data/weights_' + id + '_' + e + '.js';
-
-  fs.writeFileSync(weightsFile, o);
-}
-
-//}}}
 //{{{  saveBinaryModel
 
 function saveBinaryModel(params,e) {
@@ -447,7 +392,6 @@ async function train(filenames) {
   let params = initializeParameters();
   let prevValidationLoss = Infinity;
 
-  saveModel(params,0);
   saveBinaryModel(params,0);
 
   console.log(id, 'hidden',hiddenSize,'acti',activationName(acti),'shuffle',shuffle,'batchsize',batchSize,'lr',learningRate);
@@ -499,7 +443,6 @@ async function train(filenames) {
       }
     }
     
-    saveModel(params,epoch+1);
     saveBinaryModel(params,epoch+1);
     
     try {
