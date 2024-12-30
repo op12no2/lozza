@@ -11,9 +11,8 @@ const ACTI_SCRELU     = 4;
 
 //}}}
 
-const id_suffix       = 'v';                                            // to manually modify the weights filename.
-const dataFiles       = ['data/gen3a.filtered','data/gen3b.filtered'];  // list of files generated with filter.js.
-const validationFile  = 'data/gen3v.filtered';
+const id_suffix       = '';
+const dataFiles       = ['data/gen3a.filtered','data/gen3b.filtered','data/gen3c.filtered'];
 const acti            = ACTI_SRELU;
 const hiddenSize      = 128;
 const shuffle         = true;
@@ -46,7 +45,6 @@ const id = activationName() + '_' + hiddenSize + '_' + id_suffix;
 
 console.log(id);
 console.log(id, 'data files', dataFiles.toString());
-console.log(id, 'validation file', validationFile);
 
 //{{{  myround
 
@@ -106,13 +104,6 @@ async function* createLineStream(filenames) {
     }
     rl.close();
   }
-}
-
-//}}}
-//{{{  optiName
-
-function optiName() {
-  return "adam";
 }
 
 //}}}
@@ -390,7 +381,6 @@ async function train(filenames) {
   //}}}
 
   let params = initializeParameters();
-  let prevValidationLoss = Infinity;
 
   saveBinaryModel(params,0);
 
@@ -445,17 +435,7 @@ async function train(filenames) {
     
     saveBinaryModel(params,epoch+1);
     
-    try {
-      const validationLoss = await validateModel(params);
-      if (validationLoss > prevValidationLoss)
-        var of = '*****';
-      else
-        var of = '     ';
-      console.log(id, 'epoch', epoch+1, 'batch', batchCount, 'bloss', totalLoss/batchCount, 'vloss', validationLoss, 'overfit', validationLoss/prevValidationLoss, of);
-      prevValidationLoss = validationLoss;
-    } catch (error) {
-      console.error('Validation failed:', error);
-    }
+    console.log(id, 'epoch', epoch+1, 'batch', batchCount, 'bloss', totalLoss/batchCount);
     
     if (shuffle)
       await shuffleAllFiles(dataFiles);
@@ -464,46 +444,6 @@ async function train(filenames) {
   }
 
   return params;
-}
-
-//}}}
-//{{{  validateModel
-
-function validateModel(params) {
-  return new Promise((resolve, reject) => {
-    const fileStream = fs.createReadStream(validationFile);
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity
-    });
-
-    let totalLoss = 0;
-    let sampleCount = 0;
-
-    rl.on('line', (line) => {
-      const {activeIndices, target} = decodeLine(line);
-
-      if (activeIndices.length) {
-        const forward = forwardPropagation(
-          [activeIndices],
-          params
-        );
-
-        const loss = Math.pow(forward.A2[0] - target[0], 2);
-        totalLoss += loss;
-        sampleCount++;
-      }
-    });
-
-    rl.on('close', () => {
-      const validationLoss = totalLoss / sampleCount;
-      resolve(validationLoss);
-    });
-
-    rl.on('error', (err) => {
-      reject(err);
-    });
-  });
 }
 
 //}}}
