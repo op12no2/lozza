@@ -1,41 +1,29 @@
+//
+//  Train a Lozza net from the data generated via datagen.js and filter.js.
+//
 
-// messy/hakky code
+//{{{  activations
 
-//{{{  lang fold
-/*
-
-*/
+const ACTI_RELU       = 1;
+const ACTI_CRELU      = 2;
+const ACTI_SRELU      = 3;
+const ACTI_SCRELU     = 4;
 
 //}}}
 
-const id_suffix = '';
-
-const ACTI_RELU   = 1;
-const ACTI_CRELU  = 2;
-const ACTI_SRELU  = 3;
-const ACTI_SCRELU = 4;
-
-const fs = require('fs');
-const readline = require('readline');
-const { exec } = require('child_process');
-const path = require('path');
-//const fs = require('fs').promises;
-
-const dataFiles       = ['data/data1.shuf','data/data2.shuf'];
-
-const acti            = ACTI_RELU;
-const hiddenSize      = 75;
-const interp          = 0.5;
-
+const id_suffix       = 'v';                                            // to manually modify the weights filename.
+const dataFiles       = ['data/gen3a.filtered','data/gen3b.filtered'];  // list of files generated with filter.js.
+const validationFile  = 'data/gen3v.filtered';
+const acti            = ACTI_SRELU;
+const hiddenSize      = 128;
 const shuffle         = true;
 const batchSize       = 500;
 const learningRate    = 0.001;
-const K               = 100;
-const useL2Reg        = false;
-const useAdamW        = false;
+const K               = 100;   // **** must be same as filter.js
 
-const reportRate      = 50;   // mean batch loss freq during epoch
-const lossRate        = 50;   // dataset loss freq
+//{{{  config 2
+
+const reportRate      = 50;
 const epochs          = 10000;
 const inputSize       = 768;
 const outputSize      = 1;
@@ -43,36 +31,22 @@ const maxActiveInputs = 32;
 const beta1           = 0.9;
 const beta2           = 0.999;
 const epsilon         = 1e-7;
-const l2RegFactor     = 0.001;
-const weightDecay     = 0.01;
 
-const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + id_suffix;
-console.log(id);
+//}}}
+//{{{  modules
 
-//{{{  line constants
-//
-// 0                         1    2      3  4    5   6     7    8         9           10             11
-// 8/8/8/8/6p1/5nk1/p7/3RrK2 w    -      -  3    169 -1124 d1e1 n         c           -              0.0
-// board                     turn rights ep game ply score move noisy n|- incheck c|- givescheck g|- wdl 0.0|0.5|1.0
-//
-
-const PART_BOARD      = 0;
-const PART_TURN       = 1;
-const PART_RIGHTS     = 2;
-const PART_EP         = 3;
-const PART_GAME       = 4;
-const PART_PLY        = 5;
-const PART_SCORE      = 6;
-const PART_MOVE       = 7;
-const PART_NOISY      = 8;
-const PART_INCHECK    = 9;
-const PART_GIVESCHECK = 10;
-const PART_WDL        = 11;
+const fs              = require('fs');
+const readline        = require('readline');
+const path            = require('path');
+const { exec }        = require('child_process');
 
 //}}}
 
-let minLoss = 9999;
-let numBatches = 0;
+const id = activationName() + '_' + hiddenSize + '_' + id_suffix;
+
+console.log(id);
+console.log(id, 'data files', dataFiles.toString());
+console.log(id, 'validation file', validationFile);
 
 //{{{  myround
 
@@ -135,27 +109,14 @@ async function* createLineStream(filenames) {
 }
 
 //}}}
-//{{{  lerp
-
-function lerp(eval, wdl, t) {
-  let sg = sigmoid(eval);
-  let l = sg + (wdl - sg) * t;
-  return l;
-}
-
-//}}}
 //{{{  optiName
 
 function optiName() {
-  if (useAdamW)
-    return "adamw";
-  else
-    return "adam";
-  end
+  return "adam";
 }
 
 //}}}
-//{{{  activations
+//{{{  activation funcs
 
 function sigmoid(x) {
   return 1 / (1 + Math.exp(-x / K));
@@ -259,76 +220,39 @@ function initializeParameters() {
 }
 
 //}}}
-//{{{  saveModel
+//{{{  saveBinaryModel
 
-function saveModel(loss, params, epochs) {
+function saveBinaryModel(params,e) {
 
-  const actiName = activationName(acti);
-  const opt      = optiName();
+  const weightsFile= 'data/weights_' + id + '_' + e + '.bin';
 
-  var o = '//{{{  weights\r\n';
+  // Combine all weights and biases into a single buffer
+  const bufferSize =
+    params.W1.length * Float32Array.BYTES_PER_ELEMENT +
+    params.b1.length * Float32Array.BYTES_PER_ELEMENT +
+    params.W2.length * Float32Array.BYTES_PER_ELEMENT +
+    Float32Array.BYTES_PER_ELEMENT; // for b2 (scalar)
 
-  o += 'const net_h1_size     = '  + hiddenSize             + ';\r\n';
-  o += 'const net_lr          = '  + learningRate           + ';\r\n';
-  o += 'const net_activation  = '  + actiName               + ';\r\n';
-  o += 'const net_stretch     = '  + K                      + ';\r\n';
-  o += 'const net_interp      = '  + interp                 + ';\r\n';
-  o += 'const net_batch_size  = '  + batchSize              + ';\r\n';
-  o += 'const net_num_batches = '  + numBatches             + ';\r\n';
-  o += 'const net_positions   = '  + numBatches * batchSize + ';\r\n';
-  o += 'const net_opt         = "' + opt                    + '";\r\n';
-  o += 'const net_shuffle     = "' + shuffle                + '";\r\n';
-  o += 'const net_l2_reg      = '  + useL2Reg               + ';\r\n';
-  o += 'const net_epochs      = '  + epochs                 + ';\r\n';
-  o += 'const net_loss        = '  + loss                   + ';\r\n';
+  const buffer = Buffer.alloc(bufferSize);
+  let offset = 0;
 
-  o += '//{{{  weights\r\n';
+  // Write W1
+  Buffer.from(new Float32Array(params.W1).buffer).copy(buffer, offset);
+  offset += params.W1.length * Float32Array.BYTES_PER_ELEMENT;
 
-  //{{{  write h1 weights
-  
-  o += 'const net_h1_w = Array(768);\r\n';
-  
-  var a = params.W1;
-  var a2 = [];
-  
-  for (var i=0; i < 768; i++) {
-    a2 = [];
-    const j = i * hiddenSize;
-    for (var k=0; k < hiddenSize; k++) {
-      a2.push(a[j+k]);
-    }
-    o += 'net_h1_w[' + i + ']  = new Float32Array([' + a2.toString() + ']);\r\n';
-  }
-  
-  //}}}
-  //{{{  write h1 biases
-  
-  var a = params.b1;
-  
-  o += 'const net_h1_b = new Float32Array([' + a.toString() + ']);\r\n';
-  
-  //}}}
-  //{{{  write o weights
-  
-  var a = params.W2;
-  
-  o += 'const net_o_w = new Float32Array([' + a.toString() + ']);\r\n';
-  
-  //}}}
-  //{{{  write o bias
-  
-  var a = params.b2;
-  
-  o += 'const net_o_b = ' + a.toString() + ';\r\n';
-  
-  //}}}
+  // Write b1
+  Buffer.from(new Float32Array(params.b1).buffer).copy(buffer, offset);
+  offset += params.b1.length * Float32Array.BYTES_PER_ELEMENT;
 
-  o += '\r\n//}}}\r\n';
-  o += '\r\n//}}}\r\n\r\n';
+  // Write W2
+  Buffer.from(new Float32Array(params.W2).buffer).copy(buffer, offset);
+  offset += params.W2.length * Float32Array.BYTES_PER_ELEMENT;
 
-  const weightsFile= 'data/weights_' + id + '_' + epochs + '.js';
+  // Write b2
+  Buffer.from(new Float32Array([params.b2]).buffer).copy(buffer, offset);
 
-  fs.writeFileSync(weightsFile, o);
+  // Save the binary file
+  fs.writeFileSync(weightsFile, buffer);
 }
 
 //}}}
@@ -414,12 +338,6 @@ function updateParameters(params, grads, t) {
     const vCorrected = v[i] / (1 - Math.pow(beta1, t));
     const sCorrected = s[i] / (1 - Math.pow(beta2, t));
     let update = learningRate * vCorrected / (Math.sqrt(sCorrected) + epsilon);
-    if (useL2Reg) {
-      update -= l2RegFactor * param[i]; // Apply L2 regularization
-    }
-    if (useAdamW) {
-      param[i] -= learningRate * weightDecay * param[i]; // ADAMW weight decay
-    }
     return param[i] - update;
   };
 
@@ -440,107 +358,19 @@ function updateParameters(params, grads, t) {
 //}}}
 //{{{  decodeLine
 
-//{{{  constants
-
-const WHITE = 0;
-const BLACK = 1;
-
-const PAWN = 0;
-const KNIGHT = 1;
-const BISHOP = 2;
-const ROOK = 3;
-const QUEEN = 4;
-const KING = 5;
-
-const chPce = {
-  'k': KING, 'q': QUEEN, 'r': ROOK, 'b': BISHOP, 'n': KNIGHT, 'p': PAWN,
-  'K': KING, 'Q': QUEEN, 'R': ROOK, 'B': BISHOP, 'N': KNIGHT, 'P': PAWN
-};
-
-const chCol = {
-  'k': BLACK, 'q': BLACK, 'r': BLACK, 'b': BLACK, 'n': BLACK, 'p': BLACK,
-  'K': WHITE, 'Q': WHITE, 'R': WHITE, 'B': WHITE, 'N': WHITE, 'P': WHITE
-};
-
-const chNum = {'8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2, '1': 1};
-
-//}}}
-
 function decodeLine(line) {
 
-  const parts = line.split(' ');
+  const parts = line.split(',');
+  const n = parts.length;
 
-  const board = parts[PART_BOARD].trim();
-  const eval  = parseFloat(parts[PART_SCORE].trim());
-  const wdl   = parseFloat(parts[PART_WDL].trim());
+  var activeIndices = Array(n-1);
 
-  var x = 0;
-  var sq = 0;
+  for (let i=0; i < n-1; i++)
+    activeIndices[i] = Number(parts[i]);
 
-  const activeIndices = [];
-
-  let target = 0.0;
-
-  if (!skipP(parts,eval,wdl)) {
-
-    //{{{  decode board
-    
-    for (var j = 0; j < board.length; j++) {
-      var ch = board.charAt(j);
-      if (ch == '/')
-        continue;
-      var num = chNum[ch];
-      if (typeof (num) == 'undefined') {
-        if (chCol[ch] == WHITE)
-          x = 0 + chPce[ch] * 64 + sq;
-        else if (chCol[ch] == BLACK)
-          x = 384 + chPce[ch] * 64 + sq;
-        else {
-          console.log(j,board.length,'colour',board,ch.charCodeAt(0),chCol[ch],'                        ');
-          console.log(j,board.length,'colour',board,ch.charCodeAt(0),chCol[ch]);
-          console.log(line);
-          process.exit();
-        }
-        activeIndices.push(x);
-        sq++;
-      }
-      else {
-        sq += num;
-      }
-    }
-    
-    //}}}
-
-    target = lerp(eval,wdl,interp);
-  }
+  var target = parseFloat(parts[n-1]);
 
   return {activeIndices, target: [target]};
-}
-
-//}}}
-//{{{  skipP
-
-function skipP (parts,eval,wdl) {
-
-  const noisy = parts[PART_NOISY].trim();
-  if (noisy == 'n')
-    return true;
-
-  const inCh  = parts[PART_INCHECK].trim();
-  if (inCh == 'c')
-    return true;
-
-  const gvCh  = parts[PART_GIVESCHECK].trim();
-  if (gvCh == 'g')
-    return true;
-
-  if (parts[PART_MOVE].trim().length == 5)  // promotion
-    return true;
-
-  if (wdl == 0.5 && Math.abs(eval) > 300)
-    return true;
-
-  return false;
 }
 
 //}}}
@@ -560,12 +390,11 @@ async function train(filenames) {
   //}}}
 
   let params = initializeParameters();
-  let datasetLoss = 0;
+  let prevValidationLoss = Infinity;
 
-  numBatches = await calculateNumBatches(filenames);
-  saveModel(0, params, 0);
+  saveBinaryModel(params,0);
 
-  console.log(id, 'hidden',hiddenSize,'acti',activationName(acti),'stretch',K,'shuffle',shuffle,'batchsize',batchSize,'lr',learningRate,'interp',interp,'num batches',numBatches,'filtered positions',numBatches*batchSize);
+  console.log(id, 'hidden',hiddenSize,'acti',activationName(acti),'shuffle',shuffle,'batchsize',batchSize,'lr',learningRate);
 
   let t = 0;
 
@@ -606,7 +435,7 @@ async function train(filenames) {
           batchTargets = [];
         
           if (batchCount % reportRate === 0) {
-            process.stdout.write(`${id} Epoch ${epoch + 1}, Batch ${batchCount}/${numBatches}, Mean Batch Loss: ${totalLoss / batchCount}\r`);
+            process.stdout.write(`${id} epoch ${epoch + 1} batch ${batchCount} bloss ${totalLoss / batchCount}\r`);
           }
         }
         
@@ -614,30 +443,19 @@ async function train(filenames) {
       }
     }
     
-    console.log(`${id} Epoch ${epoch + 1} completed. Mean Batch Loss: ${totalLoss / batchCount}`);
+    saveBinaryModel(params,epoch+1);
     
-    //{{{  calc dataset loss
-    
-    if ((epoch + 1) % lossRate === 0) {
-    
-      let marker = '';
-      datasetLoss = await calculateDatasetLoss(filenames, params);
-    
-      if (datasetLoss < minLoss) {
-        minLoss = datasetLoss;
-        marker = '***';
-      }
-    
-      console.log(`${id} Dataset Loss after ${epoch + 1} epochs: ${datasetLoss} ${marker}`);
+    try {
+      const validationLoss = await validateModel(params);
+      if (validationLoss > prevValidationLoss)
+        var of = '*****';
+      else
+        var of = '     ';
+      console.log(id, 'epoch', epoch+1, 'batch', batchCount, 'bloss', totalLoss/batchCount, 'vloss', validationLoss, 'overfit', validationLoss/prevValidationLoss, of);
+      prevValidationLoss = validationLoss;
+    } catch (error) {
+      console.error('Validation failed:', error);
     }
-    
-    else {
-      datasetLoss = totalLoss / batchCount;
-    }
-    
-    //}}}
-    
-    saveModel(datasetLoss, params, epoch + 1);
     
     if (shuffle)
       await shuffleAllFiles(dataFiles);
@@ -649,71 +467,43 @@ async function train(filenames) {
 }
 
 //}}}
-//{{{  calculateNumBatches
+//{{{  validateModel
 
-async function calculateNumBatches(filenames) {
+function validateModel(params) {
+  return new Promise((resolve, reject) => {
+    const fileStream = fs.createReadStream(validationFile);
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
+    });
 
-  const lineStream = createLineStream(filenames);
+    let totalLoss = 0;
+    let sampleCount = 0;
 
-  let count = 0;
+    rl.on('line', (line) => {
+      const {activeIndices, target} = decodeLine(line);
 
-  for await (const line of lineStream) {
+      if (activeIndices.length) {
+        const forward = forwardPropagation(
+          [activeIndices],
+          params
+        );
 
-    const parts = line.split(' ');
+        const loss = Math.pow(forward.A2[0] - target[0], 2);
+        totalLoss += loss;
+        sampleCount++;
+      }
+    });
 
-    if (parts.length != 12) {
-      console.log('line format', line, parts.length);
-      process.exit();
-    }
+    rl.on('close', () => {
+      const validationLoss = totalLoss / sampleCount;
+      resolve(validationLoss);
+    });
 
-    const eval = parseFloat(parts[PART_SCORE].trim());
-    const wdl  = parseFloat(parts[PART_WDL].trim());
-
-    if (!skipP(parts,eval,wdl)) {
-
-      count++;
-
-      if ((count % 1000000) == 0)
-        process.stdout.write(count + '\r');
-    }
-  }
-
-  return count / batchSize | 0;
-}
-
-//}}}
-//{{{  calculateDatasetLoss
-
-async function calculateDatasetLoss(filenames, params) {
-
-  const lineStream = createLineStream(filenames);
-
-  let totalLoss = 0;
-  let count = 0;
-
-  for await (const line of lineStream) {
-    const {activeIndices, target} = decodeLine(line);
-    if (activeIndices.length) {
-      //{{{  use this position
-      
-      const forward = forwardPropagation([activeIndices], params);
-      
-      const loss = Math.pow(forward.A2[0] - target[0], 2);
-      
-      totalLoss += loss;
-      
-      count++;
-      
-      if ((count % 100000) == 0)
-        process.stdout.write(count + '\r');
-      
-      //}}}
-    }
-  }
-
-  numBatches = count / batchSize | 0;
-
-  return totalLoss / count;
+    rl.on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
 //}}}
