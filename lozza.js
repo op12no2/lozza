@@ -2,10 +2,12 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "4";
+const BUILD = "4.1";
 
 //{{{  history
 /*
+
+4.1 Scale eval by 1.9.
 
 */
 
@@ -80,12 +82,14 @@ function screlu(x) {
 //
 
 const TTSIZE           = 1 << 23;
-const net_weights_file = __dirname + '/data/weights_srelu_128_v_39.bin';
+const net_weights_file = __dirname + '/data/weights_srelu_128__19.bin';
 const bench_depth      = 11;
 
 //}}}
 //{{{  constants
 
+const net_eval_scale   = 1.9;
+const net_report_scale = 1.9;
 const net_activation   = srelu;
 const net_h1_size      = 128;
 const net_i_size       = 768;
@@ -1411,6 +1415,9 @@ lozChess.prototype.position = function () {
 //{{{  .report
 
 lozChess.prototype.report = function(units,value,depth) {
+
+  if (units == 'cp')
+    value = value / net_report_scale | 0;
 
   var depthStr = 'depth ' + depth + ' seldepth ' + this.stats.selDepth;
   var scoreStr = 'score ' + units + ' ' + value;
@@ -4602,7 +4609,7 @@ lozBoard.prototype.netSlowEval = function (turn) {
     e += this.net_o_w[i] * net_activation(h1[i]);
   }
 
-  return e * cx | 0;
+  return net_eval_scale * e * cx | 0;
 }
 
 //}}}
@@ -4620,7 +4627,7 @@ lozBoard.prototype.netFastEval = function (turn) {
     e += this.net_o_w[i] * net_activation(this.net_h1_a[i]);
   }
 
-  return e * cx | 0;
+  return net_eval_scale * e * cx | 0;
 }
 
 //}}}

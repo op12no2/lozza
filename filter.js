@@ -14,11 +14,11 @@ const fs = require('fs');
 const readline = require('readline');
 const path = require('path');
 
-const rawFiles = ['data/gen3a.fen'];       // list of .fen files via datagen.js or same format.
-const filterFile = 'data/gen3a.filtered';  // file to write for trainer.js.
+const rawFiles = ['data/gen3c.fen'];       // list of .fen files via datagen.js or same format.
+const filterFile = 'data/gen3c.filtered';  // file to write for trainer.js.
 
 const interp = 0.5;
-const K      = 100;
+const K      = 100;  // **** must match K in trainer.js.
 
 const PART_BOARD      = 0;
 const PART_TURN       = 1;
@@ -45,34 +45,28 @@ fs.writeFileSync(filterFile,o);
 function skipP (parts) {
 
   const noisy = parts[PART_NOISY].trim();
-
   if (noisy != '-' && noisy != 'n') {
     console.log('noisy',noisy);
-    process.exit();
+    return true;
   }
-
   if (noisy == 'n')
     return true;
 
   const inCh = parts[PART_INCHECK].trim();
-
   if (inCh != '-' && inCh != 'c') {
     console.log('inCh',inCh);
-    process.exit();
+    return true;
   }
-
   if (inCh == 'c')
     return true;
 
-  //const flip = parts[PART_FLIP].trim();
-  //
-  //if (flip != '-' && flip != 'f') {
-  //  console.log('flip',flip);
-  //  process.exit();
-  //}
-  //
-  //if (flip == 'f')
-  //  return true;
+  const flip = parts[PART_FLIP].trim();
+  if (flip != '-' && flip != 'f') {
+    console.log('flip',flip);
+    return true;
+  }
+  if (flip == 'f')
+    return true;
 
   return false;
 }
@@ -140,7 +134,8 @@ function decodeLine(line) {
 
     if (wdl != 0.0 && wdl != 1.0 && wdl != 0.5) {
       console.log('wdl',wdl);
-      process.exit();
+      indexes = [];
+      return;
     }
 
     //{{{  decode board
@@ -159,7 +154,8 @@ function decodeLine(line) {
           console.log(j,board.length,'colour',board,ch.charCodeAt(0),chCol[ch],'                        ');
           console.log(j,board.length,'colour',board,ch.charCodeAt(0),chCol[ch]);
           console.log(line);
-          process.exit();
+          indexes = [];
+          return;
         }
         if (x < 0 || x > 767 || isNaN(x)) {
           console.log('invalid index - skipping', x, line);
@@ -180,7 +176,8 @@ function decodeLine(line) {
 
     if (Math.abs(target) > 1.0 || Math.abs(target) < 0.0) {
       console.log('target',target);
-      process.exit();
+      indexes = [];
+      return;
     }
 
     if (indexes.length > 32) {
