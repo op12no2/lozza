@@ -19,8 +19,8 @@ chmod +x x$e2
 rm cctry.pgn
 
 ../cutechess-ob \
--engine name=coal proto=uci cmd=x$e1 \
--engine name=cand proto=uci cmd=x$e2 \
+-engine name=$e1 proto=uci cmd=x$e1 \
+-engine name=$e2 proto=uci cmd=x$e2 \
 -each tc=0/60+1 \
 -srand $RANDOM$RANDOM -openings file=data/4moves_noob.epd format=epd order=random \
 -repeat -games 2 -rounds 10000 \
