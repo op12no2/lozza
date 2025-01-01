@@ -11,14 +11,15 @@ const ACTI_SCRELU     = 4;
 
 //}}}
 
-const id_suffix       = '';
-const dataFiles       = ['data/gen3a.filtered','data/gen3b.filtered','data/gen3c.filtered'];
+const id_suffix       = 'gen3';                                                               // to manually modify the weights filename.
+const dataFiles       = ['data/gen3a.filtered','data/gen3b.filtered','data/gen3c.filtered'];  // list of files generated with filter.js.
 const acti            = ACTI_SRELU;
 const hiddenSize      = 128;
 const shuffle         = true;
 const batchSize       = 500;
 const learningRate    = 0.001;
-const K               = 100;   // **** must be same as filter.js
+const interp          = 0.5;    // for weights file only - must be same as in filter.js.
+const K               = 100;    // for weights file only - must be same as in filter.js.
 
 //{{{  config 2
 
@@ -41,7 +42,7 @@ const { exec }        = require('child_process');
 
 //}}}
 
-const id = activationName() + '_' + hiddenSize + '_' + id_suffix;
+const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + id_suffix;
 
 console.log(id);
 console.log(id, 'data files', dataFiles.toString());
@@ -104,6 +105,13 @@ async function* createLineStream(filenames) {
     }
     rl.close();
   }
+}
+
+//}}}
+//{{{  optiName
+
+function optiName() {
+  return "adam";
 }
 
 //}}}
@@ -211,39 +219,75 @@ function initializeParameters() {
 }
 
 //}}}
-//{{{  saveBinaryModel
+//{{{  saveModel
 
-function saveBinaryModel(params,e) {
+function saveModel(loss, params, epochs) {
 
-  const weightsFile= 'data/weights_' + id + '_' + e + '.bin';
+  const actiName = activationName(acti);
+  const opt      = optiName();
 
-  // Combine all weights and biases into a single buffer
-  const bufferSize =
-    params.W1.length * Float32Array.BYTES_PER_ELEMENT +
-    params.b1.length * Float32Array.BYTES_PER_ELEMENT +
-    params.W2.length * Float32Array.BYTES_PER_ELEMENT +
-    Float32Array.BYTES_PER_ELEMENT; // for b2 (scalar)
+  var o = '//{{{  weights\r\n';
 
-  const buffer = Buffer.alloc(bufferSize);
-  let offset = 0;
+  o += 'const net_h1_size     = '  + hiddenSize             + ';\r\n';
+  o += 'const net_lr          = '  + learningRate           + ';\r\n';
+  o += 'const net_activation  = '  + actiName               + ';\r\n';
+  o += 'const net_stretch     = '  + K                      + ';\r\n';
+  o += 'const net_interp      = '  + interp                 + ';\r\n';
+  o += 'const net_batch_size  = '  + batchSize              + ';\r\n';
+  o += 'const net_opt         = "' + opt                    + '";\r\n';
+  o += 'const net_shuffle     = "' + shuffle                + '";\r\n';
+  o += 'const net_epochs      = '  + epochs                 + ';\r\n';
+  o += 'const net_loss        = '  + loss                   + ';\r\n';
 
-  // Write W1
-  Buffer.from(new Float32Array(params.W1).buffer).copy(buffer, offset);
-  offset += params.W1.length * Float32Array.BYTES_PER_ELEMENT;
+  o += '//{{{  weights\r\n';
 
-  // Write b1
-  Buffer.from(new Float32Array(params.b1).buffer).copy(buffer, offset);
-  offset += params.b1.length * Float32Array.BYTES_PER_ELEMENT;
+  //{{{  write h1 weights
+  
+  o += 'const net_h1_w = Array(769);\r\n';
+  
+  var a = params.W1;
+  var a2 = [];
+  
+  for (var i=0; i < 768; i++) {
+    a2 = [];
+    const j = i * hiddenSize;
+    for (var k=0; k < hiddenSize; k++) {
+      a2.push(a[j+k]);
+    }
+    o += 'net_h1_w[' + i + ']  = new Float32Array([' + a2.toString() + ']);\r\n';
+  }
+  
+  o += "net_h1_w[768] = new Float32Array(net_h1_size).fill(0);\r\n";
+  
+  //}}}
+  //{{{  write h1 biases
+  
+  var a = params.b1;
+  
+  o += 'const net_h1_b = new Float32Array([' + a.toString() + ']);\r\n';
+  
+  //}}}
+  //{{{  write o weights
+  
+  var a = params.W2;
+  
+  o += 'const net_o_w = new Float32Array([' + a.toString() + ']);\r\n';
+  
+  //}}}
+  //{{{  write o bias
+  
+  var a = params.b2;
+  
+  o += 'const net_o_b = ' + a.toString() + ';\r\n';
+  
+  //}}}
 
-  // Write W2
-  Buffer.from(new Float32Array(params.W2).buffer).copy(buffer, offset);
-  offset += params.W2.length * Float32Array.BYTES_PER_ELEMENT;
+  o += '\r\n//}}}\r\n';
+  o += '\r\n//}}}\r\n\r\n';
 
-  // Write b2
-  Buffer.from(new Float32Array([params.b2]).buffer).copy(buffer, offset);
+  const weightsFile= 'data/weights_' + id + '_' + epochs + '.js';
 
-  // Save the binary file
-  fs.writeFileSync(weightsFile, buffer);
+  fs.writeFileSync(weightsFile, o);
 }
 
 //}}}
@@ -382,9 +426,9 @@ async function train(filenames) {
 
   let params = initializeParameters();
 
-  saveBinaryModel(params,0);
+  saveModel(0, params, 0);
 
-  console.log(id, 'hidden',hiddenSize,'acti',activationName(acti),'shuffle',shuffle,'batchsize',batchSize,'lr',learningRate);
+  console.log(id, 'hidden',hiddenSize,'acti',activationName(acti),'stretch',K,'shuffle',shuffle,'batchsize',batchSize,'lr',learningRate,'interp',interp);
 
   let t = 0;
 
@@ -433,7 +477,8 @@ async function train(filenames) {
       }
     }
     
-    saveBinaryModel(params,epoch+1);
+    // Save model after training epoch
+    saveModel(totalLoss/batchCount, params, epoch + 1);
     
     console.log(id, 'epoch', epoch+1, 'batch', batchCount, 'bloss', totalLoss/batchCount);
     

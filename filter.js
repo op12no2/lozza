@@ -14,8 +14,8 @@ const fs = require('fs');
 const readline = require('readline');
 const path = require('path');
 
-const rawFiles = ['data/gen3c.fen'];       // list of .fen files via datagen.js or same format.
-const filterFile = 'data/gen3c.filtered';  // file to write for trainer.js.
+const rawFiles = ['data/gen3a.fen'];       // list of .fen files via datagen.js or same format.
+const filterFile = 'data/gen3a.filtered';  // file to write for trainer.js.
 
 const interp = 0.5;
 const K      = 100;  // **** must match K in trainer.js.
@@ -60,13 +60,13 @@ function skipP (parts) {
   if (inCh == 'c')
     return true;
 
-  const flip = parts[PART_FLIP].trim();
-  if (flip != '-' && flip != 'f') {
-    console.log('flip',flip);
-    return true;
-  }
-  if (flip == 'f')
-    return true;
+  //const flip = parts[PART_FLIP].trim();
+  //if (flip != '-' && flip != 'f') {
+    //console.log('flip',flip);
+    //return true;
+  //}
+  //if (flip == 'f')
+    //return true;
 
   return false;
 }
