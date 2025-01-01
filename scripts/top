@@ -1,6 +1,10 @@
 
 --{{{  try
 
+soft/hard time bounds
+try 16 bit floats
+try no iid and no iir
+change lo/hiPieces from 3d to 2d
 perspective!
 take pv out of tt
 train 2 nets with queens and without
@@ -38,12 +42,14 @@ push harry
 
 'lozzacand.js'
 'lozzarepo.js'    // last repo update
-'lozza3.js'       // release/lozza.js with ^23 TT + n command + bench 12 deep
 
-'data/weights_srelu_128_v_1.js'
+'data/weights_srelu_128_5gen3_0.js'
 
-'release\lozza.js'
-'release\readme.txt'
+'lozza3.js'       // lozza 3 release with smaller TT size etc
+
+'release/v4/lozza.js'
+'release/v4/readme.txt'
+'release/v4/lozza.bat'
 
 'cctry'
 'prof'
