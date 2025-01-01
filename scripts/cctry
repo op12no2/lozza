@@ -3,12 +3,9 @@
 shebang="#!/home/xyzzy/.nvm/versions/node/v23.5.0/bin/node"
 
 e1=lozza.js
-e2=lozzacand.js
+e2=lozza3.js
 
 echo $e1 v $e2
-
-grep __dirname $e1
-grep __dirname $e2
 
 echo $shebang | cat - $e1 > x$e1
 echo $shebang | cat - $e2 > x$e2
