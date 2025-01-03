@@ -2,18 +2,20 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "5";
+const BUILD = "5.18";
 
 //{{{  history
 /*
 
-5.16 23/12/24 Scale eval by 1.9.
+5.18 02/01/25 Use ADJACENT, not DIST.
+5.17 02/01/25 Simplify QS and don't go into QS if in check.
+5.16 23/12/24 Scale eval by 1.9. Scale UCI cp by 1.9.
 5.15 23/12/24 Add perspective (currently unused).
 5.14 20/12/24 Use the Mersene Twister from cwtch for randoms.
 5.13 21/11/24 Move futility alpha test to move loop.
-5.12 17/11/24 Use hash move in q search.
-5.11 07/11/24 Optmise deferral of h1 accumulator update a bit more.
-5.10 06/11/24 Fix some web stuff. Add improving indicator.
+5.12 17/11/24 Use hash move in QS.
+5.11 07/11/24 Optmise deferral of H1 accumulator update a bit more.
+5.10 06/11/24 Fix some web stuff. Add improving indicator (failed to get it to gain so far).
 5.9  31/10/24 Prune QS with quickSee(). Only count nodes that iterate moves.
 5.8  30/10/24 Put eval in TT before search.
 5.7  29/10/24 Optimise castling a bit.
@@ -23,8 +25,8 @@ const BUILD = "5";
 5.3  20/10/24 Make sure all UE updates (e.g. castling) are a single accumulator loop.
 5.2  18/10/24 Defer UE to after legal check (doh!) and don't check pre-determined legal moves.
 5.1  18/10/24 Minor tweaks for datagen + net command.
-5.0  03/10/24 Integrate the NNUE from my Cwtch experiment (https://github.com/op12no2/cwtch).
-
+4.*  01/01/25 Aborted.
+3.0  03/10/24 Integrate the NNUE from my Cwtch experiment (https://github.com/op12no2/cwtch).
 
 */
 
@@ -111,6 +113,7 @@ const IMAP             = Array(16);
 const IFLIP            = Array(net_i_size+1);
 
 const MATERIAL = [0,100,394,388,588,1207,10000];
+const ADJACENT = [1,1,0,0,0,0,0,0,0,0,0,1,1,1];
 
 var MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits.
 var MAX_MOVES       = 250;
@@ -461,7 +464,6 @@ UMAP[W_QUEEN]  = 'Q';
 UMAP[W_KING]   = 'K';
 
 var STARRAY = Array(144);
-var DIST    = Array(144);
 
 //{{{  ALIGNED
 
@@ -2130,21 +2132,7 @@ function lozChess () {
   }
   
   //}}}
-  //{{{  init DIST
-  
-  for (var i=0; i < 144; i++) {
-    DIST[i]   = Array(144);
-    var rankI = RANK[i];
-    var fileI = FILE[i];
-    for (var j=0; j < 144; j++) {
-      var rankJ = RANK[j];
-      var fileJ = FILE[j];
-      DIST[i][j] = Math.max(Math.abs(rankI-rankJ),Math.abs(fileI-fileJ));
-    }
-  }
-  
-  //}}}
-  //{{{  IMAP
+  //{{{  init IMAP
   
   for (var i=0; i < 16; i++) {
     IMAP[i] = Array(144).fill(0);
@@ -2172,7 +2160,7 @@ function lozChess () {
   }
   
   //}}}
-  //{{{  IFLIP
+  //{{{  init IFLIP
   
   for (var i=0; i < net_i_size; i++) {
     IFLIP[i] = flipIndex(i);
@@ -2613,10 +2601,16 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     return 0;
   
   //}}}
+
+  if (inCheck == INCHECK_UNKNOWN)
+    inCheck  = board.isKingAttacked(nextTurn);
+
   //{{{  horizon
   
-  if (depth <= 0)
-    return this.qSearch(node, -1, turn, alpha, beta, 0);
+  if (!inCheck && depth <= 0)
+    return this.qSearch(node, -1, turn, alpha, beta);
+  
+  depth = Math.max(depth,0);
   
   //}}}
   //{{{  try tt
@@ -2627,9 +2621,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     return score;
   
   //}}}
-
-  if (inCheck == INCHECK_UNKNOWN)
-    inCheck  = board.isKingAttacked(nextTurn);
 
   var R         = 0;
   var E         = 0;
@@ -2901,7 +2892,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
 //}}}
 //{{{  .qsearch
 
-lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
+lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
   //{{{  housekeeping
   
@@ -2916,7 +2907,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   var board         = this.board;
   var numLegalMoves = 0;
   var move          = 0;
-  var ev          = INFINITY;
+  var ev            = INFINITY;
   var phase         = 0;
   var nextTurn      = ~turn & COLOR_MASK;
   var to            = 0;
@@ -2929,39 +2920,21 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   if (score != TTSCORE_UNKNOWN)
     return score;
 
-  if (depth > -2) {
-    var inCheck = board.isKingAttacked(nextTurn);
-    var legals = 1;
-  }
-  else {
-    var inCheck = 0;
-    var legals = 0;
-  }
+  ev = board.getEval(ev, node, turn);
+  if (ev >= beta)
+    return ev;
+  if (ev >= alpha)
+    alpha = ev;
 
-  if (!inCheck) {
-    ev = board.getEval(ev, node, turn);
-    if (ev >= beta)
-      return ev;
-    if (ev >= alpha)
-      alpha = ev;
-    phase = board.cleanPhase(board.phase);
-  }
+  phase = board.cleanPhase(board.phase);
 
   if (ev != INFINITY)
     board.ttUpdateEval(ev);
 
-  node.inCheck = inCheck;
+  node.inCheck = 0;
   node.cache();
 
-  if (inCheck) {
-    board.genEvasions(node, turn);
-  }
-  else {
-    if (sq && depth < -12)
-      board.genQMovesTo(node, turn, sq);
-    else
-      board.genQMoves(node, turn);
-  }
+  board.genQMoves(node, turn);
 
   this.stats.nodes++;
 
@@ -2969,11 +2942,11 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
     //{{{  prune?
     
-    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+    if (phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
       continue;
     }
     
-    if (!inCheck && board.quickSee(turn, move) < 0) {
+    if (board.quickSee(turn, move) < 0) {
       continue;
     }
     
@@ -2983,12 +2956,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
     //{{{  legal?
     
-    if (legals)
-      var cond = !(move & MOVE_LEGAL_MASK) && board.isKingAttacked(nextTurn);
-    else
-      var cond = board.isKingAttacked(nextTurn);
-    
-    if (cond) {
+    if (board.isKingAttacked(nextTurn)) {
     
       board.unmakeMove(node,move);
     
@@ -3003,7 +2971,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
     numLegalMoves++;
 
-    score = -this.qSearch(node.childNode, depth-1, nextTurn, -beta, -alpha, (move & MOVE_TO_MASK) >>> MOVE_TO_BITS);
+    score = -this.qSearch(node.childNode, depth-1, nextTurn, -beta, -alpha);
 
     //{{{  unmake move
     
@@ -3025,17 +2993,6 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
       alpha = score;
     }
   }
-
-  //{{{  no moves?
-  //
-  // Some legal moves will be missed because of futility but only
-  // if not in check and numLegalMoves is only needed if in check.
-  //
-  
-  if (inCheck && numLegalMoves == 0)
-     return -MATE + node.ply;
-  
-  //}}}
 
   board.ttPut(TT_ALPHA, 0, alpha, 0, node.ply, alpha, beta, ev);
 
@@ -3756,7 +3713,7 @@ lozBoard.prototype.genMoves = function(node, turn) {
         to    = fr + offsets[dir++];
         toObj = b[to];
       
-        if (DIST[to][theirKingSq] > 1) {
+        if (!ADJACENT[Math.abs(to-theirKingSq)]) {
           if (!toObj)
             node.addSlide(frMove | to);
           else if (CAPTURE[toObj])
@@ -3941,7 +3898,7 @@ lozBoard.prototype.genEvasions = function(node, turn) {
           var rayTo = ray[to];
       
           if (toObj == NULL) {
-            if ((frObj == myKing && DIST[to][theirKingSq] > 1) || ((rayTo > 0 && (rayTo != rayFrom) && !CORNERS[to])))
+            if ((frObj == myKing && !ADJACENT[Math.abs(to-theirKingSq)]) || ((rayTo > 0 && (rayTo != rayFrom) && !CORNERS[to])))
               node.addSlide(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
       
             continue;
@@ -3989,7 +3946,6 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     var theirKingSq  = this.bList[0];
     var pCount       = this.wCount;
     var CAPTURE      = IS_BNK;
-    var aligned      = ALIGNED[this.wList[0]];
   }
   
   else {
@@ -4002,7 +3958,6 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     var theirKingSq  = this.wList[0];
     var pCount       = this.bCount;
     var CAPTURE      = IS_WNK;
-    var aligned      = ALIGNED[this.bList[0]];
   }
   
   //}}}
@@ -4016,7 +3971,6 @@ lozBoard.prototype.genQMoves = function(node, turn) {
   var frPiece   = 0;
   var frMove    = 0;
   var frRank    = 0;
-  var legalMask = 0;
 
   while (count < pCount) {
 
@@ -4030,7 +3984,6 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     frPiece   = frObj & PIECE_MASK;
     frMove    = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
     frRank    = RANK[fr];
-    legalMask = !this.inCheck && !aligned[fr] ? MOVE_LEGAL_MASK : 0;
 
     if (frPiece == PAWN) {
       //{{{  P
@@ -4043,7 +3996,7 @@ lozBoard.prototype.genQMoves = function(node, turn) {
       if (!toObj) {
       
         if (frRank == pPromoteRank)
-          node.addQPromotion(MOVE_PROMOTE_MASK | frMove | to | legalMask);
+          node.addQPromotion(MOVE_PROMOTE_MASK | frMove | to);
       }
       
       to    = fr + pOffsetDiag1;
@@ -4052,13 +4005,13 @@ lozBoard.prototype.genQMoves = function(node, turn) {
       if (CAPTURE[toObj]) {
       
         if (frRank == pPromoteRank)
-          node.addQPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          node.addQPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         else
-          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
       }
       
       else if (!toObj && to == this.ep)
-        node.addQMove(MOVE_EPTAKE_MASK | frMove | to | legalMask);
+        node.addQMove(MOVE_EPTAKE_MASK | frMove | to);
       
       to    = fr + pOffsetDiag2;
       toObj = b[to];
@@ -4066,13 +4019,13 @@ lozBoard.prototype.genQMoves = function(node, turn) {
       if (CAPTURE[toObj]) {
       
         if (frRank == pPromoteRank)
-          node.addQPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          node.addQPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         else
-          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
       }
       
       else if (!toObj && to == this.ep)
-        node.addQMove(MOVE_EPTAKE_MASK | frMove | to | legalMask);
+        node.addQMove(MOVE_EPTAKE_MASK | frMove | to);
       
       //}}}
     }
@@ -4089,7 +4042,7 @@ lozBoard.prototype.genQMoves = function(node, turn) {
         toObj = b[to];
       
         if (CAPTURE[toObj])
-          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
       }
       
       //}}}
@@ -4106,7 +4059,7 @@ lozBoard.prototype.genQMoves = function(node, turn) {
         to    = fr + offsets[dir++];
         toObj = b[to];
       
-        if (CAPTURE[toObj] && DIST[to][theirKingSq] > 1)
+        if (CAPTURE[toObj] && !ADJACENT[Math.abs(to-theirKingSq)])
           node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
       }
       
@@ -4132,178 +4085,7 @@ lozBoard.prototype.genQMoves = function(node, turn) {
         toObj = b[to];
       
         if (CAPTURE[toObj])
-          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-      }
-      
-      //}}}
-    }
-
-    next++;
-    count++
-  }
-}
-
-//}}}
-//{{{  .genQMovesTo
-
-lozBoard.prototype.genQMovesTo = function(node, turn, sq) {
-
-  node.numMoves    = 0;
-  node.sortedIndex = 0;
-
-  var b = this.b;
-
-  //{{{  colour based stuff
-  
-  if (turn == WHITE) {
-  
-    var pOffsetOrth  = WP_OFFSET_ORTH;
-    var pOffsetDiag1 = WP_OFFSET_DIAG1;
-    var pOffsetDiag2 = WP_OFFSET_DIAG2;
-    var pPromoteRank = 7;
-    var pList        = this.wList;
-    var theirKingSq  = this.bList[0];
-    var pCount       = this.wCount;
-    var CAPTURE      = IS_BNK;
-    var aligned      = ALIGNED[this.wList[0]];
-  }
-  
-  else {
-  
-    var pOffsetOrth  = BP_OFFSET_ORTH;
-    var pOffsetDiag1 = BP_OFFSET_DIAG1;
-    var pOffsetDiag2 = BP_OFFSET_DIAG2;
-    var pPromoteRank = 2;
-    var pList        = this.bList;
-    var theirKingSq  = this.wList[0];
-    var pCount       = this.bCount;
-    var CAPTURE      = IS_WNK;
-    var aligned      = ALIGNED[this.bList[0]];
-  }
-  
-  //}}}
-
-  var next      = 0;
-  var count     = 0;
-  var to        = 0;
-  var toObj     = 0;
-  var fr        = 0;
-  var frObj     = 0;
-  var frPiece   = 0;
-  var frMove    = 0;
-  var frRank    = 0;
-  var legalMask = 0;
-
-  while (count < pCount) {
-
-    fr = pList[next];
-    if (!fr) {
-      next++;
-      continue;
-    }
-
-    frObj     = b[fr];
-    frPiece   = frObj & PIECE_MASK;
-    frMove    = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
-    frRank    = RANK[fr];
-    legalMask = !this.inCheck && !aligned[fr] ? MOVE_LEGAL_MASK : 0;
-
-    if (frPiece == PAWN) {
-      //{{{  P
-      
-      frMove |= MOVE_PAWN_MASK;
-      
-      to = fr + pOffsetDiag1;
-      if (to == sq) {
-        toObj = b[to];
-        if (CAPTURE[toObj]) {
-          if (frRank == pPromoteRank)
-            node.addQPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-          else
-            node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-        }
-        else if (!toObj && to == this.ep)
-          node.addQMove(MOVE_EPTAKE_MASK | frMove | to | legalMask);
-      }
-      
-      to = fr + pOffsetDiag2;
-      if (to == sq) {
-        toObj = b[to];
-        if (CAPTURE[toObj]) {
-          if (frRank == pPromoteRank)
-            node.addQPromotion(MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-          else
-            node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-        }
-        else if (!toObj && to == this.ep)
-          node.addQMove(MOVE_EPTAKE_MASK | frMove | to | legalMask);
-      }
-      
-      //}}}
-    }
-
-    else if (IS_N[frObj]) {
-      //{{{  N
-      
-      var offsets = OFFSETS[frPiece];
-      var dir     = 0;
-      
-      while (dir < 8) {
-      
-        to = fr + offsets[dir++];
-        if (to == sq) {
-          toObj = b[to];
-          if (CAPTURE[toObj])
-            node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-          break;
-        }
-      }
-      
-      //}}}
-    }
-
-    else if (IS_K[frObj]) {
-      //{{{  K
-      
-      var offsets = OFFSETS[frPiece];
-      var dir     = 0;
-      
-      while (dir < 8) {
-      
-        to = fr + offsets[dir++];
-        if (to == sq) {
-          toObj = b[to];
-          if (CAPTURE[toObj] && DIST[to][theirKingSq] > 1)
-            node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-          break;
-        }
-      }
-      
-      //}}}
-    }
-
-    else {
-      //{{{  BRQ
-      
-      var offsets = OFFSETS[frPiece];
-      var len     = offsets.length;
-      var dir     = 0;
-      
-      while (dir < len) {
-      
-        var offset = offsets[dir++];
-      
-        to = fr + offset;
-      
-        while (!b[to])
-          to += offset;
-      
-        if (to == sq) {
-          toObj = b[to];
-          if (CAPTURE[toObj])
-            node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-          break;
-        }
+          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
       }
       
       //}}}
@@ -4906,8 +4688,6 @@ lozBoard.prototype.isAttacked = function(to, byCol) {
 
 lozBoard.prototype.evaluate = function (turn) {
 
-  //this.hashCheck(turn);
-
   //{{{  init
   
   const numPieces = this.wCount + this.bCount;
@@ -5387,7 +5167,7 @@ lozBoard.prototype.netUpdate = function (turn) {
 
 lozBoard.prototype.netSlowEval = function (turn) {
 
-  //this.hashCheck(turn);
+  this.hashCheck(turn);
 
   const b  = this.b;
   const cx = colourMultiplier(turn)
@@ -5425,8 +5205,6 @@ lozBoard.prototype.netSlowEval = function (turn) {
 //{{{  .netFastEval
 
 lozBoard.prototype.netFastEval = function (turn) {
-
-  //this.hashCheck(turn);
 
   const cx = colourMultiplier(turn)
 
