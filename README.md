@@ -91,9 +91,9 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno``` but a few tweaks may 
 
 ```net``` displays network properties.
 
-## Creating your own nets
+## Lozza's net
 
-Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in training a net for your own project; it's very straightforward. The current net is white-relative 768x128x1 unquantized squared ReLU and the weights are inlined into ```lozza.js```. The training samples include flipped nstm positions, which gains for Lozza's white-relative net. Total number of samples is about 425M. 
+Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. The current net is white-relative 768x128x1 unquantized squared ReLU and the weights are inlined into ```lozza.js```. The training samples include flipped nstm positions, which gains for Lozza's white-relative architecture. The total number of (generation 3) training samples is about 425M. I am happy to share my training data if you are interested in creating a net for your own projects, or a different net for Lozza.
 
 ## Acknowledgements
 
