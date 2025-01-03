@@ -93,7 +93,7 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno``` but a few tweaks may 
 
 ## Creating your own nets
 
-Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in training a net for your own project; it's very straightforward. The current net is white-relative 768x128x1 srelu and the weights are inlined into ```lozza.js```. 
+Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. Contact me if you are interested in training a net for your own project; it's very straightforward. The current net is white-relative 768x128x1 unquantized squared ReLU and the weights are inlined into ```lozza.js```. The training data includes flipped nstm positions, which gains for Lozza's white-relatve net. 
 
 ## Acknowledgements
 
