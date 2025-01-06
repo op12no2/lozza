@@ -2,19 +2,18 @@
 --{{{  try
 
 soft/hard time bounds
-try 16 bit floats
+try iir if no hash move after iid?
 try no iid and no iir
 change lo/hiPieces from 3d to 2d
 perspective!
 take pv out of tt
 train 2 nets with queens and without
 root sort
-use adjacent not dist
 rank killers before captures
 try killers in qs (bad takes)
 add centre to ranking to stop lots of same scores e.g. NxP
 dont use rank vec, use piece itself
-decrease depth not iid
+decrease depth iir not iid
 try ignore beta when beta pruning
 ditto alpha with alpha pruning and futility
 quicksee in slide ranking
@@ -24,10 +23,10 @@ conthist
 improving
 lmp - tell move iterator - quicker
 test removing or simplifying lonepawns (do in position)
-test not using incheck in qs
 remove king from isattached etc - dont capture king - castle conditionals a la cwtch - tried but not working
 try pesto move rank psts
-tempo
+try and get rid of PSTs
+try and get rid of MATERIAL
 move drawn stuff from eval into isdraw
 swapping move list psts for move ranking based on queens on board or not - poss in position
 full width window searches based on movetime not constant - e.g. log?
@@ -39,13 +38,14 @@ push harry
 'datagen.js'
 'filter.js'
 'trainer.js'
+'oldtrainer.js'
 
 'lozzacand.js'
 'lozzarepo.js'    // last repo update
 
-'data/weights_srelu_128_5gen3_0.js'
+'data/weights_srelu_128_5flip_0.js'
 
-'lozza3.js'       // lozza 3 release with smaller TT size etc
+'data/weights_srelu_128_5flip_1.js'
 
 'release/v4/lozza.js'
 'release/v4/readme.txt'
@@ -53,6 +53,11 @@ push harry
 
 'cctry'
 'prof'
+
+'../lozza-ui/fen.htm'
+'../lozza-ui/fen.js'
+'../lozza-ui/lozuilib.js'
+'../lozza-ui/consolehelp.htm'
 
 ------------------------------------------
 

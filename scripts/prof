@@ -1,38 +1,9 @@
 #!/bin/bash
 
-# Ensure the script exits on errors
-set -e
-
-# Initialize variables
-total=0
-iteration=0
-previous_mean=-1
-current_mean=0
-
-# Loop until two successive means are the same
-while [ "$previous_mean" -ne "$current_mean" ]; do
-    iteration=$((iteration + 1))
-    #echo "Iteration $iteration:"
-
-    # Clean up previous logs
-    rm -f *.log
-
-    # Run the profiling and process the output
-    node --prof "$1.js" bench q
-    mv isolate* v8.log
-    node --prof-process v8.log > v8.txt
-
-    # Extract t
-    t=$(awk '/\[JavaScript\]:/ {getline; getline; print $1}' "v8.txt")
-
-    # Add t to the total and calculate the mean
-    total=$((total + t))
-    previous_mean=$current_mean
-    current_mean=$((total / iteration))
-
-    # Display the current mean
-    echo "ticks $t mean ticks $current_mean"
-done
-
-echo "converged after $iteration iterations. final mean ticks: $current_mean"
+rm -f v8.log
+node --prof "$1.js" bench q
+mv isolate* v8.log
+node --prof-process v8.log > v8.txt
+more v8.txt
+rm v8.log v8.txt
 
