@@ -1,4 +1,4 @@
-Please use the latest release and not the repo coalface, which is usually broken in some way; thanks.
+**Please use the latest release and not the repo coalface, which is usually broken in some way; thanks.**
 
 # Lozza
 
