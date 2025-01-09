@@ -2,8 +2,10 @@
 //  Generate FENs for training via filter.js and trainer.js.
 //
 
-//{{{  flipFen
+//const BUILD = "4.1";
 
+//{{{  flipFen
+/*
 const flipFen = (fen) => {
 
   const [board, color, castling, enPassant, halfmove, fullmove] = fen.split(' ');
@@ -45,6 +47,7 @@ const flipFen = (fen) => {
 
   return newFen;
 };
+*/
 
 //}}}
 //{{{  flipResult
@@ -137,7 +140,7 @@ for (let g=0; g < gamesLimit; g++) {
     const move    = lozza.stats.bestMove;
     const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
     const frPiece = frObj & PIECE_MASK;
-    const moveStr = lozza.board.formatMove(move,UCI_FMT);
+    const moveStr = formatMove(move,UCI_FMT);
     const inCheck = lozza.board.isKingAttacked(nextTurn);
     const noisy   = moveIsNoisy(move);
     const fen     = lozza.board.fen(lozza.board.turn);

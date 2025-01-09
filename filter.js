@@ -3,6 +3,8 @@
 // Copy the lozza.js code above here.
 //
 
+const BUILD = "4.1";
+
 //{{{  lang fold
 /*
 
@@ -14,11 +16,11 @@ const fs = require('fs');
 const readline = require('readline');
 const path = require('path');
 
-const rawFiles = ['data/gen3a.fen'];       // list of .fen files via datagen.js or same format.
-const filterFile = 'data/gen3a.filtered';  // file to write for trainer.js.
+const rawFiles = ['data/gen3c.fen'];       // list of .fen files via datagen.js or same format.
+const filterFile = 'data/gen3c.filtered';  // file to write for trainer.js.
 
 const interp = 0.5;
-const K      = 100;  // **** must match K in trainer.js.
+const K      = 100;
 
 const PART_BOARD      = 0;
 const PART_TURN       = 1;
@@ -44,6 +46,8 @@ fs.writeFileSync(filterFile,o);
 
 function skipP (parts) {
 
+  //console.log(parts.toString());
+
   const noisy = parts[PART_NOISY].trim();
   if (noisy != '-' && noisy != 'n') {
     console.log('noisy',noisy);
@@ -61,12 +65,14 @@ function skipP (parts) {
     return true;
 
   //const flip = parts[PART_FLIP].trim();
+  //
   //if (flip != '-' && flip != 'f') {
-    //console.log('flip',flip);
-    //return true;
+  //  console.log('flip',flip);
+  //  process.exit();
   //}
+  //
   //if (flip == 'f')
-    //return true;
+  //  return true;
 
   return false;
 }
@@ -121,6 +127,12 @@ function decodeLine(line) {
   const parts = line.split(' ');
 
   indexes = [];
+
+  if (parts.length != 11) {
+    console.log('line format skipping',line);
+    return;
+  }
+
   target = 0;
 
   var x = 0;
