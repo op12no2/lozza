@@ -6,7 +6,7 @@ A UCI Javascript chess engine using a small (NNUE) net for evaluation. Try her h
 
 https://op12no2.github.io/lozza-ui
 
-Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via ```Node.js``` and on pretty-much any platform (see below). Note however that Lozza is relatively slow compared to compiled engines of a similar design, which also makes her relatively weak. 
+Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via ```Node``` and on pretty-much any platform (see below). Note however that Lozza is relatively slow compared to compiled engines of a similar design, which also makes her relatively weak. 
 
 ## Project constraints
 
@@ -50,13 +50,13 @@ https://op12no2.github.io/lozza-ui
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via ```Node.js```. Download the latest release and then follow the instructions in the ```readme.txt``` file. Any platform that supports ```Node.js``` can be targetted.   
+Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via ```Node```. Download the latest release and then follow the instructions in the ```readme.txt``` file. Any platform that supports ```Node``` can be targetted.   
 
 https://github.com/op12no2/lozza/releases
 
 ## Fire up Lozza from the command line
 
-To type UCI commands into Lozza, start ```Node.js``` with ```lozza.js``` or ```lozza``` as the parameter and then enter commands. For example:-
+To type UCI commands into Lozza, start ```Node``` with ```lozza.js``` or ```lozza``` as the parameter and then enter commands. For example:-
 
 ```
 > node lozza
@@ -73,7 +73,7 @@ Commands can also be given on invocation, for example:-
 ```
 The UCI protocol is not fully implemented; see the ```lozUCI``` class in ```lozza.js``` for details.
 
-Alternatives to ```Node.js``` are ```Bun``` and ```Deno``` but a few tweaks may be needed.
+Alternatives to ```Node``` are ```Bun``` and ```Deno``` but a few tweaks may be needed.
 
 ## Commands specific to Lozza
 
@@ -97,7 +97,7 @@ Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```traine
 
 ## Acknowledgements
 
-https://nodejs.org - ```Node.js```
+https://nodejs.org - ```Node```
 
 https://www.chessprogramming.org/Main_Page - Chess programming wiki.
 
