@@ -10,7 +10,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 ## Project constraints
 
-Hand-coded (as opposed to Emscripten) Javascript for everything including training and tuning. Self data generation, with the exception of the _boot_ dataset which was ```lichess-big3-resolved.epd + quiet_labeled.epd```. 
+Hand-coded (as opposed to Emscripten) Javascript for everything including training and tuning. Self data generation, with the exception of the _boot_ dataset which was ```lichess-big3-resolved.epd + quiet_labeled.epd```.  Within those constraints I try to maximise ELO. 
 
 ## Basic use in a browser
 
