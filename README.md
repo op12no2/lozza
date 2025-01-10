@@ -10,7 +10,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 ## Project constraints
 
-Hand-coded Javascript for everything including training and data generation.  Within those constraints the goal is to maximise ELO; sorry stylists. 
+Hand-coded Javascript for the engine and training and pipeline.  Within those constraints the goal is to maximise ELO; sorry stylists. 
 
 ## Basic use in a browser
 
