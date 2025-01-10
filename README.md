@@ -2,7 +2,7 @@
 
 # Lozza
 
-A UCI Javascript chess engine using a small net for evaluation. Try her here:-
+A UCI Javascript chess engine using a small (NNUE) net for evaluation. Try her here:-
 
 https://op12no2.github.io/lozza-ui
 
@@ -89,7 +89,7 @@ Alternatives to ```Node.js``` are ```Bun``` and ```Deno``` but a few tweaks may 
 
 ```pt``` performs a timed sequence of PERFT tests. 
 
-```net``` displays network properties.
+```net``` displays net properties.
 
 ## Lozza's net
 
