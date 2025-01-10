@@ -109,3 +109,4 @@ https://discord.gg/uM8J3x46 - Engine Programming Discord.
 
 https://talkchess.com - Talkchess forums.
 
+Fruit 2.1 - Early versions of Lozza used a HCE based on Fruit 2.1.
