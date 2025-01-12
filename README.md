@@ -10,7 +10,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 ## Project goal/constraints
 
-To maximise ELO within a Javascript framework (datagen, training and engine); sorry stylists. 
+To maximise ELO within a hand-coded Javascript framework (datagen, training and engine); sorry stylists. 
 
 ## Basic use in a browser
 
