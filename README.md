@@ -13,7 +13,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 - Hand-coded Javascript for the engine, data generation and training. 
 - Adoption of a _zero_ philosophy such that the generation 0 net is a random initialisation of the weights. Adopted at version 5 currently in development.   
 - ```lozza.js``` must be able to run in a browser (online) and Node (offline).
-- Maximise ELO given the above.
+- Maximise for strength given the above (regardless of style).
 
 ## Basic use in a browser
 
