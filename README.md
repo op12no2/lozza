@@ -8,9 +8,12 @@ https://op12no2.github.io/lozza-ui
 
 Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node and on pretty-much any platform (see below). Note however that Lozza is relatively slow compared to compiled engines of a similar design, which also makes her relatively weak. 
 
-## Project goal/constraints
+## Goals/constraints
 
-To maximise ELO within a hand-coded Javascript framework (datagen, training and engine); sorry stylists. 
+- Hand-coded Javascript for the engine, data generation and training. 
+- Adoption of a _zero_ philosophy such that the generation 0 net is a random initialisation of the weights. Adopted at version 5 currently in development.   
+- ```lozza.js``` must be able to run in a browser (online) and Node (offline).
+- Maximise ELO given the above.
 
 ## Basic use in a browser
 
