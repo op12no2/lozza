@@ -1,4 +1,4 @@
-Log of Lozza's 768x128x1 'zero' initiated net evolution.
+Log of Lozza's 768x128x1 'zero' initiated net evolution using datagen.js -> filter.js -> trainer.js -> datagen.js ...
 
 - Gen 0 = random init of weights and null biases.
 - Data = mega filtered positions including nstm positions.
