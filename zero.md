@@ -1,6 +1,8 @@
-Log of Lozza's 768x128x1 *zero* net evolution using a datagen.js -> filter.js -> trainer.js loop.
+Log of Lozza's 768x128x1 *zero* net evolution attempts using a datagen.js -> filter.js -> trainer.js loop.
 
 **Attempt 1**
+
+Random init of weights. biases = 0.
 
 - Data = mega filtered positions including nstm positions. i.e. each position appears twice (but shuffled).
 - SPRT1 = v previous gen.
@@ -8,7 +10,7 @@ Log of Lozza's 768x128x1 *zero* net evolution using a datagen.js -> filter.js ->
 
 | Gen | Data | Epochs | Loss | SPRT1 | SPRT2 | Date | Note |
 | --- | ---- | ------ | ---- | ----- | ----- | ---- | ---- | 
-| 0  | -     | -  | -      | -    | -    | 12/1 | Random init of weights. |
+| 0  | -     | -  | -      | -    | -    | 12/1 |  |
 | 1  | 0.5   | 7  | 0.0016 | +inf | -inf | 12/1 | All draws. |
 | 2  | 1.7   | 10 | 0.0165 | +inf | -inf | 12/1 | |
 | 3  | 3.9   | 13 | 0.0128 | +inf | -inf | 12/1 | |
