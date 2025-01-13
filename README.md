@@ -11,7 +11,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 ## Goals/constraints
 
 - Hand-coded Javascript for everything: the engine, data generation, filtering and training. 
-- Ideally a [_zero_](https://github.com/op12no2/lozza/blob/master/zero.md) based net. Attempting this in Lozza 5; we'll see...    
+- Ideally a [_zero_](https://github.com/op12no2/lozza/blob/master/zero.md) based net. Attempting this in Lozza 5; we'll see... :)    
 - ```lozza.js``` must be able to run in a browser (online) and Node (offline).
 - Maximise for strength given the above (regardless of style).
 
