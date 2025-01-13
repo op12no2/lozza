@@ -1,7 +1,7 @@
 Log of Lozza's 768x128x1 'zero' initiated net evolution.
 
 - Gen 0 = random init of weights and null biases.
-- Data = filtered M positions including nstm positions.
+- Data = mega filtered positions including nstm positions.
 - SPRT1 = v previous gen.
 - SPRT2 = v Lozza 4.
 
