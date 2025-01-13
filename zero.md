@@ -1,4 +1,4 @@
-Log of Lozza's 768x128x1 *zero* net evolution attempts using a datagen.js -> filter.js -> trainer.js loop.
+Log of Lozza 5's 768x128x1 *zero* net attempts using a datagen.js -> filter.js -> trainer.js loop.
 
 **Attempt 1**
 
