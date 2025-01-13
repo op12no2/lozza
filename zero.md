@@ -1,10 +1,10 @@
-Log of Lozza 5's 768x128x1 *zero* net attempts using a datagen.js -> filter.js -> trainer.js loop.
+Log of Lozza 5's *zero* net attempts using a datagen.js -> filter.js -> trainer.js loop.
 
 **Attempt 1**
 
-Random init of weights, biases = 0.
+768x128x1 float32s squared relu. Random init of weights for gen. 0 net. Biases=0. lerp=0.5. stretch=100. 10k/100k soft/hard nodes. Filter positions which are in/gives check and positions where best move is noisy. Include nstm positions (because net is white-relative). Discard data at each gen.
 
-- Data = mega filtered positions including nstm positions. i.e. each position appears twice (but shuffled).
+- Data = mega filtered positions (including nstm positions). 
 - SPRT1 = v previous gen.
 - SPRT2 = v Lozza 4.
 
@@ -17,6 +17,4 @@ Random init of weights, biases = 0.
 | 4  | 12.8  | 26 | 0.0144 | +400 | -inf | 13/1 | |
 | 5  |   |  |  |  |  | 14/1 | |
 
-Notes
 
-- 0.5 lerp throughtout, should have used 1.0 (WDL) for early generations!
