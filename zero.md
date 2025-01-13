@@ -2,7 +2,7 @@ Log of Lozza's 768x128x1 *zero* net evolution attempts using a datagen.js -> fil
 
 **Attempt 1**
 
-Random init of weights. biases = 0.
+Random init of weights, biases = 0.
 
 - Data = mega filtered positions including nstm positions. i.e. each position appears twice (but shuffled).
 - SPRT1 = v previous gen.
