@@ -44,46 +44,9 @@ https://op12no2.github.io/lozza-ui
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest release and then follow the instructions in the ```readme.txt``` file. Any platform that supports Node can be targetted.   
+Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest Lozza release and then follow the instructions in the ```readme.txt``` file. Any platform that supports Node can be targetted.   
 
 https://github.com/op12no2/lozza/releases
-
-## Fire up Lozza from the command line
-
-To type UCI commands into Lozza, start Node with ```lozza.js``` or ```lozza``` as the parameter and then enter commands. For example:-
-
-```
-> node lozza
-ucinewgame
-position startpos
-eval
-go depth 10
-quit
-```
-Commands can also be given on invocation, for example:-
-
-```
-> node lozza ucinewgame bench "position startpos" board "go movetime 100" quit
-```
-The UCI protocol is not fully implemented; see the ```lozUCI``` class in ```lozza.js``` for details.
-
-Alternatives to Node are Bun and Deno but a few tweaks may be needed.
-
-## Commands specific to Lozza
-
-```eval``` displays the current evaluation of the board.
-
-```board``` displays the board as a FEN string.
-
-```bench``` does a cumulative node count while searching a list of FENs, displaying the total and the time it took. It's particularly useful when checking that changes that should not affect searching have in fact not affected searching.  
-
-```et``` tests the UE part of NNUE.
-
-```perft``` does a PERFT on the current position.
-
-```pt``` performs a timed sequence of PERFT tests. 
-
-```net``` displays net properties.
 
 ## Acknowledgements
 
