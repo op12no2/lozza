@@ -1,5 +1,3 @@
-**Please use the latest release and not the repo coalface, which is usually broken in some way; thanks.**
-
 # Lozza
 
 A UCI Javascript chess engine using a small (NNUE) net for evaluation. Try her here:-
