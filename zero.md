@@ -1,4 +1,4 @@
-Log of Lozza 5's *zero* net attempts using a datagen.js -> filter.js -> trainer.js loop.
+A log of Lozza 5's probably futile 'zero' net attempts.
 
 **Attempt 1**
 
