@@ -96,7 +96,7 @@ Alternatives to Node are Bun and Deno but a few tweaks may be needed.
 
 ## Lozza's net
 
-Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. The current net is white-relative 768x128x1 unquantized unclamped squared ReLU and the weights are inlined into ```lozza.js```. Data generation includes flipped not-side-to-move positions, which gains for Lozza's simple white-relative architecture. 
+Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. The current net is white-relative unquantised 768x128x1 unclamped squared ReLU and the weights are inlined into ```lozza.js```. Data generation includes flipped not-side-to-move positions, which gains for Lozza's current simple white-relative architecture. 
 
 ## Acknowledgements
 
