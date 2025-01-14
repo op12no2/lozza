@@ -8,13 +8,6 @@ https://op12no2.github.io/lozza-ui
 
 Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node and on pretty-much any platform (see below). Note however that Lozza is relatively slow compared to compiled engines of a similar design, which also makes her relatively weak. 
 
-## Goals/constraints
-
-- Hand-coded Javascript for everything: the engine, data generation, filtering and training. 
-- Ideally a [_zero_](https://github.com/op12no2/lozza/blob/master/zero.md) based net. Attempting this in Lozza 5; we'll see... :)    
-- ```lozza.js``` must be able to run in a browser (online) and Node (offline).
-- Maximise for strength given the above (regardless of style).
-
 ## Basic use in a browser
 
 All you need is ```lozza.js``` from the latest release.  
@@ -96,7 +89,7 @@ Alternatives to Node are Bun and Deno but a few tweaks may be needed.
 
 ## Lozza's net
 
-Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. The current net is white-relative unquantised 768x128x1 unclamped squared ReLU and the weights are inlined into ```lozza.js```. Data generation includes flipped not-side-to-move positions, which gains for Lozza's current simple white-relative architecture. 
+Lozza's net was trained using a ```datagen.js``` -> ```filter.js``` -> ```trainer.js``` Javascript pipeline. The current net is white-relative unquantised 768 x 128 x 1 unclamped squared ReLU and the weights are inlined into ```lozza.js```. Data generation includes flipped not-side-to-move positions, which gains for Lozza's current simple white-relative architecture. 
 
 ## Acknowledgements
 
