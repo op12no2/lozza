@@ -78,7 +78,8 @@ Alternatively run the script in the foreground and fire up another terminal to k
 Get a user name by registering with a server. Example servers:-
 
 - http://chess.grantnet.us 
-- https://chess.swehosting.se 
+- https://chess.swehosting.se
+- https://pyronomy.pythonanywhere.com
 
 There are more listed in the OpenBench Discord ```#openbench-instances``` channel (link below).
 
