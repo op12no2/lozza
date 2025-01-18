@@ -42,7 +42,7 @@ Start with something like:-
 ```
 [ -f machine.txt ] && rm machine.txt
 [ -f openbench.exit ] && rm openbench.exit
-python3 ./client.py -U username -P password -S $1 -T $2 -S 1 --clean
+python3 ./client.py -U username -P password -S $1 -T $2 -N 1 --clean
 ```
 
 There are more options that ```client.py``` can take, including being able to preferentially focus on certain engines. See ```client.py``` and ```manage.py``` in the OpenBench repo (link below).
