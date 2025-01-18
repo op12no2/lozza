@@ -60,7 +60,7 @@ python3 ./client.py -U baabaa -P blacksheep -S http://chess.grantnet.us -T 12 -N
 
 ```-N sockets``` - The number of sockets, usually 1.
 
-Optionally parameters:-
+Optional parameters:-
 
 ```-I identity``` - Give your machine a name.
 
