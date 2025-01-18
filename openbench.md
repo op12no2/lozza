@@ -75,11 +75,12 @@ Alternatively run the script in the foreground and fire up another terminal to k
 
 ### Servers
 
-Get a user name by registering with a server.
+Get a user name by registering with a server. Example servers:-
 
 - http://chess.grantnet.us 
 - https://chess.swehosting.se 
 
+There are more listed in the OpenBench Discord #openbench-instances channel (link below).
 ### Links
 
 - Openbench repo and documentation - https://github.com/AndyGrant/OpenBench#
