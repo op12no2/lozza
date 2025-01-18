@@ -87,7 +87,7 @@ There are more listed in the OpenBench Discord ```#openbench-instances``` channe
 
 ### Links
 
-- Openbench repo and documentation - https://github.com/AndyGrant/OpenBench#
+- Openbench repo and documentation - https://github.com/AndyGrant/OpenBench
 - OpenBench discord - https://discord.com/invite/9MVg7fBTpM
-- Pyro's testing document - https://dannyhammer.github.io/engine-testing-guide/
+- Pyro's testing document - https://dannyhammer.github.io/engine-testing-guide
     
