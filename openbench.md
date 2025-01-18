@@ -45,7 +45,7 @@ Start with something like:-
 python3 ./client.py -U username -P password -S $1 -T $2 -S 1 --clean
 ```
 
-There are more options that ```client.py``` can take, including being able to preferentially focus on certain engines. See ```client.py``` and ```manage.py`` in the OpenBench repo (link below).
+There are more options that ```client.py``` can take, including being able to preferentially focus on certain engines. See ```client.py``` and ```manage.py``` in the OpenBench repo (link below).
 
 The script doesn't need to delete ```machine.txt``` if you always use the same server.
 
