@@ -50,23 +50,23 @@ rm openbench.exit  # just in case
 python3 ./client.py -U baabaa -P blacksheep -S http://chess.grantnet.us -T 12 -N 1 
 ```
 
--```-U user``` - Register with a server to get a user name.
+```-U user``` - Register with a server to get a user name.
 
--```-P password```
+```-P password```
 
--```-S server``` - See list below.
+```-S server``` - See list below.
 
--```-T threads``` - The number of threads to use; don't exceed processor threads and use significantly less than the physical maximum if you are using your machine while the client is running.
+```-T threads``` - The number of threads to use; don't exceed processor threads and use significantly less than the physical maximum if you are using your machine while the client is running.
 
--```-N sockets``` - The number of sockets, usually 1.
+```-N sockets``` - The number of sockets, usually 1.
 
 Optionally you can also use these parameters:-
 
--```--clean``` - Keeps ```client.py``` up to date, so not always needed.
+```--clean``` - Keeps ```client.py``` up to date, so not always needed.
 
--```--focus engine(s)``` - Preferentially but not exclusively download work for the stated engine(s). 
+```--focus engine(s)``` - Preferentially but not exclusively download work for the stated engine(s). 
 
--```-I identity``` - Give your machine a name.
+```-I identity``` - Give your machine a name.
 
 If you get an error saying a ```.pgn``` file doesn't exist it means you have not deleted ```openbench.exit``` before running the script. cutechess starts, exists and ```worker.py``` gets confused because the ```.pgn``` file does not exist.
 
