@@ -45,6 +45,12 @@ rm openbench.exit  # just in case
 python3 ./client.py -U username -P password -S server -T threads -N sockets --clean
 ```
 
+For example:-
+
+```
+python3 ./client.py -U username -P password -S http://grantnet.us -T 8 -N 1 --clean
+```
+
 ```username```, ```password``` and ```server``` can be specified using environment variables if you prefer:- 
 
 ```
@@ -53,13 +59,15 @@ OPENBENCH_PASSWORD
 OPENBENCH_SERVER
 ```
 
-```-T``` Number of threads to use; don't exceed processor threads and use less than max if using PC.
-```-N``` Number of sockets, usually 1.
-```--clean``` Keeps ```client.py``` up to date, so not always needed.
+```-T``` - Number of threads to use; don't exceed processor threads and use less than max if using PC.
+
+```-N``` - Number of sockets, usually 1.
+
+```--clean``` - Keeps ```client.py``` up to date, so not always needed.
 
 Additionally:-
 
-```--focus engine``` will preferentially but not exclusively download work for the stated engine. 
+```--focus engine(s)``` will preferentially but not exclusively download work for the stated engine(s). 
 
 If you get an error saying a ```.pgn``` file doesn't exist it means you have not deleted ```openbench.exit``` before running the script.
 
@@ -72,6 +80,8 @@ It's not recommended to use a processor that has a combination of performance an
 ```
 cd OpenBench/Client
 echo > openbench.exit
+# wait for the client to stop
+rm openbench.exit
 ```
 
 ### Using Windows
