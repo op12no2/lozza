@@ -62,13 +62,13 @@ python3 ./client.py -U baabaa -P blacksheep -S http://chess.grantnet.us -T 12 -N
 
 Optionally you can also use these parameters:-
 
-```--clean``` - Keeps ```client.py``` up to date, so not always needed.
+```-I identity``` - Give your machine a name.
 
 ```--focus engine(s)``` - Preferentially but not exclusively download work for the stated engine(s). 
 
-```-I identity``` - Give your machine a name.
+```--clean``` - Keeps ```client.py``` up to date, so not always needed.
 
-If you get an error saying a ```.pgn``` file doesn't exist it means you have not deleted ```openbench.exit``` before running the script. cutechess starts, exists and ```worker.py``` gets confused because the ```.pgn``` file does not exist.
+If you get an error saying a ```.pgn``` file doesn't exist it means you have not deleted ```openbench.exit``` before running the script. ```cutechess``` starts, exists and ```worker.py``` gets confused because the ```.pgn``` file doesn't exist.
 
 If you start getting other errors, make sure you are up to date: ```sudo apt update && sudo apt upgrade -y```
 
