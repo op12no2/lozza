@@ -67,6 +67,7 @@ Get a user name by registering with a server.
 ### Notes
 
 - There are more options that client.py can take, including being able to preferentially focus on certain engines. See client.py and manage.py in the repo.
+- If a compiler or runtime environment is missing (e.g. Java) the affected engines are simply not testing on your machine.
 - The script doesn't need to delete machine.txt if you always use the same server.
 - If you start getting errors, make sure you are up to date: sudo apt update && sudo apt upgrade -y
 - Your username and password can be preset using environment variables if you prefer. See links below.
