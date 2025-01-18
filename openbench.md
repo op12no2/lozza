@@ -31,7 +31,7 @@ If a compiler or runtime environment is missing (e.g. Java) the affected engines
 
 ### Get the client
 
-This is OTT but easy:-
+This is OTT but quick and easy:-
 
 ```
 git clone https://github.com/AndyGrant/OpenBench OpenBench
@@ -64,7 +64,7 @@ Optional parameters:-
 
 ```-I identity``` - Give your machine a name.
 
-```--focus engine(s)``` - Preferentially but not exclusively download work for the stated engine(s). 
+```--focus engine(s)``` - Preferentially but not exclusively download work for the stated engine or space separated engines. 
 
 ```--clean``` - Keeps ```client.py``` up to date, so not always needed.
 
