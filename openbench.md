@@ -41,11 +41,11 @@ python3 ./client.py -U username -P password -S $1 -T $2 -S 1 --clean
 
 ### Run the script
 
-Assuming it's called ob.
+The number of threads (-T option) should not exceed the capacity of your processor.  For example on a 7950x being exclusively used for OpenBench:-
 
 ```
 cd OpenBench/Client
-./ob http://chess.grantnet.us 12 &
+./ob http://chess.grantnet.us 32 &
 ```
 
 ### Safely kill the script
@@ -55,8 +55,25 @@ cd OpenBench/Client
 echo > openbench.exit
 ```
 
+Alternatively run the script in the foreground and fire up another terminal to kill it.
+
 ### Servers
 
-- https://chess.grantnet.us 
+Get a user name by registering with a server.
+
+- http://chess.grantnet.us 
 - https://chess.swehosting.se 
 
+### Notes
+
+- There are more options that client.py can take, including being able to preferentially focus on certain engines. See client.py and manage.py in the repo.
+- The script doesn't need to delete machine.txt if you always use the same server.
+- If you start getting errors, make sure you are up to date: sudo apt update && sudo apt upgrade -y
+- Your username and password can be preset using environment variables if you prefer. See links below.
+ 
+### Links
+
+- Openbench repo and documentation - https://github.com/AndyGrant/OpenBench#
+- OpenBench discord - https://discord.com/invite/9MVg7fBTpM
+- Pyro's testing document - https://dannyhammer.github.io/engine-testing-guide/
+    
