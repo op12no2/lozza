@@ -2,7 +2,7 @@
 
 ### Setup
 
-Install the necessary compilers etc. Using a Ubuntu and assuming no dev tools are present for example:-
+Install the necessary compilers etc. Using Ubuntu and assuming no dev tools are present for example:-
 
 ```
 # adapted from https://dannyhammer.github.io/engine-testing-guide/
