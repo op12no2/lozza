@@ -29,7 +29,9 @@ sudo apt update && sudo apt upgrade -y
 
 If a compiler or runtime environment is missing (e.g. Java) the affected engines are simply not tested on your machine.
 
-### Clone OpenBench
+### Get the client
+
+This is OTT but easy:-
 
 ```
 git clone https://github.com/AndyGrant/OpenBench OpenBench
@@ -41,6 +43,7 @@ For example:-
 
 ```
 cd OpenBench/Client
+
 rm machine.txt     # only need to do this if you contribute to more than one server
 rm openbench.exit  # just in case
 
@@ -74,6 +77,7 @@ It's not recommended to use a processor that has a combination of performance an
 ### Safely kill the client
 
 ```
+# fire up a new terminal
 cd OpenBench/Client
 echo > openbench.exit
 # wait for the client to stop
