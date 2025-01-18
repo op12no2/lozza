@@ -2,7 +2,7 @@
 
 ### Setup
 
-Install the necessary compilers etc. Using Ubuntu for example:-
+Install the necessary compilers etc. Using a Ubuntu and assuming no dev tools are present for example:-
 
 ```
 # adapted from https://dannyhammer.github.io/engine-testing-guide/
@@ -27,7 +27,7 @@ sudo apt update && sudo apt upgrade -y
 sudo apt update && sudo apt upgrade -y
 ```
 
-If a compiler or runtime environment is missing (e.g. Java) the affected engines are simply not testing on your machine.
+If a compiler or runtime environment is missing (e.g. Java) the affected engines are simply not tested on your machine.
 
 ### Clone OpenBench
 
@@ -35,7 +35,7 @@ If a compiler or runtime environment is missing (e.g. Java) the affected engines
 git clone https://github.com/AndyGrant/OpenBench OpenBench
 ```
 
-### Create a little script to fire up OpenBench 
+### Create a script to fire up OpenBench 
 
 Start with something like:-
 
@@ -47,9 +47,9 @@ python3 ./client.py -U username -P password -S $1 -T $2 -N 1 --clean
 
 There are more options that ```client.py``` can take, including being able to preferentially focus on certain engines. See ```client.py``` and ```worker.py``` in the OpenBench repo (link below).
 
-The script doesn't need to delete ```machine.txt``` if you always use the same server.
+The script doesn't need to delete ```machine.txt``` if you always use the same server. ```--clean``` keeps ```client.py``` up to date.
 
-Your username and password can be preset using environment variables if you prefer. See links below.
+Your username and password can be specified using environment variables if you prefer. See links below.
  
 ### Run the script
 
@@ -75,6 +75,10 @@ echo > openbench.exit
 
 Alternatively run the script in the foreground and fire up another terminal to kill it.
 
+### Using Windows
+
+It is possible to get all the dev tools set up in Windows but it's much easier to install WSL and use Linux.
+
 ### Servers
 
 Get a user name by registering with a server. Example servers:-
@@ -89,5 +93,6 @@ There are more listed in the OpenBench Discord ```#openbench-instances``` channe
 
 - Openbench repo and documentation - https://github.com/AndyGrant/OpenBench
 - OpenBench discord - https://discord.com/invite/9MVg7fBTpM
-- Pyro's testing document - https://dannyhammer.github.io/engine-testing-guide
+- Pyro's engine testing guide - https://dannyhammer.github.io/engine-testing-guide
+- WSL - https://learn.microsoft.com/en-us/windows/wsl/install
     
