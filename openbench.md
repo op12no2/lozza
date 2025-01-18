@@ -44,8 +44,8 @@ For example:-
 ```
 cd OpenBench/Client
 
-rm machine.txt     # only need to do this if you contribute to more than one server
-rm openbench.exit  # just in case
+rm machine.txt     # just in case (last server was different)
+rm openbench.exit  # just in case (forgot to delete it after previous use)
 
 python3 ./client.py -U baabaa -P blacksheep -S http://chess.grantnet.us -T 12 -N 1 
 ```
