@@ -35,43 +35,37 @@ If a compiler or runtime environment is missing (e.g. Java) the affected engines
 git clone https://github.com/AndyGrant/OpenBench OpenBench
 ```
 
-### Fire up OpenBench 
-
-```
-cd OpenBench/Client
-rm machine.txt     # if exists. only do this if you contribute to more than one server
-rm openbench.exit  # if exists.
-
-python3 ./client.py -U username -P password -S server -T threads -N sockets 
-```
+### Fire up the client 
 
 For example:-
 
 ```
-python3 ./client.py -U username -P password -S http://chess.grantnet.us -T 8 -N 1 
+cd OpenBench/Client
+rm machine.txt     # only need to do this if you contribute to more than one server
+rm openbench.exit  # just in case
+
+python3 ./client.py -U baabaa -P blacksheep -S http://chess.grantnet.us -T 12 -N 1 
 ```
 
-```username```, ```password``` and ```server``` can be specified using environment variables if you prefer:- 
+-```-U user``` - Register with a server to get a user name.
 
-```
-OPENBENCH_USERNAME
-OPENBENCH_PASSWORD
-OPENBENCH_SERVER
-```
+-```-P password```
 
-```-T threads``` - Number of threads to use; don't exceed processor threads and use less than max if using PC.
+-```-S server``` - See list below.
 
-```-N sockets``` - Number of sockets, usually 1.
+-```-T threads``` - The number of threads to use; don't exceed processor threads and use significantly less than the physical maximum if you are using your machine while the client is running.
+
+-```-N sockets``` - The number of sockets, usually 1.
 
 Optionally you can also use these parameters:-
 
-```--clean``` - Keeps ```client.py``` up to date, so not always needed.
+-```--clean``` - Keeps ```client.py``` up to date, so not always needed.
 
-```--focus engine(s)``` - Preferentially but not exclusively download work for the stated engine(s). 
+-```--focus engine(s)``` - Preferentially but not exclusively download work for the stated engine(s). 
 
-```-I identity``` - Give your machine a name.
+-```-I identity``` - Give your machine a name.
 
-If you get an error saying a ```.pgn``` file doesn't exist it means you have not deleted ```openbench.exit``` before running the script.
+If you get an error saying a ```.pgn``` file doesn't exist it means you have not deleted ```openbench.exit``` before running the script. cutechess starts, exists and ```worker.py``` gets confused because the ```.pgn``` file does not exist.
 
 If you start getting other errors, make sure you are up to date: ```sudo apt update && sudo apt upgrade -y```
 
@@ -92,7 +86,7 @@ It is possible to get all the dev tools set up in Windows, but it's far easier t
 
 ### Servers
 
-Get a user name by registering with a server. Example servers:-
+Example servers:-
 
 - http://chess.grantnet.us 
 - https://chess.swehosting.se
