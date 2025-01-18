@@ -56,11 +56,11 @@ python3 ./client.py -U baabaa -P blacksheep -S http://chess.grantnet.us -T 12 -N
 
 ```-S server``` - See list below.
 
-```-T threads``` - The number of threads to use; don't exceed processor threads and use significantly less than the physical maximum if you are using your machine while the client is running.
+```-T threads``` - The number of threads to use. Don't exceed processor threads and use significantly less than the physical maximum if you are using your machine while the client is running.
 
 ```-N sockets``` - The number of sockets, usually 1.
 
-Optionally you can also use these parameters:-
+Optionally parameters:-
 
 ```-I identity``` - Give your machine a name.
 
@@ -72,7 +72,7 @@ If you get an error saying a ```.pgn``` file doesn't exist it means you have not
 
 If you start getting other errors, make sure you are up to date: ```sudo apt update && sudo apt upgrade -y```
 
-It's not recommended to use a processor that has a combination of performance and efficient cores unless you take steps to explicitly target the P or E cores, or somehow randomise things that such everything falls out in the wash.  
+It's not recommended to use a processor that has a combination of performance and efficiency cores unless you take steps to explicitly target one or the other, or somehow randomise things that such everything falls out in the wash.  
 
 ### Safely kill the client
 
