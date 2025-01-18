@@ -53,7 +53,7 @@ Your username and password can be preset using environment variables if you pref
  
 ### Run the script
 
-The number of threads (-T option) should not exceed the capacity of your processor. For example on a 7950x being exclusively used for OpenBench:-
+The number of threads (-T option) should not exceed the capacity of your processor. For example on a Ryzen 7950x being exclusively used for OpenBench:-
 
 ```
 cd OpenBench/Client
@@ -63,7 +63,9 @@ cd OpenBench/Client
 If you get an error saying a ```.pgn``` file doesn't exist it means you have not deleted ```openbench.exit``` before running the script.
 
 If you start getting errors, make sure you are up to date: ```sudo apt update && sudo apt upgrade -y```
- 
+
+It's not recommended to use a processor that has a combination of performance and efficient cores unless you take steps to explicitly target the P or E cores, or somehow randomise things that such everything falls out in the wash.  
+
 ### Safely kill the script
 
 ```
