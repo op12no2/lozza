@@ -45,7 +45,7 @@ Assuming it's called ob.
 
 ```
 cd OpenBench/Client
-./ob &
+./ob http://chess.grantnet.us 12 &
 ```
 
 ### Safely kill the script
