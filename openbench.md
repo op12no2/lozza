@@ -45,7 +45,7 @@ Start with something like:-
 python3 ./client.py -U username -P password -S $1 -T $2 -S 1 --clean
 ```
 
-There are more options that client.py can take, including being able to preferentially focus on certain engines. See client.py and manage.py in the repo.
+There are more options that client.py can take, including being able to preferentially focus on certain engines. See client.py and manage.py in the OpenBench repo (link below).
 
 The script doesn't need to delete machine.txt if you always use the same server.
 
@@ -55,12 +55,12 @@ Your username and password can be preset using environment variables if you pref
 
 The number of threads (-T option) should not exceed the capacity of your processor. For example on a 7950x being exclusively used for OpenBench:-
 
-Note that if you get an error saying a .pgn file doesn't exist it means you have not deleted openbench.exit before running the script.
-
 ```
 cd OpenBench/Client
 ./ob http://chess.grantnet.us 32 &
 ```
+
+Note that if you get an error saying a .pgn file doesn't exist it means you have not deleted openbench.exit before running the script.
 
 If you start getting errors, make sure you are up to date: sudo apt update && sudo apt upgrade -y
  
