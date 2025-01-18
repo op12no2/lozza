@@ -39,16 +39,16 @@ git clone https://github.com/AndyGrant/OpenBench OpenBench
 
 ```
 cd OpenBench/Client
-rm machine.txt     # do this if you use more than one server
-rm openbench.exit  # just in case
+rm machine.txt     # if exists. only do this if you contribute to more than one server
+rm openbench.exit  # if exists.
 
-python3 ./client.py -U username -P password -S server -T threads -N sockets --clean
+python3 ./client.py -U username -P password -S server -T threads -N sockets 
 ```
 
 For example:-
 
 ```
-python3 ./client.py -U username -P password -S http://grantnet.us -T 8 -N 1 --clean
+python3 ./client.py -U username -P password -S http://chess.grantnet.us -T 8 -N 1 
 ```
 
 ```username```, ```password``` and ```server``` can be specified using environment variables if you prefer:- 
@@ -59,15 +59,17 @@ OPENBENCH_PASSWORD
 OPENBENCH_SERVER
 ```
 
-```-T``` - Number of threads to use; don't exceed processor threads and use less than max if using PC.
+```-T threads``` - Number of threads to use; don't exceed processor threads and use less than max if using PC.
 
-```-N``` - Number of sockets, usually 1.
+```-N sockets``` - Number of sockets, usually 1.
+
+Optionally you can also use these parameters:-
 
 ```--clean``` - Keeps ```client.py``` up to date, so not always needed.
 
-Additionally:-
+```--focus engine(s)``` - Preferentially but not exclusively download work for the stated engine(s). 
 
-```--focus engine(s)``` will preferentially but not exclusively download work for the stated engine(s). 
+```-I identity``` - Give your machine a name.
 
 If you get an error saying a ```.pgn``` file doesn't exist it means you have not deleted ```openbench.exit``` before running the script.
 
