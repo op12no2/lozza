@@ -6,7 +6,7 @@ A log of Lozza 5's probably futile 'zero' net attempts.
 - Generation 0 net weights, biases: Random, 0.
 - Data generation: 10k/100k soft/hard nodes. 9/10 random ply. Ignore first 15/16 ply. Include nstm positions (because the net is white-relative). Discard data at each generation. 
 - Filtering: Positions which are in/gives check and positions where best move is noisy. Total filtered M positions is in Data column below. 
-- Training: lerp=0.5. stretch=100. Use SPRT1 to find best number of epochs.
+- Training: lerp=0.5. stretch=100. Shuffle after each epoch. Use SPRT1 to find best number of epochs.
 - Testing: SPRT1 == v previous generation net, SPRT2 == v Lozza 4. 
 
 | Gen | Data | Epochs | Loss | SPRT1 | SPRT2 | Date | Note |
