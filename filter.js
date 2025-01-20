@@ -1,9 +1,8 @@
 //
-// Filter and simplify FENs from datagen.js for trainer.js.
-// Copy the lozza.js code above here.
+// Filter and simplify FENs from datagen.js for use with trainer.js.
 //
 
-const BUILD = "4.1";
+const BUILD = "4.2";
 
 //{{{  lang fold
 /*
@@ -12,12 +11,15 @@ const BUILD = "4.1";
 
 //}}}
 
-const fs = require('fs');
-const readline = require('readline');
-const path = require('path');
+const f = process.argv[2];
 
-const rawFiles = ['data/gen3c.fen'];       // list of .fen files via datagen.js or same format.
-const filterFile = 'data/gen3c.filtered';  // file to write for trainer.js.
+const fs       = require('fs');
+const readline = require('readline');
+
+console.log(f);
+
+const rawFile    = f + '.fen';
+const filterFile = f + '.filtered';
 
 const interp = 0.5;
 const K      = 100;
@@ -210,19 +212,17 @@ function decodeLine(line) {
 //{{{  createLineStream
 
 async function* createLineStream() {
-  for (const filename of rawFiles) {
-    const fileStream = fs.createReadStream(filename);
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity
-    });
-    for await (const line of rl) {
-      const cleanLine = line.replace(/[\0\r\n]/g, '');
-      const hackLine  = cleanLine.replace(/  /g, ' ');
-      yield hackLine;
-    }
-    rl.close();
+  const fileStream = fs.createReadStream(rawFile);
+  const rl = readline.createInterface({
+    input: fileStream,
+    crlfDelay: Infinity
+  });
+  for await (const line of rl) {
+    const cleanLine = line.replace(/[\0\r\n]/g, '');
+    const hackLine  = cleanLine.replace(/  /g, ' ');
+    yield hackLine;
   }
+  rl.close();
 }
 
 //}}}
