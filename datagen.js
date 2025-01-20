@@ -1,8 +1,9 @@
 //
-//  Generate FENs for training via filter.js and trainer.js.
+// Generate FENs for training via filter.js and trainer.js.
+// Copy the lozza.js code above here.
 //
 
-//const BUILD = "4.1";
+//const BUILD = "4.2";
 
 //{{{  flipFen
 /*
@@ -73,8 +74,8 @@ const fs = require('fs');
 
 SILENT = 1;
 
-const nodesLimit  = 10000;       // hard limit is x10
-const gamesLimit  = 100000;
+const nodesLimit = 10000;       // hard limit is x10
+const gamesLimit = 100000;
 
 const fileName = 'data/datagen' + Math.trunc(Math.random()*100000000) + '.txt';
 

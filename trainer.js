@@ -1,8 +1,8 @@
 //
-//  Train a Lozza net from the data generated via datagen.js and filter.js.
+// Train a Lozza net from the data generated via datagen.js and filter.js.
 //
 
-const BUILD = "4.1";
+const BUILD = "4.2";
 
 //{{{  activations
 
@@ -13,10 +13,10 @@ const ACTI_SCRELU     = 4;
 
 //}}}
 
-const id_suffix       = 'v41';                                                                // to manually modify the weights filename.
-const dataFiles       = ['data/gen3a.filtered','data/gen3b.filtered','data/gen3c.filtered'];  // list of files generated with filter.js.
-const acti            = ACTI_SRELU;
-const hiddenSize      = 256;
+const id_suffix       = 'v42';                // to manually modify the weights filename.
+const dataFiles       = ['data/x.filtered'];  // list of files generated with filter.js.
+const acti            = ACTI_SRELU;           // renders as sqrrelu.
+const hiddenSize      = 128;
 const shuffle         = true;
 const batchSize       = 500;
 const learningRate    = 0.001;
@@ -44,7 +44,7 @@ const { exec }        = require('child_process');
 
 //}}}
 
-const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + id_suffix;
+const id = activationName() + '_' + hiddenSize + '_' + Math.trunc(interp * 10) + '_' + K + '_' + id_suffix;
 
 console.log(id);
 console.log(id, 'data files', dataFiles.toString());
@@ -189,7 +189,7 @@ function activationName(x) {
     case ACTI_CRELU:
       return "crelu";
     case ACTI_SRELU:
-      return "srelu";
+      return "sqrrelu";
     case ACTI_SCRELU:
       return "screlu";
   }
@@ -229,7 +229,9 @@ function saveModel(loss, params, epochs) {
   const opt      = optiName();
   const wf       = 'data/weights_' + id + '_' + epochs + '.js';
 
-  var o = '//{{{  weights\r\n';
+  var o = '';
+
+  o += '//{{{  weights\r\n';
 
   o += 'const net_build       = "' + BUILD                  + '";\r\n';
   o += 'const net_file        = "' + wf                     + '";\r\n';
@@ -287,8 +289,8 @@ function saveModel(loss, params, epochs) {
   
   //}}}
 
+  o += '//}}}\r\n';
   o += '\r\n//}}}\r\n';
-  o += '\r\n//}}}\r\n\r\n';
 
   fs.writeFileSync(wf, o);
 }
