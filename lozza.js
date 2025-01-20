@@ -5954,7 +5954,7 @@ onmessage = function(e) {
       
         var fen = BENCHFENS[i];
       
-        process.stdout.write(i.toString() + '\r');
+        //process.stdout.write(i.toString() + '\r');
         //SILENT = 0;
         //uci.send(fen);
         //SILENT = 1;
@@ -5973,6 +5973,8 @@ onmessage = function(e) {
       SILENT = 0;
       
       uci.send(nodes, 'nodes', nodes/time*1000|0, 'nps');
+      
+      process.exit();
       
       break;
       
