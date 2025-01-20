@@ -1,4 +1,4 @@
-NODE = /usr/bin/node
+NODE := $(shell which node)
 EXE = lozzaexe.js
 
 .PHONY: all clean
@@ -12,3 +12,4 @@ $(EXE): lozza.js
 
 clean:
 	rm -f $(EXE)
+
