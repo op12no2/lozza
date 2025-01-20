@@ -1,4 +1,4 @@
-SHEBANG = #!/usr/bin/node
+NODE = /usr/bin/node
 EXE = lozzaexe.js
 
 .PHONY: all clean
@@ -6,10 +6,10 @@ EXE = lozzaexe.js
 all: $(EXE)
 
 $(EXE): lozza.js
-\t@echo "$(SHEBANG)" > $(EXE)
-\t@cat lozza.js >> $(EXE)
-\t@chmod +x $(EXE)
+	@echo "#!$(NODE)" > $(EXE)
+	@cat lozza.js >> $(EXE)
+	@chmod +x $(EXE)
 
 clean:
-\trm -f $(EXE)
+	rm -f $(EXE)
 
