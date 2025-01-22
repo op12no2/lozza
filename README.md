@@ -52,14 +52,16 @@ https://github.com/op12no2/lozza/releases
 
 https://nodejs.org - Node
 
-https://www.chessprogramming.org/Main_Page - Chess programming wiki.
+https://github.com/AndyGrant/OpenBench - OpenBench
 
-https://computerchess.org.uk/ccrl/4040 - CCRL rating list.
+https://www.chessprogramming.org/Main_Page - Chess programming wiki
 
-https://backscattering.de/chess/uci - UCI protocol.
+https://computerchess.org.uk/ccrl/4040 - CCRL rating list
 
-https://discord.gg/uM8J3x46 - Engine Programming Discord.
+https://backscattering.de/chess/uci - UCI protocol
 
-https://talkchess.com - Talkchess forums.
+https://discord.gg/uM8J3x46 - Engine Programming Discord
+
+https://talkchess.com - Talkchess forums
 
 Fruit 2.1 - Early versions of Lozza used a HCE based on Fruit 2.1.
