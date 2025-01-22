@@ -1,3 +1,5 @@
+## OpenBench Notes
+
 ### Linux/Windows
 
 Lozza only works with OpenBench on Linux. On Windows machines install WSL2 to get a Linux environment.
@@ -21,8 +23,9 @@ Note that some Linux installs come with Node but it's often old, so always do th
 
 ### Links
 
-https://nodejs.org
-https://github.com/AndyGrant/OpenBench
-https://github.com/op12no2/OpenBench
-
+- https://nodejs.org
+- https://github.com/AndyGrant/OpenBench
+- https://github.com/op12no2/OpenBench
+- https://github.com/op12no2/OpenBench/blob/master/Engines/Lozza.json
+- 
 
