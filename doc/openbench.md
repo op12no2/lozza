@@ -13,9 +13,16 @@ nvm install 22
 # restart terminal
 ```
 
-To check node is installed do this:-
+Check Node is installed:-
 ```
 node --version
 ```
 Note that some Linux installs come with Node but it's often old, so always do the above. Lozza needs version 18 or higher to work in OpenBench.
+
+### Links
+
+https://nodejs.org
+https://github.com/AndyGrant/OpenBench
+https://github.com/op12no2/OpenBench
+
 
