@@ -21,7 +21,7 @@ nvm install 22
 # restart terminal
 node --version
 # check that which find the correct version
-which version
+which node
 ```
 
 ### Links
