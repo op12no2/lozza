@@ -2,7 +2,7 @@
 // Filter and simplify FENs from datagen.js for use with trainer.js.
 //
 
-const BUILD = "4.2";
+const BUILD = "4.1";
 
 //{{{  lang fold
 /*

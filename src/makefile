@@ -1,4 +1,6 @@
-NODE := $(shell which -a node | while read path; do ver=$$($$path --version 2>/dev/null || echo "v0.0.0"); echo "$$ver $$path"; done | sort -Vr | head -n 1 | awk '{print $$2}')
+#4.1
+
+NODE := $(shell which node)
 EXE = lozzaexe
 SRC = lozza.js
 

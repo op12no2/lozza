@@ -2,7 +2,7 @@
 // Train a Lozza net from the data generated via datagen.js and filter.js.
 //
 
-const BUILD = "4.2";
+const BUILD = "4.1";
 
 //{{{  activations
 
