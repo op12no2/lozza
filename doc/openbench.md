@@ -12,7 +12,7 @@ Lozza needs Node to run. The latest version of Node is 22 and Lozza needs at lea
 node --version
 ```
 
-If Node is not installed or your verison is less than 18 you can install it like this:-
+If Node is not installed or your verison is older than 18 you can install it like this:-
 
 ```
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
