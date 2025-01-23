@@ -6,26 +6,31 @@ Lozza only works with OpenBench on Linux. On Windows machines install WSL2 to ge
 
 ### Node
 
-Lozza needs Node to run. The latest version of Node is 22. Install Node like this:-
+Lozza needs Node to run. The latest version of Node is 22 and Lozza needs at least version 18. Node is often packaged with Linux but is usually very old.
+
+```
+node --version
+```
+
+If Node is not installed or your verison is less than 18 you can install it like this:-
 
 ```
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 # restart terminal
 nvm install 22
 # restart terminal
-```
-
-Check Node is installed:-
-```
 node --version
+# check that which find the correct version
+which version
 ```
-Note that some Linux installs come with Node but it's often old, so always do the above. Lozza needs version 18 or higher to work in OpenBench.
 
 ### Links
 
 - https://nodejs.org
+- https://nodejs.org/en/download
 - https://github.com/AndyGrant/OpenBench
 - https://github.com/op12no2/OpenBench
 - https://github.com/op12no2/OpenBench/blob/master/Engines/Lozza.json
+- https://github.com/op12no2/OpenBench/blob/master/Config/config.json
 
 
