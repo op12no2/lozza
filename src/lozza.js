@@ -6347,7 +6347,8 @@ onmessage = function(e) {
       else
         var depth = bench_depth;
       
-      console.log('depth', depth);
+      if (!uci.openbench)
+        console.log('depth', depth);
       
       SILENT = 1;
       
