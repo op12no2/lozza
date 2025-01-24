@@ -2,11 +2,12 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "4.1";
+const BUILD = "4.2";
 
 //{{{  history
 /*
 
+4.2 23/01/25 2066274 Use 1.8 for eval/reporting scale.
 4.1 22/01/25 1980478 Make Lozza more Openbench friendly.
 4.1 19/01/25 1908478 Micro optimisations when accessing piece Zobrists.
 
@@ -93,8 +94,8 @@ const bench_depth = 9;
 //}}}
 //{{{  constants
 
-const net_eval_scale   = 1.9;
-const net_report_scale = 1.9;
+const net_eval_scale   = 1.8;
+const net_report_scale = 1.8;
 const net_i_size       = 768;
 const IMAP             = Array(16);
 const IFLIP            = Array(net_i_size+1);
