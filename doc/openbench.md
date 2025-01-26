@@ -30,17 +30,14 @@ Create a new django app in the control panel and attach it to a site/domain. Ass
 cd ~/apps/openbench 
 source env/bin/activate
 
-git clone https://github.com/<you>/OpenBench # as per ob wiki
-
+git clone https://github.com/<you>/OpenBench 
 sed -i -e 's/myproject/OpenBench/' uwsgi.ini
 sed -i -e 's/myproject/OpenSite/' uwsgi.ini
 cd OpenBench
-
-pip install -r requirements.txt # as per ob wiki
-python3 manage.py makemigrations OpenBench # as per ob wiki
-python3 manage.py migrate # as per ob wiki
-python3 manage.py createsuperuser # as per ob wiki
-
+pip install -r requirements.txt 
+python3 manage.py makemigrations OpenBench 
+python3 manage.py migrate 
+python3 manage.py createsuperuser 
 ../stop
 ../start
 ```
