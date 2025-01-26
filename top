@@ -1,69 +1,52 @@
 
---{{{  try
+IN REPO
 
+'lozza.js'
+
+'datagen.js'
+'filter.js'
+'trainer.js'
+
+NOT IN REPO
+
+'lozzacand.js'
+'lozzarepo.js'
+
+'lozza4.js'
+'lozza3.js'
+
+--{{{  stuff to try
+
+don't copy acc. move update vars to nodes. then do -update to get back to orig acc.
 soft/hard time bounds
 try iir if no hash move after iid?
 try no iid and no iir
-change lo/hiPieces from 3d to 2d
-perspective!
+perspective! engine easy - can't figure out trainer
 take pv out of tt
 train 2 nets with queens and without
 root sort
 rank killers before captures
 try killers in qs (bad takes)
 add centre to ranking to stop lots of same scores e.g. NxP
-dont use rank vec, use piece itself
-decrease depth iir not iid
+somehow merge pst eval with nnue eval. i.e. pst eval handles low hanging fruit - how?
+don't use rank vec, use piece itself
 try ignore beta when beta pruning
 ditto alpha with alpha pruning and futility
 quicksee in slide ranking
 output buckets based on game phase or numpieces (available) or mid/end game etc
 corrhist
 conthist
-improving
+improving - done but can't get it to pass
 lmp - tell move iterator - quicker
 test removing or simplifying lonepawns (do in position)
 remove king from isattached etc - dont capture king - castle conditionals a la cwtch - tried but not working
 try pesto move rank psts
-try and get rid of PSTs
-try and get rid of MATERIAL
-move drawn stuff from eval into isdraw
+try and get rid of PSTs - using CENTRE for move ranks seems OK - test again
 swapping move list psts for move ranking based on queens on board or not - poss in position
+try and get rid of MATERIAL - only used in QS prune now
+move drawn stuff from eval into isdraw
 full width window searches based on movetime not constant - e.g. log?
 push harry
 
 --}}}
-
-'lozza.js'
-'datagen.js'
-'filter.js'
-'trainer.js'
-'oldtrainer.js'
-
-'lozzacand.js'
-'lozzarepo.js'    // last repo update
-
-'data/weights_srelu_128_5flip_0.js'
-
-'data/weights_srelu_128_5flip_1.js'
-
-'release/v4/lozza.js'
-'release/v4/readme.txt'
-'release/v4/lozza.bat'
-
-'cctry'
-'prof'
-
-'../lozza-ui/fen.htm'
-'../lozza-ui/fen.js'
-'../lozza-ui/lozuilib.js'
-'../lozza-ui/consolehelp.htm'
-
-------------------------------------------
-
-'cwtch.js'
-
-'deadends3.js'
-'deadends2.js'
-'deadends1.js'
 
