@@ -29,7 +29,6 @@ Create a new django app in the control panel and attach it to a site/domain. Ass
 ```
 cd ~/apps/openbench 
 source env/bin/activate
-
 git clone https://github.com/<you>/OpenBench 
 sed -i -e 's/myproject/OpenBench/' uwsgi.ini
 sed -i -e 's/myproject/OpenSite/' uwsgi.ini
