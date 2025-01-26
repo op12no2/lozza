@@ -23,9 +23,11 @@ node --version
 # check that which find the correct version
 which node
 ```
-### Install OpenBench on Opalstack hosting.
+
+### Install OpenBench on Opalstack hosting
 
 Create a new django app in the control panel and attach it to a site/domain. Assuming it's called openbench:-
+
 ```
 cd ~/apps/openbench 
 source env/bin/activate
@@ -40,6 +42,13 @@ python3 manage.py createsuperuser
 ../stop
 ../start
 ```
+
+To get a more recent Node version
+
+```
+source scl_source enable nodejs20
+```
+
 ### Links
 
 - https://nodejs.org
