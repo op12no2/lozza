@@ -7,7 +7,7 @@ const BUILD = "4.2";
 //{{{  history
 /*
 
-4.2 23/01/25 2066274 Use 1.8 for eval/reporting scale.
+4.2 23/01/25 2066274 Use 1.8 for eval and reporting scale.
 4.1 22/01/25 1980478 Make Lozza more Openbench friendly.
 4.1 19/01/25 1908478 Micro optimisations when accessing piece Zobrists.
 
