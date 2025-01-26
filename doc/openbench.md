@@ -23,7 +23,27 @@ node --version
 # check that which find the correct version
 which node
 ```
+### Install OpenBench on Opalstack hosting.
 
+Create a new django app in the control panel and attach it to a site/domain. Assuming it's called openbench:-
+```
+cd ~/apps/openbench 
+source env/bin/activate
+
+git clone https://github.com/<you>/OpenBench # as per ob wiki
+
+sed -i -e 's/myproject/OpenBench/' uwsgi.ini
+sed -i -e 's/myproject/OpenSite/' uwsgi.ini
+cd OpenBench
+
+pip install -r requirements.txt # as per ob wiki
+python3 manage.py makemigrations OpenBench # as per ob wiki
+python3 manage.py migrate # as per ob wiki
+python3 manage.py createsuperuser # as per ob wiki
+
+../stop
+../start
+```
 ### Links
 
 - https://nodejs.org
