@@ -43,7 +43,7 @@ python3 manage.py createsuperuser
 ../start
 ```
 
-To get a more recent Node version
+To get a more recent Node version:-
 
 ```
 source scl_source enable nodejs20
