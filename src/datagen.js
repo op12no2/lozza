@@ -3,7 +3,7 @@
 // Copy the lozza.js code above here.
 //
 
-//const BUILD = "4.1";
+//const BUILD = "4.3";
 
 //{{{  flipFen
 /*
@@ -122,9 +122,9 @@ for (let g=0; g < gamesLimit; g++) {
     //{{{  get a move
     
     if (ply <= randLimit)
-      RANDOMEVAL = 1;
+      lozza.board.randomEval = 1;
     else
-      RANDOMEVAL = 0;
+      lozza.board.randomEval = 0;
     
     docmd('go nodes ' + nodesLimit);
     

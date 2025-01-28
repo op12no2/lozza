@@ -2,7 +2,7 @@
 // Filter and simplify FENs from datagen.js for use with trainer.js.
 //
 
-const BUILD = "4.1";
+const BUILD = "4.3";
 
 //{{{  lang fold
 /*
@@ -24,20 +24,20 @@ const filterFile = f + '.filtered';
 const interp = 0.5;
 const K      = 100;
 
-const PART_BOARD      = 0;
-const PART_TURN       = 1;
-const PART_RIGHTS     = 2;
-const PART_EP         = 3;
-const PART_GAME       = 4;
-const PART_PLY        = 5;
-const PART_SCORE      = 6;
-const PART_INCHECK    = 7;
-const PART_NOISY      = 8;
-const PART_FLIP       = 9;
-const PART_WDL        = 10;
+const PART_BOARD   = 0;
+const PART_TURN    = 1;
+const PART_RIGHTS  = 2;
+const PART_EP      = 3;
+const PART_GAME    = 4;
+const PART_PLY     = 5;
+const PART_SCORE   = 6;
+const PART_INCHECK = 7;
+const PART_NOISY   = 8;
+const PART_FLIP    = 9;
+const PART_WDL     = 10;
 
-var indexes = [];  // global for decodeLine
-var target = 0.0;  // global for decodeLine
+var indexes = [];   // global for decodeLine
+var target  = 0.0;  // global for decodeLine
 
 var o = '';
 var n = 0;

@@ -2,26 +2,26 @@
 // Train a Lozza net from the data generated via datagen.js and filter.js.
 //
 
-const BUILD = "4.1";
+const BUILD = "4.3";
 
 //{{{  activations
 
-const ACTI_RELU       = 1;
-const ACTI_CRELU      = 2;
-const ACTI_SRELU      = 3;
-const ACTI_SCRELU     = 4;
+const ACTI_RELU   = 1;
+const ACTI_CRELU  = 2;
+const ACTI_SRELU  = 3;
+const ACTI_SCRELU = 4;
 
 //}}}
 
-const id_suffix       = 'v42';                // to manually modify the weights filename.
-const dataFiles       = ['data/x.filtered'];  // list of files generated with filter.js.
-const acti            = ACTI_SRELU;           // renders as sqrrelu.
-const hiddenSize      = 128;
-const shuffle         = true;
-const batchSize       = 500;
-const learningRate    = 0.001;
-const interp          = 0.5;    // for weights file only - must be same as in filter.js.
-const K               = 100;    // for weights file only - must be same as in filter.js.
+const id_suffix    = 'v42';                // to manually modify the weights filename.
+const dataFiles    = ['data/x.filtered'];  // list of files generated with filter.js.
+const acti         = ACTI_SRELU;           // renders as sqrrelu.
+const hiddenSize   = 128;
+const shuffle      = true;
+const batchSize    = 500;
+const learningRate = 0.001;
+const interp       = 0.5;    // for weights file only - must be same as in filter.js.
+const K            = 100;    // for weights file only - must be same as in filter.js.
 
 //{{{  config 2
 
@@ -37,10 +37,10 @@ const epsilon         = 1e-7;
 //}}}
 //{{{  modules
 
-const fs              = require('fs');
-const readline        = require('readline');
-const path            = require('path');
-const { exec }        = require('child_process');
+const fs       = require('fs');
+const readline = require('readline');
+const path     = require('path');
+const { exec } = require('child_process');
 
 //}}}
 

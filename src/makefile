@@ -1,4 +1,3 @@
-#4.1
 
 NODE := $(shell which node)
 EXE = lozzaexe
