@@ -1,3 +1,7 @@
+#
+# Lozza v4.3 eval tests.
+# Full and UE values as per .netSlowEval() and .netFastEval().
+#
 
 rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkQ - 0 1 
 -17 -17 
