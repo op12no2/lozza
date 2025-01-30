@@ -16,8 +16,8 @@ Here is a little example to do a 10 ply search:-
 var lozza = new Worker('lozza.js');
 
 lozza.onmessage = function (e) {
-  $('#dump').append(e.data);             //assuming jquery and a div called #dump
-                                         //parse messages from here as required
+  $('#dump').append(e.data);             // assuming jquery and a div called #dump
+                                         // parse messages from here as required
 };
 
 lozza.postMessage('uci');                // lozza uses the uci communication protocol
