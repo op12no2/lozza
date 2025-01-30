@@ -8,6 +8,7 @@
 // ~400M final positions.
 //
 
+const net_i_size     = 768;
 const net_h1_size    = 128;
 const net_lr         = 0.001;
 const net_activation = sqrrelu;
