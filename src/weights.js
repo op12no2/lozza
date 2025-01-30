@@ -1,9 +1,12 @@
-
-const net_soft_nodes      = 10000;
-const net_hard_nodes      = 100000;
-const net_filter_captures = 1;
-const net_filter_incheck  = 1;
-const net_samples         = 400000000;
+//
+// White-relative unquantised squared relu. 
+//
+// Self play data generation 10k/100k soft/hard nodes.
+// 10/11 random moves from start pos.
+// First 13/14 ply ignored.
+// In check and best move captures filtered.
+// ~400M final positions.
+//
 
 const net_h1_size         = 128;
 const net_lr              = 0.001;
