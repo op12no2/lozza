@@ -1,15 +1,21 @@
 
-const net_h1_size     = 128;
-const net_scale       = 1.8;
-const net_lr          = 0.001;
-const net_activation  = sqrrelu;
-const net_stretch     = 100;
-const net_interp      = 0.5;
-const net_batch_size  = 500;
-const net_opt         = "adam";
-const net_shuffle     = "true";
-const net_epochs      = 26;
-const net_loss        = 0.013465787136016953;
+const net_soft_nodes      = 10000;
+const net_hard_nodes      = 100000;
+const net_filter_captures = 1;
+const net_filter_incheck  = 1;
+const net_samples         = 400000000;
+
+const net_h1_size         = 128;
+const net_lr              = 0.001;
+const net_activation      = sqrrelu;
+const net_stretch         = 100;
+const net_interp          = 0.5;
+const net_batch_size      = 500;
+const net_opt             = "adam";
+const net_shuffle         = "true";
+const net_epochs          = 26;
+const net_loss            = 0.013465787136016953;
+const net_scale           = 1.8;
 
 {{{  weights
 const net_h1_w = Array(768);
