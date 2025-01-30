@@ -4,7 +4,7 @@
 // Self play data generation 10k/100k soft/hard nodes.
 // 10/11 random moves from start pos.
 // First 13/14 ply ignored.
-// In check and best move captures filtered.
+// In-check and best move == capture filtered.
 // stm and nstm positions included.
 // ~400M final positions.
 //
