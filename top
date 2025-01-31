@@ -9,6 +9,8 @@ IN REPO
 
 NOT IN REPO
 
+'data/weights_sqrrelu_128_5_180_v44_5.js'
+
 'lozzacand.js'
 'lozzarepo.js'
 
@@ -27,7 +29,7 @@ train 2 nets with queens and without
 root sort
 rank killers before captures
 try killers in qs (bad takes)
-add centre to ranking to stop lots of same scores e.g. NxP
+add centre to noisy ranking to stop lots of same scores e.g. NxP
 somehow merge pst eval with nnue eval. i.e. pst eval handles low hanging fruit - how?
 don't use rank vec, use piece itself
 try ignore beta when beta pruning
@@ -40,8 +42,6 @@ improving - done but can't get it to pass
 lmp - tell move iterator - quicker
 test removing or simplifying lonepawns (do in position)
 remove king from isattached etc - dont capture king - castle conditionals a la cwtch - tried but not working
-try pesto move rank psts
-try and get rid of PSTs - using CENTRE for move ranks seems OK - test again
 swapping move list psts for move ranking based on queens on board or not - poss in position
 try and get rid of MATERIAL - only used in QS prune now
 move drawn stuff from eval into isdraw
