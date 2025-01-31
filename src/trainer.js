@@ -2,7 +2,7 @@
 // Train a Lozza net from the data generated via datagen.js and filter.js.
 //
 
-const BUILD = "4.3";
+const BUILD = "4.4";
 
 //{{{  activations
 
@@ -13,19 +13,19 @@ const ACTI_SCRELU = 4;
 
 //}}}
 
-const id_suffix    = 'v42';                // to manually modify the weights filename.
-const dataFiles    = ['data/x.filtered'];  // list of files generated with filter.js.
-const acti         = ACTI_SRELU;           // renders as sqrrelu.
+const id_suffix    = 'v44';
+const dataFiles    = ['data/gen3a.filtered','data/gen3b.filtered','data/gen3c.filtered'];
+const acti         = ACTI_SRELU;
 const hiddenSize   = 128;
 const shuffle      = true;
-const batchSize    = 500;
-const learningRate = 0.001;
+const batchSize    = 16384;
+const learningRate = 0.1;
 const interp       = 0.5;    // for weights file only - must be same as in filter.js.
-const K            = 100;    // for weights file only - must be same as in filter.js.
+const K            = 180;    // for weights file only - must be same as in filter.js.
 
 //{{{  config 2
 
-const reportRate      = 50;
+const reportRate      = 5;
 const epochs          = 10000;
 const inputSize       = 768;
 const outputSize      = 1;
@@ -33,6 +33,8 @@ const maxActiveInputs = 32;
 const beta1           = 0.9;
 const beta2           = 0.999;
 const epsilon         = 1e-7;
+
+var numBatches = 0;
 
 //}}}
 //{{{  modules
@@ -228,23 +230,27 @@ function saveModel(loss, params, epochs) {
   const actiName = activationName(acti);
   const opt      = optiName();
   const wf       = 'data/weights_' + id + '_' + epochs + '.js';
+  const df       = dataFiles.toString();
 
   var o = '';
 
   o += '//{{{  weights\r\n';
 
-  o += 'const net_build       = "' + BUILD                  + '";\r\n';
-  o += 'const net_file        = "' + wf                     + '";\r\n';
-  o += 'const net_h1_size     = '  + hiddenSize             + ';\r\n';
-  o += 'const net_lr          = '  + learningRate           + ';\r\n';
-  o += 'const net_activation  = '  + actiName               + ';\r\n';
-  o += 'const net_stretch     = '  + K                      + ';\r\n';
-  o += 'const net_interp      = '  + interp                 + ';\r\n';
-  o += 'const net_batch_size  = '  + batchSize              + ';\r\n';
-  o += 'const net_opt         = "' + opt                    + '";\r\n';
-  o += 'const net_shuffle     = "' + shuffle                + '";\r\n';
-  o += 'const net_epochs      = '  + epochs                 + ';\r\n';
-  o += 'const net_loss        = '  + loss                   + ';\r\n';
+  o += 'const net_build        = "' + BUILD                  + '";\r\n';
+  o += 'const net_weights_file = "' + wf                     + '";\r\n';
+  o += 'const net_data_file    = "' + df                     + '";\r\n';
+  o += 'const net_h1_size      = '  + hiddenSize             + ';\r\n';
+  o += 'const net_lr           = '  + learningRate           + ';\r\n';
+  o += 'const net_activation   = '  + actiName               + ';\r\n';
+  o += 'const net_stretch      = '  + K                      + ';\r\n';
+  o += 'const net_interp       = '  + interp                 + ';\r\n';
+  o += 'const net_batch_size   = '  + batchSize              + ';\r\n';
+  o += 'const net_num_batches  = '  + numBatches             + ';\r\n';
+  o += 'const net_num_samples  = '  + numBatches * batchSize + ';\r\n';
+  o += 'const net_opt          = "' + opt                    + '";\r\n';
+  o += 'const net_shuffle      = "' + shuffle                + '";\r\n';
+  o += 'const net_epochs       = '  + epochs                 + ';\r\n';
+  o += 'const net_loss         = '  + loss                   + ';\r\n';
 
   o += '//{{{  weights\r\n';
 
@@ -443,9 +449,9 @@ async function train(filenames) {
     const lineStream = createLineStream(filenames);
     
     let batchActiveIndices = [];
-    let batchTargets = [];
-    let totalLoss = 0;
-    let batchCount = 0;
+    let batchTargets       = [];
+    let totalLoss          = 0;
+    let batchCount         = 0;
     
     for await (const line of lineStream) {
       const {activeIndices, target} = decodeLine(line);
@@ -460,7 +466,7 @@ async function train(filenames) {
           t++;
         
           const forward = forwardPropagation(batchActiveIndices, params);
-          const grads = backwardPropagation(batchActiveIndices, batchTargets, params, forward);
+          const grads   = backwardPropagation(batchActiveIndices, batchTargets, params, forward);
         
           params = updateParameters(params, grads, t);
         
@@ -471,7 +477,7 @@ async function train(filenames) {
           batchCount++;
         
           batchActiveIndices = [];
-          batchTargets = [];
+          batchTargets       = [];
         
           if (batchCount % reportRate === 0) {
             process.stdout.write(`${id} epoch ${epoch + 1} batch ${batchCount} bloss ${totalLoss / batchCount}\r`);
@@ -482,10 +488,11 @@ async function train(filenames) {
       }
     }
     
-    // Save model after training epoch
     saveModel(totalLoss/batchCount, params, epoch + 1);
     
     console.log(id, 'epoch', epoch+1, 'batch', batchCount, 'bloss', totalLoss/batchCount);
+    
+    numBatches = batchCount;
     
     if (shuffle)
       await shuffleAllFiles(dataFiles);

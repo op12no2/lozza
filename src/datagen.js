@@ -3,7 +3,7 @@
 // Copy the lozza.js code above here.
 //
 
-//const BUILD = "4.3";
+//const BUILD = "4.4";
 
 //{{{  flipFen
 /*

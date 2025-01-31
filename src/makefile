@@ -9,7 +9,7 @@ all: $(EXE)
 
 $(EXE): $(SRC)
 	@if [ -z "$(NODE)" ]; then \
-		echo "Error: No valid Node.js installation found."; \
+		echo "Node not found; see https://github.com/op12no2/lozza/blob/master/doc/openbench.md"; \
 		exit 1; \
 	fi
 	@echo "#!$(NODE)" > $(EXE)
