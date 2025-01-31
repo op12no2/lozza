@@ -1,10 +1,12 @@
 #!/bin/bash
 
-shebang="#!/usr/bin/node"
+node=$(which node)
+shebang="#!$node"
 
 e1=lozza.js
 e2=lozzacand.js
 
+echo $shebang
 echo $e1 v $e2
 
 echo $shebang | cat - $e1 > x$e1
