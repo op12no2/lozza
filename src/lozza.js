@@ -2,37 +2,15 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "4.4";
+const BUILD = "4.3";
 
 //{{{  history
 /*
 
-4.4 31/01/25  Remove QS material based pruning.
 4.3 27/01/25 2057746 Simplify quiet move ranking.
 4.2 23/01/25 2066274 Use 1.8 for eval/reporting scale.
 4.1 22/01/25 1980478 Make Lozza more OpenBench friendly.
 4.1 19/01/25 1908478 Micro optimisations when accessing piece Zobrists.
-
-*/
-
-//}}}
-//{{{  notes
-/*
-
-Lozza is best viewed with a folding editor using //{{{ and //}}} as fold markers.
-
-Early versions of the Google V8 Javascript engine had a weird bug whereby const
-was slower than var and I have not finished the swap yet.
-
-Two character indentation is a hangover from Occam that I cannot shake.
-
-I did release Lozza as multiple files and binary weights in a file but users
-had problems so I went back to a single file and inlined weights. From a
-development perspective it makes no difference because the code is folded,
-but it does look ugly when viewed flat.
-
-The 12x12 board is nostaliga from my Fortran engine written in 1979, which ran
-on a DEC mainframe running the TOPS-20 OS.
 
 */
 
@@ -74,6 +52,22 @@ function docmd(x) {
 //}}}
 
 //}}}
+//{{{  activations
+//
+// Thanks @ciekce for pointing me at screlu which became
+// sqrrelu in my unquantised network.
+//
+
+function relu(x) {
+  return Math.max(0, x);
+}
+
+function sqrrelu(x) {
+  const y = Math.max(0, x);
+  return y * y;
+}
+
+//}}}
 //{{{  dev/release
 
 const TTSIZE = 1 << 23;
@@ -110,7 +104,7 @@ const WHITE = 0x0;
 const BLACK = 0x8;
 
 //}}}
-//{{{  colour indexes     - compute with turn >>> 3
+//{{{  colour indees      - compute with turn >>> 3
 
 const I_WHITE = 0;
 const I_BLACK = 1;
@@ -122,7 +116,10 @@ const M_WHITE = 1;
 const M_BLACK = -1;
 
 //}}}
-//{{{  tt
+
+const PIECE_MASK  = 0x7;
+const COLOR_MASK  = 0x8;
+const COLOUR_MASK = 0x8;
 
 const TTMASK = TTSIZE - 1;
 
@@ -130,13 +127,6 @@ const TT_EMPTY = 0;
 const TT_EXACT = 1;
 const TT_BETA  = 2;
 const TT_ALPHA = 3;
-
-//}}}
-//{{{  moves
-
-const PIECE_MASK  = 0x7;
-const COLOR_MASK  = 0x8;
-const COLOUR_MASK = 0x8;
 
 const BASE_HASH       = 40000012000;
 const BASE_PROMOTES   = 40000011000;
@@ -176,9 +166,6 @@ const MOVE_SPECIAL_MASK = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MAS
 const KEEPER_MASK       = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;
 const MOVE_NOISY_MASK   = MOVE_TOOBJ_MASK | MOVE_EPTAKE_MASK;
 
-//}}}
-//{{{  pieces
-
 const NULL   = 0;
 const PAWN   = 1;
 const KNIGHT = 2;
@@ -203,8 +190,6 @@ const B_ROOK   = ROOK   | BLACK;
 const B_QUEEN  = QUEEN  | BLACK;
 const B_KING   = KING   | BLACK;
 
-//}}}
-//{{{  lookup tables
 //
 //                 E == EMPTY, X = OFF BOARD, - == CANNOT HAPPEN
 //                 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15
@@ -246,23 +231,14 @@ const IS_BBQ    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0];
 const IS_BRQ    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0];
 const IS_BQ     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
 
-//}}}
-//{{{  phase
-
 const PPHASE = 0;
 const NPHASE = 1;
 const BPHASE = 1;
 const RPHASE = 2;
 const QPHASE = 4;
-
 const VPHASE = [0, PPHASE, NPHASE, BPHASE, RPHASE, QPHASE, 0];
-
 const TPHASE = PPHASE*16 + NPHASE*4 + BPHASE*4 + RPHASE*4 + QPHASE*2;
-
 const EPHASE = 16;
-
-//}}}
-//{{{  move gen
 
 const W_PROMOTE_SQ = [0,26,  27,  28,  29,  30,  31,  32,  33];
 const B_PROMOTE_SQ = [0,110, 111, 112, 113, 114, 115, 116, 117];
@@ -330,8 +306,6 @@ const OFFSETS = [0, 0, KNIGHT_OFFSETS, BISHOP_OFFSETS, ROOK_OFFSETS, QUEEN_OFFSE
 const LIMITS  = [0, 1, 1,              8,              8,            8,             1           ];
 
 const RANK_VECTOR = [0, 1, 2, 2, 4, 5, 6];
-
-//}}}
 
 const B88 = [26, 27, 28, 29, 30, 31, 32, 33,
              38, 39, 40, 41, 42, 43, 44, 45,
@@ -629,22 +603,6 @@ const ALIGNED = [
 ];
 
 //}}}
-
-//}}}
-//{{{  activations
-//
-// Thanks @ciekce for pointing me at screlu which became
-// sqrrelu in my unquantised network.
-//
-
-function relu(x) {
-  return Math.max(0, x);
-}
-
-function sqrrelu(x) {
-  const y = Math.max(0, x);
-  return y * y;
-}
 
 //}}}
 //{{{  weights
@@ -1659,9 +1617,6 @@ twisterInit(0x9E3779B9);
 
 //}}}
 //{{{  net primitives
-//
-//  Only used in init.
-//
 
 function flipIndex (index) {
   const section = Math.floor(index / 64);
@@ -1739,7 +1694,7 @@ function lozChess () {
   //{{{  init STARRAY (b init in here)
   //
   // STARRAY can be used when in check to filter moves that cannot possibly
-  // be legal without overhead. Happily EP captures fall out in the wash
+  // be legal without overhead.  Happily EP captures fall out in the wash
   // since they are to a square that a knight would be checking the king on.
   //
   // e.g. with a king on A1, STARRAY[A1] =
@@ -1753,14 +1708,14 @@ function lozChess () {
   // 1  2 -1  0  0  0  0  0
   // 0  3  3  3  3  3  3  3
   //
-  // Now condsider a rook on H1. Slides to H2-H7 are not considered because they
-  // do not hit a ray and thus cannot be used to block a check. The rook slide
+  // Now condsider a rook on H1.  Slides to H2-H7 are not considered because they
+  // do not hit a ray and thus cannot be used to block a check.  The rook slide
   // to H8 hits a ray, but corners are special cases - you can't slide to a corner
-  // to block a check, so it's also ignored. The slides to G1-B1 hit rays but the
+  // to block a check, so it's also ignored.  The slides to G1-B1 hit rays but the
   // from and to rays are the same, so again these slides cannot block a check.
   // Captures to any ray are always considered. -1 = knight attacks, so slides must
-  // be to rays > 0 to be considered at all. This vastly reduces the number of
-  // moves to consider when in check and is available pretty much for free. Captures
+  // be to rays > 0 to be considered at all.  This vastly reduces the number of
+  // moves to consider when in check and is available pretty much for free.  Captures
   // could be further pruned by considering the piece type encountered - i.e. can it
   // theoretically be giving check or not.
   //
@@ -2297,24 +2252,22 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   const doBeta    = !pvNode && !inCheck && !lonePawns && !board.betaMate(beta);
   const ev        = board.getEval(INFINITY, node, turn);
 
-  board.ttUpdateEval(ev);
-
   //{{{  improving
   
   var improving = 0;
   
-  if (!inCheck) {
-    const n2 = node.grandparentNode;
-    if (n2) {
-      if (!n2.inCheck && ev > n2.ev)
-        improving = 1;
-      else if (n2.inCheck) {
-        const n4 = n2.grandparentNode;
-        if (n4 && !n4.inCheck && ev > n4.ev)
-          improving = 1;
-      }
-    }
-  }
+  //if (!inCheck) {
+    //const n2 = node.grandparentNode;
+    //if (n2) {
+      //if (!n2.inCheck && ev > n2.ev)
+        //improving = 1;
+      //else {
+        //const n4 = n2.grandparentNode;
+        //if (n4 && !n4.inCheck && ev > n4.ev)
+          //improving = 1;
+      //}
+    //}
+  //}
   
   //}}}
   //{{{  beta prune
@@ -2343,7 +2296,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   
   R = 3;
   
-  if (doBeta && depth > 2 && ev > (beta - improving * 0)) {
+  if (doBeta && depth > 2 && ev > (beta - improving * 0)) {  // hack
   
     board.loHash ^= board.loEP[board.ep];
     board.hiHash ^= board.hiEP[board.ep];
@@ -2404,6 +2357,9 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     return 0;
   
   //}}}
+
+  if (ev != INFINITY)
+    board.ttUpdateEval(ev);
 
   if (inCheck)
     board.genEvasions(node, turn);
@@ -2602,9 +2558,9 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
     //{{{  prune?
     
-    //if (phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
-      //continue;
-    //}
+    if (phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+      continue;
+    }
     
     if (board.quickSee(turn, move) < 0) {
       continue;
@@ -4078,9 +4034,9 @@ lozBoard.prototype.makeMoveA = function (node, move) {
   //{{{  push rep hash
   //
   // Repetitions are cancelled by pawn moves, castling, captures, EP
-  // and promotions; i.e. moves that are not reversible. The nearest
+  // and promotions; i.e. moves that are not reversible.  The nearest
   // repetition is 5 indexes back from the current one and then that
-  // and every other one entry is a possible rep. Can also check for
+  // and every other one entry is a possible rep.  Can also check for
   // 50 move rule by testing hi-lo > 100 - it's not perfect because of
   // the pawn move reset but it's a type 2 error, so safe.
   //
@@ -4815,28 +4771,7 @@ lozBoard.prototype.isDraw = function () {
 }
 
 //}}}
-//{{{  .netReset
-//
-// Reset the accumulators to the baises ready for
-// netUpdate or UE.
-//
-
-lozBoard.prototype.netReset = function () {
-
-  this.net_h1_a.set(this.net_h1_b);
-  //this.net_h2_a.set(this.net_h1_b);
-
-}
-
-//}}}
 //{{{  .netUpdate
-//
-// The accumulators can be initialised to the current board
-// position using:-
-//
-// netReset()
-// netUpdate()
-//
 
 lozBoard.prototype.netUpdate = function (turn) {
 
@@ -4866,9 +4801,6 @@ lozBoard.prototype.netUpdate = function (turn) {
 
 //}}}
 //{{{  .netSlowEval
-//
-// Debug aid.
-//
 
 lozBoard.prototype.netSlowEval = function (turn) {
 
@@ -4908,9 +4840,6 @@ lozBoard.prototype.netSlowEval = function (turn) {
 
 //}}}
 //{{{  .netFastEval
-//
-// Assumes accumulators are relevant.
-//
 
 lozBoard.prototype.netFastEval = function (turn) {
 
@@ -4926,13 +4855,19 @@ lozBoard.prototype.netFastEval = function (turn) {
 }
 
 //}}}
+//{{{  .netReset
+
+lozBoard.prototype.netReset = function () {
+
+  this.net_h1_a.set(this.net_h1_b);
+  //this.net_h2_a.set(this.net_h1_b);
+
+}
+
+//}}}
 //{{{  .netPrepare
 //
-// Used during makeMoveA to note the appropriate function to be called in
-// makeMoveB after a legal move has been confirmed.
-//
-// .netMove/Capture/Promote/epCapture/Castle all take six args so they
-// can be called generically via the data below in makeMoveB.
+// Note the UE needed so it can be done after a legal move is confirmed.
 //
 
 lozBoard.prototype.netPrepare = function (ueFunc, ueA, ueB, ueC, ueD, ueE, ueF) {
@@ -5121,20 +5056,20 @@ function lozNode (parentNode) {
 //}}}
 //{{{  .init
 //
-// By storing the killers in the node, we are implicitly using depth from root, rather than
-// depth, which can jump around all over the place and is inappropriate to use for killers.
+//  By storing the killers in the node, we are implicitly using depth from root, rather than
+//  depth, which can jump around all over the place and is inappropriate to use for killers.
 //
 
 lozNode.prototype.init = function() {
 
-  this.killer1     = 0;
-  this.killer2     = 0;
-  this.mateKiller  = 0;
-  this.numMoves    = 0;
-  this.sortedIndex = 0;
-  this.hashMove    = 0;
-  this.base        = 0;
-  this.inCheck     = 0;
+  this.killer1      = 0;
+  this.killer2      = 0;
+  this.mateKiller   = 0;
+  this.numMoves     = 0;
+  this.sortedIndex  = 0;
+  this.hashMove     = 0;
+  this.base         = 0;
+  this.inCheck      = 0;
 
   this.toZ = 0;
   this.frZ = 0;
@@ -5971,7 +5906,7 @@ onmessage = function(e) {
       if (lozzaHost == HOST_WEB)
         uci.send(e2);
       else
-        uci.send('full',e1,'ue',e2);
+        uci.send(e1,e2);
       
       break;
       
@@ -6153,15 +6088,15 @@ onmessage = function(e) {
       
         docmd('ucinewgame');
         docmd('position fen ' + fen);
-        uci.send(fen, 'fen')
+        uci.send(fen)
         docmd('e');
       
-        const flippedFen = flipFen(fen);
+        //const flippedFen = flipFen(fen);
       
-        docmd('ucinewgame');
-        docmd('position fen ' + flippedFen);
-        uci.send(flippedFen, 'flipped fen')
-        docmd('e');
+        //docmd('ucinewgame');
+        //docmd('position fen ' + flippedFen);
+        //uci.send(flippedFen, 'flipped fen')
+        //docmd('e');
       }
       
       break;
