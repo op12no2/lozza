@@ -56,25 +56,10 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 }
 
 //}}}
-//{{{  utils
-
-//{{{  myround
-
-function myround(x) {
-  return Math.sign(x) * Math.round(Math.abs(x));
-}
-
-//}}}
-//{{{  docmd
-
-function docmd(x) {
-  onmessage({data: x});
-}
-
-//}}}
-
-//}}}
 //{{{  dev/release
+//
+// Also remove the if statements in evaluate() and timeStamp();
+//
 
 const TTSIZE = 1 << 23;
 
@@ -1439,6 +1424,37 @@ const net_o_b = -14.685587258987033;
 //}}}
 //{{{  primitives
 
+//{{{  utils
+
+//{{{  myround
+
+function myround(x) {
+  return Math.sign(x) * Math.round(Math.abs(x));
+}
+
+//}}}
+//{{{  docmd
+
+function docmd(x) {
+  onmessage({data: x});
+}
+
+//}}}
+//{{{  timeStamp
+
+function timeStamp() {
+
+  if (lozzaHost == HOST_NODEJS)
+    return performance.now() | 0;
+
+  else
+    return Date.now();
+
+}
+
+//}}}
+
+//}}}
 //{{{  move primitives
 
 function moveClean (move) {
@@ -6249,20 +6265,6 @@ if (lozzaHost == HOST_NODEJS) {
     lozza.uci.openbench = 0;
 
   lozza.uci.argv();
-}
-
-//}}}
-
-//{{{  timeStamp
-
-function timeStamp() {
-
-  if (lozzaHost == HOST_NODEJS)
-    return performance.now() | 0;
-
-  else
-    return Date.now();
-
 }
 
 //}}}
