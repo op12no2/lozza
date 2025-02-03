@@ -1,9 +1,0 @@
-#!/bin/bash
-
-while true; do
-  grep Finished cctry.log
-  grep Illegal cctry.log
-  grep NULL cctry.log
-  grep "time -" cctry.log
-  sleep 5
-done
