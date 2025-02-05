@@ -23,7 +23,13 @@ node --version
 # check that which find the correct version
 which node
 ```
+### Invoking Lozza
 
+Lozza can be invoked on Linux with a shebang and so can conform to the EXE= OpenBench rule for makefiles. See also an example in my local cutechess script:-
+
+- https://github.com/op12no2/lozza/blob/master/makefile
+- https://github.com/op12no2/lozza/blob/master/bin/cctry
+  
 ### Install OpenBench on Opalstack hosting
 
 Create a new django app in the control panel and attach it to a site/domain. Assuming it's called openbench:-
