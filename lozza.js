@@ -2,7 +2,18 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "4.1";
+const BUILD = "5";
+
+//{{{  history
+/*
+
+//{{{  use performance.now() not Date.now()
+
+//}}}
+
+*/
+
+//}}}
 
 //{{{  globals
 
@@ -41,13 +52,6 @@ function myround(x) {
 
 function docmd(x) {
   onmessage({data: x});
-}
-
-//}}}
-//{{{  now
-
-function now() {
-  return performance.now()|0;
 }
 
 //}}}
@@ -2324,7 +2328,7 @@ lozChess.prototype.go = function() {
       
         this.report('upperbound',score,depth);
       
-        if (!this.stats.maxNodes && this.stats.timeLeft() > 50)
+        if (!this.stats.maxNodes)
           this.stats.bestMove = 0;
       }
       
@@ -2540,7 +2544,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     return 0;
   }
   
-  if (this.stats.checkTime())
+  this.stats.checkTime();
+  if (this.stats.timeOut)
     return 0;
   
   if (node.ply > this.stats.selDepth)
@@ -2873,16 +2878,11 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
   //{{{  housekeeping
   
-  if (!node.childNode) {
-    this.stats.timeOut = 1;
-    return this.board.evaluate(turn);
-  }
-  
-  if (this.stats.checkTime())
-    return 0;
-  
   if (node.ply > this.stats.selDepth)
     this.stats.selDepth = node.ply;
+  
+  if (!node.childNode)
+    return this.board.evaluate(turn);
   
   //}}}
 
@@ -5803,7 +5803,7 @@ function lozStats () {
 
 lozStats.prototype.init = function () {
 
-  this.startTime = now();
+  this.startTime = performance.now();
   this.nodes     = 0;  // per analysis
   this.ply       = 0;  // current ID root ply
   this.moveTime  = 0;
@@ -5819,27 +5819,11 @@ lozStats.prototype.init = function () {
 
 lozStats.prototype.checkTime = function () {
 
-  const tim = now() - this.startTime;
-
-  if (this.bestMove && tim < 0)
-    this.timeOut = 1;  // clock gone wonky.
-
-  else if (this.bestMove && this.moveTime > 0 && (tim >= this.moveTime))
+  if (this.bestMove && this.moveTime > 0 && ((performance.now() - this.startTime) > this.moveTime))
     this.timeOut = 1;
 
-  else if (this.bestMove && this.maxNodes > 0 && this.nodes >= this.maxNodes * 10)
+  if (this.bestMove && this.maxNodes > 0 && this.nodes >= this.maxNodes * 10)
     this.timeOut = 1;
-
-  return this.timeOut;
-}
-
-//}}}
-//{{{  .timeLeft
-
-lozStats.prototype.timeLeft = function () {
-
-  return this.startTime + this.moveTime - now();
-
 }
 
 //}}}
@@ -5847,7 +5831,7 @@ lozStats.prototype.timeLeft = function () {
 
 lozStats.prototype.nodeStr = function () {
 
-  var tim = now() - this.startTime;
+  var tim = performance.now() - this.startTime;
   var nps = (this.nodes * 1000) / tim | 0;
 
   return 'nodes ' + this.nodes + ' time ' + tim + ' nps ' + nps;
@@ -5858,7 +5842,7 @@ lozStats.prototype.nodeStr = function () {
 
 lozStats.prototype.stop = function () {
 
-  this.stopTime  = now();
+  this.stopTime  = performance.now();
   this.time      = this.stopTime - this.startTime;
   this.timeSec   = myround(this.time / 100) / 10;
   this.nodesMega = myround(this.nodes / 100000) / 10;
@@ -6421,7 +6405,7 @@ onmessage = function(e) {
       
       SILENT = 1;
       
-      const t1 = now();
+      const t1 = performance.now();
       
       for (var i=0; i < PERFTFENS.length; i++) {
       
@@ -6444,7 +6428,7 @@ onmessage = function(e) {
       
       SILENT = 0;
       
-      const t2  = now();
+      const t2  = performance.now();
       const sec = Math.round((t2-t1)/100)/10;
       
       uci.send(sec, 'sec');

@@ -18,6 +18,7 @@ $(EXE): $(SRC)
 
 clean:
 	rm -f $(EXE)
-	rm cctry.log
-	rm xloz*
-	rm cctry.pgn
+	rm -f cctry.log
+	rm -f xloz*
+	rm -f cctry.pgn
+	rm -f cctry.err
