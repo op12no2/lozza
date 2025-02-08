@@ -1,0 +1,56 @@
+
+IN REPO
+
+'lozza.js'
+
+'datagen.js'
+
+'../bullet/examples/lozza.rs'
+
+
+NOT IN REPO
+
+'lozzacand.js'
+'lozzarepo.js'
+
+'lozza4.js'
+'lozza3.js'
+
+'deadends4.js'
+'deadends5.js'
+
+--{{{  stuff to try
+
+get rid of HCE PSTs
+reduce depth on lower bound
+don't copy acc. move update vars to nodes. then do -update to get back to orig acc.
+soft/hard time bounds
+try iir if no hash move after iid?
+try no iid and no iir
+perspective! engine easy - can't figure out trainer
+take pv out of tt
+train 2 nets with queens and without
+root sort
+rank killers before captures
+try killers in qs (bad takes)
+add centre to noisy ranking to stop lots of same scores e.g. NxP
+somehow merge pst eval with nnue eval. i.e. pst eval handles low hanging fruit - how?
+don't use rank vec, use piece itself
+try ignore beta when beta pruning
+ditto alpha with alpha pruning and futility
+quicksee in slide ranking
+output buckets based on game phase or numpieces (available) or mid/end game etc
+corrhist
+conthist
+improving - done but can't get it to pass
+lmp - tell move iterator - quicker
+test removing or simplifying lonepawns (do in position)
+remove king from isattached etc - dont capture king - castle conditionals a la cwtch - tried but not working
+swapping move list psts for move ranking based on queens on board or not - poss in position
+try and get rid of MATERIAL - only used in QS prune now
+move drawn stuff from eval into isdraw
+full width window searches based on movetime not constant - e.g. log?
+push harry
+
+--}}}
+
