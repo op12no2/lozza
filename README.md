@@ -52,7 +52,7 @@ https://github.com/op12no2/lozza/releases
 
 https://nodejs.org - Node
 
-https://github.com/AndyGrant/OpenBench - OpenBench
+https://github.com/jw1912/bullet - Bullet network trainer
 
 https://www.chessprogramming.org/Main_Page - Chess programming wiki
 
