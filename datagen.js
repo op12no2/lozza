@@ -3,8 +3,6 @@
 // Copy the lozza.js code above here.
 //
 
-// ******* needs tweaking for Bullet format output
-
 //{{{  history
 
 /*

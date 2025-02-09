@@ -4,17 +4,22 @@
 
 const BUILD = "5";
 
-const net_raw_weights_file = '/home/xyzzy/lozza/data/h128_sqrrelu_s100_l5/lozza-30/raw.bin';
+const net_weights_file = '/home/xyzzy/lozza/data/h128_sqrrelu_s100_l5/lozza-30/quantised.bin';
 
-//const net_quantise_a   = 255;
-//const net_quantise_b   = 64;
-const net_scale        = 100;
-const net_i_size       = 768;
-const net_h1_size      = 128;
+const net_quantise_a  = 255;
+const net_quantise_b  = 64;
+const net_quantise_ab = net_quantise_a * net_quantise_b;
+const net_scale       = 100*1.6;
+const net_i_size      = 768;
+const net_h1_size     = 128;
 
 //{{{  history
 /*
 
+- Apply a fudge factor to eval to match previous magic numbers.
+- Fix board.fen() WRT black queen castling rights.
+- Optimise accessing perspective weights a bit more.
+- Use a Int16 quantised net.
 - Use bullet trainer.
 - Use performance.now() not Date.now().
 
@@ -75,8 +80,7 @@ const bench_depth = 9;
 //}}}
 //{{{  constants
 
-const IMAP  = Array(16);
-const IFLIP = Array(net_i_size+1);
+const IMAP = Array(16);
 
 const MATERIAL = [0,100,394,388,588,1207,10000];
 const ADJACENT = [1,1,0,0,0,0,0,0,0,0,0,1,1,1];
@@ -1178,16 +1182,16 @@ function relu(x) {
 }
 
 function crelu(x) {
-  return Math.min(Math.max(x, 0), 1.0);
-}
-
-function sqrrelu(x) {
-  const y = Math.max(0, x);
-  return y * y;
+  return Math.min(Math.max(x, 0), net_quantise_a);
 }
 
 function screlu(x) {
   const y = Math.min(Math.max(x, 0), net_quantise_a);
+  return y * y;
+}
+
+function sqrrelu(x) {
+  const y = Math.max(0, x);
   return y * y;
 }
 
@@ -1215,6 +1219,7 @@ function flipIndex (index) {
 //  bullet index 0 is a1. Lozza index 0 is a8.
 //  The piece order is the same.
 //  Apply this when loading the weights from the bullet .bin file.
+//
 //  Slow. Only use during init.
 //
 
@@ -1222,7 +1227,7 @@ function bullet2lozza (index) {
 
   const piece        = Math.floor(index / 64);
   const bulletSquare = index % 64;
-  const lozzaSquare  = bulletSquare ^ 56;
+  const lozzaSquare  = bulletSquare ^ 56;          // map a1 to a8 etc.
   const lozzaIndex   = piece * 64 + lozzaSquare;
 
   return lozzaIndex;
@@ -1388,15 +1393,6 @@ function lozChess () {
     IMAP[B_QUEEN][j]  = 384 + (QUEEN-1)  * 64 + i;
     IMAP[B_KING][j]   = 384 + (KING-1)   * 64 + i;
   }
-  
-  //}}}
-  //{{{  init IFLIP
-  
-  for (var i=0; i < net_i_size; i++) {
-    IFLIP[i] = flipIndex(i);
-  }
-  
-  IFLIP[net_i_size] = net_i_size;
   
   //}}}
 
@@ -2327,6 +2323,12 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 
 function lozBoard () {
 
+  this.net_h1_w = new Array(net_i_size + 1);       // us
+  this.net_h2_w = new Array(net_i_size + 1);       // them
+  this.net_h1_b = new Int16Array(net_h1_size);
+  this.net_o_w  = new Int16Array(net_h1_size*2);
+  this.net_o_b  = 0;
+
   this.ueFunc       = myround;
   this.ueA          = 0;
   this.ueB          = 0;
@@ -2357,8 +2359,8 @@ function lozBoard () {
   this.repHi    = 0;
   this.loHash   = 0;
   this.hiHash   = 0;
-  this.net_h1_a = new Float32Array(net_h1_size);
-  this.net_h2_a = new Float32Array(net_h1_size);
+  this.net_h1_a = new Int16Array(net_h1_size);
+  this.net_h2_a = new Int16Array(net_h1_size);
 
   this.net_a = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]];
 
@@ -4205,7 +4207,7 @@ lozBoard.prototype.fen = function (turn) {
     if (this.rights & BLACK_RIGHTS_KING)
       fen += 'k';
     if (this.rights & BLACK_RIGHTS_QUEEN)
-      fen += 'Q';
+      fen += 'q';
   }
   else
     fen += ' -';
@@ -4392,11 +4394,10 @@ lozBoard.prototype.netUpdate = function (turn) {
       continue;
 
     const i1 = IMAP[frObj][fr];
-    const i2 = IFLIP[i1];
 
     for (let h=0; h < net_h1_size; h++) {
       this.net_h1_a[h] += this.net_h1_w[i1][h];
-      this.net_h2_a[h] += this.net_h1_w[i2][h];
+      this.net_h2_a[h] += this.net_h2_w[i1][h];
     }
   }
 
@@ -4414,8 +4415,8 @@ lozBoard.prototype.netSlowEval = function (turn) {
 
   const b = this.b;
 
-  let wAcc = new Float32Array(net_h1_size);
-  let bAcc = new Float32Array(net_h1_size);
+  let wAcc = new Int16Array(net_h1_size);
+  let bAcc = new Int16Array(net_h1_size);
 
   wAcc.set(this.net_h1_b);
   bAcc.set(this.net_h1_b);
@@ -4429,15 +4430,14 @@ lozBoard.prototype.netSlowEval = function (turn) {
       continue;
 
     const i1 = IMAP[frObj][fr];
-    const i2 = IFLIP[i1];
 
     for (let i=0; i < net_h1_size; i++) {
       wAcc[i] += this.net_h1_w[i1][i];
-      bAcc[i] += this.net_h1_w[i2][i];
+      bAcc[i] += this.net_h2_w[i1][i];
     }
   }
 
-  let e = this.net_o_b;
+  let e = 0;
 
   if (turn == WHITE) {
     var a1 = wAcc;
@@ -4453,7 +4453,10 @@ lozBoard.prototype.netSlowEval = function (turn) {
     e += this.net_o_w[i+net_h1_size] * sqrrelu(a2[i]);
   }
 
+  e /= net_quantise_a;
+  e += this.net_o_b;
   e *= net_scale;
+  e /= net_quantise_ab;
 
   return e | 0;
 }
@@ -4463,19 +4466,21 @@ lozBoard.prototype.netSlowEval = function (turn) {
 
 lozBoard.prototype.netFastEval = function (turn) {
 
-  const a = this.net_a[colourIndex(turn)];
-
-  let e = this.net_o_b;
-
+  const a  = this.net_a[colourIndex(turn)];
   const a1 = a[0];
   const a2 = a[1];
+
+  let e = 0;
 
   for (let i=0; i < net_h1_size; i+=1) {
     e += this.net_o_w[i]             * sqrrelu(a1[i]);
     e += this.net_o_w[i+net_h1_size] * sqrrelu(a2[i]);
   }
 
+  e /= net_quantise_a;
+  e += this.net_o_b;
   e *= net_scale;
+  e /= net_quantise_ab;
 
   return e | 0;
 }
@@ -4510,11 +4515,8 @@ lozBoard.prototype.netMove = function (frObj,fr,to,dx,ex,fx) {
   const h1a = this.net_h1_w[i1];
   const h1b = this.net_h1_w[i2];
 
-  const h2a = this.net_h1_w[IFLIP[i1]];
-  const h2b = this.net_h1_w[IFLIP[i2]];
-
-  //const h2a = this.net_h2_w[i1];
-  //const h2b = this.net_h2_w[i2];
+  const h2a = this.net_h2_w[i1];
+  const h2b = this.net_h2_w[i2];
 
   for (let h=0; h < net_h1_size; h+=1) {
     this.net_h1_a[h] += h1b[h] - h1a[h];
@@ -4535,13 +4537,9 @@ lozBoard.prototype.netCapture = function (frObj,fr,toObj,to,ex,fx) {
   const h1b = this.net_h1_w[i2];
   const h1c = this.net_h1_w[i3];
 
-  const h2a = this.net_h1_w[IFLIP[i1]];
-  const h2b = this.net_h1_w[IFLIP[i2]];
-  const h2c = this.net_h1_w[IFLIP[i3]];
-
-  //const h2a = this.net_h2_w[i1];
-  //const h2b = this.net_h2_w[i2];
-  //const h2c = this.net_h2_w[i3];
+  const h2a = this.net_h2_w[i1];
+  const h2b = this.net_h2_w[i2];
+  const h2c = this.net_h2_w[i3];
 
   for (let h=0; h < net_h1_size; h++) {
     this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
@@ -4562,13 +4560,9 @@ lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promo
   const h1b = this.net_h1_w[i2];
   const h1c = this.net_h1_w[i3];
 
-  const h2a = this.net_h1_w[IFLIP[i1]];
-  const h2b = this.net_h1_w[IFLIP[i2]];
-  const h2c = this.net_h1_w[IFLIP[i3]];
-
-  //const h2a = this.net_h2_w[i1];
-  //const h2b = this.net_h2_w[i2];
-  //const h2c = this.net_h2_w[i3];
+  const h2a = this.net_h2_w[i1];
+  const h2b = this.net_h2_w[i2];
+  const h2c = this.net_h2_w[i3];
 
   for (let h=0; h < net_h1_size; h+=1) {
     this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
@@ -4589,13 +4583,9 @@ lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj
   const h1b = this.net_h1_w[i2];
   const h1c = this.net_h1_w[i3];
 
-  const h2a = this.net_h1_w[IFLIP[i1]];
-  const h2b = this.net_h1_w[IFLIP[i2]];
-  const h2c = this.net_h1_w[IFLIP[i3]];
-
-  //const h2a = this.net_h2_w[i1];
-  //const h2b = this.net_h2_w[i2];
-  //const h2c = this.net_h2_w[i3];
+  const h2a = this.net_h2_w[i1];
+  const h2b = this.net_h2_w[i2];
+  const h2c = this.net_h2_w[i3];
 
   for (let h=0; h < net_h1_size; h+=1) {
     this.net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
@@ -4618,15 +4608,10 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
   const h1c = this.net_h1_w[i3];
   const h1d = this.net_h1_w[i4];
 
-  const h2a = this.net_h1_w[IFLIP[i1]];
-  const h2b = this.net_h1_w[IFLIP[i2]];
-  const h2c = this.net_h1_w[IFLIP[i3]];
-  const h2d = this.net_h1_w[IFLIP[i4]];
-
-  //const h2a = this.net_h2_w[i1];
-  //const h2b = this.net_h2_w[i2];
-  //const h2c = this.net_h2_w[i3];
-  //const h2d = this.net_h2_w[i4];
+  const h2a = this.net_h2_w[i1];
+  const h2b = this.net_h2_w[i2];
+  const h2c = this.net_h2_w[i3];
+  const h2d = this.net_h2_w[i4];
 
   for (let h=0; h < net_h1_size; h+=1) {
     this.net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
@@ -4635,29 +4620,26 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
 }
 
 //}}}
-//{{{  .netRawLoad
+//{{{  .netLoad
 //
 //  Copy the weights so that the buffer can be released.
 //
 
-lozBoard.prototype.netRawLoad = function () {
+lozBoard.prototype.netLoad = function () {
 
   let offset = 0;
 
   const fs       = require('fs');
-  const buffer   = fs.readFileSync(net_raw_weights_file);
-  const dataView = new Float32Array(buffer.buffer, offset);
+  const buffer   = fs.readFileSync(net_weights_file);
+  const dataView = new Int16Array(buffer.buffer, offset);
 
   //{{{  .net_h1/h2_w
   
-  this.net_h1_w = new Array(net_i_size + 1);
-  //this.net_h2_w = new Array(net_i_size + 1);
-  
   for (let i=0; i < net_i_size; i++) {
   
-    const lozIndex = bullet2lozza(i);  // map bullet to lozza indexes.
+    const lozIndex = bullet2lozza(i);  // map bullet to lozza input indexes.
   
-    this.net_h1_w[lozIndex] = new Float32Array(net_h1_size);
+    this.net_h1_w[lozIndex] = new Int16Array(net_h1_size);
   
     const h = i * net_h1_size;
   
@@ -4665,18 +4647,16 @@ lozBoard.prototype.netRawLoad = function () {
       this.net_h1_w[lozIndex][j] = dataView[h + j];
     }
   
-    //this.net_h2_w[flipIndex(lozIndex)] = this.net_h1_w[lozIndex];
+    this.net_h2_w[flipIndex(lozIndex)] = this.net_h1_w[lozIndex];  // point at flipped weights.
   }
   
-  this.net_h1_w[net_i_size] = new Float32Array(net_h1_size).fill(0);
-  //this.net_h2_w[net_i_size] = new Float32Array(net_h1_size).fill(0);
+  this.net_h1_w[net_i_size] = new Int16Array(net_h1_size).fill(0);
+  this.net_h2_w[net_i_size] = new Int16Array(net_h1_size).fill(0);
   
   //}}}
   //{{{  .net_h1_b
   
   offset += net_i_size * net_h1_size;
-  
-  this.net_h1_b = new Float32Array(net_h1_size);
   
   for (let i=0; i < net_h1_size; i++) {
     this.net_h1_b[i] = dataView[offset + i];
@@ -4686,8 +4666,6 @@ lozBoard.prototype.netRawLoad = function () {
   //{{{  .net_o_w
   
   offset += net_h1_size;
-  
-  this.net_o_w = new Float32Array(net_h1_size*2);  // concatenated accumulators.
   
   for (let i=0; i < net_h1_size*2; i++) {
     this.net_o_w[i] = dataView[offset + i];
@@ -4744,8 +4722,8 @@ function lozNode (parentNode) {
   this.inCheck     = 0;
   this.ev          = 0;
 
-  this.net_h1_a = new Float32Array(net_h1_size);
-  this.net_h2_a = new Float32Array(net_h1_size);
+  this.net_h1_a = new Int16Array(net_h1_size);
+  this.net_h2_a = new Int16Array(net_h1_size);
 
   this.C_rights       = 0;
   this.C_ep           = 0;
@@ -5847,12 +5825,6 @@ lozza.board.lozza = lozza;
 
 if (lozzaHost == HOST_NODEJS) {
 
-  //const nodeVer = parseFloat(process.version.substring(1))
-  //if (nodeVer < 20) {
-    //console.log('info Lozza needs at least Node v20 and ideally >= v22');
-    //process.exit();
-  //}
-
   lozza.uci.nodefs = require('fs');
 
   process.stdin.setEncoding('utf8');
@@ -5869,7 +5841,7 @@ if (lozzaHost == HOST_NODEJS) {
     process.exit();
   });
 
-  lozza.board.netRawLoad();
+  lozza.board.netLoad();
   lozza.uci.argv();
 }
 
