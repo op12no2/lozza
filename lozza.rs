@@ -14,7 +14,7 @@ use bullet_lib::{
     },
 };
 
-const DIR: &str = "/home/xyzzy/lozza/data/h128_crelu_s100_l5";
+const DIR: &str = "/home/xyzzy/lozza/data/h128_sqrrelu_s100_l5";
 
 const HIDDEN_SIZE: usize = 128;
 
