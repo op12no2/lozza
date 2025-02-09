@@ -4,10 +4,18 @@
 
 const BUILD = "5";
 
+const net_raw_weights_file = '/home/xyzzy/lozza/data/h128_sqrrelu_s100_l5/lozza-30/raw.bin';
+
+//const net_quantise_a   = 255;
+//const net_quantise_b   = 64;
+const net_scale        = 100;
+const net_i_size       = 768;
+const net_h1_size      = 128;
+
 //{{{  history
 /*
 
-- Use Bullet trainer.
+- Use bullet trainer.
 - Use performance.now() not Date.now().
 
 */
@@ -56,27 +64,6 @@ function docmd(x) {
 //}}}
 
 //}}}
-//{{{  activations
-
-function relu(x) {
-  return Math.max(0, x);
-}
-
-function crelu(x) {
-  return Math.min(Math.max(x, 0), 255);
-}
-
-function srelu(x) {
-  const y = Math.max(0, x);
-  return y * y;
-}
-
-function screlu(x) {
-  const y = Math.min(Math.max(x, 0), 255);
-  return y * y;
-}
-
-//}}}
 //{{{  dev/release
 //
 // also comment out RANDOMEVAL stuff in evaluate.
@@ -87,14 +74,6 @@ const bench_depth = 9;
 
 //}}}
 //{{{  constants
-
-const net_eval_scale   = 1.0;
-const net_report_scale = 1.0;
-const net_quantise_a   = 255;
-const net_quantise_b   = 64;
-const net_scale        = 100;
-const net_i_size       = 768;
-const net_h1_size      = 128;
 
 const IMAP  = Array(16);
 const IFLIP = Array(net_i_size+1);
@@ -1192,6 +1171,32 @@ twisterInit(0x9E3779B9);
 //}}}
 //{{{  net primitives
 
+//{{{  activations
+
+function relu(x) {
+  return Math.max(0, x);
+}
+
+function crelu(x) {
+  return Math.min(Math.max(x, 0), 1.0);
+}
+
+function sqrrelu(x) {
+  const y = Math.max(0, x);
+  return y * y;
+}
+
+function screlu(x) {
+  const y = Math.min(Math.max(x, 0), net_quantise_a);
+  return y * y;
+}
+
+//}}}
+//{{{  flipIndex
+//
+//  Slow. Only use during init.
+//
+
 function flipIndex (index) {
 
   const piece         = Math.floor(index / 64);
@@ -1204,10 +1209,13 @@ function flipIndex (index) {
 
 }
 
+//}}}
+//{{{  bullet2lozza
 //
-// Bullet index 0 is a1. Lozza index 0 is a8.
-// The piece order is the same.
-// Apply this when loading the weights from the Bullet .bin file.
+//  bullet index 0 is a1. Lozza index 0 is a8.
+//  The piece order is the same.
+//  Apply this when loading the weights from the bullet .bin file.
+//  Slow. Only use during init.
 //
 
 function bullet2lozza (index) {
@@ -1220,6 +1228,8 @@ function bullet2lozza (index) {
   return lozzaIndex;
 
 }
+
+//}}}
 
 //}}}
 
@@ -1350,6 +1360,9 @@ function lozChess () {
   
   //}}}
   //{{{  init IMAP
+  //
+  // hack. Change to a 1D solution of obj*sq -> relevant weights. max 16*144 ish but not important.
+  //
   
   for (var i=0; i < 16; i++) {
     IMAP[i] = Array(144).fill(0);
@@ -1361,12 +1374,12 @@ function lozChess () {
   
     IMAP[0][j] = net_i_size;
   
-    IMAP[W_PAWN][j]   = 0   + (PAWN-1)   * 64 + i;
-    IMAP[W_KNIGHT][j] = 0   + (KNIGHT-1) * 64 + i;
-    IMAP[W_BISHOP][j] = 0   + (BISHOP-1) * 64 + i;
-    IMAP[W_ROOK][j]   = 0   + (ROOK-1)   * 64 + i;
-    IMAP[W_QUEEN][j]  = 0   + (QUEEN-1)  * 64 + i;
-    IMAP[W_KING][j]   = 0   + (KING-1)   * 64 + i;
+    IMAP[W_PAWN][j]   =   0 + (PAWN-1)   * 64 + i;
+    IMAP[W_KNIGHT][j] =   0 + (KNIGHT-1) * 64 + i;
+    IMAP[W_BISHOP][j] =   0 + (BISHOP-1) * 64 + i;
+    IMAP[W_ROOK][j]   =   0 + (ROOK-1)   * 64 + i;
+    IMAP[W_QUEEN][j]  =   0 + (QUEEN-1)  * 64 + i;
+    IMAP[W_KING][j]   =   0 + (KING-1)   * 64 + i;
   
     IMAP[B_PAWN][j]   = 384 + (PAWN-1)   * 64 + i;
     IMAP[B_KNIGHT][j] = 384 + (KNIGHT-1) * 64 + i;
@@ -1424,9 +1437,6 @@ lozChess.prototype.position = function () {
 //{{{  .report
 
 lozChess.prototype.report = function(units,value,depth) {
-
-  if (units == 'cp')
-    value = value / net_report_scale | 0;
 
   var depthStr = 'depth ' + depth + ' seldepth ' + this.stats.selDepth;
   var scoreStr = 'score ' + units + ' ' + value;
@@ -2341,14 +2351,16 @@ function lozBoard () {
   this.firstBP = 0;
   this.firstWP = 0;
 
-  this.rights       = 0;
-  this.ep           = 0;
-  this.repLo        = 0;
-  this.repHi        = 0;
-  this.loHash       = 0;
-  this.hiHash       = 0;
-  this.net_h1_a     = new Float32Array(net_h1_size);
-  this.net_h2_a     = new Float32Array(net_h1_size);
+  this.rights   = 0;
+  this.ep       = 0;
+  this.repLo    = 0;
+  this.repHi    = 0;
+  this.loHash   = 0;
+  this.hiHash   = 0;
+  this.net_h1_a = new Float32Array(net_h1_size);
+  this.net_h2_a = new Float32Array(net_h1_size);
+
+  this.net_a = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]];
 
   // use separate typed arrays to save space.  optimiser probably has a go anyway but better
   // to be explicit at the expense of some conversion.  total width is 16 bytes.
@@ -4437,12 +4449,11 @@ lozBoard.prototype.netSlowEval = function (turn) {
   }
 
   for (let i=0; i < net_h1_size; i++) {
-    e += this.net_o_w[i]             * srelu(a1[i]);
-    e += this.net_o_w[i+net_h1_size] * srelu(a2[i]);
+    e += this.net_o_w[i]             * sqrrelu(a1[i]);
+    e += this.net_o_w[i+net_h1_size] * sqrrelu(a2[i]);
   }
 
   e *= net_scale;
-  e *= net_eval_scale;
 
   return e | 0;
 }
@@ -4452,24 +4463,19 @@ lozBoard.prototype.netSlowEval = function (turn) {
 
 lozBoard.prototype.netFastEval = function (turn) {
 
+  const a = this.net_a[colourIndex(turn)];
+
   let e = this.net_o_b;
 
-  if (turn == WHITE) {         // hack - optimise the if away later.
-    var a1 = this.net_h1_a;
-    var a2 = this.net_h2_a;
-  }
-  else {
-    var a1 = this.net_h2_a;
-    var a2 = this.net_h1_a;
-  }
+  const a1 = a[0];
+  const a2 = a[1];
 
   for (let i=0; i < net_h1_size; i+=1) {
-    e += this.net_o_w[i]             * srelu(a1[i]);
-    e += this.net_o_w[i+net_h1_size] * srelu(a2[i]);
+    e += this.net_o_w[i]             * sqrrelu(a1[i]);
+    e += this.net_o_w[i+net_h1_size] * sqrrelu(a2[i]);
   }
 
   e *= net_scale;
-  e *= net_eval_scale;
 
   return e | 0;
 }
@@ -4507,6 +4513,9 @@ lozBoard.prototype.netMove = function (frObj,fr,to,dx,ex,fx) {
   const h2a = this.net_h1_w[IFLIP[i1]];
   const h2b = this.net_h1_w[IFLIP[i2]];
 
+  //const h2a = this.net_h2_w[i1];
+  //const h2b = this.net_h2_w[i2];
+
   for (let h=0; h < net_h1_size; h+=1) {
     this.net_h1_a[h] += h1b[h] - h1a[h];
     this.net_h2_a[h] += h2b[h] - h2a[h];
@@ -4529,6 +4538,10 @@ lozBoard.prototype.netCapture = function (frObj,fr,toObj,to,ex,fx) {
   const h2a = this.net_h1_w[IFLIP[i1]];
   const h2b = this.net_h1_w[IFLIP[i2]];
   const h2c = this.net_h1_w[IFLIP[i3]];
+
+  //const h2a = this.net_h2_w[i1];
+  //const h2b = this.net_h2_w[i2];
+  //const h2c = this.net_h2_w[i3];
 
   for (let h=0; h < net_h1_size; h++) {
     this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
@@ -4553,6 +4566,10 @@ lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promo
   const h2b = this.net_h1_w[IFLIP[i2]];
   const h2c = this.net_h1_w[IFLIP[i3]];
 
+  //const h2a = this.net_h2_w[i1];
+  //const h2b = this.net_h2_w[i2];
+  //const h2c = this.net_h2_w[i3];
+
   for (let h=0; h < net_h1_size; h+=1) {
     this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
     this.net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
@@ -4575,6 +4592,10 @@ lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj
   const h2a = this.net_h1_w[IFLIP[i1]];
   const h2b = this.net_h1_w[IFLIP[i2]];
   const h2c = this.net_h1_w[IFLIP[i3]];
+
+  //const h2a = this.net_h2_w[i1];
+  //const h2b = this.net_h2_w[i2];
+  //const h2c = this.net_h2_w[i3];
 
   for (let h=0; h < net_h1_size; h+=1) {
     this.net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
@@ -4602,6 +4623,11 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
   const h2c = this.net_h1_w[IFLIP[i3]];
   const h2d = this.net_h1_w[IFLIP[i4]];
 
+  //const h2a = this.net_h2_w[i1];
+  //const h2b = this.net_h2_w[i2];
+  //const h2c = this.net_h2_w[i3];
+  //const h2d = this.net_h2_w[i4];
+
   for (let h=0; h < net_h1_size; h+=1) {
     this.net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
     this.net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
@@ -4610,8 +4636,9 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
 
 //}}}
 //{{{  .netRawLoad
-
-const net_raw_weights_file = '/home/xyzzy/bullet/checkpoints/lozza-400/raw.bin';
+//
+//  Copy the weights so that the buffer can be released.
+//
 
 lozBoard.prototype.netRawLoad = function () {
 
@@ -4621,24 +4648,28 @@ lozBoard.prototype.netRawLoad = function () {
   const buffer   = fs.readFileSync(net_raw_weights_file);
   const dataView = new Float32Array(buffer.buffer, offset);
 
-  //{{{  .net_h1_w
+  //{{{  .net_h1/h2_w
   
   this.net_h1_w = new Array(net_i_size + 1);
+  //this.net_h2_w = new Array(net_i_size + 1);
   
-  for (let i = 0; i < net_i_size; i++) {
+  for (let i=0; i < net_i_size; i++) {
   
-    const lozIndex = bullet2lozza(i);
+    const lozIndex = bullet2lozza(i);  // map bullet to lozza indexes.
   
     this.net_h1_w[lozIndex] = new Float32Array(net_h1_size);
   
     const h = i * net_h1_size;
   
-    for (let j = 0; j < net_h1_size; j++) {
+    for (let j=0; j < net_h1_size; j++) {
       this.net_h1_w[lozIndex][j] = dataView[h + j];
     }
+  
+    //this.net_h2_w[flipIndex(lozIndex)] = this.net_h1_w[lozIndex];
   }
   
   this.net_h1_w[net_i_size] = new Float32Array(net_h1_size).fill(0);
+  //this.net_h2_w[net_i_size] = new Float32Array(net_h1_size).fill(0);
   
   //}}}
   //{{{  .net_h1_b
@@ -4647,7 +4678,7 @@ lozBoard.prototype.netRawLoad = function () {
   
   this.net_h1_b = new Float32Array(net_h1_size);
   
-  for (let i = 0; i < net_h1_size; i++) {
+  for (let i=0; i < net_h1_size; i++) {
     this.net_h1_b[i] = dataView[offset + i];
   }
   
@@ -4656,9 +4687,9 @@ lozBoard.prototype.netRawLoad = function () {
   
   offset += net_h1_size;
   
-  this.net_o_w = new Float32Array(net_h1_size*2);
+  this.net_o_w = new Float32Array(net_h1_size*2);  // concatenated accumulators.
   
-  for (let i = 0; i < net_h1_size*2; i++) {
+  for (let i=0; i < net_h1_size*2; i++) {
     this.net_o_w[i] = dataView[offset + i];
   }
   
@@ -4670,6 +4701,7 @@ lozBoard.prototype.netRawLoad = function () {
   this.net_o_b = dataView[offset];
   
   //}}}
+
 }
 
 //}}}
@@ -5791,28 +5823,6 @@ onmessage = function(e) {
       break;
       
       //}}}
-
-    case 'net':
-    case 'n': {
-      //{{{  net info
-      
-      uci.send('build', BUILD);
-      uci.send('h1 size', net_h1_size);
-      uci.send('lr', net_lr);
-      uci.send('activation', net_activation.name);
-      uci.send('stretch', net_stretch);
-      uci.send('interp', net_interp);
-      uci.send('batch size', net_batch_size);
-      uci.send('opt', net_opt);
-      uci.send('epochs', net_epochs);
-      uci.send('eval scale', net_eval_scale);
-      uci.send('cp scale', net_report_scale);
-      uci.send('loss', net_loss);
-      
-      break;
-      
-      //}}}
-    }
 
     default:
       //{{{  ?

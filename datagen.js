@@ -5,68 +5,13 @@
 
 // ******* needs tweaking for Bullet format output
 
-//{{{  flipFen
+//{{{  history
+
 /*
-const flipFen = (fen) => {
 
-  const [board, color, castling, enPassant, halfmove, fullmove] = fen.split(' ');
+- Tweak for bullet text format.
 
-  const mirroredBoard = board.split('/').reverse().map(row => {
-    return row.split('').map(char => {
-      if (char === char.toUpperCase()) {
-        return char.toLowerCase();
-      } else if (char === char.toLowerCase()) {
-        return char.toUpperCase();
-      }
-      return char;
-    }).join('');
-  }).join('/');
-
-  const mirroredColor = color === 'w' ? 'b' : 'w';
-
-  const mirrorCastling = castling.split('').map(right => {
-    switch(right) {
-      case 'K': return 'k';
-      case 'Q': return 'q';
-      case 'k': return 'K';
-      case 'q': return 'Q';
-      default: return right;
-    }
-  }).join('');
-
-  const mirroredEnPassant = enPassant === '-' ? '-' :
-    enPassant[0] + (9 - parseInt(enPassant[1]));
-
-  const newFen = [
-    mirroredBoard,
-    mirroredColor,
-    mirrorCastling || '-',
-    mirroredEnPassant,
-    halfmove,
-    fullmove
-  ].join(' ');
-
-  return newFen;
-};
 */
-
-//}}}
-//{{{  flipResult
-
-function flipResult (r) {
-
-  if (r == '1.0')
-    return '0.0';
-  else if (r == '0.0')
-    return '1.0';
-  else if (r == '0.5')
-    return r;
-  else {
-    console.log('bad result',r);
-    process.exit();
-  }
-
-}
 
 //}}}
 
@@ -108,8 +53,6 @@ for (let g=0; g < gamesLimit; g++) {
   let hmc = 0;
   let ply = 0;
   let fens = [];
-  let attribs = [];
-  let flips = [];
   let scores = [];
   
   while (true) {
@@ -122,9 +65,9 @@ for (let g=0; g < gamesLimit; g++) {
     //{{{  get a move
     
     if (ply <= randLimit)
-      lozza.board.randomEval = 1;
+      RANDOMEVAL = 1;
     else
-      lozza.board.randomEval = 0;
+      RANDOMEVAL = 0;
     
     docmd('go nodes ' + nodesLimit);
     
@@ -146,20 +89,10 @@ for (let g=0; g < gamesLimit; g++) {
     const noisy   = moveIsNoisy(move);
     const fen     = lozza.board.fen(lozza.board.turn);
     const score   = (turn == BLACK ? -lozza.stats.bestScore : lozza.stats.bestScore);
-    const attrib  = (inCheck ? 'c' : '-') + ' ' + (noisy ? 'n' : '-');
   
-    if (ply > reportLimit) {
+    if (ply > reportLimit && !inCheck && !noisy) {
       fens.push(fen);
       scores.push(score);
-      attribs.push(attrib);
-      flips.push('-');
-  
-      // include filpped positions in the data but allow them to be filtered
-  
-      fens.push(flipFen(fen));
-      scores.push(-score);
-      attribs.push(attrib);
-      flips.push('f');
     }
   
     //{{{  end of game?
@@ -206,15 +139,7 @@ for (let g=0; g < gamesLimit; g++) {
   
   for (let i=0; i < fens.length; i++) {
   
-    //if (fens[i] != flipFen(flipFen(fens[i]))) {
-      //console.log('fen flip prob');
-      //process.exit();
-    //}
-  
-    if (flips[i] == '-')
-      o += fens[i] + ' ' + scores[i] + ' ' + attribs[i] + ' ' + flips[i] + ' ' + result             + '\r\n';
-    else
-      o += fens[i] + ' ' + scores[i] + ' ' + attribs[i] + ' ' + flips[i] + ' ' + flipResult(result) + '\r\n';
+    o += fens[i] + ' | ' + scores[i] + ' ' + ' | ' + result + '\r\n';
   
     if (o.length > 100000) {
       fs.appendFileSync(fileName,o);
