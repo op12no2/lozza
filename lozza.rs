@@ -1,10 +1,11 @@
+//
+//  Lozza bullet net.
+//
 
 use bullet_lib::{
     nn::{optimiser, Activation},
     trainer::{
-        default::{
-            inputs, loader, outputs, Loss, TrainerBuilder,
-        },
+        default::{inputs, loader, outputs, Loss, TrainerBuilder},
         schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
         settings::LocalSettings,
     },
@@ -12,33 +13,36 @@ use bullet_lib::{
 
 fn activation_to_string(activation: &Activation) -> &'static str {
     match activation {
-        Activation::SqrReLU =>  "sqrrelu",
-        Activation::ReLU =>     "relu",
-        Activation::CReLU =>    "crelu",
-        Activation::SCReLU =>   "screlu",
-        Activation::Sigmoid =>  "sigmoid",
+        Activation::SqrReLU => "sqrrelu",
+        Activation::ReLU => "relu",
+        Activation::CReLU => "crelu",
+        Activation::SCReLU => "screlu",
+        Activation::Sigmoid => "sigmoid",
         Activation::Identity => "identity",
     }
 }
 
 fn main() {
+    // start config
 
-    let h1_size: usize           = 128;
-    let activation_func          = Activation::SqrReLU;
-    let scale: i16               = 100;
-    let lerp: f32                = 0.6;
-    let qa: i16                  = 255;
-    let qb: i16                  = 64;
-    let id: &str                 = "lozza";
-    let batch_size: usize        = 16_384;
+    let h1_size: usize = 128;
+    let activation_func = Activation::SqrReLU;
+    let scale: i16 = 100;
+    let lerp: f32 = 0.6;
+    let qa: i16 = 255;
+    let qb: i16 = 64;
+    let id: &str = "lozza";
+    let batch_size: usize = 16_384;
     let batches_per_super: usize = 6104;
-    let num_supers: usize        = 200;
-    let save_rate: usize         = 5;
+    let num_supers: usize = 200;
+    let save_rate: usize = 5;
+    let output_dir_top: &str = "/home/xyzzy/lozza/data";
+    let data_files = ["/home/xyzzy/lozza/data/bullet.data"];
 
-    let acti       = activation_to_string(&activation_func);
-    let output_dir = format!(
-        "/home/xyzzy/lozza/data/h{}_{}_s{}_l{}", h1_size, acti, scale, (lerp * 10.0) as i32
-    );
+    // end config
+
+    let acti = activation_to_string(&activation_func);
+    let output_dir = format!("{}/h{}_{}_s{}_l{}", output_dir_top, h1_size, acti, scale, (lerp * 10.0) as i32);
 
     println!();
     println!("Activation             : {}", acti);
@@ -70,15 +74,9 @@ fn main() {
 
     trainer.set_optimiser_params(optimiser::AdamWParams::default());
 
-    let settings = LocalSettings {
-        threads: 4,
-        test_set: None,
-        output_directory: &output_dir,
-        batch_queue_size: 64,
-    };
+    let settings = LocalSettings { threads: 4, test_set: None, output_directory: &output_dir, batch_queue_size: 64 };
 
-    let data_loader = loader::DirectSequentialDataLoader::new(&["/home/xyzzy/lozza/data/bullet.data"]);
+    let data_loader = loader::DirectSequentialDataLoader::new(&data_files);
 
     trainer.run(&schedule, &settings, &data_loader);
 }
-
