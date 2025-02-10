@@ -14,8 +14,9 @@ const net_i_size      = 768;
 const net_h1_size     = 128;
 
 //{{{  history
-/*
+/* new to old
 
+- +32 at LTC v Lozza4.
 - Apply a fudge factor to eval to match previous magic numbers.
 - Fix board.fen() WRT black queen castling rights.
 - Optimise accessing perspective weights a bit more.
@@ -51,27 +52,9 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 }
 
 //}}}
-//{{{  utils
-
-//{{{  myround
-
-function myround(x) {
-  return Math.sign(x) * Math.round(Math.abs(x));
-}
-
-//}}}
-//{{{  docmd
-
-function docmd(x) {
-  onmessage({data: x});
-}
-
-//}}}
-
-//}}}
 //{{{  dev/release
 //
-// also comment out RANDOMEVAL stuff in evaluate.
+// Also comment out RANDOMEVAL stuff in evaluate.
 //
 
 const TTSIZE      = 1 << 23;
@@ -85,9 +68,9 @@ const IMAP = Array(16);
 const MATERIAL = [0,100,394,388,588,1207,10000];
 const ADJACENT = [1,1,0,0,0,0,0,0,0,0,0,1,1,1];
 
-var MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits.
+var MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits
 var MAX_MOVES       = 250;
-var INFINITY        = 30000;              // limited by lozza.board.ttScore bits.
+var INFINITY        = 30000;              // limited by lozza.board.ttScore bits
 var MATE            = 20000;
 var MINMATE         = MATE - 2*MAX_PLY;
 var INCHECK_UNKNOWN = MATE + 1;
@@ -114,9 +97,7 @@ var TT_EXACT  = 1;
 var TT_BETA   = 2;
 var TT_ALPHA  = 3;
 
-//                                 Killer?
-// max            9007199254740992
-//
+//                                      killer?
 
 var BASE_HASH       =  40000012000;  // no
 var BASE_PROMOTES   =  40000011000;  // no
@@ -148,12 +129,12 @@ var MOVE_EPTAKE_MASK   = 0x02000000;
 var MOVE_EPMAKE_MASK   = 0x04000000;
 var MOVE_CASTLE_MASK   = 0x08000000;
 var MOVE_PROMOTE_MASK  = 0x10000000;
-var MOVE_PROMAS_MASK   = 0x60000000;  // NBRQ.
+var MOVE_PROMAS_MASK   = 0x60000000;  // NBRQ
 var MOVE_LEGAL_MASK    = 0x80000000;
 
 var MOVE_CLEAN_MASK    = ~MOVE_LEGAL_MASK & 0xFFFFFFFF;
-var MOVE_SPECIAL_MASK  = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK; // need extra work in make move.
-var KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility etc.
+var MOVE_SPECIAL_MASK  = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK; // need extra work in make move
+var KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility etc
 var MOVE_NOISY_MASK    = MOVE_TOOBJ_MASK | MOVE_EPTAKE_MASK;
 
 var NULL   = 0;
@@ -194,9 +175,9 @@ var IS_OE     = [1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0];
 
 var IS_P      = [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
 var IS_N      = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
-var IS_NBRQKE = [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0]
-var IS_RQKE   = [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0]
-var IS_QKE    = [1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0]
+var IS_NBRQKE = [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0];
+var IS_RQKE   = [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0];
+var IS_QKE    = [1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0];
 var IS_K      = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0];
 var IS_KN     = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];
 
@@ -205,22 +186,22 @@ var IS_WNK    = [0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WE     = [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WP     = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WN     = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WNBRQ  = [0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+var IS_WNBRQ  = [0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WB     = [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WBQ    = [0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_WRQ    = [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WQ     = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+var IS_WQ     = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 var IS_B      = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
 var IS_BNK    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0];
 var IS_BE     = [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
 var IS_BP     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
 var IS_BN     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
-var IS_BNBRQ  = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0]
+var IS_BNBRQ  = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0];
 var IS_BB     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0];
 var IS_BBQ    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0];
 var IS_BRQ    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0];
-var IS_BQ     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+var IS_BQ     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0];
 
 var PPHASE = 0;
 var NPHASE = 1;
@@ -229,7 +210,7 @@ var RPHASE = 2;
 var QPHASE = 4;
 var VPHASE = [0,PPHASE,NPHASE,BPHASE,RPHASE,QPHASE,0];
 var TPHASE = PPHASE*16 + NPHASE*4 + BPHASE*4 + RPHASE*4 + QPHASE*2;
-var EPHASE = 16;  //  Don't do Q futility after this.
+var EPHASE = 16;  // don't do QS futility after this
 
 var W_PROMOTE_SQ = [0,26, 27, 28, 29, 30, 31, 32, 33];
 var B_PROMOTE_SQ = [0,110,111,112,113,114,115,116,117];
@@ -296,7 +277,7 @@ var KING_OFFSETS    = [11,-11,13,-13,1,-1,12,-12];
 var OFFSETS = [0,0,KNIGHT_OFFSETS,BISHOP_OFFSETS,ROOK_OFFSETS,QUEEN_OFFSETS,KING_OFFSETS];
 var LIMITS  = [0,1,1,             8,             8,           8,            1];
 
-var RANK_VECTOR  = [0,1,2,2,4,5,6];  // for move sorting.
+var RANK_VECTOR  = [0,1,2,2,4,5,6];  // for move sorting
 
 var  B88 =  [26, 27, 28, 29, 30, 31, 32, 33,
              38, 39, 40, 41, 42, 43, 44, 45,
@@ -321,7 +302,7 @@ var COORDS = ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', 
               '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'];
 
 var NAMES    = ['-','P','N','B','R','Q','K','-'];
-var PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move.
+var PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move
 
 const CENTRE = [0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
                 0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
@@ -947,7 +928,7 @@ const BKING_PSTE = [
      0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0
 ];
 
-var WM_PST = [NULL_PST, WPAWN_PSTE,  WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE]; // move ordering.
+var WM_PST = [NULL_PST, WPAWN_PSTE,  WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE];  // move ordering
 var BM_PST = [NULL_PST, BPAWN_PSTE,  BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
 
 //}}}
@@ -955,6 +936,31 @@ var BM_PST = [NULL_PST, BPAWN_PSTE,  BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQU
 //}}}
 //{{{  primitives
 
+//{{{  utilities
+
+//{{{  myround
+
+function myround(x) {
+  return Math.sign(x) * Math.round(Math.abs(x));
+}
+
+//}}}
+//{{{  docmd
+
+function docmd(x) {
+  onmessage({data: x});
+}
+
+//}}}
+//{{{  now
+
+function now() {
+  return performance.now() | 0;
+}
+
+//}}}
+
+//}}}
 //{{{  move primitives
 
 function moveClean (move) {
@@ -1198,7 +1204,7 @@ function sqrrelu(x) {
 //}}}
 //{{{  flipIndex
 //
-//  Slow. Only use during init.
+// Slow. Only use during init.
 //
 
 function flipIndex (index) {
@@ -1216,18 +1222,18 @@ function flipIndex (index) {
 //}}}
 //{{{  bullet2lozza
 //
-//  bullet index 0 is a1. Lozza index 0 is a8.
-//  The piece order is the same.
-//  Apply this when loading the weights from the bullet .bin file.
+// bullet index 0 is a1. Lozza index 0 is a8.
+// The piece order is the same.
+// Apply this when loading the weights from the bullet .bin file.
 //
-//  Slow. Only use during init.
+// Slow. Only use during init.
 //
 
 function bullet2lozza (index) {
 
   const piece        = Math.floor(index / 64);
   const bulletSquare = index % 64;
-  const lozzaSquare  = bulletSquare ^ 56;          // map a1 to a8 etc.
+  const lozzaSquare  = bulletSquare ^ 56;          // map a1 to a8 etc
   const lozzaIndex   = piece * 64 + lozzaSquare;
 
   return lozzaIndex;
@@ -1244,39 +1250,39 @@ function bullet2lozza (index) {
 
 //{{{  lozChess
 //
-//  node[0]
-//    .root            =  true;
-//    .ply             =  0
-//    .parentNode      => NULL
-//    .grandParentNode => NULL
-//    .childNode       => node[1];
+// node[0]
+//   .root            =  true;
+//   .ply             =  0
+//   .parentNode      => NULL
+//   .grandParentNode => NULL
+//   .childNode       => node[1];
 //
-//  node[1]
-//    .root            =  false;
-//    .ply             =  1
-//    .parentNode      => node[0]
-//    .grandParentNode => NULL
-//    .childNode       => node[2];
+// node[1]
+//   .root            =  false;
+//   .ply             =  1
+//   .parentNode      => node[0]
+//   .grandParentNode => NULL
+//   .childNode       => node[2];
 //
-//  ...
+// ...
 //
-//  node[n]
-//    .root            =  false;
-//    .ply             =  n
-//    .parentNode      => node[n-1]
-//    .grandParentNode => node[n-2] | NULL
-//    .childNode       => node[n+1] | NULL
+// node[n]
+//   .root            =  false;
+//   .ply             =  n
+//   .parentNode      => node[n-1]
+//   .grandParentNode => node[n-2] | NULL
+//   .childNode       => node[n+1] | NULL
 //
-//  etc
+// etc.
 //
-//  Search starts at node[0] with a depth spec.  In Lozza "depth" is the depth to
-//  search and can jump around all over the place with extensions and reductions,
-//  "ply" is the distance from the root.  Killers are stored in nodes because they
-//  need to be ply based not depth based.  The .grandParentNode pointer can be used
-//  to easily look up killers for the previous move of the same colour and compute
-//  improving etc.
+// Search starts at node[0] with a depth spec.  In Lozza "depth" is the depth to
+// search and can jump around all over the place with extensions and reductions,
+// "ply" is the distance from the root.  Killers are stored in nodes because they
+// need to be ply based not depth based.  The .grandParentNode pointer can be used
+// to easily look up killers for the previous move of the same colour and compute
+// improving etc.
 //
-//  This function must be weights independent; they are loaded later.
+// This function must be weights independent; they are loaded later.
 //
 
 function lozChess () {
@@ -1286,7 +1292,7 @@ function lozChess () {
   var parentNode = null;
   for (var i=0; i < this.nodes.length; i++) {
     this.nodes[i]      = new lozNode(parentNode);
-    this.nodes[i].ply  = i;                     // distance to root node for mate etc.
+    this.nodes[i].ply  = i;                     // distance to root node for mate etc
     parentNode         = this.nodes[i];
     this.nodes[i].root = i == 0;
   }
@@ -1366,7 +1372,14 @@ function lozChess () {
   //}}}
   //{{{  init IMAP
   //
-  // hack. Change to a 1D solution of obj*sq -> relevant weights. max 16*144 ish but not important.
+  // In Lozza an 'object' is a piece of either colour.
+  //
+  // IMAP is used to lookup a [0,767] index from an (object,square) pair.
+  // The corresponding array of net_h1_size weights will be pointed to
+  // by board.net_h1_w[index] and board.net_h2_w[index] for the flipped
+  // accumulator. There is only one set of weights; board.net_h1_w and
+  // board.net_h2_w just point in different directions as needed. See
+  // also board.netLoad().
   //
   
   for (var i=0; i < 16; i++) {
@@ -1638,7 +1651,7 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
   var keeper         = false;
   var doLMR          = depth >= 3;
 
-  board.ttGet(node, depth, alpha, beta);  // load hash move.
+  board.ttGet(node, depth, alpha, beta);  // load hash move
 
   node.inCheck = inCheck;
   node.ev      = board.getEval(INFINITY,node,turn);
@@ -1755,7 +1768,7 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
   }
 
   if (numLegalMoves == 1)
-    this.stats.timeOut = 1;  // only one legal move so don't waste any more time.
+    this.stats.timeOut = 1;  // only one legal move so don't waste any more time
 
   if (numLegalMoves == 0) {
     this.stats.timeOut = 1;  // silly position
@@ -1838,7 +1851,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   //}}}
   //{{{  try tt
   
-  score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove and node.hashEval.
+  score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove and node.hashEval
   
   if (!pvNode && score != TTSCORE_UNKNOWN)
     return score;
@@ -1890,7 +1903,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
 
   //{{{  NMP
   //
-  //  Use childNode to make sure killers are aligned.
+  // Use .childNode to make sure killers are aligned.
   //
   
   R = 3;
@@ -1945,13 +1958,13 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
 
   //{{{  IID
   //
-  //  If there is no hash move after IID it means that the search returned
-  //  a mate or draw score and we could return immediately I think, because
-  //  the subsequent search is presumably going to find the same.  However
-  //  it's a small optimisation and I'm not totally convinced.  Needs to be
-  //  tested.
+  // If there is no hash move after IID it means that the search returned
+  // a mate or draw score and we could return immediately I think, because
+  // the subsequent search is presumably going to find the same.  However
+  // it's a small optimisation and I'm not totally convinced.  Needs to be
+  // tested.
   //
-  //  Use this node so the killers align.  Should be safe.
+  // Use this node so the killers align.  Should be safe.
   //
   
   if (doIID) {
@@ -2138,7 +2151,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
   if (board.isDraw())
     return 0;
 
-  var score = board.ttGet(node, 0, alpha, beta);  // sets/clears node.hashMove and node.hashEval.
+  var score = board.ttGet(node, 0, alpha, beta);  // sets/clears node.hashMove and node.hashEval
 
   if (score != TTSCORE_UNKNOWN)
     return score;
@@ -2164,6 +2177,8 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
   while (move = node.getNextMove()) {
 
     //{{{  prune?
+    
+    // hack try and simplify this top one out
     
     if (phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
       continue;
@@ -2342,11 +2357,11 @@ function lozBoard () {
   this.mvFmt        = 0;
   this.hashUsed     = 0;
 
-  this.b = new Uint16Array(144);    // pieces.
-  this.z = new Uint16Array(144);    // indexes to w|bList.
+  this.b = new Uint16Array(144);    // pieces
+  this.z = new Uint16Array(144);    // indexes to w|bList
 
-  this.wList = new Uint16Array(16); // list of squares with white pieces.
-  this.bList = new Uint16Array(16); // list of squares with black pieces.
+  this.wList = new Uint16Array(16); // list of squares with white pieces
+  this.bList = new Uint16Array(16); // list of squares with black pieces
 
   this.cxList = [this.wList, this.bList];
 
@@ -2364,14 +2379,16 @@ function lozBoard () {
 
   this.net_a = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]];
 
-  // use separate typed arrays to save space.  optimiser probably has a go anyway but better
-  // to be explicit at the expense of some conversion.  total width is 16 bytes.
+  //
+  // Use separate typed arrays to save space.  Optimiser probably has a go anyway but
+  // better to be explicit at the expense of some conversion.  Total width is 16 bytes.
+  //
 
   this.ttLo      = new Int32Array(TTSIZE);
   this.ttHi      = new Int32Array(TTSIZE);
   this.ttType    = new Uint8Array(TTSIZE);
-  this.ttDepth   = new Int8Array(TTSIZE);   // allow -ve depths but currently not used for q.
-  this.ttMove    = new Uint32Array(TTSIZE); // see constants for structure.
+  this.ttDepth   = new Int8Array(TTSIZE);   // allow -ve depths but currently not used for q
+  this.ttMove    = new Uint32Array(TTSIZE); // see constants for structure
   this.ttEval    = new Int16Array(TTSIZE);
   this.ttScore   = new Int16Array(TTSIZE);
 
@@ -2462,7 +2479,7 @@ function lozBoard () {
   this.objHistory[W_QUEEN]  = this.wHistory[W_QUEEN];
   this.objHistory[W_KING]   = this.wHistory[W_KING];
 
-  this.objHistory[B_PAWN]   = this.bHistory[W_PAWN];    // sic.
+  this.objHistory[B_PAWN]   = this.bHistory[W_PAWN];    // sic
   this.objHistory[B_KNIGHT] = this.bHistory[W_KNIGHT];
   this.objHistory[B_BISHOP] = this.bHistory[W_BISHOP];
   this.objHistory[B_ROOK]   = this.bHistory[W_ROOK];
@@ -3616,12 +3633,12 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   //}}}
   //{{{  push rep hash
   //
-  //  Repetitions are cancelled by pawn moves, castling, captures, EP
-  //  and promotions; i.e. moves that are not reversible.  The nearest
-  //  repetition is 5 indexes back from the current one and then that
-  //  and every other one entry is a possible rep.  Can also check for
-  //  50 move rule by testing hi-lo > 100 - it's not perfect because of
-  //  the pawn move reset but it's a type 2 error, so safe.
+  // Repetitions are cancelled by pawn moves, castling, captures, EP
+  // and promotions; i.e. moves that are not reversible.  The nearest
+  // repetition is 5 indexes back from the current one and then that
+  // and every other one entry is a possible rep.  Can also check for
+  // 50 move rule by testing hi-lo > 100 - it's not perfect because of
+  // the pawn move reset but it's a type 2 error, so safe.
   //
   
   this.repLoHash[this.repHi] = this.loHash;
@@ -3967,13 +3984,10 @@ lozBoard.prototype.evaluate = function (turn) {
   
   //}}}
 
-  if (RANDOMEVAL)
+  if (RANDOMEVAL)  // hack
     return Math.trunc((Math.random() * 1000) - 500);
   else {
     const e1 = this.netFastEval(turn);
-    //const e2 = this.netSlowEval(turn);
-    //if (e1 != e2)
-      //console.log(e1,e2);
     return e1;
   }
 
@@ -4013,7 +4027,7 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta,ev) {
   const idx = this.loHash & TTMASK;
 
   if (depth == 0 && this.ttType[idx] != TT_EMPTY && this.ttDepth[idx] > 0)
-    return;  // don't let qsearch tt entries overwrite search tt entries.
+    return;  // don't let qsearch tt entries overwrite search tt entries
 
   if (this.ttType[idx] == TT_EMPTY)
     this.hashUsed++;
@@ -4488,7 +4502,7 @@ lozBoard.prototype.netFastEval = function (turn) {
 //}}}
 //{{{  .netPrepare
 //
-//  Note the UE needed so it can be done after a legal move is confirmed.
+// Note the UE needed so it can be done after a legal move is confirmed.
 //
 
 lozBoard.prototype.netPrepare = function (ueFunc,ueA,ueB,ueC,ueD,ueE,ueF) {
@@ -4622,7 +4636,7 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
 //}}}
 //{{{  .netLoad
 //
-//  Copy the weights so that the buffer can be released.
+// Copy the weights so that the buffer can be released.
 //
 
 lozBoard.prototype.netLoad = function () {
@@ -4691,10 +4705,10 @@ lozBoard.prototype.netLoad = function () {
 
 function lozNode (parentNode) {
 
-  this.ply        = 0;          //  distance from root.
-  this.root       = false;      //  only true for the root node node[0].
-  this.childNode  = null;       //  pointer to next node (towards leaf) in tree.
-  this.parentNode = parentNode; //  pointer previous node (towards root) in tree.
+  this.ply        = 0;          // distance from root
+  this.root       = false;      // only true for the root node node[0]
+  this.childNode  = null;       // pointer to next node (towards leaf) in tree
+  this.parentNode = parentNode; // pointer previous node (towards root) in tree
 
   if (parentNode) {
     this.grandparentNode = parentNode.parentNode;
@@ -4714,11 +4728,11 @@ function lozNode (parentNode) {
   this.killer1     = 0;
   this.killer2     = 0;
   this.mateKiller  = 0;
-  this.numMoves    = 0;         //  number of pseudo-legal moves for this node.
-  this.sortedIndex = 0;         //  index to next selection-sorted pseudo-legal move.
-  this.hashMove    = 0;         //  loaded when we look up the tt.
-  this.hashEval    = 0;         //  loaded when we look up the tt.
-  this.base        = 0;         //  move type base (e.g. good capture) - can be used for LMR.
+  this.numMoves    = 0;         // number of pseudo-legal moves for this node
+  this.sortedIndex = 0;         // index to next selection-sorted pseudo-legal move
+  this.hashMove    = 0;         // loaded when we look up the tt
+  this.hashEval    = 0;         // loaded when we look up the tt
+  this.base        = 0;         // move type base (e.g. good capture) - can be used for LMR
   this.inCheck     = 0;
   this.ev          = 0;
 
@@ -4732,16 +4746,16 @@ function lozNode (parentNode) {
   this.C_loHash       = 0;
   this.C_hiHash       = 0;
 
-  this.toZ = 0;                 // move to square index (captures) to piece list - cached during make|unmakeMove.
-  this.frZ = 0;                 // move from square index to piece list          - ditto.
-  this.epZ = 0;                 // captured ep pawn index to piece list          - ditto.
+  this.toZ = 0;                 // move to square index (captures) to piece list - cached during make|unmakeMove
+  this.frZ = 0;                 // move from square index to piece list          - ditto
+  this.epZ = 0;                 // captured ep pawn index to piece list          - ditto
 }
 
 //}}}
 //{{{  .init
 //
-//  By storing the killers in the node, we are implicitly using depth from root, rather than
-//  depth, which can jump around all over the place and is inappropriate to use for killers.
+// By storing the killers in the node, we are implicitly using depth from root, rather than
+// depth, which can jump around all over the place and is inappropriate to use for killers.
 //
 
 lozNode.prototype.init = function() {
@@ -5046,7 +5060,7 @@ lozNode.prototype.addQMove = function (move) {
     this.ranks[n] = BASE_HASH;
 
   else if (move & MOVE_PROMOTE_MASK)
-    this.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS); // QRBN.
+    this.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS);  // QRBN
 
   else if (move & MOVE_EPTAKE_MASK)
     this.ranks[n] = BASE_EPTAKES;
@@ -5142,7 +5156,7 @@ function lozStats () {
 
 lozStats.prototype.init = function () {
 
-  this.startTime = performance.now();
+  this.startTime = now();
   this.nodes     = 0;  // per analysis
   this.ply       = 0;  // current ID root ply
   this.moveTime  = 0;
@@ -5158,7 +5172,7 @@ lozStats.prototype.init = function () {
 
 lozStats.prototype.checkTime = function () {
 
-  if (this.bestMove && this.moveTime > 0 && ((performance.now() - this.startTime) > this.moveTime))
+  if (this.bestMove && this.moveTime > 0 && ((now() - this.startTime) > this.moveTime))
     this.timeOut = 1;
 
   if (this.bestMove && this.maxNodes > 0 && this.nodes >= this.maxNodes * 10)
@@ -5170,7 +5184,7 @@ lozStats.prototype.checkTime = function () {
 
 lozStats.prototype.nodeStr = function () {
 
-  var tim = performance.now() - this.startTime;
+  var tim = now() - this.startTime;
   var nps = (this.nodes * 1000) / tim | 0;
 
   return 'nodes ' + this.nodes + ' time ' + tim + ' nps ' + nps;
@@ -5181,7 +5195,7 @@ lozStats.prototype.nodeStr = function () {
 
 lozStats.prototype.stop = function () {
 
-  this.stopTime  = performance.now();
+  this.stopTime  = now();
   this.time      = this.stopTime - this.startTime;
   this.timeSec   = myround(this.time / 100) / 10;
   this.nodesMega = myround(this.nodes / 100000) / 10;
@@ -5744,7 +5758,7 @@ onmessage = function(e) {
       
       SILENT = 1;
       
-      const t1 = performance.now();
+      const t1 = now();
       
       for (var i=0; i < PERFTFENS.length; i++) {
       
@@ -5767,7 +5781,7 @@ onmessage = function(e) {
       
       SILENT = 0;
       
-      const t2  = performance.now();
+      const t2  = now();
       const sec = Math.round((t2-t1)/100)/10;
       
       uci.send(sec, 'sec');
