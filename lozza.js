@@ -5,22 +5,26 @@
 const BUILD = "5";
 
 const net_weights_file = '/home/xyzzy/lozza/data/h128_sqrrelu_s100_l5/lozza-30/quantised.bin';
+//const net_weights_file = '/home/xyzzy/lozza/data/gen5_h192_sqrrelu_s100_l50/lozza-35/quantised.bin';
 
 const net_quantise_a  = 255;
 const net_quantise_b  = 64;
 const net_quantise_ab = net_quantise_a * net_quantise_b;
-const net_scale       = 100*1.6;
+const net_scale       = 100 * 1.6;
 const net_i_size      = 768;
 const net_h1_size     = 128;
 
 //{{{  history
 /* new to old
 
+- Add network (n) command showing network info and stats.
+- Add a serialise command.
+- Use performance.now() | 0.
 - +32 at LTC v Lozza4.
 - Apply a fudge factor to eval to match previous magic numbers.
 - Fix board.fen() WRT black queen castling rights.
-- Optimise accessing perspective weights a bit more.
-- Use a Int16 quantised net.
+- Optimise accessing 'them' weights a bit more.
+- Use an Int16Array quantised net.
 - Use bullet trainer.
 - Use performance.now() not Date.now().
 
@@ -54,7 +58,8 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 //}}}
 //{{{  dev/release
 //
-// Also comment out RANDOMEVAL stuff in evaluate.
+// + Comment out RANDOMEVAL stuff in board.evaluate().
+// + Serialise, plonk fold in board.netInitWeights(), set net_weights_file string to ''.
 //
 
 const TTSIZE      = 1 << 23;
@@ -1976,6 +1981,10 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   if (this.stats.timeOut)
     return 0;
   
+  //hack if (!node.hashMove) {
+    //depth = Math.max(depth-1,0);
+  //}
+  
   //}}}
 
   if (ev != INFINITY)
@@ -2343,6 +2352,18 @@ function lozBoard () {
   this.net_h1_b = new Int16Array(net_h1_size);
   this.net_o_w  = new Int16Array(net_h1_size*2);
   this.net_o_b  = 0;
+
+  for (let i=0; i < net_i_size; i++) {
+    this.net_h1_w[i] = new Int16Array(net_h1_size);
+  }
+
+  this.net_h1_w[net_i_size] = new Int16Array(net_h1_size).fill(0);
+
+  for (let i=0; i < net_i_size; i++) {
+    this.net_h2_w[i] = this.net_h1_w[flipIndex(i)];
+  }
+
+  this.net_h2_w[net_i_size] = this.net_h1_w[net_i_size];
 
   this.ueFunc       = myround;
   this.ueA          = 0;
@@ -4486,7 +4507,7 @@ lozBoard.prototype.netFastEval = function (turn) {
 
   let e = 0;
 
-  for (let i=0; i < net_h1_size; i+=1) {
+  for (let i=0; i < net_h1_size; i++) {
     e += this.net_o_w[i]             * sqrrelu(a1[i]);
     e += this.net_o_w[i+net_h1_size] * sqrrelu(a2[i]);
   }
@@ -4532,7 +4553,7 @@ lozBoard.prototype.netMove = function (frObj,fr,to,dx,ex,fx) {
   const h2a = this.net_h2_w[i1];
   const h2b = this.net_h2_w[i2];
 
-  for (let h=0; h < net_h1_size; h+=1) {
+  for (let h=0; h < net_h1_size; h++) {
     this.net_h1_a[h] += h1b[h] - h1a[h];
     this.net_h2_a[h] += h2b[h] - h2a[h];
   }
@@ -4578,7 +4599,7 @@ lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promo
   const h2b = this.net_h2_w[i2];
   const h2c = this.net_h2_w[i3];
 
-  for (let h=0; h < net_h1_size; h+=1) {
+  for (let h=0; h < net_h1_size; h++) {
     this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
     this.net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
@@ -4601,7 +4622,7 @@ lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj
   const h2b = this.net_h2_w[i2];
   const h2c = this.net_h2_w[i3];
 
-  for (let h=0; h < net_h1_size; h+=1) {
+  for (let h=0; h < net_h1_size; h++) {
     this.net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
     this.net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
   }
@@ -4627,7 +4648,7 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
   const h2c = this.net_h2_w[i3];
   const h2d = this.net_h2_w[i4];
 
-  for (let h=0; h < net_h1_size; h+=1) {
+  for (let h=0; h < net_h1_size; h++) {
     this.net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
     this.net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
   }
@@ -4652,20 +4673,12 @@ lozBoard.prototype.netLoad = function () {
   for (let i=0; i < net_i_size; i++) {
   
     const lozIndex = bullet2lozza(i);  // map bullet to lozza input indexes.
-  
-    this.net_h1_w[lozIndex] = new Int16Array(net_h1_size);
-  
-    const h = i * net_h1_size;
+    const h        = i * net_h1_size;
   
     for (let j=0; j < net_h1_size; j++) {
       this.net_h1_w[lozIndex][j] = dataView[h + j];
     }
-  
-    this.net_h2_w[flipIndex(lozIndex)] = this.net_h1_w[lozIndex];  // point at flipped weights.
   }
-  
-  this.net_h1_w[net_i_size] = new Int16Array(net_h1_size).fill(0);
-  this.net_h2_w[net_i_size] = new Int16Array(net_h1_size).fill(0);
   
   //}}}
   //{{{  .net_h1_b
@@ -4694,6 +4707,54 @@ lozBoard.prototype.netLoad = function () {
   
   //}}}
 
+}
+
+//}}}
+//{{{  .netSerialise
+
+lozBoard.prototype.netSerialise = function () {
+
+  console.log('{{{  weights');
+
+  let w = [];
+  console.log('let w = [];');
+
+
+  for (let i=0; i < net_i_size; i++) {
+    console.log('{{{  h1_w ' + i);
+    console.log('w = this.net_h1_w[' + i + '];');
+    w = this.net_h1_w[i];
+    for (let j=0; j < net_h1_size; j++) {
+      console.log('w[' + j + '] = ' + w[j] + ';');
+    }
+    console.log('}}}');
+  }
+
+  console.log('{{{  h1_b ');
+  console.log('w = this.net_h1_b;');
+  w = this.net_h1_b;
+  for (let j=0; j < net_h1_size; j++) {
+    console.log('w[' + j + '] = ' + w[j] + ';');
+  }
+  console.log('}}}');
+
+  console.log('{{{  o_w ');
+  console.log('w = this.net_o_w;');
+  w = this.net_o_w;
+  for (let j=0; j < net_h1_size*2; j++) {
+    console.log('w[' + j + '] = ' + w[j] + ';');
+  }
+  console.log('}}}');
+
+  console.log('this.net_o_b = ' + this.net_o_b + ';');
+
+  console.log('}}}');
+}
+
+//}}}
+//{{{  .netInitWeights
+
+lozBoard.prototype.netInitWeights = function () {
 }
 
 //}}}
@@ -5816,6 +5877,65 @@ onmessage = function(e) {
       
       //}}}
 
+    case 'serialise':
+      //{{{  serialise
+      
+      lozza.board.netSerialise();
+      
+      break;
+      
+      //}}}
+
+    case 'network':
+    case 'n':
+      //{{{  network
+      
+      console.log('weights file', net_weights_file);
+      console.log('i_size, h1_size', net_i_size, net_h1_size);
+      console.log('qa, qb', net_quantise_a, net_quantise_b);
+      console.log('scale', net_scale);
+      
+      docmd('u');
+      docmd('p s');
+      docmd('e');
+      
+      let w = [];
+      
+      let min = 999;
+      let max = -999;
+      for (let i=0; i < net_i_size; i++) {
+        w = lozza.board.net_h1_w[i];
+        for (let j=0; j < net_h1_size; j++) {
+          min = Math.min(min,w[j]);
+          max = Math.max(max,w[j]);
+        }
+      }
+      console.log('h1_w min, max', min, max);
+      
+      min = 999;
+      max = -999;
+      w = lozza.board.net_h1_b;
+      for (let j=0; j < net_h1_size; j++) {
+        min = Math.min(min,w[j]);
+        max = Math.max(max,w[j]);
+      }
+      console.log('h1_b min, max', min, max);
+      
+      min = 999;
+      max = -999;
+      w = lozza.board.net_o_w;
+      for (let j=0; j < net_h1_size; j++) {
+        min = Math.min(min,w[j]);
+        max = Math.max(max,w[j]);
+      }
+      console.log('o_w min, max', min, max);
+      
+      console.log('o_b', lozza.board.net_o_b);
+      
+      break;
+      
+      //}}}
+
     default:
       //{{{  ?
       
@@ -5832,10 +5952,13 @@ onmessage = function(e) {
 
 //}}}
 
+//{{{  init
+
 var lozza         = new lozChess();
 lozza.board.lozza = lozza;
 
-//{{{  node init
+if (!net_weights_file)
+  lozza.board.netInitWeights();
 
 if (lozzaHost == HOST_NODEJS) {
 
@@ -5855,7 +5978,9 @@ if (lozzaHost == HOST_NODEJS) {
     process.exit();
   });
 
-  lozza.board.netLoad();
+  if (net_weights_file)
+    lozza.board.netLoad();
+
   lozza.uci.argv();
 }
 
