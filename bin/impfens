@@ -23,4 +23,4 @@ do
     scp xyzzy@$ip:/home/xyzzy/lozza/data/*.txt data/
 done
 
-wc -l data/*.fen
+wc -l data/*.txt

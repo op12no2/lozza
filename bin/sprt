@@ -1,0 +1,33 @@
+#!/bin/bash
+
+rm engines/*
+rm sprt.pgn
+rm sprt.err
+
+node=$(which node)
+shebang="#!$node"
+
+e1=lozza.js
+e2=lozzacand.js
+
+x1=engines/e$RANDOM$RANDOM
+x2=engines/e$RANDOM$RANDOM
+
+echo $shebang > $x1
+echo $shebang > $x2
+
+cat $e1 >> $x1
+cat $e2 >> $x2
+
+chmod +x $x1
+chmod +x $x2
+
+../cutechess-ob -concurrency 15 -each tc=0/20+0.2 \
+-sprt elo0=0 elo1=5 alpha=0.05 beta=0.1 \
+-engine name=$e1 proto=uci cmd=$x1 timemargin=250 stderr=sprt.err \
+-engine name=$e2 proto=uci cmd=$x2 timemargin=250 stderr=sprt.err \
+-srand $RANDOM$RANDOM -openings file=data/4moves_noob.epd format=epd order=random \
+-repeat -games 20000 -recover -pgnout sprt.pgn fi \
+-draw movenumber=40 movecount=8 score=10 \
+-resign movecount=5 score=400 \
+-ratinginterval 10 $1
