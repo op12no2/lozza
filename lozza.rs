@@ -2,6 +2,8 @@
 // Lozza bullet net(768 -> h1_size)x2 -> 1
 //
 
+use rand::Rng;
+
 use bullet_lib::{
     nn::{
         optimiser,
@@ -40,33 +42,44 @@ fn main() {
 
     // start config
 
-    let prefix: &str             = "gen5";
     let id: &str                 = "lozza";
-    let output_dir_root: &str    = "/home/xyzzy/lozza/data";
-    let data_files               = ["/home/xyzzy/lozza/data/gen4.bullet"];
+    let output_dir_root: &str    = "/home/xyzzy/lozza/nets";
+    let data_files               = [
+      "/home/xyzzy/lozza/data/gen4.bullet",
+      "/home/xyzzy/lozza/data/gen5.bullet",
+    ];
     let h1_size: usize           = 128;
     let activation_func          = Activation::SqrReLU;
-    let scale: i16               = 100;
-    let lerp: f32                = 0.5;
+    let scale: i16               = 400;
+    let lerp: f32                = 0.4;
     let qa: i16                  = 255;
     let qb: i16                  = 64;
     let batch_size: usize        = 16_384;
     let batches_per_super: usize = 6104;
-    let num_supers: usize        = 200;
-    let save_rate: usize         = 5;
+    let num_supers: usize        = 100;
     let lr_start: f32            = 0.001;
     let lr_gamma: f32            = 0.1;
     let lr_step: usize           = 8;
+    let save_rate: usize         = 5;
     let threads: usize           = 4;
     let batch_queue_size: usize  = 64;
 
     // end config
 
-    let acti = activation_to_string(&activation_func);
-    let output_dir = format!("{}/{}_h{}_{}_s{}_l{}", output_dir_root, prefix, h1_size, acti, scale, (lerp * 100.0) as i16);
+    let mut rng = rand::thread_rng();
+    let charset: Vec<char> = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.".chars().collect();
+
+    let random_name: String = (0..8)
+        .map(|_| charset[rng.gen_range(0..charset.len())])
+        .collect();
+
+    let dir = format!("net{}", random_name);
+
+    let activation_str = activation_to_string(&activation_func);
+    let output_dir = format!("{}/{}", output_dir_root, dir);
 
     println!();
-    println!("Activation             : {}", acti);
+    println!("Activation             : {}", activation_str);
 
     let mut trainer = TrainerBuilder::default()
         .quantisations(&[qa, qb])

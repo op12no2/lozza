@@ -52,7 +52,7 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 // + Serialise, plonk fold in board.netInitWeights(), set NET_WEIGHTS_FILE to ''.
 //
 
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/data/gen5_h128_sqrrelu_s400_l40/lozza-60/quantised.bin';
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/netBuzDSUam/lozza-60/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 9;
 
