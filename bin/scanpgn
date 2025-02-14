@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pgn=cctry.pgn
+pgn=sprt.pgn
 
 while true; do
   grep stalled $pgn

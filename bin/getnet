@@ -1,2 +1,2 @@
 cp ../bullet/examples/lozza.rs .
-cp data/net$1/lozza-$2/quantised.bin .
+cp nets/net$1/lozza-$2/quantised.bin .
