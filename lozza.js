@@ -4,23 +4,13 @@
 
 const BUILD = "5";
 
-const net_weights_file = '/home/xyzzy/lozza/data/h128_sqrrelu_s100_l5/lozza-30/quantised.bin';
-//const net_weights_file = '/home/xyzzy/lozza/data/gen5_h192_sqrrelu_s100_l50/lozza-35/quantised.bin';
-
-const net_quantise_a  = 255;
-const net_quantise_b  = 64;
-const net_quantise_ab = net_quantise_a * net_quantise_b;
-const net_scale       = 100 * 1.6;
-const net_i_size      = 768;
-const net_h1_size     = 128;
-
 //{{{  history
 /* new to old
 
+- Train new net with scaling = 400 and lerp = 0.4.
 - Add network (n) command showing network info and stats.
 - Add a serialise command.
 - Use performance.now() | 0.
-- +32 at LTC v Lozza4.
 - Apply a fudge factor to eval to match previous magic numbers.
 - Fix board.fen() WRT black queen castling rights.
 - Optimise accessing 'them' weights a bit more.
@@ -59,14 +49,22 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 //{{{  dev/release
 //
 // + Comment out RANDOMEVAL stuff in board.evaluate().
-// + Serialise, plonk fold in board.netInitWeights(), set net_weights_file string to ''.
+// + Serialise, plonk fold in board.netInitWeights(), set NET_WEIGHTS_FILE to ''.
 //
 
-const TTSIZE      = 1 << 23;
-const bench_depth = 9;
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/data/gen5_h128_sqrrelu_s400_l40/lozza-60/quantised.bin';
+const TTSIZE           = 1 << 23;
+const BENCH_DEPTH      = 9;
 
 //}}}
 //{{{  constants
+
+const NET_QA      = 255;
+const NET_QB      = 64;
+const NET_QAB     = NET_QA * NET_QB;
+const NET_SCALE   = 400;
+const NET_I_SIZE  = 768;
+const NET_H1_SIZE = 128;
 
 const IMAP = Array(16);
 
@@ -1193,11 +1191,11 @@ function relu(x) {
 }
 
 function crelu(x) {
-  return Math.min(Math.max(x, 0), net_quantise_a);
+  return Math.min(Math.max(x, 0), NET_QA);
 }
 
 function screlu(x) {
-  const y = Math.min(Math.max(x, 0), net_quantise_a);
+  const y = Math.min(Math.max(x, 0), NET_QA);
   return y * y;
 }
 
@@ -1380,7 +1378,7 @@ function lozChess () {
   // In Lozza an 'object' is a piece of either colour.
   //
   // IMAP is used to lookup a [0,767] index from an (object,square) pair.
-  // The corresponding array of net_h1_size weights will be pointed to
+  // The corresponding array of NET_H1_SIZE weights will be pointed to
   // by board.net_h1_w[index] and board.net_h2_w[index] for the flipped
   // accumulator. There is only one set of weights; board.net_h1_w and
   // board.net_h2_w just point in different directions as needed. See
@@ -1395,7 +1393,7 @@ function lozChess () {
   
     const j = B88[i];
   
-    IMAP[0][j] = net_i_size;
+    IMAP[0][j] = NET_I_SIZE;
   
     IMAP[W_PAWN][j]   =   0 + (PAWN-1)   * 64 + i;
     IMAP[W_KNIGHT][j] =   0 + (KNIGHT-1) * 64 + i;
@@ -2347,23 +2345,23 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 
 function lozBoard () {
 
-  this.net_h1_w = new Array(net_i_size + 1);       // us
-  this.net_h2_w = new Array(net_i_size + 1);       // them
-  this.net_h1_b = new Int16Array(net_h1_size);
-  this.net_o_w  = new Int16Array(net_h1_size*2);
+  this.net_h1_w = new Array(NET_I_SIZE + 1);       // us
+  this.net_h2_w = new Array(NET_I_SIZE + 1);       // them
+  this.net_h1_b = new Int16Array(NET_H1_SIZE);
+  this.net_o_w  = new Int16Array(NET_H1_SIZE*2);
   this.net_o_b  = 0;
 
-  for (let i=0; i < net_i_size; i++) {
-    this.net_h1_w[i] = new Int16Array(net_h1_size);
+  for (let i=0; i < NET_I_SIZE; i++) {
+    this.net_h1_w[i] = new Int16Array(NET_H1_SIZE);
   }
 
-  this.net_h1_w[net_i_size] = new Int16Array(net_h1_size).fill(0);
+  this.net_h1_w[NET_I_SIZE] = new Int16Array(NET_H1_SIZE).fill(0);
 
-  for (let i=0; i < net_i_size; i++) {
+  for (let i=0; i < NET_I_SIZE; i++) {
     this.net_h2_w[i] = this.net_h1_w[flipIndex(i)];
   }
 
-  this.net_h2_w[net_i_size] = this.net_h1_w[net_i_size];
+  this.net_h2_w[NET_I_SIZE] = this.net_h1_w[NET_I_SIZE];
 
   this.ueFunc       = myround;
   this.ueA          = 0;
@@ -2395,8 +2393,8 @@ function lozBoard () {
   this.repHi    = 0;
   this.loHash   = 0;
   this.hiHash   = 0;
-  this.net_h1_a = new Int16Array(net_h1_size);
-  this.net_h2_a = new Int16Array(net_h1_size);
+  this.net_h1_a = new Int16Array(NET_H1_SIZE);
+  this.net_h2_a = new Int16Array(NET_H1_SIZE);
 
   this.net_a = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]];
 
@@ -4430,7 +4428,7 @@ lozBoard.prototype.netUpdate = function (turn) {
 
     const i1 = IMAP[frObj][fr];
 
-    for (let h=0; h < net_h1_size; h++) {
+    for (let h=0; h < NET_H1_SIZE; h++) {
       this.net_h1_a[h] += this.net_h1_w[i1][h];
       this.net_h2_a[h] += this.net_h2_w[i1][h];
     }
@@ -4450,8 +4448,8 @@ lozBoard.prototype.netSlowEval = function (turn) {
 
   const b = this.b;
 
-  let wAcc = new Int16Array(net_h1_size);
-  let bAcc = new Int16Array(net_h1_size);
+  let wAcc = new Int16Array(NET_H1_SIZE);
+  let bAcc = new Int16Array(NET_H1_SIZE);
 
   wAcc.set(this.net_h1_b);
   bAcc.set(this.net_h1_b);
@@ -4466,7 +4464,7 @@ lozBoard.prototype.netSlowEval = function (turn) {
 
     const i1 = IMAP[frObj][fr];
 
-    for (let i=0; i < net_h1_size; i++) {
+    for (let i=0; i < NET_H1_SIZE; i++) {
       wAcc[i] += this.net_h1_w[i1][i];
       bAcc[i] += this.net_h2_w[i1][i];
     }
@@ -4483,15 +4481,15 @@ lozBoard.prototype.netSlowEval = function (turn) {
     var a2 = wAcc;
   }
 
-  for (let i=0; i < net_h1_size; i++) {
+  for (let i=0; i < NET_H1_SIZE; i++) {
     e += this.net_o_w[i]             * sqrrelu(a1[i]);
-    e += this.net_o_w[i+net_h1_size] * sqrrelu(a2[i]);
+    e += this.net_o_w[i+NET_H1_SIZE] * sqrrelu(a2[i]);
   }
 
-  e /= net_quantise_a;
+  e /= NET_QA;
   e += this.net_o_b;
-  e *= net_scale;
-  e /= net_quantise_ab;
+  e *= NET_SCALE;
+  e /= NET_QAB;
 
   return e | 0;
 }
@@ -4507,15 +4505,15 @@ lozBoard.prototype.netFastEval = function (turn) {
 
   let e = 0;
 
-  for (let i=0; i < net_h1_size; i++) {
+  for (let i=0; i < NET_H1_SIZE; i++) {
     e += this.net_o_w[i]             * sqrrelu(a1[i]);
-    e += this.net_o_w[i+net_h1_size] * sqrrelu(a2[i]);
+    e += this.net_o_w[i+NET_H1_SIZE] * sqrrelu(a2[i]);
   }
 
-  e /= net_quantise_a;
+  e /= NET_QA;
   e += this.net_o_b;
-  e *= net_scale;
-  e /= net_quantise_ab;
+  e *= NET_SCALE;
+  e /= NET_QAB;
 
   return e | 0;
 }
@@ -4553,7 +4551,7 @@ lozBoard.prototype.netMove = function (frObj,fr,to,dx,ex,fx) {
   const h2a = this.net_h2_w[i1];
   const h2b = this.net_h2_w[i2];
 
-  for (let h=0; h < net_h1_size; h++) {
+  for (let h=0; h < NET_H1_SIZE; h++) {
     this.net_h1_a[h] += h1b[h] - h1a[h];
     this.net_h2_a[h] += h2b[h] - h2a[h];
   }
@@ -4576,7 +4574,7 @@ lozBoard.prototype.netCapture = function (frObj,fr,toObj,to,ex,fx) {
   const h2b = this.net_h2_w[i2];
   const h2c = this.net_h2_w[i3];
 
-  for (let h=0; h < net_h1_size; h++) {
+  for (let h=0; h < NET_H1_SIZE; h++) {
     this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
     this.net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
@@ -4599,7 +4597,7 @@ lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promo
   const h2b = this.net_h2_w[i2];
   const h2c = this.net_h2_w[i3];
 
-  for (let h=0; h < net_h1_size; h++) {
+  for (let h=0; h < NET_H1_SIZE; h++) {
     this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
     this.net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
@@ -4622,7 +4620,7 @@ lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj
   const h2b = this.net_h2_w[i2];
   const h2c = this.net_h2_w[i3];
 
-  for (let h=0; h < net_h1_size; h++) {
+  for (let h=0; h < NET_H1_SIZE; h++) {
     this.net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
     this.net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
   }
@@ -4648,7 +4646,7 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
   const h2c = this.net_h2_w[i3];
   const h2d = this.net_h2_w[i4];
 
-  for (let h=0; h < net_h1_size; h++) {
+  for (let h=0; h < NET_H1_SIZE; h++) {
     this.net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
     this.net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
   }
@@ -4665,17 +4663,17 @@ lozBoard.prototype.netLoad = function () {
   let offset = 0;
 
   const fs       = require('fs');
-  const buffer   = fs.readFileSync(net_weights_file);
+  const buffer   = fs.readFileSync(NET_WEIGHTS_FILE);
   const dataView = new Int16Array(buffer.buffer, offset);
 
   //{{{  .net_h1/h2_w
   
-  for (let i=0; i < net_i_size; i++) {
+  for (let i=0; i < NET_I_SIZE; i++) {
   
     const lozIndex = bullet2lozza(i);  // map bullet to lozza input indexes.
-    const h        = i * net_h1_size;
+    const h        = i * NET_H1_SIZE;
   
-    for (let j=0; j < net_h1_size; j++) {
+    for (let j=0; j < NET_H1_SIZE; j++) {
       this.net_h1_w[lozIndex][j] = dataView[h + j];
     }
   }
@@ -4683,25 +4681,25 @@ lozBoard.prototype.netLoad = function () {
   //}}}
   //{{{  .net_h1_b
   
-  offset += net_i_size * net_h1_size;
+  offset += NET_I_SIZE * NET_H1_SIZE;
   
-  for (let i=0; i < net_h1_size; i++) {
+  for (let i=0; i < NET_H1_SIZE; i++) {
     this.net_h1_b[i] = dataView[offset + i];
   }
   
   //}}}
   //{{{  .net_o_w
   
-  offset += net_h1_size;
+  offset += NET_H1_SIZE;
   
-  for (let i=0; i < net_h1_size*2; i++) {
+  for (let i=0; i < NET_H1_SIZE*2; i++) {
     this.net_o_w[i] = dataView[offset + i];
   }
   
   //}}}
   //{{{  .net_o_b
   
-  offset += net_h1_size * 2;
+  offset += NET_H1_SIZE * 2;
   
   this.net_o_b = dataView[offset];
   
@@ -4720,11 +4718,11 @@ lozBoard.prototype.netSerialise = function () {
   console.log('let w = [];');
 
 
-  for (let i=0; i < net_i_size; i++) {
+  for (let i=0; i < NET_I_SIZE; i++) {
     console.log('{{{  h1_w ' + i);
     console.log('w = this.net_h1_w[' + i + '];');
     w = this.net_h1_w[i];
-    for (let j=0; j < net_h1_size; j++) {
+    for (let j=0; j < NET_H1_SIZE; j++) {
       console.log('w[' + j + '] = ' + w[j] + ';');
     }
     console.log('}}}');
@@ -4733,7 +4731,7 @@ lozBoard.prototype.netSerialise = function () {
   console.log('{{{  h1_b ');
   console.log('w = this.net_h1_b;');
   w = this.net_h1_b;
-  for (let j=0; j < net_h1_size; j++) {
+  for (let j=0; j < NET_H1_SIZE; j++) {
     console.log('w[' + j + '] = ' + w[j] + ';');
   }
   console.log('}}}');
@@ -4741,7 +4739,7 @@ lozBoard.prototype.netSerialise = function () {
   console.log('{{{  o_w ');
   console.log('w = this.net_o_w;');
   w = this.net_o_w;
-  for (let j=0; j < net_h1_size*2; j++) {
+  for (let j=0; j < NET_H1_SIZE*2; j++) {
     console.log('w[' + j + '] = ' + w[j] + ';');
   }
   console.log('}}}');
@@ -4797,8 +4795,8 @@ function lozNode (parentNode) {
   this.inCheck     = 0;
   this.ev          = 0;
 
-  this.net_h1_a = new Int16Array(net_h1_size);
-  this.net_h2_a = new Int16Array(net_h1_size);
+  this.net_h1_a = new Int16Array(NET_H1_SIZE);
+  this.net_h2_a = new Int16Array(NET_H1_SIZE);
 
   this.C_rights       = 0;
   this.C_ep           = 0;
@@ -5727,7 +5725,7 @@ onmessage = function(e) {
         docmd('ucinewgame');
         docmd('position fen ' + fen);
         docmd('id bench' + i);
-        docmd('go depth ' + bench_depth);
+        docmd('go depth ' + BENCH_DEPTH);
       
         lozza.stats.stop();
       
@@ -5890,10 +5888,10 @@ onmessage = function(e) {
     case 'n':
       //{{{  network
       
-      console.log('weights file', net_weights_file);
-      console.log('i_size, h1_size', net_i_size, net_h1_size);
-      console.log('qa, qb', net_quantise_a, net_quantise_b);
-      console.log('scale', net_scale);
+      console.log('weights file', NET_WEIGHTS_FILE);
+      console.log('i_size, h1_size', NET_I_SIZE, NET_H1_SIZE);
+      console.log('qa, qb', NET_QA, NET_QB);
+      console.log('scale', NET_SCALE);
       
       docmd('u');
       docmd('p s');
@@ -5903,9 +5901,9 @@ onmessage = function(e) {
       
       let min = 999;
       let max = -999;
-      for (let i=0; i < net_i_size; i++) {
+      for (let i=0; i < NET_I_SIZE; i++) {
         w = lozza.board.net_h1_w[i];
-        for (let j=0; j < net_h1_size; j++) {
+        for (let j=0; j < NET_H1_SIZE; j++) {
           min = Math.min(min,w[j]);
           max = Math.max(max,w[j]);
         }
@@ -5915,7 +5913,7 @@ onmessage = function(e) {
       min = 999;
       max = -999;
       w = lozza.board.net_h1_b;
-      for (let j=0; j < net_h1_size; j++) {
+      for (let j=0; j < NET_H1_SIZE; j++) {
         min = Math.min(min,w[j]);
         max = Math.max(max,w[j]);
       }
@@ -5924,7 +5922,7 @@ onmessage = function(e) {
       min = 999;
       max = -999;
       w = lozza.board.net_o_w;
-      for (let j=0; j < net_h1_size; j++) {
+      for (let j=0; j < NET_H1_SIZE; j++) {
         min = Math.min(min,w[j]);
         max = Math.max(max,w[j]);
       }
@@ -5957,7 +5955,7 @@ onmessage = function(e) {
 var lozza         = new lozChess();
 lozza.board.lozza = lozza;
 
-if (!net_weights_file)
+if (!NET_WEIGHTS_FILE)
   lozza.board.netInitWeights();
 
 if (lozzaHost == HOST_NODEJS) {
@@ -5978,7 +5976,7 @@ if (lozzaHost == HOST_NODEJS) {
     process.exit();
   });
 
-  if (net_weights_file)
+  if (NET_WEIGHTS_FILE)
     lozza.board.netLoad();
 
   lozza.uci.argv();
