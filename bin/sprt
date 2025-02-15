@@ -10,8 +10,14 @@ shebang="#!$node"
 e1=lozza.js
 e2=lozzacand.js
 
-x1=engines/e$RANDOM$RANDOM
-x2=engines/e$RANDOM$RANDOM
+while :; do
+    r1=$RANDOM
+    r2=$RANDOM
+    [[ "$r1" != "$r2" ]] && break
+done
+
+x1=engines/e$r1
+x2=engines/e$r2
 
 echo $shebang > $x1
 echo $shebang > $x2
