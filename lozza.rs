@@ -58,9 +58,9 @@ fn main() {
     let batches_per_super: usize = 6104;
     let num_supers: usize        = 100;
     let lr_start: f32            = 0.001;
-    let lr_gamma: f32            = 0.1;
-    let lr_step: usize           = 8;
-    let save_rate: usize         = 5;
+    let lr_gamma: f32            = 0.5;
+    let lr_step: usize           = 10;
+    let save_rate: usize         = 10;
     let threads: usize           = 4;
     let batch_queue_size: usize  = 64;
 

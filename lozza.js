@@ -7,14 +7,16 @@ const BUILD = "5";
 //{{{  history
 /* new to old
 
-- Train new net with scaling = 400 and lerp = 0.4.
-- Add network (n) command showing network info and stats.
-- Add a serialise command.
+- Train new net with LR schedule 0.001, 0.5, 10.
+- Train new net with scaling 400, lerp 0.4.
+- Add 55M positions to training data.
+- Add network command showing network info and stats.
+- Add a serialise (weights) command.
 - Use performance.now() | 0.
 - Apply a fudge factor to eval to match previous magic numbers.
 - Fix board.fen() WRT black queen castling rights.
 - Optimise accessing 'them' weights a bit more.
-- Use an Int16Array quantised net.
+- Train a (768 -> 128)x2 -> 1 sqrrelu quantised net.
 - Use bullet trainer.
 - Use performance.now() not Date.now().
 
@@ -52,7 +54,7 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 // + Serialise, plonk fold in board.netInitWeights(), set NET_WEIGHTS_FILE to ''.
 //
 
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/netBuzDSUam/lozza-60/quantised.bin';
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/netZQZCHpLo/lozza-60/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 9;
 
