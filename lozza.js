@@ -7,17 +7,18 @@ const BUILD = "5";
 //{{{  history
 /* new to old
 
-- Train new net with LR schedule 0.001, 0.5, 10.
-- Train new net with scaling 400, lerp 0.4.
-- Add 55M positions to training data.
+- Tune go() params.
+- Train new sqrrelu net with LR schedule 0.001, 0.5, 10. Use SB 60.
+- Train new sqrrelu net with scaling 400, lerp 0.4. Use SB 60. Remove fudge factor.
+- Increase training data to 270M positions.
 - Add network command showing network info and stats.
 - Add a serialise (weights) command.
 - Use performance.now() | 0.
 - Apply a fudge factor to eval to match previous magic numbers.
 - Fix board.fen() WRT black queen castling rights.
 - Optimise accessing 'them' weights a bit more.
-- Train a (768 -> 128)x2 -> 1 sqrrelu quantised net.
-- Use bullet trainer.
+- Train a (768 -> 128)x2 -> 1 sqrrelu quantised net. Use SB 30.
+- Use bullet trainer. Have 215M positions.
 - Use performance.now() not Date.now().
 
 */
@@ -1529,9 +1530,9 @@ lozChess.prototype.go = function() {
 
     alpha = -INFINITY;
     beta  = INFINITY;
-    delta = 10;
+    delta = 16;
 
-    if (ply >= 4) {
+    if (ply >= 7) {
       alpha = Math.max(-INFINITY, score - delta);
       beta  = Math.min(INFINITY,  score + delta);
     }
@@ -1576,19 +1577,19 @@ lozChess.prototype.go = function() {
       
       //}}}
 
-      delta += delta / 2 | 0;
+      delta *= 2 | 0;
 
       //{{{  upper bound?
       
       if (score <= alpha) {
       
-        alpha = Math.max(-INFINITY, score - delta);
         beta  = Math.min(INFINITY, ((alpha + beta) / 2) | 0);
+        alpha = Math.max(-INFINITY, alpha - delta);
       
         this.report('upperbound',score,depth);
       
-        if (!this.stats.maxNodes)
-          this.stats.bestMove = 0;
+        //if (!this.stats.maxNodes)
+          //this.stats.bestMove = 0;
       }
       
       //}}}
@@ -1596,12 +1597,11 @@ lozChess.prototype.go = function() {
       
       else if (score >= beta) {
       
-        alpha = Math.max(-INFINITY, ((alpha + beta) / 2) | 0);
-        beta  = Math.min(INFINITY,  score + delta);
+        beta  = Math.min(INFINITY, beta + delta);
       
         this.report('lowerbound',score,depth);
       
-        //depth = Math.max(1,depth-1);
+        depth = Math.max(1,depth-1);
       }
       
       //}}}
