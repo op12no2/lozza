@@ -7,7 +7,7 @@ const BUILD = "5";
 //{{{  history
 /* new to old
 
-- Tune go() params.
+- Tweak lower/upper bound stuff.
 - Train new sqrrelu net with LR schedule 0.001, 0.5, 10. Use SB 60.
 - Train new sqrrelu net with scaling 400, lerp 0.4. Use SB 60. Remove fudge factor.
 - Increase training data to 270M positions.
@@ -1530,9 +1530,9 @@ lozChess.prototype.go = function() {
 
     alpha = -INFINITY;
     beta  = INFINITY;
-    delta = 16;
+    delta = 10;
 
-    if (ply >= 7) {
+    if (ply >= 4) {
       alpha = Math.max(-INFINITY, score - delta);
       beta  = Math.min(INFINITY,  score + delta);
     }
@@ -1577,7 +1577,7 @@ lozChess.prototype.go = function() {
       
       //}}}
 
-      delta *= 2 | 0;
+      delta += delta/2 | 0;
 
       //{{{  upper bound?
       
@@ -1588,8 +1588,8 @@ lozChess.prototype.go = function() {
       
         this.report('upperbound',score,depth);
       
-        //if (!this.stats.maxNodes)
-          //this.stats.bestMove = 0;
+        if (!this.stats.maxNodes)
+          this.stats.bestMove = 0;
       }
       
       //}}}
@@ -1597,11 +1597,11 @@ lozChess.prototype.go = function() {
       
       else if (score >= beta) {
       
-        beta  = Math.min(INFINITY, beta + delta);
+        beta = Math.min(INFINITY, beta + delta);
       
         this.report('lowerbound',score,depth);
       
-        depth = Math.max(1,depth-1);
+        //depth = Math.max(1,depth-1);
       }
       
       //}}}
@@ -3447,9 +3447,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   }
   
   //}}}
-
-  this.netPrepare(this.netCapture,frObj,fr,toObj,to);
-
   //{{{  reset EP
   
   this.loHash ^= this.loEP[this.ep];
@@ -3645,6 +3642,8 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
     //}}}
   }
+  else
+    this.netPrepare(this.netCapture,frObj,fr,toObj,to);
 
   //{{{  flip turn in hash
   
