@@ -7,6 +7,8 @@ const BUILD = "5";
 //{{{  history
 /* new to old
 
+- Simplify lonePawns away.
+- Micro optimisation to piece Zobrist access.
 - Tweak lower/upper bound stuff.
 - Train new sqrrelu net with LR schedule 0.001, 0.5, 10. Use SB 60.
 - Train new sqrrelu net with scaling 400, lerp 0.4. Use SB 60. Remove fudge factor.
@@ -25,12 +27,6 @@ const BUILD = "5";
 
 //}}}
 
-//{{{  globals
-
-var SILENT     = 0;
-var RANDOMEVAL = 0;
-
-//}}}
 //{{{  detect host
 
 const HOST_WEB     = 0;
@@ -51,7 +47,7 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 //}}}
 //{{{  dev/release
 //
-// + Comment out RANDOMEVAL stuff in board.evaluate().
+// + Comment out randomEval stuff in board.evaluate().
 // + Serialise, plonk fold in board.netInitWeights(), set NET_WEIGHTS_FILE to ''.
 //
 
@@ -1865,8 +1861,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
 
   var R         = 0;
   var E         = 0;
-  var lonePawns = (turn == WHITE && board.wCount == board.wCounts[PAWN]+1) || (turn == BLACK && board.bCount == board.bCounts[PAWN]+1);
-  var doBeta    = !pvNode && !inCheck && !lonePawns && !board.betaMate(beta);
+  var doBeta    = !pvNode && !inCheck && !board.betaMate(beta);
   var ev        = board.getEval(INFINITY, node, turn);
 
   //{{{  improving
@@ -1895,7 +1890,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   //}}}
   //{{{  alpha prune
   
-  //var doAlpha = !pvNode && !inCheck && !lonePawns && !board.alphaMate(alpha);
+  //var doAlpha = !pvNode && !inCheck && !board.alphaMate(alpha);
   
   //if (doAlpha && depth <= 5 && (ev + 1000) <= alpha)
     //return alpha;
@@ -1956,9 +1951,9 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   var numSlides      = 0;
   var givesCheck     = INCHECK_UNKNOWN;
   var keeper         = false;
-  var doFutility     = !inCheck && depth <= 4 && !lonePawns;
+  var doFutility     = !inCheck && depth <= 4;
   var doLMR          = !inCheck && depth >= 3;
-  var doLMP          = !pvNode && !inCheck && depth <= 2 && !lonePawns;
+  var doLMP          = !pvNode && !inCheck && depth <= 2;
   var doIID          = !node.hashMove && pvNode && depth > 3;
 
   //{{{  IID
@@ -2443,6 +2438,37 @@ function lozBoard () {
     }
   }
   
+  this.loObjPieces = Array(15).fill([]);
+  this.hiObjPieces = Array(15).fill([]);
+  
+  this.loObjPieces[W_PAWN]   = this.loPieces[I_WHITE][PAWN-1];
+  this.loObjPieces[W_KNIGHT] = this.loPieces[I_WHITE][KNIGHT-1];
+  this.loObjPieces[W_BISHOP] = this.loPieces[I_WHITE][BISHOP-1];
+  this.loObjPieces[W_ROOK]   = this.loPieces[I_WHITE][ROOK-1];
+  this.loObjPieces[W_QUEEN]  = this.loPieces[I_WHITE][QUEEN-1];
+  this.loObjPieces[W_KING]   = this.loPieces[I_WHITE][KING-1];
+  
+  this.hiObjPieces[W_PAWN]   = this.hiPieces[I_WHITE][PAWN-1];
+  this.hiObjPieces[W_KNIGHT] = this.hiPieces[I_WHITE][KNIGHT-1];
+  this.hiObjPieces[W_BISHOP] = this.hiPieces[I_WHITE][BISHOP-1];
+  this.hiObjPieces[W_ROOK]   = this.hiPieces[I_WHITE][ROOK-1];
+  this.hiObjPieces[W_QUEEN]  = this.hiPieces[I_WHITE][QUEEN-1];
+  this.hiObjPieces[W_KING]   = this.hiPieces[I_WHITE][KING-1];
+  
+  this.loObjPieces[B_PAWN]   = this.loPieces[I_BLACK][PAWN-1];
+  this.loObjPieces[B_KNIGHT] = this.loPieces[I_BLACK][KNIGHT-1];
+  this.loObjPieces[B_BISHOP] = this.loPieces[I_BLACK][BISHOP-1];
+  this.loObjPieces[B_ROOK]   = this.loPieces[I_BLACK][ROOK-1];
+  this.loObjPieces[B_QUEEN]  = this.loPieces[I_BLACK][QUEEN-1];
+  this.loObjPieces[B_KING]   = this.loPieces[I_BLACK][KING-1];
+  
+  this.hiObjPieces[B_PAWN]   = this.hiPieces[I_BLACK][PAWN-1];
+  this.hiObjPieces[B_KNIGHT] = this.hiPieces[I_BLACK][KNIGHT-1];
+  this.hiObjPieces[B_BISHOP] = this.hiPieces[I_BLACK][BISHOP-1];
+  this.hiObjPieces[B_ROOK]   = this.hiPieces[I_BLACK][ROOK-1];
+  this.hiObjPieces[B_QUEEN]  = this.hiPieces[I_BLACK][QUEEN-1];
+  this.hiObjPieces[B_KING]   = this.hiPieces[I_BLACK][KING-1];
+  
   //}}}
   //{{{  Zobrist rights
   
@@ -2636,8 +2662,8 @@ lozBoard.prototype.position = function () {
           this.bCount++;
         }
   
-        this.loHash ^= this.loPieces[col>>>3][piece-1][sq];
-        this.hiHash ^= this.hiPieces[col>>>3][piece-1][sq];
+        this.loHash ^= this.loObjPieces[obj][sq];
+        this.hiHash ^= this.hiObjPieces[obj][sq];
   
         this.phase -= VPHASE[piece];
   
@@ -3387,11 +3413,11 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   z[fr] = NO_Z;
   z[to] = node.frZ;
   
-  this.loHash ^= this.loPieces[frColI][frPiece-1][fr];
-  this.hiHash ^= this.hiPieces[frColI][frPiece-1][fr];
+  this.loHash ^= this.loObjPieces[frObj][fr];
+  this.hiHash ^= this.hiObjPieces[frObj][fr];
   
-  this.loHash ^= this.loPieces[frColI][frPiece-1][to];
-  this.hiHash ^= this.hiPieces[frColI][frPiece-1][to];
+  this.loHash ^= this.loObjPieces[frObj][to];
+  this.hiHash ^= this.hiObjPieces[frObj][to];
   
   if (frCol == WHITE) {
     this.wList[node.frZ] = to;
@@ -3424,8 +3450,8 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     const toCol   = toObj & COLOR_MASK;
     const toColI  = toCol >>> 3;
   
-    this.loHash ^= this.loPieces[toColI][toPiece-1][to];
-    this.hiHash ^= this.hiPieces[toColI][toPiece-1][to];
+    this.loHash ^= this.loObjPieces[toObj][to];
+    this.hiHash ^= this.hiObjPieces[toObj][to];
   
     this.phase += VPHASE[toPiece];
   
@@ -3489,8 +3515,8 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.bList[node.epZ] = EMPTY;
     
-        this.loHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
-        this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
+        this.loHash ^= this.loObjPieces[B_PAWN][ep];
+        this.hiHash ^= this.hiObjPieces[B_PAWN][ep];
     
         this.bCounts[PAWN]--;
         this.bCount--;
@@ -3503,10 +3529,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.netPrepare(this.netPromote,W_PAWN,fr,to,toObj,pro|WHITE);
     
-        this.loHash ^= this.loPieces[I_WHITE][PAWN-1][to];
-        this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][to];
-        this.loHash ^= this.loPieces[I_WHITE][pro-1][to];
-        this.hiHash ^= this.hiPieces[I_WHITE][pro-1][to];
+        this.loHash ^= this.loObjPieces[W_PAWN][to];
+        this.hiHash ^= this.hiObjPieces[W_PAWN][to];
+        this.loHash ^= this.loObjPieces[WHITE|pro][to];
+        this.hiHash ^= this.hiObjPieces[WHITE|pro][to];
     
         this.wCounts[PAWN]--;
         this.wCounts[pro]++;
@@ -3525,10 +3551,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.wList[z[F1]] = F1;
     
-        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][H1];
-        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][H1];
-        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][F1];
-        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][F1];
+        this.loHash ^= this.loObjPieces[W_ROOK][H1];
+        this.hiHash ^= this.hiObjPieces[W_ROOK][H1];
+        this.loHash ^= this.loObjPieces[W_ROOK][F1];
+        this.hiHash ^= this.hiObjPieces[W_ROOK][F1];
     
       }
     
@@ -3543,10 +3569,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.wList[z[D1]] = D1;
     
-        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][A1];
-        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][A1];
-        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][D1];
-        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][D1];
+        this.loHash ^= this.loObjPieces[W_ROOK][A1];
+        this.hiHash ^= this.hiObjPieces[W_ROOK][A1];
+        this.loHash ^= this.loObjPieces[W_ROOK][D1];
+        this.hiHash ^= this.hiObjPieces[W_ROOK][D1];
     
       }
     }
@@ -3578,8 +3604,8 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.wList[node.epZ] = EMPTY;
     
-        this.loHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
-        this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
+        this.loHash ^= this.loObjPieces[W_PAWN][ep];
+        this.hiHash ^= this.hiObjPieces[W_PAWN][ep];
     
         this.wCounts[PAWN]--;
         this.wCount--;
@@ -3592,10 +3618,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.netPrepare(this.netPromote,B_PAWN,fr,to,toObj,pro|BLACK);
     
-        this.loHash ^= this.loPieces[I_BLACK][PAWN-1][to];
-        this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
-        this.loHash ^= this.loPieces[I_BLACK][pro-1][to];
-        this.hiHash ^= this.hiPieces[I_BLACK][pro-1][to];
+        this.loHash ^= this.loObjPieces[B_PAWN][to];
+        this.hiHash ^= this.hiObjPieces[B_PAWN][to];
+        this.loHash ^= this.loObjPieces[pro|BLACK][to];
+        this.hiHash ^= this.hiObjPieces[pro|BLACK][to];
     
         this.bCounts[PAWN]--;
         this.bCounts[pro]++;
@@ -3614,10 +3640,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.bList[z[F8]] = F8;
     
-        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][H8];
-        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][H8];
-        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][F8];
-        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][F8];
+        this.loHash ^= this.loObjPieces[B_ROOK][H8];
+        this.hiHash ^= this.hiObjPieces[B_ROOK][H8];
+        this.loHash ^= this.loObjPieces[B_ROOK][F8];
+        this.hiHash ^= this.hiObjPieces[B_ROOK][F8];
     
       }
     
@@ -3632,10 +3658,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.bList[z[D8]] = D8;
     
-        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][A8];
-        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][A8];
-        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][D8];
-        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][D8];
+        this.loHash ^= this.loObjPieces[B_ROOK][A8];
+        this.hiHash ^= this.hiObjPieces[B_ROOK][A8];
+        this.loHash ^= this.loObjPieces[B_ROOK][D8];
+        this.hiHash ^= this.hiObjPieces[B_ROOK][D8];
     
       }
     }
@@ -4004,7 +4030,7 @@ lozBoard.prototype.evaluate = function (turn) {
   
   //}}}
 
-  if (RANDOMEVAL)  // hack
+  if (this.randomEval)
     return Math.trunc((Math.random() * 1000) - 500);
   else {
     const e1 = this.netFastEval(turn);
@@ -5270,15 +5296,15 @@ lozStats.prototype.stop = function () {
 
 function lozUCI () {
 
-  this.message   = '';
-  this.tokens    = [];
-  this.command   = '';
-  this.spec      = {};
-  this.debugging = false;
-  this.nodefs    = 0;
-  this.numMoves  = 0;
+  this.message    = '';
+  this.tokens     = [];
+  this.command    = '';
+  this.spec       = {};
+  this.nodefs     = 0;
+  this.numMoves   = 0;
+  this.silent     = 0;
+  this.options    = {};
 
-  this.options = {};
 }
 
 //}}}
@@ -5298,7 +5324,7 @@ lozUCI.prototype.argv = function () {
 
 lozUCI.prototype.post = function (s) {
 
-  if (SILENT)
+  if (this.silent)
     return;
 
   if (lozzaHost == HOST_NODEJS)
@@ -5322,27 +5348,6 @@ lozUCI.prototype.send = function () {
     s += arguments[i] + ' ';
 
   this.post(s);
-}
-
-//}}}
-//{{{  .debug
-
-lozUCI.prototype.debug = function () {
-
-  if (!this.debugging)
-    return;
-
-  var s = '';
-
-  for (var i = 0; i < arguments.length; i++)
-    s += arguments[i] + ' ';
-
-  s = s.trim();
-
-  if (s)
-    this.post('info string debug ' + this.spec.id + ' ' + s);
-  else
-    this.post('info string debug ');
 }
 
 //}}}
@@ -5607,18 +5612,6 @@ onmessage = function(e) {
       
       //}}}
 
-    case 'debug':
-      //{{{  debug
-      
-      if (uci.getStr('debug','off') == 'on')
-        uci.debugging = true;
-      else
-        uci.debugging = false;
-      
-      break;
-      
-      //}}}
-
     case 'uci':
       //{{{  uci
       
@@ -5709,7 +5702,7 @@ onmessage = function(e) {
     case 'bench':
       //{{{  bench
       
-      SILENT = 1;
+      uci.silent = 1;
       
       var nodes = 0;
       var time  = 0;
@@ -5719,9 +5712,6 @@ onmessage = function(e) {
         var fen = BENCHFENS[i];
       
         process.stdout.write(i.toString() + '\r');
-        //SILENT = 0;
-        //uci.send(fen);
-        //SILENT = 1;
       
         docmd('ucinewgame');
         docmd('position fen ' + fen);
@@ -5734,7 +5724,7 @@ onmessage = function(e) {
         nodes += lozza.stats.nodes;
       }
       
-      SILENT = 0;
+      uci.silent = 0;
       
       uci.send('nodes', nodes, 'time', time);
       
@@ -5816,7 +5806,7 @@ onmessage = function(e) {
       
       //}}}
       
-      SILENT = 1;
+      uci.silent = 1;
       
       const t1 = now();
       
@@ -5834,12 +5824,12 @@ onmessage = function(e) {
         docmd('id ' + id);
         docmd('perft depth ' + depth + ' moves ' + moves + ' inner 0');
       
-        SILENT = 0;
+        uci.silent = 0;
         uci.send(id,fen,depth,(lozza.stats.nodes - moves),lozza.stats.nodes,moves);
-        SILENT = 1;
+        uci.silent = 1;
       }
       
-      SILENT = 0;
+      uci.silent = 0;
       
       const t2  = now();
       const sec = Math.round((t2-t1)/100)/10;
