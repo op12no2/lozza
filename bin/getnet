@@ -1,4 +1,0 @@
-cp ../bullet/examples/lozza.rs .
-net_path=$(grep "const NET_WEIGHTS_FILE" lozza.js | awk -F"'" '{print $2}')
-echo $net_path
-cp $net_path .
