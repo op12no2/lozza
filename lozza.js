@@ -12,17 +12,11 @@ const BUILD = "5";
 - Simplify lonePawns away.
 - Micro optimisation to piece Zobrist access.
 - Tweak lower/upper bound stuff.
-- Train new sqrrelu net with LR schedule 0.001, 0.5, 10. Use SB 60.
-- Train new sqrrelu net with scaling 400, lerp 0.4. Use SB 60. Remove fudge factor.
-- Increase training data to 270M positions.
 - Add network command showing network info and stats.
 - Add a serialise (weights) command.
-- Use performance.now() | 0.
-- Apply a fudge factor to eval to match previous magic numbers.
 - Fix board.fen() WRT black queen castling rights.
 - Optimise accessing 'them' weights a bit more.
-- Train a (768 -> 128)x2 -> 1 sqrrelu quantised net. Use SB 30.
-- Use bullet trainer. Have 215M positions.
+- Use bullet trainer.
 - Use performance.now() not Date.now().
 
 */
@@ -53,7 +47,7 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 // + Serialise, plonk fold in board.netInitWeights(), set NET_WEIGHTS_FILE to ''.
 //
 
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/bobby/lozza-110/quantised.bin';
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/carl/lozza-366/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 9;
 
