@@ -2,7 +2,9 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-LOG_FILE = "nets/" + sys.argv[1] + "/lozza-" + sys.argv[2] + "/log.txt"
+ROOT_DIR = "nets/" + sys.argv[1]
+LOG_DIR = ROOT_DIR + "/lozza-" + sys.argv[2]
+LOG_FILE = LOG_DIR + "/log.txt"
 
 # Read and process log file
 loss_by_superbatch = {}
@@ -77,7 +79,6 @@ plt.legend()
 plt.xticks(superbatches[::50], superbatches[::50], rotation=45)
 
 # Save plot based on input file name
-#output_file = f"{LOG_FILE.rsplit('.', 1)[0]}_loss.png"
-#plt.savefig(output_file, dpi=300)
+output_file = ROOT_DIR + "/loss.png"
+plt.savefig(output_file, dpi=300)
 plt.show()
-

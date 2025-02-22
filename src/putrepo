@@ -21,5 +21,15 @@ cp putrepo $r
 cp ../bullet/go $r
 cp top $r
 
-ls -la $r
+node lozza.js serialise q > $r/weights.js
+node lozza.js n q > $r/net.txt
 
+losspath=$(grep -oP "const NET_WEIGHTS_FILE = '\K.*/nets/[^/]+" lozza.js)
+echo $losspath
+cp $losspath/loss.png $r
+
+weightspath=$(grep -oP "const NET_WEIGHTS_FILE = '\K[^']+" lozza.js)
+echo $weightspath
+cp $weightspath $r
+
+ls -la $r
