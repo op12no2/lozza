@@ -1,0 +1,67 @@
+
+--{{{  stuff to try
+
+always remove if statements if it's possible with loopup tables. e.g. makemove.
+simplify piece counts etc out. but need a way to detect KK KNK etc.
+simplify phase out.
+remove all magic numbers based on cp/eval like in futility pruning etc. how? dunno. i.e. make lozza independent of eval scale.
+lerp bigger/smaller/schedule
+try scale 400
+get rid of HCE PSTs for move ordering.
+swapping move list psts for move ranking based on queens on board or not - poss in position
+reduce depth on lower bound
+don't copy acc. move update vars to nodes. then do -update to get back to orig acc.
+soft/hard time bounds
+try iir if no hash move after iid?
+decrease depth if IID fails
+try no iid and no iir
+take pv out of tt
+root sort
+rank killers before captures
+try killers in qs (bad takes)
+add centre to noisy ranking to stop lots of same scores e.g. NxP
+merge pst eval with nnue eval, so pst eval handles low hanging fruit - how?
+don't use rank vec, use piece itself
+try ignore beta when beta pruning
+ditto alpha with alpha pruning and futility
+quicksee in slide ranking
+output buckets based on game phase or numpieces (available) or mid/end game etc
+corrhist
+conthist
+improving - done but can't get it to pass
+lmp - tell move iterator - quicker
+test removing or simplifying lonepawns (do in position)
+remove king from isattached etc - dont capture king - castle conditionals a la cwtch - tried but not working
+try and get rid of MATERIAL - only used in QS prune now
+move drawn stuff from eval into isdraw
+full width window searches based on movetime not constant - e.g. log?
+push harry
+
+--}}}
+
+IN REPO
+
+'lozza.js'
+
+'datagen.js'
+
+'lozza.rs'
+
+NOT IN REPO
+
+'loss.py'
+
+'weights'  node lozza serialise q > weights
+
+'lozzacand.js'
+'lozzarepo.js'
+
+'releases/lozza4.js'
+'releases/lozza3.js'
+
+'archive/deadends.js'
+'archive/deadends2.js'
+'archive/deadends3.js'
+'archive/deadends4.js'
+'archive/deadends5.js'
+

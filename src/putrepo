@@ -1,0 +1,25 @@
+
+r=repo
+rm -f $r/*
+
+cp lozza.js $r
+cp loss.py $r
+cp bench $r
+cp datagen.js $r
+cp datagen $r
+cp expjs $r
+cp f $r
+cp hosts $r
+cp impfens $r
+cp lozza.rs $r
+cp makefile $r
+cp prof $r
+cp scanpgn $r
+cp sprt $r
+cp text2bullet $r
+cp putrepo $r
+cp ../bullet/go $r
+cp top $r
+
+ls -la $r
+
