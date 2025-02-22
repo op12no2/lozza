@@ -7,6 +7,7 @@ const BUILD = "5";
 //{{{  history
 /* new to old
 
+- New RAdam net.
 - Simplify old PSTs away.
 - Simplify lonePawns away.
 - Micro optimisation to piece Zobrist access.
@@ -52,7 +53,7 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 // + Serialise, plonk fold in board.netInitWeights(), set NET_WEIGHTS_FILE to ''.
 //
 
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/netZQZCHpLo/lozza-60/quantised.bin';
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/bobby/lozza-110/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 9;
 
