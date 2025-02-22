@@ -75,10 +75,11 @@ plt.title("Mean Loss Per Superbatch with Smoothed Trend")
 plt.grid(True)
 plt.legend()
 
-# Set x-ticks to show only every 10 superbatches
-plt.xticks(superbatches[::50], superbatches[::50], rotation=45)
+# Set x-ticks to show only every 50 superbatches, but shifted to start at 0
+plt.xticks(superbatches[::50], [sb - 1 for sb in superbatches[::50]], rotation=45)
 
 # Save plot based on input file name
 output_file = ROOT_DIR + "/loss.png"
 plt.savefig(output_file, dpi=300)
 plt.show()
+

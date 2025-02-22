@@ -8,7 +8,7 @@ node=$(which node)
 shebang="#!$node"
 
 e1=lozza.js
-e2=lozzacand.js
+e2=repo/lozza.js
 
 echo $e1 v $e2
 

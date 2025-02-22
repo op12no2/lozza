@@ -1,8 +1,6 @@
 //
 // Lozza bullet net (768 -> 128)x2 -> 1 sqrrelu
 //
-// 320M positions.
-//
 
 const OUTPUT_DIR: &str = "/home/xyzzy/lozza/nets/bumpyw";
 const DATA_FILES: [&str; 2] = [

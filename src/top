@@ -39,22 +39,14 @@ push harry
 
 --}}}
 
-IN REPO
-
 'lozza.js'
-
 'datagen.js'
-
 'lozza.rs'
-
-NOT IN REPO
-
 'loss.py'
 
-'weights'  node lozza serialise q > weights
+'repo/lozza.js'
 
-'lozzacand.js'
-'lozzarepo.js'
+'weights' node lozza serialise q > weights
 
 'releases/lozza4.js'
 'releases/lozza3.js'
