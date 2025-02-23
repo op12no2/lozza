@@ -1,6 +1,5 @@
 //
-// Generate FENs for training via filter.js and trainer.js.
-// Copy the lozza.js code above here.
+// Generate FENs in bullet text format.
 //
 
 docmd("bench");
