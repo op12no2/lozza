@@ -1,10 +1,13 @@
+#
+# Find the SB with the minimum mean batch loss.
+#
 
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
 ROOT_DIR = "nets/" + sys.argv[1]
-LOG_DIR = ROOT_DIR + "/lozza-" + sys.argv[2]
+LOG_DIR  = ROOT_DIR + "/lozza-" + sys.argv[2]
 LOG_FILE = LOG_DIR + "/log.txt"
 
 loss_by_superbatch = {}
