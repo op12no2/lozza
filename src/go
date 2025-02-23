@@ -1,6 +1,0 @@
-OUTPUT_DIR=$(grep -oP 'const OUTPUT_DIR: &str = "\K[^"]+' ../lozza/lozza.rs)
-echo "$OUTPUT_DIR"
-mkdir $OUTPUT_DIR
-cp ../lozza/lozza.rs examples/simple.rs
-cp ../lozza/lozza.rs $OUTPUT_DIR
-cargo r -r --example simple

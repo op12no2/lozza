@@ -1,9 +1,0 @@
-weights file /home/xyzzy/lozza/nets/bumpy/lozza-910/quantised.bin
-i_size, h1_size 768 128
-qa, qb 255 64
-scale 400
-full 27 ue 27 
-h1_w min, max -467 329
-h1_b min, max -127 159
-o_w min, max -126 125
-o_b 915
