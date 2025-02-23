@@ -6,7 +6,7 @@ docmd("bench");
 
 const fs = require('fs');
 
-SILENT = 1;
+lozza.uci.silent = 1;
 
 const nodesLimit     = 10000;  // hard limit is x10
 const gamesLimit     = 100000;
