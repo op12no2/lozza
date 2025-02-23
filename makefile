@@ -18,9 +18,7 @@ $(EXE): $(SRC)
 
 clean:
 	rm -f $(EXE)
-	rm -f sprt.log
-	rm -f sprt.pgn
-	rm -f sprt.err
-	rm -f weights
+
+
 
 
