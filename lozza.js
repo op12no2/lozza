@@ -4,25 +4,6 @@
 
 const BUILD = "5";
 
-//{{{  history
-/* new to old
-
-- New RAdam net.
-- Simplify old PSTs away.
-- Simplify lonePawns away.
-- Micro optimisation to piece Zobrist access.
-- Tweak lower/upper bound stuff.
-- Add network command showing network info and stats.
-- Add a serialise (weights) command.
-- Fix board.fen() WRT black queen castling rights.
-- Optimise accessing 'them' weights a bit more.
-- Use bullet trainer.
-- Use performance.now() not Date.now().
-
-*/
-
-//}}}
-
 //{{{  detect host
 
 const HOST_WEB     = 0;
@@ -44,7 +25,8 @@ else if ((typeof WorkerGlobalScope) == 'undefined') {
 //{{{  dev/release
 //
 // + Comment out randomEval stuff in board.evaluate().
-// + Serialise, plonk fold in board.netInitWeights(), set NET_WEIGHTS_FILE to ''.
+// + Serialise, plonk fold in board.netInitWeights().
+// + Set NET_WEIGHTS_FILE to ''.
 //
 
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/bumpy/lozza-910/quantised.bin';
@@ -66,98 +48,98 @@ const IMAP = Array(16);
 const MATERIAL = [0,100,394,388,588,1207,10000];
 const ADJACENT = [1,1,0,0,0,0,0,0,0,0,0,1,1,1];
 
-var MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits
-var MAX_MOVES       = 250;
-var INFINITY        = 30000;              // limited by lozza.board.ttScore bits
-var MATE            = 20000;
-var MINMATE         = MATE - 2*MAX_PLY;
-var INCHECK_UNKNOWN = MATE + 1;
-var TTSCORE_UNKNOWN = MATE + 2;
-var EMPTY           = 0;
-var UCI_FMT         = 0;
-var SAN_FMT         = 1;
+const MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits
+const MAX_MOVES       = 250;
+const INFINITY        = 30000;              // limited by lozza.board.ttScore bits
+const MATE            = 20000;
+const MINMATE         = MATE - 2*MAX_PLY;
+const INCHECK_UNKNOWN = MATE + 1;
+const TTSCORE_UNKNOWN = MATE + 2;
+const EMPTY           = 0;
+const UCI_FMT         = 0;
+const SAN_FMT         = 1;
 
-var WHITE   = 0x0;                // toggle with: ~turn & COLOR_MASK
-var BLACK   = 0x8;
-var I_WHITE = 0;                  // 0/1 colour index, compute with: turn >>> 3
-var I_BLACK = 1;
-var M_WHITE = 1;
-var M_BLACK = -1;                 // +1/-1 colour multiplier, compute with: (-turn >> 31) | 1
+const WHITE   = 0x0;                // toggle with: ~turn & COLOR_MASK
+const BLACK   = 0x8;
+const I_WHITE = 0;                  // 0/1 colour index, compute with: turn >>> 3
+const I_BLACK = 1;
+const M_WHITE = 1;
+const M_BLACK = -1;                 // +1/-1 colour multiplier, compute with: (-turn >> 31) | 1
 
-var PIECE_MASK = 0x7;
-var COLOR_MASK = 0x8;
-var COLOUR_MASK = 0x8;
+const PIECE_MASK = 0x7;
+const COLOR_MASK = 0x8;
+const COLOUR_MASK = 0x8;
 
 const TTMASK = TTSIZE - 1;
 
-var TT_EMPTY  = 0;
-var TT_EXACT  = 1;
-var TT_BETA   = 2;
-var TT_ALPHA  = 3;
+const TT_EMPTY  = 0;
+const TT_EXACT  = 1;
+const TT_BETA   = 2;
+const TT_ALPHA  = 3;
 
 //                                      killer?
 
-var BASE_HASH       =  40000012000;  // no
-var BASE_PROMOTES   =  40000011000;  // no
-var BASE_GOODTAKES  =  40000010000;  // no
-var BASE_EVENTAKES  =  40000009000;  // no
-var BASE_EPTAKES    =  40000008000;  // no
-var BASE_MATEKILLER =  40000007000;
-var BASE_MYKILLERS  =  40000006000;
-var BASE_GPKILLERS  =  40000005000;
-var BASE_CASTLING   =  40000004000;  // yes
-var BASE_BADTAKES   =  40000003000;  // yes
-var BASE_HISSLIDE   =  20000002000;  // yes
-var BASE_PSTSLIDE   =         1000;  // yes
+const BASE_HASH       =  40000012000;  // no
+const BASE_PROMOTES   =  40000011000;  // no
+const BASE_GOODTAKES  =  40000010000;  // no
+const BASE_EVENTAKES  =  40000009000;  // no
+const BASE_EPTAKES    =  40000008000;  // no
+const BASE_MATEKILLER =  40000007000;
+const BASE_MYKILLERS  =  40000006000;
+const BASE_GPKILLERS  =  40000005000;
+const BASE_CASTLING   =  40000004000;  // yes
+const BASE_BADTAKES   =  40000003000;  // yes
+const BASE_HISSLIDE   =  20000002000;  // yes
+const BASE_PSTSLIDE   =         1000;  // yes
 
-var BASE_LMR = BASE_BADTAKES;
+const BASE_LMR = BASE_BADTAKES;
 
-var MOVE_TO_BITS      = 0;
-var MOVE_FR_BITS      = 8;
-var MOVE_TOOBJ_BITS   = 16;
-var MOVE_FROBJ_BITS   = 20;
-var MOVE_PROMAS_BITS  = 29;
+const MOVE_TO_BITS      = 0;
+const MOVE_FR_BITS      = 8;
+const MOVE_TOOBJ_BITS   = 16;
+const MOVE_FROBJ_BITS   = 20;
+const MOVE_PROMAS_BITS  = 29;
 
-var MOVE_TO_MASK       = 0x000000FF;
-var MOVE_FR_MASK       = 0x0000FF00;
-var MOVE_TOOBJ_MASK    = 0x000F0000;
-var MOVE_FROBJ_MASK    = 0x00F00000;
-var MOVE_PAWN_MASK     = 0x01000000;
-var MOVE_EPTAKE_MASK   = 0x02000000;
-var MOVE_EPMAKE_MASK   = 0x04000000;
-var MOVE_CASTLE_MASK   = 0x08000000;
-var MOVE_PROMOTE_MASK  = 0x10000000;
-var MOVE_PROMAS_MASK   = 0x60000000;  // NBRQ
-var MOVE_LEGAL_MASK    = 0x80000000;
+const MOVE_TO_MASK       = 0x000000FF;
+const MOVE_FR_MASK       = 0x0000FF00;
+const MOVE_TOOBJ_MASK    = 0x000F0000;
+const MOVE_FROBJ_MASK    = 0x00F00000;
+const MOVE_PAWN_MASK     = 0x01000000;
+const MOVE_EPTAKE_MASK   = 0x02000000;
+const MOVE_EPMAKE_MASK   = 0x04000000;
+const MOVE_CASTLE_MASK   = 0x08000000;
+const MOVE_PROMOTE_MASK  = 0x10000000;
+const MOVE_PROMAS_MASK   = 0x60000000;  // NBRQ
+const MOVE_LEGAL_MASK    = 0x80000000;
 
-var MOVE_CLEAN_MASK    = ~MOVE_LEGAL_MASK & 0xFFFFFFFF;
-var MOVE_SPECIAL_MASK  = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK; // need extra work in make move
-var KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility etc
-var MOVE_NOISY_MASK    = MOVE_TOOBJ_MASK | MOVE_EPTAKE_MASK;
+const MOVE_CLEAN_MASK    = ~MOVE_LEGAL_MASK & 0xFFFFFFFF;
+const MOVE_SPECIAL_MASK  = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK; // need extra work in make move
+const KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility etc
+const MOVE_NOISY_MASK    = MOVE_TOOBJ_MASK | MOVE_EPTAKE_MASK;
 
-var NULL   = 0;
-var PAWN   = 1;
-var KNIGHT = 2;
-var BISHOP = 3;
-var ROOK   = 4;
-var QUEEN  = 5;
-var KING   = 6;
-var EDGE   = 7;
-var NO_Z   = 8;
+const NULL   = 0;
+const PAWN   = 1;
+const KNIGHT = 2;
+const BISHOP = 3;
+const ROOK   = 4;
+const QUEEN  = 5;
+const KING   = 6;
+const EDGE   = 7;
+const NO_Z   = 8;
 
-var W_PAWN   = PAWN;
-var W_KNIGHT = KNIGHT;
-var W_BISHOP = BISHOP;
-var W_ROOK   = ROOK;
-var W_QUEEN  = QUEEN;
-var W_KING   = KING;
+const W_PAWN   = PAWN;
+const W_KNIGHT = KNIGHT;
+const W_BISHOP = BISHOP;
+const W_ROOK   = ROOK;
+const W_QUEEN  = QUEEN;
+const W_KING   = KING;
 
-var B_PAWN   = PAWN   | BLACK;
-var B_KNIGHT = KNIGHT | BLACK;
-var B_BISHOP = BISHOP | BLACK;
-var B_ROOK   = ROOK   | BLACK;
-var B_QUEEN  = QUEEN  | BLACK;
-var B_KING   = KING   | BLACK;
+const B_PAWN   = PAWN   | BLACK;
+const B_KNIGHT = KNIGHT | BLACK;
+const B_BISHOP = BISHOP | BLACK;
+const B_ROOK   = ROOK   | BLACK;
+const B_QUEEN  = QUEEN  | BLACK;
+const B_KING   = KING   | BLACK;
 
 //
 // E == EMPTY, X = OFF BOARD, - == CANNOT HAPPEN
@@ -167,82 +149,82 @@ var B_KING   = KING   | BLACK;
 //               E  P  N  B  R  Q  K  X  -  P  N  B  R  Q  K  -
 //
 
-var IS_O      = [0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0];
-var IS_E      = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_OE     = [1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0];
+const IS_O      = [0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0];
+const IS_E      = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_OE     = [1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0];
 
-var IS_P      = [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
-var IS_N      = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
-var IS_NBRQKE = [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0];
-var IS_RQKE   = [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0];
-var IS_QKE    = [1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0];
-var IS_K      = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0];
-var IS_KN     = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];
+const IS_P      = [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+const IS_N      = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
+const IS_NBRQKE = [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0];
+const IS_RQKE   = [1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0];
+const IS_QKE    = [1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0];
+const IS_K      = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0];
+const IS_KN     = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];
 
-var IS_W      = [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WNK    = [0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WE     = [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WP     = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WN     = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WNBRQ  = [0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WB     = [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WBQ    = [0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WRQ    = [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var IS_WQ     = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_W      = [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WNK    = [0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WE     = [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WP     = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WN     = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WNBRQ  = [0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WB     = [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WBQ    = [0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WRQ    = [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IS_WQ     = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-var IS_B      = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
-var IS_BNK    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0];
-var IS_BE     = [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
-var IS_BP     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
-var IS_BN     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
-var IS_BNBRQ  = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0];
-var IS_BB     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0];
-var IS_BBQ    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0];
-var IS_BRQ    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0];
-var IS_BQ     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0];
+const IS_B      = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
+const IS_BNK    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0];
+const IS_BE     = [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
+const IS_BP     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+const IS_BN     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
+const IS_BNBRQ  = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0];
+const IS_BB     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0];
+const IS_BBQ    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0];
+const IS_BRQ    = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0];
+const IS_BQ     = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0];
 
-var PPHASE = 0;
-var NPHASE = 1;
-var BPHASE = 1;
-var RPHASE = 2;
-var QPHASE = 4;
-var VPHASE = [0,PPHASE,NPHASE,BPHASE,RPHASE,QPHASE,0];
-var TPHASE = PPHASE*16 + NPHASE*4 + BPHASE*4 + RPHASE*4 + QPHASE*2;
-var EPHASE = 16;  // don't do QS futility after this
+const PPHASE = 0;
+const NPHASE = 1;
+const BPHASE = 1;
+const RPHASE = 2;
+const QPHASE = 4;
+const VPHASE = [0,PPHASE,NPHASE,BPHASE,RPHASE,QPHASE,0];
+const TPHASE = PPHASE*16 + NPHASE*4 + BPHASE*4 + RPHASE*4 + QPHASE*2;
+const EPHASE = 16;  // don't do QS futility after this
 
-var W_PROMOTE_SQ = [0,26, 27, 28, 29, 30, 31, 32, 33];
-var B_PROMOTE_SQ = [0,110,111,112,113,114,115,116,117];
+const W_PROMOTE_SQ = [0,26, 27, 28, 29, 30, 31, 32, 33];
+const B_PROMOTE_SQ = [0,110,111,112,113,114,115,116,117];
 
-var A1 = 110, B1 = 111, C1 = 112, D1 = 113, E1 = 114, F1 = 115, G1 = 116, H1 = 117;
-var A8 = 26,  B8 = 27,  C8 = 28,  D8 = 29,  E8 = 30,  F8 = 31,  G8 = 32,  H8 = 33;
+const A1 = 110, B1 = 111, C1 = 112, D1 = 113, E1 = 114, F1 = 115, G1 = 116, H1 = 117;
+const A8 = 26,  B8 = 27,  C8 = 28,  D8 = 29,  E8 = 30,  F8 = 31,  G8 = 32,  H8 = 33;
 
-var SQA1 = 110, SQB1 = 111, SQC1 = 112, SQD1 = 113, SQE1 = 114, SQF1 = 115, SQG1 = 116, SQH1 = 117;
-var SQA2 = 98,  SQB2 = 99,  SQC2 = 100, SQD2 = 101, SQE2 = 102, SQF2 = 103, SQG2 = 104, SQH2 = 105;
-var SQA3 = 86,  SQB3 = 87,  SQC3 = 88,  SQD3 = 89,  SQE3 = 90,  SQF3 = 91,  SQG3 = 92,  SQH3 = 93;
-var SQA4 = 74,  SQB4 = 75,  SQC4 = 76,  SQD4 = 77,  SQE4 = 78,  SQF4 = 79,  SQG4 = 80,  SQH4 = 81;
-var SQA5 = 62,  SQB5 = 63,  SQC5 = 64,  SQD5 = 65,  SQE5 = 66,  SQF5 = 67,  SQG5 = 68,  SQH5 = 69;
-var SQA6 = 50,  SQB6 = 51,  SQC6 = 52,  SQD6 = 53,  SQE6 = 54,  SQF6 = 55,  SQG6 = 56,  SQH6 = 57;
-var SQA7 = 38,  SQB7 = 39,  SQC7 = 40,  SQD7 = 41,  SQE7 = 42,  SQF7 = 43,  SQG7 = 44,  SQH7 = 45;
-var SQA8 = 26,  SQB8 = 27,  SQC8 = 28,  SQD8 = 29,  SQE8 = 30,  SQF8 = 31,  SQG8 = 32,  SQH8 = 33;
+const SQA1 = 110, SQB1 = 111, SQC1 = 112, SQD1 = 113, SQE1 = 114, SQF1 = 115, SQG1 = 116, SQH1 = 117;
+const SQA2 = 98,  SQB2 = 99,  SQC2 = 100, SQD2 = 101, SQE2 = 102, SQF2 = 103, SQG2 = 104, SQH2 = 105;
+const SQA3 = 86,  SQB3 = 87,  SQC3 = 88,  SQD3 = 89,  SQE3 = 90,  SQF3 = 91,  SQG3 = 92,  SQH3 = 93;
+const SQA4 = 74,  SQB4 = 75,  SQC4 = 76,  SQD4 = 77,  SQE4 = 78,  SQF4 = 79,  SQG4 = 80,  SQH4 = 81;
+const SQA5 = 62,  SQB5 = 63,  SQC5 = 64,  SQD5 = 65,  SQE5 = 66,  SQF5 = 67,  SQG5 = 68,  SQH5 = 69;
+const SQA6 = 50,  SQB6 = 51,  SQC6 = 52,  SQD6 = 53,  SQE6 = 54,  SQF6 = 55,  SQG6 = 56,  SQH6 = 57;
+const SQA7 = 38,  SQB7 = 39,  SQC7 = 40,  SQD7 = 41,  SQE7 = 42,  SQF7 = 43,  SQG7 = 44,  SQH7 = 45;
+const SQA8 = 26,  SQB8 = 27,  SQC8 = 28,  SQD8 = 29,  SQE8 = 30,  SQF8 = 31,  SQG8 = 32,  SQH8 = 33;
 
-var MOVE_E1G1 = MOVE_CASTLE_MASK | (W_KING << MOVE_FROBJ_BITS) | (E1 << MOVE_FR_BITS) | G1;
-var MOVE_E1C1 = MOVE_CASTLE_MASK | (W_KING << MOVE_FROBJ_BITS) | (E1 << MOVE_FR_BITS) | C1;
-var MOVE_E8G8 = MOVE_CASTLE_MASK | (B_KING << MOVE_FROBJ_BITS) | (E8 << MOVE_FR_BITS) | G8;
-var MOVE_E8C8 = MOVE_CASTLE_MASK | (B_KING << MOVE_FROBJ_BITS) | (E8 << MOVE_FR_BITS) | C8;
+const MOVE_E1G1 = MOVE_CASTLE_MASK | (W_KING << MOVE_FROBJ_BITS) | (E1 << MOVE_FR_BITS) | G1;
+const MOVE_E1C1 = MOVE_CASTLE_MASK | (W_KING << MOVE_FROBJ_BITS) | (E1 << MOVE_FR_BITS) | C1;
+const MOVE_E8G8 = MOVE_CASTLE_MASK | (B_KING << MOVE_FROBJ_BITS) | (E8 << MOVE_FR_BITS) | G8;
+const MOVE_E8C8 = MOVE_CASTLE_MASK | (B_KING << MOVE_FROBJ_BITS) | (E8 << MOVE_FR_BITS) | C8;
 
-var QPRO = (QUEEN-2)  << MOVE_PROMAS_BITS | MOVE_PROMOTE_MASK;
-var RPRO = (ROOK-2)   << MOVE_PROMAS_BITS | MOVE_PROMOTE_MASK;
-var BPRO = (BISHOP-2) << MOVE_PROMAS_BITS | MOVE_PROMOTE_MASK;
-var NPRO = (KNIGHT-2) << MOVE_PROMAS_BITS | MOVE_PROMOTE_MASK;
+const QPRO = (QUEEN-2)  << MOVE_PROMAS_BITS | MOVE_PROMOTE_MASK;
+const RPRO = (ROOK-2)   << MOVE_PROMAS_BITS | MOVE_PROMOTE_MASK;
+const BPRO = (BISHOP-2) << MOVE_PROMAS_BITS | MOVE_PROMOTE_MASK;
+const NPRO = (KNIGHT-2) << MOVE_PROMAS_BITS | MOVE_PROMOTE_MASK;
 
-var WHITE_RIGHTS_KING  = 0x00000001;
-var WHITE_RIGHTS_QUEEN = 0x00000002;
-var BLACK_RIGHTS_KING  = 0x00000004;
-var BLACK_RIGHTS_QUEEN = 0x00000008;
-var WHITE_RIGHTS       = WHITE_RIGHTS_QUEEN | WHITE_RIGHTS_KING;
-var BLACK_RIGHTS       = BLACK_RIGHTS_QUEEN | BLACK_RIGHTS_KING;
+const WHITE_RIGHTS_KING  = 0x00000001;
+const WHITE_RIGHTS_QUEEN = 0x00000002;
+const BLACK_RIGHTS_KING  = 0x00000004;
+const BLACK_RIGHTS_QUEEN = 0x00000008;
+const WHITE_RIGHTS       = WHITE_RIGHTS_QUEEN | WHITE_RIGHTS_KING;
+const BLACK_RIGHTS       = BLACK_RIGHTS_QUEEN | BLACK_RIGHTS_KING;
 
-var  MASK_RIGHTS =  [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+const MASK_RIGHTS = [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
                      15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
                      15, 15, ~8, 15, 15, 15, ~12,15, 15, ~4, 15, 15,
                      15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
@@ -255,29 +237,29 @@ var  MASK_RIGHTS =  [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
                      15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
                      15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15];
 
-var WP_OFFSET_ORTH  = -12;
-var WP_OFFSET_DIAG1 = -13;
-var WP_OFFSET_DIAG2 = -11;
+const WP_OFFSET_ORTH  = -12;
+const WP_OFFSET_DIAG1 = -13;
+const WP_OFFSET_DIAG2 = -11;
 
-var BP_OFFSET_ORTH  = 12;
-var BP_OFFSET_DIAG1 = 13;
-var BP_OFFSET_DIAG2 = 11;
+const BP_OFFSET_ORTH  = 12;
+const BP_OFFSET_DIAG1 = 13;
+const BP_OFFSET_DIAG2 = 11;
 
-var WB_OFFSET_DIAG1 = [WP_OFFSET_DIAG1,BP_OFFSET_DIAG1];
-var WB_OFFSET_DIAG2 = [WP_OFFSET_DIAG2,BP_OFFSET_DIAG2];
+const WB_OFFSET_DIAG1 = [WP_OFFSET_DIAG1,BP_OFFSET_DIAG1];
+const WB_OFFSET_DIAG2 = [WP_OFFSET_DIAG2,BP_OFFSET_DIAG2];
 
-var KNIGHT_OFFSETS  = [25,-25,23,-23,14,-14,10,-10];
-var BISHOP_OFFSETS  = [11,-11,13,-13];
-var ROOK_OFFSETS    =               [1,-1,12,-12];
-var QUEEN_OFFSETS   = [11,-11,13,-13,1,-1,12,-12];
-var KING_OFFSETS    = [11,-11,13,-13,1,-1,12,-12];
+const KNIGHT_OFFSETS  = [25,-25,23,-23,14,-14,10,-10];
+const BISHOP_OFFSETS  = [11,-11,13,-13];
+const ROOK_OFFSETS    =               [1,-1,12,-12];
+const QUEEN_OFFSETS   = [11,-11,13,-13,1,-1,12,-12];
+const KING_OFFSETS    = [11,-11,13,-13,1,-1,12,-12];
 
-var OFFSETS = [0,0,KNIGHT_OFFSETS,BISHOP_OFFSETS,ROOK_OFFSETS,QUEEN_OFFSETS,KING_OFFSETS];
-var LIMITS  = [0,1,1,             8,             8,           8,            1];
+const OFFSETS = [0,0,KNIGHT_OFFSETS,BISHOP_OFFSETS,ROOK_OFFSETS,QUEEN_OFFSETS,KING_OFFSETS];
+const LIMITS  = [0,1,1,             8,             8,           8,            1];
 
-var RANK_VECTOR  = [0,1,2,2,4,5,6];  // for move sorting
+const RANK_VECTOR  = [0,1,2,2,4,5,6];  // for move sorting
 
-var  B88 =  [26, 27, 28, 29, 30, 31, 32, 33,
+const B88 = [26, 27, 28, 29, 30, 31, 32, 33,
              38, 39, 40, 41, 42, 43, 44, 45,
              50, 51, 52, 53, 54, 55, 56, 57,
              62, 63, 64, 65, 66, 67, 68, 69,
@@ -286,90 +268,90 @@ var  B88 =  [26, 27, 28, 29, 30, 31, 32, 33,
              98, 99, 100,101,102,103,104,105,
              110,111,112,113,114,115,116,117];
 
-var COORDS = ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-              '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-              '??', '??', 'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8', '??', '??',
-              '??', '??', 'a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7', '??', '??',
-              '??', '??', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '??', '??',
-              '??', '??', 'a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5', '??', '??',
-              '??', '??', 'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', '??', '??',
-              '??', '??', 'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', '??', '??',
-              '??', '??', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', '??', '??',
-              '??', '??', 'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', '??', '??',
-              '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-              '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'];
+const COORDS = ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+                '??', '??', 'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8', '??', '??',
+                '??', '??', 'a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7', '??', '??',
+                '??', '??', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '??', '??',
+                '??', '??', 'a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5', '??', '??',
+                '??', '??', 'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', '??', '??',
+                '??', '??', 'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', '??', '??',
+                '??', '??', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', '??', '??',
+                '??', '??', 'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', '??', '??',
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'];
 
-var NAMES    = ['-','P','N','B','R','Q','K','-'];
-var PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move
+const NAMES    = ['-','P','N','B','R','Q','K','-'];
+const PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move
 
-var RANK = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
-            0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
-            0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
-            0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
-            0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
-            0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
-            0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
-            0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const RANK = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
+              0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
+              0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
+              0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
+              0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
+              0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+              0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
+              0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-var FILE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const FILE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-var CORNERS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const CORNERS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-var WSQUARE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
-               0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-               0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
-               0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-               0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
-               0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-               0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
-               0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const WSQUARE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+                 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+                 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+                 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-var BSQUARE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-               0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
-               0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-               0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
-               0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-               0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
-               0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
-               0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const BSQUARE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+                 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+                 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+                 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0,
+                 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-var NULL144 = Array(144).fill(0);
+const NULL144 = Array(144).fill(0);
 
-var MAP = [];
+const MAP = [];
 
 MAP['p'] = B_PAWN;
 MAP['n'] = B_KNIGHT;
@@ -384,7 +366,7 @@ MAP['R'] = W_ROOK;
 MAP['Q'] = W_QUEEN;
 MAP['K'] = W_KING;
 
-var UMAP = [];
+const UMAP = [];
 
 UMAP[B_PAWN]   = 'p';
 UMAP[B_KNIGHT] = 'n';
@@ -434,8 +416,8 @@ const CENTRE = [0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
                 0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
                 0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0];
 
-var WMOVE = [NULL144, RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE];
-var BMOVE = [NULL144, RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE];
+const WMOVE = [NULL144, RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE];
+const BMOVE = [NULL144, RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE];
 
 //{{{  ALIGNED
 
@@ -588,7 +570,7 @@ const ALIGNED = [
 
 //}}}
 
-var STARRAY = Array(144);
+const STARRAY = Array(144);
 
 //}}}
 //{{{  primitives
@@ -1266,7 +1248,7 @@ lozChess.prototype.go = function() {
     this.stats.stop();
     this.report('end',lastScore,lastDepth);
     board.makeMoveA(this.rootNode,this.stats.bestMove);
-    board.makeMoveB(this.rootNode);
+    board.makeMoveB();
   }
 
   bestMoveStr = formatMove(this.stats.bestMove,UCI_FMT);
@@ -1338,7 +1320,7 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
     
     //}}}
 
-    board.makeMoveB(node);
+    board.makeMoveB();
 
     numLegalMoves++;
     if (node.base < BASE_LMR)
@@ -1706,7 +1688,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
     
     //}}}
 
-    board.makeMoveB(node);
+    board.makeMoveB();
 
     numLegalMoves++;
 
@@ -1864,7 +1846,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
     
     //}}}
 
-    board.makeMoveB(node);
+    board.makeMoveB();
 
     numLegalMoves++;
 
@@ -1999,15 +1981,15 @@ function lozBoard () {
 
   this.net_h1_w = new Array(NET_I_SIZE + 1);       // us
   this.net_h2_w = new Array(NET_I_SIZE + 1);       // them
-  this.net_h1_b = new Int16Array(NET_H1_SIZE);
-  this.net_o_w  = new Int16Array(NET_H1_SIZE*2);
+  this.net_h1_b = new Int32Array(NET_H1_SIZE);
+  this.net_o_w  = new Int32Array(NET_H1_SIZE*2);
   this.net_o_b  = 0;
 
   for (let i=0; i < NET_I_SIZE; i++) {
-    this.net_h1_w[i] = new Int16Array(NET_H1_SIZE);
+    this.net_h1_w[i] = new Int32Array(NET_H1_SIZE);
   }
 
-  this.net_h1_w[NET_I_SIZE] = new Int16Array(NET_H1_SIZE).fill(0);
+  this.net_h1_w[NET_I_SIZE] = new Int32Array(NET_H1_SIZE).fill(0);
 
   for (let i=0; i < NET_I_SIZE; i++) {
     this.net_h2_w[i] = this.net_h1_w[flipIndex(i)];
@@ -2015,29 +1997,21 @@ function lozBoard () {
 
   this.net_h2_w[NET_I_SIZE] = this.net_h1_w[NET_I_SIZE];
 
-  this.ueFunc       = myround;
-  this.ueA          = 0;
-  this.ueB          = 0;
-  this.ueC          = 0;
-  this.ueD          = 0;
-  this.ueE          = 0;
-  this.ueF          = 0;
+  this.ueFunc = myround;
+  this.ueArgs = Array(6);
 
-  this.lozza        = null;
-  this.verbose      = false;
-  this.mvFmt        = 0;
-  this.hashUsed     = 0;
+  this.lozza    = null;
+  this.verbose  = false;
+  this.mvFmt    = 0;
+  this.hashUsed = 0;
 
-  this.b = new Uint16Array(144);    // pieces
-  this.z = new Uint16Array(144);    // indexes to w|bList
+  this.b = new Uint32Array(144);    // pieces
+  this.z = new Uint32Array(144);    // indexes to w|bList
 
-  this.wList = new Uint16Array(16); // list of squares with white pieces
-  this.bList = new Uint16Array(16); // list of squares with black pieces
+  this.wList = new Uint32Array(16); // list of squares with white pieces
+  this.bList = new Uint32Array(16); // list of squares with black pieces
 
   this.cxList = [this.wList, this.bList];
-
-  this.firstBP = 0;
-  this.firstWP = 0;
 
   this.rights   = 0;
   this.ep       = 0;
@@ -2045,8 +2019,8 @@ function lozBoard () {
   this.repHi    = 0;
   this.loHash   = 0;
   this.hiHash   = 0;
-  this.net_h1_a = new Int16Array(NET_H1_SIZE);
-  this.net_h2_a = new Int16Array(NET_H1_SIZE);
+  this.net_h1_a = new Int32Array(NET_H1_SIZE);
+  this.net_h2_a = new Int32Array(NET_H1_SIZE);
 
   this.net_a = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]];
 
@@ -2158,8 +2132,8 @@ function lozBoard () {
 
   this.phase = TPHASE;
 
-  this.wCounts = new Uint16Array(7);
-  this.bCounts = new Uint16Array(7);
+  this.wCounts = new Uint32Array(7);
+  this.bCounts = new Uint32Array(7);
 
   this.wCount  = 0;
   this.bCount  = 0;
@@ -2226,9 +2200,6 @@ lozBoard.prototype.init = function () {
 
   for (var i=0; i < this.bList.length; i++)
     this.bList[i] = EMPTY;
-
-  this.firstBP = 0;
-  this.firstWP = 0;
 
   if (lozzaHost == HOST_WEB)
     this.mvFmt = SAN_FMT;
@@ -2441,15 +2412,6 @@ lozBoard.prototype.compact = function () {
       this.wList[i] = EMPTY;
   }
   
-  this.firstWP = 0;
-  for (let i=0; i<16; i++) {
-    if (this.b[this.wList[i]] == W_PAWN) {
-      this.firstWP = i;
-      break;
-    }
-  }
-  
-  
   //}}}
   //{{{  compact black list
   
@@ -2471,14 +2433,6 @@ lozBoard.prototype.compact = function () {
     }
     else
       this.bList[i] = EMPTY;
-  }
-  
-  this.firstBP = 0;
-  for (let i=0; i<16; i++) {
-    if (this.b[this.bList[i]] == B_PAWN) {
-      this.firstBP = i;
-      break;
-    }
   }
   
   //}}}
@@ -3125,6 +3079,22 @@ lozBoard.prototype.makeMoveA = function (node,move) {
       this.bCounts[toPiece]--;
       this.bCount--;
     }
+  
+    this.ueFunc    = this.netCapture;
+    this.ueArgs[0] = frObj;
+    this.ueArgs[1] = fr;
+    this.ueArgs[2] = toObj;
+    this.ueArgs[3] = to;
+  
+  }
+  
+  else {
+  
+    this.ueFunc    = this.netMove;
+    this.ueArgs[0] = frObj;
+    this.ueArgs[1] = fr;
+    this.ueArgs[2] = to;
+  
   }
   
   //}}}
@@ -3149,7 +3119,7 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
       if (move & MOVE_EPMAKE_MASK) {
     
-        this.netPrepare(this.netMove,frObj,fr,to);
+        this.netPrepare(this.netMove,frObj,fr,to,0,0,0);
     
         this.loHash ^= this.loEP[this.ep];
         this.hiHash ^= this.hiEP[this.ep];
@@ -3162,7 +3132,7 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
       else if (move & MOVE_EPTAKE_MASK) {
     
-        this.netPrepare(this.netEpCapture,frObj,fr,to,B_PAWN,ep);
+        this.netPrepare(this.netEpCapture,frObj,fr,to,B_PAWN,ep,0);
     
         b[ep]    = NULL;
         node.epZ = z[ep];
@@ -3182,7 +3152,7 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]     = WHITE | pro;
     
-        this.netPrepare(this.netPromote,W_PAWN,fr,to,toObj,pro|WHITE);
+        this.netPrepare(this.netPromote,W_PAWN,fr,to,toObj,pro|WHITE,0);
     
         this.loHash ^= this.loObjPieces[W_PAWN][to];
         this.hiHash ^= this.hiObjPieces[W_PAWN][to];
@@ -3238,7 +3208,7 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
       if (move & MOVE_EPMAKE_MASK) {
     
-        this.netPrepare(this.netMove,frObj,fr,to);
+        this.netPrepare(this.netMove,frObj,fr,to,0,0,0);
     
         this.loHash ^= this.loEP[this.ep];
         this.hiHash ^= this.hiEP[this.ep];
@@ -3251,7 +3221,7 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
       else if (move & MOVE_EPTAKE_MASK) {
     
-        this.netPrepare(this.netEpCapture,frObj,fr,to,W_PAWN,ep);
+        this.netPrepare(this.netEpCapture,frObj,fr,to,W_PAWN,ep,0);
     
         b[ep]    = NULL;
         node.epZ = z[ep];
@@ -3271,7 +3241,7 @@ lozBoard.prototype.makeMoveA = function (node,move) {
         const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]     = BLACK | pro;
     
-        this.netPrepare(this.netPromote,B_PAWN,fr,to,toObj,pro|BLACK);
+        this.netPrepare(this.netPromote,B_PAWN,fr,to,toObj,pro|BLACK,0);
     
         this.loHash ^= this.loObjPieces[B_PAWN][to];
         this.hiHash ^= this.hiObjPieces[B_PAWN][to];
@@ -3323,8 +3293,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
     //}}}
   }
-  else
-    this.netPrepare(this.netCapture,frObj,fr,toObj,to);
 
   //{{{  flip turn in hash
   
@@ -3356,9 +3324,9 @@ lozBoard.prototype.makeMoveA = function (node,move) {
 //}}}
 //{{{  .makeMoveB
 
-lozBoard.prototype.makeMoveB = function (node) {
+lozBoard.prototype.makeMoveB = function () {
 
-  this.ueFunc(this.ueA,this.ueB,this.ueC,this.ueD,this.ueE,this.ueF);
+  this.ueFunc();
 
 }
 
@@ -4130,8 +4098,8 @@ lozBoard.prototype.netSlowEval = function (turn) {
 
   const b = this.b;
 
-  let wAcc = new Int16Array(NET_H1_SIZE);
-  let bAcc = new Int16Array(NET_H1_SIZE);
+  let wAcc = new Int32Array(NET_H1_SIZE);
+  let bAcc = new Int32Array(NET_H1_SIZE);
 
   wAcc.set(this.net_h1_b);
   bAcc.set(this.net_h1_b);
@@ -4181,6 +4149,7 @@ lozBoard.prototype.netSlowEval = function (turn) {
 
 lozBoard.prototype.netFastEval = function (turn) {
 
+  const w  = this.net_o_w;
   const a  = this.net_a[colourIndex(turn)];
   const a1 = a[0];
   const a2 = a[1];
@@ -4188,41 +4157,54 @@ lozBoard.prototype.netFastEval = function (turn) {
   let e = 0;
 
   for (let i=0; i < NET_H1_SIZE; i++) {
-    e += this.net_o_w[i]             * sqrrelu(a1[i]);
-    e += this.net_o_w[i+NET_H1_SIZE] * sqrrelu(a2[i]);
+    const y1 = Math.max(0,a1[i]);
+    const y2 = Math.max(0,a2[i]);
+    e += (Math.imul(w[i],Math.imul(y1,y1)) + Math.imul(w[i+NET_H1_SIZE],Math.imul(y2,y2))) | 0;
   }
 
-  e /= NET_QA;
-  e += this.net_o_b;
-  e *= NET_SCALE;
-  e /= NET_QAB;
+  let e2 = e;
 
-  return e | 0;
+  e2 /= NET_QA;
+  e2 += this.net_o_b;
+  e2 *= NET_SCALE;
+  e2 /= NET_QAB;
+
+  return e2 | 0;
 }
 
 //}}}
 //{{{  .netPrepare
 //
 // Note the UE needed so it can be done after a legal move is confirmed.
+// Needs to be extended to push a stack of deferred updates, which are
+// done when the TT eval misses. That potentially means no updates for
+// some moves when search/QS returns early.
 //
 
 lozBoard.prototype.netPrepare = function (ueFunc,ueA,ueB,ueC,ueD,ueE,ueF) {
 
   this.ueFunc = ueFunc;
 
-  this.ueA = ueA;
-  this.ueB = ueB;
-  this.ueC = ueC;
-  this.ueD = ueD;
-  this.ueE = ueE;
-  this.ueF = ueF;
+  this.ueArgs[0] = ueA;
+  this.ueArgs[1] = ueB;
+  this.ueArgs[2] = ueC;
+  this.ueArgs[3] = ueD;
+  this.ueArgs[4] = ueE;
+  this.ueArgs[5] = ueF;
 
 }
 
 //}}}
 //{{{  .netMove
 
-lozBoard.prototype.netMove = function (frObj,fr,to,dx,ex,fx) {
+lozBoard.prototype.netMove = function () {
+
+  const frObj = this.ueArgs[0];
+  const fr    = this.ueArgs[1];
+  const to    = this.ueArgs[2];
+
+  const a1 = this.net_h1_a;
+  const a2 = this.net_h2_a;
 
   const i1 = IMAP[frObj][fr];
   const i2 = IMAP[frObj][to];
@@ -4234,15 +4216,23 @@ lozBoard.prototype.netMove = function (frObj,fr,to,dx,ex,fx) {
   const h2b = this.net_h2_w[i2];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    this.net_h1_a[h] += h1b[h] - h1a[h];
-    this.net_h2_a[h] += h2b[h] - h2a[h];
+    a1[h] += h1b[h] - h1a[h];
+    a2[h] += h2b[h] - h2a[h];
   }
 }
 
 //}}}
 //{{{  .netCapture
 
-lozBoard.prototype.netCapture = function (frObj,fr,toObj,to,ex,fx) {
+lozBoard.prototype.netCapture = function () {
+
+  const frObj = this.ueArgs[0];
+  const fr    = this.ueArgs[1];
+  const toObj = this.ueArgs[2];
+  const to    = this.ueArgs[3];
+
+  const a1 = this.net_h1_a;
+  const a2 = this.net_h2_a;
 
   const i1 = IMAP[frObj][fr];
   const i2 = IMAP[toObj][to];
@@ -4257,15 +4247,24 @@ lozBoard.prototype.netCapture = function (frObj,fr,toObj,to,ex,fx) {
   const h2c = this.net_h2_w[i3];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
-    this.net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
+    a1[h] += h1c[h] - h1b[h] - h1a[h];
+    a2[h] += h2c[h] - h2b[h] - h2a[h];
   }
 }
 
 //}}}
 //{{{  .netPromote
 
-lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promoteObj,fx) {
+lozBoard.prototype.netPromote = function () {
+
+  const pawnObj    = this.ueArgs[0];
+  const pawnFr     = this.ueArgs[1];
+  const pawnTo     = this.ueArgs[2];
+  const captureObj = this.ueArgs[3];
+  const promoteObj = this.ueArgs[4];
+
+  const a1 = this.net_h1_a;
+  const a2 = this.net_h2_a;
 
   const i1 = IMAP[pawnObj][pawnFr];
   const i2 = IMAP[captureObj][pawnTo];
@@ -4280,15 +4279,24 @@ lozBoard.prototype.netPromote = function (pawnObj,pawnFr,pawnTo,captureObj,promo
   const h2c = this.net_h2_w[i3];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    this.net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
-    this.net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
+    a1[h] += h1c[h] - h1b[h] - h1a[h];
+    a2[h] += h2c[h] - h2b[h] - h2a[h];
   }
 }
 
 //}}}
 //{{{  .netEpCapture
 
-lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj,ep,fx) {
+lozBoard.prototype.netEpCapture = function () {
+
+  const pawnObj        = this.ueArgs[0];
+  const pawnFr         = this.ueArgs[1];
+  const pawnTo         = this.ueArgs[2];
+  const pawnCaptureObj = this.ueArgs[3];
+  const ep             = this.ueArgs[4];
+
+  const a1 = this.net_h1_a;
+  const a2 = this.net_h2_a;
 
   const i1 = IMAP[pawnObj][pawnFr];
   const i2 = IMAP[pawnObj][pawnTo];
@@ -4303,15 +4311,25 @@ lozBoard.prototype.netEpCapture = function (pawnObj,pawnFr,pawnTo,pawnCaptureObj
   const h2c = this.net_h2_w[i3];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    this.net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
-    this.net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
+    a1[h] += h1b[h] - h1a[h] - h1c[h];
+    a2[h] += h2b[h] - h2a[h] - h2c[h];
   }
 }
 
 //}}}
 //{{{  .netCastle
 
-lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,rookTo) {
+lozBoard.prototype.netCastle = function () {
+
+  const kingObj = this.ueArgs[0];
+  const kingFr  = this.ueArgs[1];
+  const kingTo  = this.ueArgs[2];
+  const rookObj = this.ueArgs[3];
+  const rookFr  = this.ueArgs[4];
+  const rookTo  = this.ueArgs[5];
+
+  const a1 = this.net_h1_a;
+  const a2 = this.net_h2_a;
 
   const i1 = IMAP[kingObj][kingFr];
   const i2 = IMAP[kingObj][kingTo];
@@ -4329,8 +4347,8 @@ lozBoard.prototype.netCastle = function (kingObj,kingFr,kingTo,rookObj,rookFr,ro
   const h2d = this.net_h2_w[i4];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    this.net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
-    this.net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
+    a1[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
+    a2[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
   }
 }
 
@@ -4348,7 +4366,7 @@ lozBoard.prototype.netLoad = function () {
   const buffer   = fs.readFileSync(NET_WEIGHTS_FILE);
   const dataView = new Int16Array(buffer.buffer, offset);
 
-  //{{{  .net_h1/h2_w
+  //{{{  .net_h1_w
   
   for (let i=0; i < NET_I_SIZE; i++) {
   
@@ -4433,6 +4451,9 @@ lozBoard.prototype.netSerialise = function () {
 
 //}}}
 //{{{  .netInitWeights
+//
+// 'weights' - click to load the serialised weights fold
+//
 
 lozBoard.prototype.netInitWeights = function () {
 }
@@ -4477,8 +4498,8 @@ function lozNode (parentNode) {
   this.inCheck     = 0;
   this.ev          = 0;
 
-  this.net_h1_a = new Int16Array(NET_H1_SIZE);
-  this.net_h2_a = new Int16Array(NET_H1_SIZE);
+  this.net_h1_a = new Int32Array(NET_H1_SIZE);
+  this.net_h2_a = new Int32Array(NET_H1_SIZE);
 
   this.C_rights       = 0;
   this.C_ep           = 0;
