@@ -1,90 +1,35 @@
 //
-//  Generate FENs for training via filter.js and trainer.js.
+// Generate FENs in bullet text format.
 //
 
-//{{{  flipFen
-
-const flipFen = (fen) => {
-
-  const [board, color, castling, enPassant, halfmove, fullmove] = fen.split(' ');
-
-  const mirroredBoard = board.split('/').reverse().map(row => {
-    return row.split('').map(char => {
-      if (char === char.toUpperCase()) {
-        return char.toLowerCase();
-      } else if (char === char.toLowerCase()) {
-        return char.toUpperCase();
-      }
-      return char;
-    }).join('');
-  }).join('/');
-
-  const mirroredColor = color === 'w' ? 'b' : 'w';
-
-  const mirrorCastling = castling.split('').map(right => {
-    switch(right) {
-      case 'K': return 'k';
-      case 'Q': return 'q';
-      case 'k': return 'K';
-      case 'q': return 'Q';
-      default: return right;
-    }
-  }).join('');
-
-  const mirroredEnPassant = enPassant === '-' ? '-' :
-    enPassant[0] + (9 - parseInt(enPassant[1]));
-
-  const newFen = [
-    mirroredBoard,
-    mirroredColor,
-    mirrorCastling || '-',
-    mirroredEnPassant,
-    halfmove,
-    fullmove
-  ].join(' ');
-
-  return newFen;
-};
-
-//}}}
-//{{{  flipResult
-
-function flipResult (r) {
-
-  if (r == '1.0')
-    return '0.0';
-  else if (r == '0.0')
-    return '1.0';
-  else if (r == '0.5')
-    return r;
-  else {
-    console.log('bad result',r);
-    process.exit();
-  }
-
-}
-
-//}}}
+docmd("bench");
 
 const fs = require('fs');
 
-SILENT = 1;
+lozza.uci.silent = 1;
 
-const nodesLimit  = 10000;       // hard limit is x10
-const gamesLimit  = 100000;
+const nodesLimit     = 10000;  // hard limit is x10
+const gamesLimit     = 100000;
+const bufferSize     = 100000 + Math.random() * 100000;  // randomise writes
+const reportInterval = 10;
 
-const fileName = 'data/datagen' + Math.trunc(Math.random()*100000000) + '.txt';
+const fileName = 'data/datagen' + Math.trunc(Math.random()*100000000000) + '.txt';
 
 let result = '';
 let o = '';
+let t = now();
+let totalFens = 0;
 
 fs.writeFileSync(fileName,o);
 
 for (let g=0; g < gamesLimit; g++) {
   //{{{  log
   
-  if ((g % 100) == 0)
-    console.log(fileName,g);
+  if ((g % reportInterval) == 0) {
+    console.log(fileName,g,'games',(totalFens/((now()-t)/1000)),'fens/sec');
+    t = now();
+    totalFens = 0;
+  }
   
   //}}}
   //{{{  play game
@@ -104,8 +49,6 @@ for (let g=0; g < gamesLimit; g++) {
   let hmc = 0;
   let ply = 0;
   let fens = [];
-  let attribs = [];
-  let flips = [];
   let scores = [];
   
   while (true) {
@@ -118,9 +61,9 @@ for (let g=0; g < gamesLimit; g++) {
     //{{{  get a move
     
     if (ply <= randLimit)
-      RANDOMEVAL = 1;
+      lozza.board.randomEval = 1;
     else
-      RANDOMEVAL = 0;
+      lozza.board.randomEval = 0;
     
     docmd('go nodes ' + nodesLimit);
     
@@ -137,25 +80,15 @@ for (let g=0; g < gamesLimit; g++) {
     const move    = lozza.stats.bestMove;
     const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
     const frPiece = frObj & PIECE_MASK;
-    const moveStr = lozza.board.formatMove(move,UCI_FMT);
+    const moveStr = formatMove(move,UCI_FMT);
     const inCheck = lozza.board.isKingAttacked(nextTurn);
     const noisy   = moveIsNoisy(move);
     const fen     = lozza.board.fen(lozza.board.turn);
     const score   = (turn == BLACK ? -lozza.stats.bestScore : lozza.stats.bestScore);
-    const attrib  = (inCheck ? 'c' : '-') + ' ' + (noisy ? 'n' : '-');
   
-    if (ply > reportLimit) {
+    if (ply > reportLimit && !inCheck && !noisy) {
       fens.push(fen);
       scores.push(score);
-      attribs.push(attrib);
-      flips.push('-');
-  
-      // include filpped positions in the data but allow them to be filtered
-  
-      fens.push(flipFen(fen));
-      scores.push(-score);
-      attribs.push(attrib);
-      flips.push('f');
     }
   
     //{{{  end of game?
@@ -202,18 +135,14 @@ for (let g=0; g < gamesLimit; g++) {
   
   for (let i=0; i < fens.length; i++) {
   
-    //if (fens[i] != flipFen(flipFen(fens[i]))) {
-      //console.log('fen flip prob');
-      //process.exit();
-    //}
+    totalFens++;
   
-    if (flips[i] == '-')
-      o += fens[i] + ' ' + scores[i] + ' ' + attribs[i] + ' ' + flips[i] + ' ' + result             + '\r\n';
-    else
-      o += fens[i] + ' ' + scores[i] + ' ' + attribs[i] + ' ' + flips[i] + ' ' + flipResult(result) + '\r\n';
+    o += fens[i] + ' | ' + scores[i] + ' ' + ' | ' + result + '\r\n';
   
-    if (o.length > 100000) {
+    if (o.length > bufferSize) {
+      const flushStart = performance.now();
       fs.appendFileSync(fileName,o);
+      console.log('flush',performance.now()-flushStart);
       o = '';
     }
   
