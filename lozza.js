@@ -1522,7 +1522,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   //{{{  beta prune
   
   if (doBeta && depth <= 4 && (ev - depth * 200) >= beta)
-    return beta;
+    return ev;
   
   //}}}
   //{{{  alpha prune
@@ -2005,11 +2005,11 @@ function lozBoard () {
   this.mvFmt    = 0;
   this.hashUsed = 0;
 
-  this.b = new Uint32Array(144);    // pieces
-  this.z = new Uint32Array(144);    // indexes to w|bList
+  this.b = new Int32Array(144);    // pieces
+  this.z = new Int32Array(144);    // indexes to w|bList
 
-  this.wList = new Uint32Array(16); // list of squares with white pieces
-  this.bList = new Uint32Array(16); // list of squares with black pieces
+  this.wList = new Int32Array(16); // list of squares with white pieces
+  this.bList = new Int32Array(16); // list of squares with black pieces
 
   this.cxList = [this.wList, this.bList];
 
@@ -2132,8 +2132,8 @@ function lozBoard () {
 
   this.phase = TPHASE;
 
-  this.wCounts = new Uint32Array(7);
-  this.bCounts = new Uint32Array(7);
+  this.wCounts = new Int32Array(7);
+  this.bCounts = new Int32Array(7);
 
   this.wCount  = 0;
   this.bCount  = 0;
@@ -4480,7 +4480,7 @@ function lozNode (parentNode) {
     this.grandparentNode = null;
 
   this.moves = new Uint32Array(MAX_MOVES);
-  this.ranks = Array(MAX_MOVES);
+  this.ranks = new Array(MAX_MOVES);
 
   for (var i=0; i < MAX_MOVES; i++) {
     this.moves[i] = 0;

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-e1=lozza.js
-e2=lozzacand.js
-tc=60+1
+e1=releases/5/lozza.js
+e2=releases/lozza4.js
+tc=20+0.2
 elo0=0
 elo1=5
 threads=25
