@@ -136977,9 +136977,10 @@ function uciExec (commands) {
 
 //}}}
 
-function onmessage(m) {
+onmessage = function(m) {
   uciExec(m.data);
-}
+};
+
 
 //}}}
 //{{{  init
