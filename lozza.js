@@ -11,258 +11,278 @@ let stmBlack = 1;
 //}}}
 //{{{  magic
 
-const loRookMask    = new Uint32Array(64);
-const hiRookMask    = new Uint32Array(64);
-const rookIndexBits = new Int32Array(64);
-const rookOffsets   = new Int32Array(64);
-const loRookMagics  = new Uint32Array(64);
-const hiRookMagics  = new Uint32Array(64);
+//{{{  moveList
 
-const rookMagics    = new Array(64);
+function moveListEntry () {
+  this.moves      = [];
+  this.loBlockers = [];
+  this.hiBlockers = [];
+}
 
-const loBishopMask    = new Uint32Array(64);
-const hiBishopMask    = new Uint32Array(64);
-const bishopIndexBits = new Int32Array(64);
-const bishopOffsets   = new Int32Array(64);
-const loBishopMagics  = new Uint32Array(64);
-const hiBishopMagics  = new Uint32Array(64);
+//{{{  moveList_FindMoves
 
+function moveList_FindMoves(moveList, moves1) {
 
-const occupied = new Uint32Array(2);
+  for (let i=0; i < moveList.length; i++) {
 
-//{{{  genRookMasks
+    const moves2 = moveList[i].moves;
 
-function genRookMasks() {
+    if (moves2.length !== moves1.length) continue;
 
-    for (let square = 0; square < 64; square++) {
-        let file = square % 8;
-        let rank = Math.floor(square / 8);
+    let allMatch = true;
 
-        let loMask = 0, hiMask = 0;
-
-        for (let r = rank + 1; r < 7; r++) {
-            let bitIndex = r * 8 + file;
-            if (bitIndex < 32) loMask |= (1 << bitIndex);
-            else hiMask |= (1 << (bitIndex - 32));
+    for (let j=0; j < moves1.length; j++) {
+      let match = false;
+      for (let k=0; k < moves2.length; k++) {
+        if (moves1[j] === moves2[k]) {
+          match = true;
+          break;
         }
+      }
+      if (!match) {
+        allMatch = false;
+        break;
+      }
+    }
 
-        for (let f = file + 1; f < 7; f++) {
-            let bitIndex = rank * 8 + f;
-            if (bitIndex < 32) loMask |= (1 << bitIndex);
-            else hiMask |= (1 << (bitIndex - 32));
+    if (allMatch)
+      return i;
+  }
+
+  return -1;
+}
+
+//}}}
+
+//}}}
+
+//{{{  initRookMasks
+
+const loRookMasks = new Array(64);
+const hiRookMasks = new Array(64);
+
+function initRookMasks() {
+
+  for (let sq=0; sq < 64; sq++) {
+
+    const file = sq % 8;
+    const rank = Math.floor(sq / 8);
+
+    let loMask = 0;
+    let hiMask = 0;
+
+    for (let r = rank + 1; r < 7; r++) {
+      const bitIndex = r * 8 + file;
+      if (bitIndex < 32)
+        loMask |= (1 << bitIndex);
+      else
+        hiMask |= (1 << (bitIndex - 32));
+    }
+
+    for (let r = rank - 1; r > 0; r--) {
+      const bitIndex = r * 8 + file;
+      if (bitIndex < 32)
+        loMask |= (1 << bitIndex);
+      else
+        hiMask |= (1 << (bitIndex - 32));
+    }
+
+    for (let f = file + 1; f < 7; f++) {
+      const bitIndex = rank * 8 + f;
+      if (bitIndex < 32)
+        loMask |= (1 << bitIndex);
+      else
+        hiMask |= (1 << (bitIndex - 32));
+    }
+
+    for (let f = file - 1; f > 0; f--) {
+      const bitIndex = rank * 8 + f;
+      if (bitIndex < 32)
+        loMask |= (1 << bitIndex);
+      else
+        hiMask |= (1 << (bitIndex - 32));
+    }
+
+    loRookMasks[sq] = loMask;
+    hiRookMasks[sq] = hiMask;
+  }
+}
+
+//}}}
+//{{{  initRookMoveList
+
+const rookMoveList = [];
+
+//{{{  initRookMoveList_GetMoves
+
+function initRookMoveList_GetMoves(from, loBlocker, hiBlocker) {
+
+  const moves = [];
+
+  const file = from % 8;
+  const rank = Math.floor(from / 8);
+
+  let to = from;
+  for (let i=rank; i < 7; i++) {
+    to += 8;
+    moves.push((from << 6) | to);
+    if (isBitSet(to, loBlocker, hiBlocker))
+      break;
+  }
+
+  to = from;
+  for (let i=rank; i > 0; i--) {
+    to -= 8;
+    moves.push((from << 6) | to);
+    if (isBitSet(to, loBlocker, hiBlocker))
+      break;
+  }
+
+  to = from;
+  for (let i=file; i < 7; i++) {
+    to += 1;
+    moves.push((from << 6) | to);
+    if (isBitSet(to, loBlocker, hiBlocker))
+      break;
+  }
+
+  to = from;
+  for (let i=file; i > 0; i--) {
+    to -= 1;
+    moves.push((from << 6) | to);
+    if (isBitSet(to, loBlocker, hiBlocker))
+      break;
+  }
+
+  return moves;
+}
+
+//}}}
+
+function initRookMoveList() {
+
+  for (let sq=0; sq < 64; sq++) {
+    //{{{  rook moves
+    
+    const loMask = loRookMasks[sq];
+    const hiMask = hiRookMasks[sq];
+    
+    let bitPositions = [];
+    
+    for (let i=0; i < 32; i++) {
+      if (loMask & (1 << i))
+        bitPositions.push(i);
+      if (hiMask & (1 << i))
+        bitPositions.push(i + 32);
+    }
+    
+    const numBlockers     = bitPositions.length;
+    const numCombinations = 1 << numBlockers;
+    
+    for (let subset=0; subset < numCombinations; subset++) {
+      let loBlocker = 0;
+      let hiBlocker = 0;
+      for (let i=0; i < numBlockers; i++) {
+        if (subset & (1 << i)) {
+          const bitIndex = bitPositions[i];
+          if (bitIndex < 32)
+            loBlocker |= (1 << bitIndex);
+          else
+            hiBlocker |= (1 << (bitIndex - 32));
         }
-
-        loRookMask[square] = loMask;
-        hiRookMask[square] = hiMask;
+      }
+    
+      //{{{  add rook moves for this blocker
+      
+      const moves = initRookMoveList_GetMoves (sq, loBlocker, hiBlocker)
+      const index = moveList_FindMoves(rookMoveList, moves);
+      
+      if (index >= 0) {
+        const entry = rookMoveList[index];
+        entry.loBlockers.push(loBlocker);
+        entry.hiBlockers.push(hiBlocker);
+      }
+      
+      else {
+        const entry = new moveListEntry();
+        rookMoveList.push(entry);
+        entry.moves = moves;
+        entry.loBlockers.push(loBlocker);
+        entry.hiBlockers.push(hiBlocker);
+      }
+      
+      //}}}
     }
-}
+    
+    //}}}
+  }
 
-//}}}
-//{{{  genBishopMasks
-
-function genBishopMasks() {
-    for (let square = 0; square < 64; square++) {
-        let file = square % 8;
-        let rank = Math.floor(square / 8);
-
-        let loMask = 0, hiMask = 0;
-
-        for (let d = 1; d < 7; d++) {
-            let upRight = (rank + d) * 8 + (file + d);
-            let upLeft = (rank + d) * 8 + (file - d);
-            let downRight = (rank - d) * 8 + (file + d);
-            let downLeft = (rank - d) * 8 + (file - d);
-
-            for (let bitIndex of [upRight, upLeft, downRight, downLeft]) {
-                if (bitIndex >= 0 && bitIndex < 64) {
-                    if (bitIndex < 32) loMask |= (1 << bitIndex);
-                    else hiMask |= (1 << (bitIndex - 32));
-                }
-            }
-        }
-
-        loBishopMask[square] = loMask;
-        hiBishopMask[square] = hiMask;
-    }
 }
 
 //}}}
 
-//{{{  genOffsets
+//{{{  printBitboard
 
-function genOffsets(offsets, indexBits) {
+function printBitboard(lo, hi) {
 
-    let offset = 0;
+  let board = "";
 
-    for (let square = 0; square < 64; square++) {
-        // Compute number of unique indices for the square
-        let size = 1 << indexBits[square];   // 2^index_bits for rooks
+  for (let rank = 7; rank >= 0; rank--) {
 
-        // Store the accumulated offset
-        offsets[square] = offset;
+    for (let file = 0; file < 8; file++) {
 
-        // Accumulate total size
-        offset += size;
+      let bitIndex = rank * 8 + file;
+      let bitSet = bitIndex < 32
+        ? (lo & (1 << bitIndex)) !== 0
+        : (hi & (1 << (bitIndex - 32))) !== 0;
+
+      board += bitSet ? "X" : ".";
     }
+
+    board += "\n"; // New rank
+  }
+
+  console.log(board);
 }
 
 //}}}
-//{{{  genIndexBits
+//{{{  isBitSet
 
-function genIndexBits(lo, hi, ib) {
-
-    for (let square = 0; square < 64; square++) {
-        let maskLow  = lo[square];  // Low 32 bits of the mask
-        let maskHigh = hi[square]; // High 32 bits of the mask
-
-        // Count the number of bits set (popcount)
-        let indexBits = popcount(maskLow) + popcount(maskHigh);
-
-        // Store in lookup table
-        ib[square] = indexBits;
-    }
+function isBitSet(square, loMask, hiMask) {
+  if (square < 32) {
+    return (loMask & (1 << square)) !== 0 ? 1 : 0;
+  }
+  else {
+    return (hiMask & (1 << (square - 32))) !== 0 ? 1 : 0;
+  }
 }
 
 //}}}
-//{{{  genOccupied
 
-//hack maintain in makemove
+//{{{  setOccupied
 
-function genOccupied () {
+let loOccupied = 0;
+let hiOccupied = 0;
+
+function setOccupied () {
 
   for (let i=0; i < pieceCount[stmWhite]; i++) {
-    const e = pieceList[i];
+    const e  = pieceList[i];
     const sq = e & 0xFF;
-    setBit(occupied, sq);
+    if (sq < 32)
+      loOccupied |= 1 << sq;
+    else
+      hiOccupied |= 1 << (sq-32);
   }
 
   for (let i=0; i < pieceCount[stmBlack]; i++) {
-    const e = pieceList[16+i];
+    const e  = pieceList[16+i];
     const sq = e & 0xFF;
-    setBit(occupied, sq);
+    if (sq < 32)
+      loOccupied |= 1 << sq;
+    else
+      hiOccupied |= 1 << (sq-32);
   }
-}
-
-//}}}
-
-//{{{  popcount
-
-function popcount(n) {
-    let count = 0;
-    while (n) {
-        count += n & 1;
-        n >>>= 1;
-    }
-    return count;
-}
-
-//}}}
-//{{{  setBit
-
-function setBit(bitboard, sq) {
-  bitboard[sq >>> 5] |= (1 << (sq & 31));
-}
-
-//}}}
-//{{{  printBitboard
-
-function printBitboard(low, high) {
-
-    let board = "";
-
-    for (let rank = 7; rank >= 0; rank--) { // Start from rank 8 (index 7) to rank 1 (index 0)
-        for (let file = 0; file < 8; file++) { // A to H
-            let bitIndex = rank * 8 + file;
-            let bitSet = bitIndex < 32
-                ? (low & (1 << bitIndex)) !== 0
-                : (high & (1 << (bitIndex - 32))) !== 0;
-
-            board += bitSet ? "X" : ".";
-        }
-        board += "\n"; // New rank
-    }
-
-    console.log(board);
-}
-
-//}}}
-
-//{{{  
-
-function genBishopMagics() {
-    for (let square = 0; square < 64; square++) {
-        console.log(`Finding magic for bishop on square ${square}...`);
-        let [magicLow, magicHigh] = findMagicNumber(square, false);
-        loBishopMagics[square] = magicLow;
-        hiBishopMagics[square] = magicHigh;
-        console.log(square);
-    }
-}
-
-function genRookMagics() {
-    for (let square = 0; square < 64; square++) {
-        console.log(`Finding magic for rook on square ${square}...`);
-        let [magicLow, magicHigh] = findMagicNumber(square, true);
-        loRookMagics[square] = magicLow;
-        hiRookMagics[square] = magicHigh;
-    }
-}
-
-function findMagicNumber(square, isRook) {
-    let indexBits = isRook ? rookIndexBits[square] : bishopIndexBits[square];
-    let numBlockerConfigs = 1 << indexBits;
-    let maskLow = isRook ? loRookMask[square] : loBishopMask[square];
-    let maskHigh = isRook ? hiRookMask[square] : hiBishopMask[square];
-
-    let blockerConfigs = [];
-    let subsetLow = 0, subsetHigh = 0;
-    do {
-        blockerConfigs.push([subsetLow, subsetHigh]);
-        subsetLow = (subsetLow - maskLow) & maskLow;
-        subsetHigh = (subsetHigh - maskHigh) & maskHigh;
-    } while (subsetLow || subsetHigh);
-
-    let attempt = 0;
-    while (attempt < 50_000_000) { // Increase attempts for difficult squares
-        let [magicLow, magicHigh] = generate64BitMagic();
-
-        let usedIndices = new Set();
-        let collision = false;
-
-        for (let [blockersLow, blockersHigh] of blockerConfigs) {
-            let index = getMagicIndex(blockersLow, blockersHigh, magicLow, magicHigh, indexBits);
-            if (usedIndices.has(index)) {
-                collision = true;
-                break;
-            }
-            usedIndices.add(index);
-        }
-
-        if (!collision) return [magicLow, magicHigh]; // Found a valid magic number
-        attempt++;
-    }
-
-    console.error(`Failed to find magic for square ${square} after ${attempt} attempts!`);
-    return [0, 0]; // Fallback case (should rarely happen)
-}
-
-// ? Computes the magic index using full 64-bit multiplication
-function getMagicIndex(blockersLow, blockersHigh, magicLow, magicHigh, indexBits) {
-    let productLow = (blockersLow * magicLow) >>> 0;
-    let productHigh = (blockersHigh * magicHigh) >>> 0;
-    return (productLow ^ productHigh) >>> (64 - indexBits);
-}
-
-// ? Generates a strong 64-bit magic number as two 32-bit values
-function generate64BitMagic() {
-    let low = (Math.random() * 0xFFFFFFFF) >>> 0;
-    let high = (Math.random() * 0xFFFFFFFF) >>> 0;
-
-    // Apply known constraints to improve bit spreading
-    low |= 0x0000000080000001;   // Ensure at least one important bit is set
-    high |= 0x0000000080000001;  // Ensure upper 32 bits contribute
-
-    return [low, high];
 }
 
 //}}}
@@ -345,27 +365,6 @@ function position(board,stm,rights,ep) {
 }
 
 //}}}
-//{{{  genMoves
-
-function genMoves () {
-
-  genOccupied();
-
-  const offset = stm << 4;
-  const count  = pieceCount[stm];
-
-  for (let i=0; i < count; i++) {
-
-    const e     = pieceList[offset + i];
-    const sq    = e & 0xFF;
-    const piece = (e & 0xFF00) >>> 8;
-
-    // hack finish
-  }
-
-}
-
-//}}}
 
 //}}}
 
@@ -427,10 +426,14 @@ function uciExec(command) {
     
       position('8/8/k1b5/p7/8/2K5/8/R4N1r', 'w', '-', '-');
       printBoard()
-      printBitboard(loRookMask[0],hiRookMask[0]);
-      console.log(rookIndexBits[0]);
-      genOccupied();
-      printBitboard(occupied[0],occupied[1]);
+      setOccupied();
+      console.log('occupied');
+      printBitboard(loOccupied,hiOccupied);
+      console.log('rook mask sq 0');
+      printBitboard(loRookMasks[0],hiRookMasks[0]);
+      console.log('r moves seqs',rookMoveList.length);
+    
+      break;
     
     //}}}
     //{{{  q
@@ -452,17 +455,15 @@ function uciExec(command) {
 
 function initOnce () {
 
-  genRookMasks();
-  genBishopMasks();
+  const t1 = performance.now();
 
-  genIndexBits(loRookMask,   hiRookMask,   rookIndexBits);
-  genIndexBits(loBishopMask, hiBishopMask, bishopIndexBits);
+  initRookMasks();
+  initRookMoveList();
 
-  genOffsets(rookOffsets,   rookIndexBits);
-  genOffsets(bishopOffsets, bishopIndexBits);
+  const t2 = performance.now();
+  const d = t2 - t1;
 
-  genRookMagics();
-  genBishopMagics();
+  console.log('initOnce',d,'ms');
 
 }
 
