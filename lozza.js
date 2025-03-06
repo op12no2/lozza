@@ -52,7 +52,16 @@ function twisterRand() {
 }
 
 function twisterMagic() {
-  return twisterRand();
+
+  let r1 = twisterRand() >>> 0;
+  let r2 = twisterRand() >>> 0;
+  let r3 = twisterRand() >>> 0;
+  let r4 = twisterRand() >>> 0;
+
+  // XOR Shift Mix - spreads randomness across all bits
+  let magic = (r1 ^ (r2 << 11) ^ (r3 >>> 17) ^ (r4 << 5)) >>> 0;
+
+  return magic;
 }
 
 twisterInit(0x9E3779B9);
@@ -80,6 +89,7 @@ function magicIndex(loBlocker, hiBlocker, loMagic, hiMagic, ib) {
 //}}}
 
 function moveListEntry () {
+  this.square     = -1;
   this.moves      = [];
   this.loBlockers = [];
   this.hiBlockers = [];
@@ -87,10 +97,12 @@ function moveListEntry () {
 
 //{{{  moveList_FindBlocker
 
-function moveList_FindBlocker(moveList, loBlocker, hiBlocker) {
+function moveList_FindBlocker(sq, moveList, loBlocker, hiBlocker) {
 
   for (let i=0; i < moveList.length; i++) {
     const entry = moveList[i];
+    if (entry.square != sq)
+      continue;
     for (let j=0; j < entry.loBlockers.length; j++) {
       if (loBlocker == entry.loBlockers[j] && hiBlocker == entry.hiBlockers[j])
         return i;
@@ -103,9 +115,12 @@ function moveList_FindBlocker(moveList, loBlocker, hiBlocker) {
 //}}}
 //{{{  moveList_FindMoves
 
-function moveList_FindMoves(moveList, moves1) {
+function moveList_FindMoves(sq, moveList, moves1) {
 
   for (let i=0; i < moveList.length; i++) {
+
+    if (moveList[i].square != sq)
+      continue;
 
     const moves2 = moveList[i].moves;
 
@@ -298,12 +313,13 @@ function initRookMoveList() {
       const hiBlocker = hiBlockers[i];
 
       const moves = initRookMoveList_GetMoves (sq, loBlocker, hiBlocker)
-      const index = moveList_FindMoves(rookMoveList, moves);
+      const index = moveList_FindMoves(sq, rookMoveList, moves);
 
       if (index >= 0) {
         const entry = rookMoveList[index];
         entry.loBlockers.push(loBlocker);
         entry.hiBlockers.push(hiBlocker);
+        entry.square = sq;
       }
 
       else {
@@ -312,6 +328,7 @@ function initRookMoveList() {
         entry.moves = moves;
         entry.loBlockers.push(loBlocker);
         entry.hiBlockers.push(hiBlocker);
+        entry.square = sq;
       }
 
     }
@@ -323,8 +340,8 @@ function initRookMoveList() {
 //}}}
 //{{{  findRookMagics
 
-const rookIndexBits = 13;
-const rookIndexSize = 8192;
+const rookIndexBits = 12;
+const rookIndexSize = 4096;
 
 //const loRookMagics = new Array(64);
 //const hiRookMagics = new Array(64);
@@ -342,7 +359,7 @@ function findRookMagics () {
     const loBlockers = blockers.lo;
     const hiBlockers = blockers.hi;
 
-    for (let t=0; t < 1000000; t++) {
+    for (let t=0; t < 10000000; t++) {
 
       lut.fill(-1);
 
@@ -358,7 +375,7 @@ function findRookMagics () {
         const loBlocker = loBlockers[i];
         const hiBlocker = hiBlockers[i];
       
-        const moveListEntry = moveList_FindBlocker(rookMoveList, loBlocker, hiBlocker);
+        const moveListEntry = moveList_FindBlocker(sq, rookMoveList, loBlocker, hiBlocker);
       
         if (moveListEntry == -1)
           console.log('blocker missing from move list');
@@ -413,6 +430,43 @@ function logRookMagics() {
     console.log(`  0x${hiRookMagics[i].toString(16)},`);
   }
   console.log("];");
+}
+
+//}}}
+//{{{  initRookLut
+
+const rookLut = Array(64 * rookIndexSize);
+
+function initRookLut () {
+
+  for (let sq=0; sq < 64; sq++) {
+
+    let loMagic = loRookMagics[sq];
+    let hiMagic = hiRookMagics[sq];
+
+    const blockers = moveList_GetBlockers(sq, loRookMasks, hiRookMasks)
+
+    const loBlockers = blockers.lo;
+    const hiBlockers = blockers.hi;
+
+    for (let i=0; i < loBlockers.length; i++) {
+
+      const loBlocker = loBlockers[i];
+      const hiBlocker = hiBlockers[i];
+
+      const moveListEntry = moveList_FindBlocker(sq, rookMoveList, loBlocker, hiBlocker);
+
+      if (moveListEntry == -1)
+        console.log('blocker missing from move list');
+
+      const index = magicIndex(loBlocker, hiBlocker, loMagic, hiMagic, rookIndexBits);
+
+      if (index < 0 || index >= rookIndexSize)
+        console.log('index out of range', lutIndex);
+
+      rookLut[sq * rookIndexSize + index] = moveListEntry;
+    }
+  }
 }
 
 //}}}
@@ -535,12 +589,13 @@ function initBishopMoveList() {
       const hiBlocker = hiBlockers[i];
 
       const moves = initBishopMoveList_GetMoves (sq, loBlocker, hiBlocker)
-      const index = moveList_FindMoves(bishopMoveList, moves);
+      const index = moveList_FindMoves(sq, bishopMoveList, moves);
 
       if (index >= 0) {
         const entry = bishopMoveList[index];
         entry.loBlockers.push(loBlocker);
         entry.hiBlockers.push(hiBlocker);
+        entry.square = sq;
       }
 
       else {
@@ -549,6 +604,7 @@ function initBishopMoveList() {
         entry.moves = moves;
         entry.loBlockers.push(loBlocker);
         entry.hiBlockers.push(hiBlocker);
+        entry.square = sq;
       }
 
     }
@@ -560,8 +616,8 @@ function initBishopMoveList() {
 //}}}
 //{{{  findBishopMagics
 
-const bishopIndexBits = 11;
-const bishopIndexSize = 2048;
+const bishopIndexBits = 10;
+const bishopIndexSize = 1024;
 
 //const loBishopMagics = new Array(64);
 //const hiBishopMagics = new Array(64);
@@ -579,7 +635,7 @@ function findBishopMagics () {
     const loBlockers = blockers.lo;
     const hiBlockers = blockers.hi;
 
-    for (let t=0; t < 1000000; t++) {
+    for (let t=0; t < 10000000; t++) {
 
       lut.fill(-1);
 
@@ -595,7 +651,7 @@ function findBishopMagics () {
         const loBlocker = loBlockers[i];
         const hiBlocker = hiBlockers[i];
       
-        const moveListEntry = moveList_FindBlocker(bishopMoveList, loBlocker, hiBlocker);
+        const moveListEntry = moveList_FindBlocker(sq, bishopMoveList, loBlocker, hiBlocker);
       
         if (moveListEntry == -1)
           console.log('blocker missing from move list');
@@ -650,6 +706,43 @@ function logBishopMagics() {
     console.log(`  0x${hiBishopMagics[i].toString(16)},`);
   }
   console.log("];");
+}
+
+//}}}
+//{{{  initBishopLut
+
+const bishopLut = Array(64 * bishopIndexSize);
+
+function initBishopLut () {
+
+  for (let sq=0; sq < 64; sq++) {
+
+    let loMagic = loBishopMagics[sq];
+    let hiMagic = hiBishopMagics[sq];
+
+    const blockers = moveList_GetBlockers(sq, loBishopMasks, hiBishopMasks)
+
+    const loBlockers = blockers.lo;
+    const hiBlockers = blockers.hi;
+
+    for (let i=0; i < loBlockers.length; i++) {
+
+      const loBlocker = loBlockers[i];
+      const hiBlocker = hiBlockers[i];
+
+      const moveListEntry = moveList_FindBlocker(sq, bishopMoveList, loBlocker, hiBlocker);
+
+      if (moveListEntry == -1)
+        console.log('blocker missing from move list');
+
+      const index = magicIndex(loBlocker, hiBlocker, loMagic, hiMagic, bishopIndexBits);
+
+      if (index < 0 || index >= bishopIndexSize)
+        console.log('index out of range', lutIndex);
+
+      bishopLut[sq * bishopIndexSize + index] = moveListEntry;
+    }
+  }
 }
 
 //}}}
@@ -858,16 +951,30 @@ function uciExec(command) {
     
       position('8/8/k1b5/p7/8/2K5/8/R4N1r', 'w', '-', '-');
       printBoard()
+    
       setOccupied();
       console.log('occupied');
       printBitboard(loOccupied,hiOccupied);
+    
       console.log('rook mask sq 0');
       printBitboard(loRookMasks[0],hiRookMasks[0]);
-      console.log('bishop mask sq 20');
-      printBitboard(loBishopMasks[20],hiBishopMasks[20]);
     
-      console.log('r moves seqs',rookMoveList.length);
-      console.log('r moves seqs',bishopMoveList.length);
+      const lutIndex = magicIndex(loOccupied & loRookMasks[0],
+                                  hiOccupied & hiRookMasks[0],
+                                  loRookMagics[0],
+                                  hiRookMagics[0],
+                                  rookIndexBits);
+    
+      const moveListIndex = rookLut[lutIndex];
+      const moves = rookMoveList[moveListIndex].moves;
+    
+      console.log('rook lut index', lutIndex,
+                  'rook move index', moveListIndex,
+                  'move list entry sq', rookMoveList[moveListIndex].square,
+                  'num moves', moves.length);
+    
+      for (let i=0; i < moves.length; i++)
+        console.log((moves[i] >>> 6) & 0x3F, moves[i] & 0x3F);
     
       break;
     
@@ -889,6 +996,278 @@ function uciExec(command) {
 //}}}
 //{{{  initOnce
 
+//{{{  magics
+
+const loRookMagics = [
+  0x6e001461,
+  0xe2001152,
+  0xc6000866,
+  0x6000452,
+  0xb2003052,
+  0xbf8006cd,
+  0x6e005c22,
+  0xb5000ae7,
+  0xef2400a8,
+  0x50f0012e,
+  0xaec02020,
+  0xa03a040c,
+  0xdd910023,
+  0xfeafe01c,
+  0xf5e90033,
+  0xb14c408d,
+  0xb8595b80,
+  0x662ff008,
+  0x68700208,
+  0xcbcaa002,
+  0x76142404,
+  0xf90bb004,
+  0xf9ab400a,
+  0x62cb3ff1,
+  0x2d8f05b1,
+  0xd8d6afe,
+  0xc604165b,
+  0x12323d2a,
+  0xffc5fe4e,
+  0xde68dc2,
+  0x8c7954ec,
+  0x8a727d6a,
+  0xcb04e417,
+  0xd313eea0,
+  0x4f540201,
+  0x5f3a7ad0,
+  0x645673bd,
+  0x42084005,
+  0x652714ee,
+  0x5fad77a3,
+  0x2d612204,
+  0x828d225,
+  0xd1399219,
+  0x3c0e6,
+  0x13ffa34,
+  0x5a169d2e,
+  0xa1ebae8e,
+  0xa4052e29,
+  0x63abf7c2,
+  0x1a0441a0,
+  0x804514c1,
+  0xbd4fcc45,
+  0x8c575a0c,
+  0x5a7f1251,
+  0xc6bb6c4a,
+  0xbae84ec3,
+  0xdebf00c6,
+  0xc3341d0a,
+  0x6f77d186,
+  0xa1796f70,
+  0x9872241a,
+  0x92f5422c,
+  0x2f33a06f,
+  0x8ae5a2a7
+];
+
+const hiRookMagics = [
+  0xab089226,
+  0x9a99893a,
+  0x74e775ca,
+  0xc9a3080e,
+  0x8996c8a0,
+  0x6bcc2980,
+  0xd40994a,
+  0x3938b37e,
+  0xbd1e6c3b,
+  0x4b51ebd8,
+  0xcac60017,
+  0x52408013,
+  0xed924756,
+  0xe8d6c009,
+  0x17fbd79c,
+  0x4d488004,
+  0xfb83a341,
+  0x1694ce28,
+  0xba24ef18,
+  0x851eea92,
+  0x6c125f5a,
+  0xbbc781ab,
+  0xa3076df2,
+  0x3a879720,
+  0x1b5e2c48,
+  0x9b5a0dd8,
+  0x570a561f,
+  0x7850d233,
+  0x83342863,
+  0x1971e8ac,
+  0x8a522579,
+  0xd2949f4,
+  0xa0024845,
+  0xf6bffbec,
+  0xc27c9,
+  0x40127c,
+  0x3b001631,
+  0xd7c2a480,
+  0x5e001794,
+  0x95001766,
+  0x5de80089,
+  0x4f1dffeb,
+  0x1880149,
+  0xfe4a0006,
+  0x1b3c8009,
+  0xc107fdc,
+  0xf2420201,
+  0x25bff58,
+  0x78bad200,
+  0x2cc8f340,
+  0x650da900,
+  0x80ecc700,
+  0xd7d25f80,
+  0xfa18ef00,
+  0x7497280,
+  0xe24ee180,
+  0xe8d38062,
+  0xec84c7de,
+  0xa637cd76,
+  0xba3c2c39,
+  0x4cc27546,
+  0x25beaf29,
+  0x4eec3e9d,
+  0x14eec425
+];
+
+const loBishopMagics = [
+  0x99f2d81,
+  0xef504ea3,
+  0x2357766c,
+  0x201aa932,
+  0xf5d01442,
+  0xb9510a23,
+  0x2cead1e3,
+  0x5e0ed975,
+  0x5973e0c2,
+  0xc8d335c2,
+  0x3c123a7a,
+  0x2d57a8a9,
+  0xb8bdb6e7,
+  0x393b65fa,
+  0x85bacf57,
+  0x2a171c56,
+  0x751e8c82,
+  0x917735b3,
+  0x537efa30,
+  0x855c0426,
+  0xb27341c2,
+  0xbfda91a6,
+  0xefe43c17,
+  0x9c236905,
+  0xc15c84c1,
+  0xeef13a5e,
+  0x809d79c3,
+  0x275c2008,
+  0x1c24afd5,
+  0xdcb80304,
+  0x871af3b4,
+  0xce62c4dc,
+  0x8f5df2bc,
+  0x3e25bdb0,
+  0x95075910,
+  0xaf950218,
+  0xbda44404,
+  0xe6d21b5f,
+  0xa2028b3a,
+  0x434fb8a9,
+  0x361d349b,
+  0xc154b286,
+  0x37261f61,
+  0xc7e6f51d,
+  0x5dd9a0d9,
+  0x45d22310,
+  0x221017ea,
+  0x3ce28672,
+  0xcbe3d349,
+  0x2b2b5dda,
+  0x676ca015,
+  0x10581cb5,
+  0xd5403ba7,
+  0x1b681165,
+  0x6616b5d8,
+  0x98e6bf9e,
+  0x104c202c,
+  0x876684f4,
+  0x393f9881,
+  0xb8990058,
+  0xe3491f0e,
+  0xc97cd494,
+  0xca34e99e,
+  0x7efc6062
+];
+
+const hiBishopMagics = [
+  0xa8ede275,
+  0x7a92c056,
+  0xc3b7b8ae,
+  0xafa36ff6,
+  0xd0d843b8,
+  0x7e548afa,
+  0xaf1367b7,
+  0x63b71ee,
+  0x12d1f70c,
+  0x5547737a,
+  0x28ed1b02,
+  0x7c534849,
+  0x2f37114,
+  0x6919baf5,
+  0x796a5a31,
+  0x8b8ec150,
+  0x99e3fe93,
+  0x74eae933,
+  0x6932fde9,
+  0x637cf98,
+  0xf85ebddd,
+  0xa65f7260,
+  0xd9674c25,
+  0x3e81da4d,
+  0x24b4bb7d,
+  0x10db25ee,
+  0xfaf8236,
+  0xd0fcfd62,
+  0x8c004061,
+  0x21f46519,
+  0x6bafad0d,
+  0xba222416,
+  0x9467fed,
+  0x397758a8,
+  0xa0363ef4,
+  0xcfcc43b3,
+  0x60d21034,
+  0xce0cee59,
+  0x129f57ee,
+  0x5129c2ef,
+  0xae7aa3d7,
+  0xfaba75aa,
+  0xd89d0d0e,
+  0xf34edf39,
+  0x756dfa20,
+  0xdd6285dd,
+  0x1b6d4441,
+  0x852390d6,
+  0xef35f78f,
+  0x3022a444,
+  0xe45e86bf,
+  0x321b7cf9,
+  0xb05e4e1d,
+  0x47dff266,
+  0xf0be9566,
+  0x7d616166,
+  0x7dc8c40c,
+  0xe409389f,
+  0x498f9291,
+  0xfd065e2d,
+  0x102c3a50,
+  0xfad2b781,
+  0xbd7fbbc,
+  0x5c5b379c
+];
+
+//}}}
+
 function initOnce () {
 
   const t1 = performance.now();
@@ -899,286 +1278,16 @@ function initOnce () {
   initRookMoveList();
   initBishopMoveList();
 
-  //{{{  rook magics
-  
+  console.log(rookMoveList.length, bishopMoveList.length);
+
   //findRookMagics();
-  //logRookMagics();
-  
-  const loRookMagics = [
-    0x51c00046,
-    0x40024024,
-    0x48004762,
-    0x20fff29f,
-    0x2f0000f7,
-    0x4d800b8c,
-    0x8d000142,
-    0xa0fffcef,
-    0xe9e0040,
-    0xb36bff77,
-    0xa0981ff9,
-    0x245d8008,
-    0x4b96fbfc,
-    0x52003f7e,
-    0x1558b52e,
-    0x5ab0029d,
-    0x895780c0,
-    0xf734020,
-    0x5dfe601e,
-    0x4876001,
-    0xe3e95ffc,
-    0xd88b6801,
-    0xfa8057ff,
-    0xc106b801,
-    0x6893f66,
-    0xfe8699fb,
-    0x34e56b4a,
-    0x4b9b0285,
-    0x1a291971,
-    0xfef68d86,
-    0xd8eaead6,
-    0x2c821b2e,
-    0xe188dd08,
-    0x282acde9,
-    0xd1942030,
-    0xee48c778,
-    0x268aadb8,
-    0x8f169d22,
-    0x88baf93,
-    0xa8dca001,
-    0x6c48a5f0,
-    0x850ca01c,
-    0xe9cacb71,
-    0xb0904050,
-    0x116263ea,
-    0xcf388d74,
-    0xeffd2cc2,
-    0x695a9083,
-    0xb592bc41,
-    0x3822800c,
-    0x1acc2de1,
-    0xada04e11,
-    0xc660816,
-    0x35d0be4c,
-    0x57eb6de,
-    0xe996eec5,
-    0x7e3d609d,
-    0xd931465a,
-    0x6cf48a2,
-    0x2168b0ef,
-    0x7793f75f,
-    0xb9a8389d,
-    0x3c409e89,
-    0x147a16cb
-  ];
-  
-  const hiRookMagics = [
-    0x63130921,
-    0xe771ed47,
-    0xf84a1100,
-    0x810a442,
-    0x2fe9d814,
-    0x704e6a05,
-    0xa63f173,
-    0xba9e327a,
-    0x2928810a,
-    0xb64da001,
-    0x1899c340,
-    0x20ed8e0f,
-    0x89c1f637,
-    0x93a877d2,
-    0xd380800e,
-    0x2757f880,
-    0x361703d,
-    0x722d0c7c,
-    0x9db7cb80,
-    0x4aef914a,
-    0xfb3c5001,
-    0x5a44555e,
-    0x59698b2a,
-    0xe300fcfa,
-    0xa721b348,
-    0xe637b61e,
-    0xbcab3c9b,
-    0x9899b3c4,
-    0x595c13e3,
-    0xee62fc57,
-    0x71cdbe45,
-    0xc7f859c1,
-    0xeeffe6b6,
-    0x5a100102,
-    0xf009a07a,
-    0xdff973f3,
-    0x49000bcd,
-    0x4a1f3e06,
-    0x5b0015bf,
-    0xdb4b6f9e,
-    0x38882005,
-    0xd2d801f3,
-    0x5f050008,
-    0x57bc5750,
-    0x1b0a0009,
-    0x5e3f0054,
-    0xefff8206,
-    0x181ff7c,
-    0xaef74600,
-    0x84ebbc3b,
-    0x8e6caf00,
-    0x7b26025b,
-    0x759e9998,
-    0x976b2300,
-    0x693b6700,
-    0x756c2700,
-    0x3808829e,
-    0x56368bbe,
-    0xfb6d5b3a,
-    0xfe0c767f,
-    0x402db043,
-    0x5caf0cc7,
-    0xc605572d,
-    0x501e8e55
-  ];
-  
-  //}}}
-  //{{{  bishop magics
-  
   //findBishopMagics();
+
+  //logRookMagics();
   //logBishopMagics();
-  
-  const loBishopMagics = [
-    0x99f2d81,
-    0xef504ea3,
-    0x2357766c,
-    0x201aa932,
-    0xf5d01442,
-    0xb9510a23,
-    0x2cead1e3,
-    0x5e0ed975,
-    0x5973e0c2,
-    0xc8d335c2,
-    0x3c123a7a,
-    0x2d57a8a9,
-    0xb8bdb6e7,
-    0x393b65fa,
-    0x85bacf57,
-    0x2a171c56,
-    0x751e8c82,
-    0x917735b3,
-    0xabda89f7,
-    0x6f2af5f9,
-    0xbdfdbc34,
-    0x27c3fa3a,
-    0xd54dd13c,
-    0x4ab9fdcd,
-    0x628b0aaa,
-    0xc62a843d,
-    0xda94022,
-    0x41e10042,
-    0x12ba0200,
-    0x4f9c0c0b,
-    0x72658271,
-    0xcc09be38,
-    0x535c07ad,
-    0xd8597783,
-    0xc92af131,
-    0x218b0101,
-    0xeaa40144,
-    0x8508b04d,
-    0xca2babaa,
-    0x149262fb,
-    0x6e57e436,
-    0x95106a1a,
-    0x3515c7b8,
-    0xc95ddd24,
-    0xac8c0267,
-    0x2e42d3cb,
-    0x936c6dc9,
-    0xb3f6a83a,
-    0x506cf5ed,
-    0xf0680bc9,
-    0x636b2de4,
-    0x855c138e,
-    0xdad1b60a,
-    0xda93e397,
-    0x4d54ded5,
-    0x659ba305,
-    0xfe7d86a8,
-    0x2dc3c9ae,
-    0x235ca3ce,
-    0xc44354d1,
-    0xe8572559,
-    0xbfa2a147,
-    0x5d9ba072,
-    0x3c1f9592
-  ];
-  
-  const hiBishopMagics = [
-    0xa8ede275,
-    0x7a92c056,
-    0xc3b7b8ae,
-    0xafa36ff6,
-    0xd0d843b8,
-    0x7e548afa,
-    0xaf1367b7,
-    0x63b71ee,
-    0x12d1f70c,
-    0x5547737a,
-    0x28ed1b02,
-    0x7c534849,
-    0x2f37114,
-    0x6919baf5,
-    0x796a5a31,
-    0x8b8ec150,
-    0x99e3fe93,
-    0x74eae933,
-    0x80145755,
-    0x1f67d28c,
-    0x2366b2c3,
-    0x572457dd,
-    0xf3fcc8aa,
-    0x88047a46,
-    0xe5c64a81,
-    0xc9834d5d,
-    0x291133cc,
-    0x376a71f8,
-    0x2fb67eeb,
-    0xc17106d4,
-    0x37c6c0a7,
-    0xca713686,
-    0x9f0f848e,
-    0x9720500c,
-    0x41af6598,
-    0x12a82308,
-    0x4fb0501b,
-    0x7f60faf,
-    0xbd08f017,
-    0x4d0bb2bc,
-    0x417886ea,
-    0x1ade6279,
-    0xf3a79ff0,
-    0xc3e645e,
-    0xdb0f2e86,
-    0xffcfcfb5,
-    0x6a7b3cd8,
-    0x50e4ba7b,
-    0x8bb086e3,
-    0xb055b11e,
-    0x832e97fb,
-    0x8c4454ee,
-    0xc858d024,
-    0xd28d6b3f,
-    0x438b9429,
-    0xfc062897,
-    0x117d5396,
-    0x604cb7,
-    0x157d76d9,
-    0x4d8202f8,
-    0xf7ac57e3,
-    0x3676dc9c,
-    0xd58eb35a,
-    0x1da6c972
-  ];
-  
-  //}}}
+
+  initRookLut();
+  initBishopLut();
 
   const t2 = performance.now();
   const d = t2 - t1;
