@@ -1,24 +1,9 @@
 
-NODE := $(shell which node)
-EXE = lozzaexe
-SRC = lozza.js
+SRC = lozza.macro
+TGT = lozza.js
 
-.PHONY: all clean
 
-all: $(EXE)
-
-$(EXE): $(SRC)
-	@if [ -z "$(NODE)" ]; then \
-		echo "Node not found"; \
-		exit 1; \
-	fi
-	@echo "#!$(NODE)" > $(EXE)
-	@cat $(SRC) >> $(EXE)
-	@chmod +x $(EXE)
-
+$(TGT): $(SRC)
+	cpp -P $(SRC) -o $(TGT)
 clean:
-	rm -f $(EXE)
-
-
-
-
+	rm -f $(TGT)
