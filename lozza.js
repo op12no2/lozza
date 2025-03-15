@@ -9,8 +9,9 @@ const BUILD = "5";
 
 /*
 
+- Increase beta pruning.
 - Simplify phase away.
-- Seal object to trap accidental property additions (there were 4).
+- Seal objects to catch accidental property additions (there were 4).
 - Use >= when checking for time up.
 - Various minor optimisations.
 
@@ -1562,7 +1563,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   //}}}
   //{{{  beta prune
   
-  if (doBeta && depth <= 4 && (ev - Math.imul(depth,200)) >= beta)
+  if (doBeta && depth <= 8 && (ev - Math.imul(depth,100)) >= beta)
     return ev;
   
   //}}}
