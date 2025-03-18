@@ -3,13 +3,14 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "5";
+const BUILD = "6";
 
 //{{{  history
 
 /*
 
-- Increase beta pruning.
+- Use improving in NMP.
+- More aggressive beta pruning.
 - Simplify phase away.
 - Seal objects to catch accidental property additions (there were 4).
 - Use >= when checking for time up.
@@ -1547,18 +1548,18 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   
   var improving = 0;
   
-  //if (!inCheck) {
-    //const n2 = node.grandparentNode;
-    //if (n2) {
-      //if (!n2.inCheck && ev > n2.ev)
-        //improving = 1;
-      //else {
-        //const n4 = n2.grandparentNode;
-        //if (n4 && !n4.inCheck && ev > n4.ev)
-          //improving = 1;
-      //}
-    //}
-  //}
+  if (!inCheck) {
+    const n2 = node.grandparentNode;
+    if (n2) {
+      if (!n2.inCheck && ev > n2.ev)
+        improving = 1;
+      else if (n2.inCheck) {
+        const n4 = n2.grandparentNode;
+        if (n4 && !n4.inCheck && ev > n4.ev)
+          improving = 1;
+      }
+    }
+  }
   
   //}}}
   //{{{  beta prune
@@ -1585,9 +1586,9 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
   // Use .childNode to make sure killers are aligned.
   //
   
-  R = 3;
+  R = 3 + improving;
   
-  if (doBeta && depth > 2 && ev > (beta - improving * 0)) {  // hack
+  if (doBeta && depth > 2 && ev > beta) {  // hack
   
     board.loHash ^= board.loEP[board.ep];
     board.hiHash ^= board.hiEP[board.ep];
