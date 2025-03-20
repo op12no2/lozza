@@ -9,6 +9,8 @@ const BUILD = "6";
 
 /*
 
+- Limit history and move ranks to uint32.
+- Fix bug in RANK2W/B tables.
 - Use improving in NMP.
 - More aggressive beta pruning.
 - Simplify phase away.
@@ -54,6 +56,11 @@ const BENCH_DEPTH      = 9;
 //}}}
 //{{{  constants
 
+const INT32_MAX =  2147483647;
+const INT32_MIN = -2147483648;
+
+const UINT32_MAX = 4294967295;
+
 const NET_QA      = 255;
 const NET_QB      = 64;
 const NET_QAB     = NET_QA * NET_QB;
@@ -95,20 +102,18 @@ const TT_EXACT = 1;
 const TT_BETA  = 2;
 const TT_ALPHA = 3;
 
-//                                      killer?
-
-const BASE_HASH       =  40000012000;  // no //hack
-const BASE_PROMOTES   =  40000011000;  // no
-const BASE_GOODTAKES  =  40000010000;  // no
-const BASE_EVENTAKES  =  40000009000;  // no
-const BASE_EPTAKES    =  40000008000;  // no
-const BASE_MATEKILLER =  40000007000;
-const BASE_MYKILLERS  =  40000006000;
-const BASE_GPKILLERS  =  40000005000;
-const BASE_CASTLING   =  40000004000;  // yes
-const BASE_BADTAKES   =  40000003000;  // yes
-const BASE_HISSLIDE   =  20000002000;  // yes
-const BASE_PSTSLIDE   =         1000;  // yes
+const BASE_HASH       = UINT32_MAX;
+const BASE_PROMOTES   = BASE_HASH       - 100;
+const BASE_GOODTAKES  = BASE_PROMOTES   - 1000;
+const BASE_EVENTAKES  = BASE_GOODTAKES  - 1000;
+const BASE_EPTAKES    = BASE_EVENTAKES  - 100;
+const BASE_MATEKILLER = BASE_EPTAKES    - 100;
+const BASE_MYKILLERS  = BASE_MATEKILLER - 100;
+const BASE_GPKILLERS  = BASE_MYKILLERS  - 100;
+const BASE_CASTLING   = BASE_GPKILLERS  - 100;
+const BASE_BADTAKES   = BASE_CASTLING   - 1000;
+const BASE_HISSLIDE   = UINT32_MAX >>> 1;
+const BASE_PSTSLIDE   = 100;
 
 const BASE_LMR = BASE_BADTAKES;
 
@@ -406,6 +411,8 @@ const UMAP = Object.seal({
 
 const RANK2W = new Uint8Array([0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
                                0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+                               0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
+                               0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
                                0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
                                0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
                                0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
@@ -423,6 +430,8 @@ const RANK2B = new Uint8Array([0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
                                0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
                                0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
                                0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
+                               0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
+                               0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
                                0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
                                0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0]);
 
@@ -1053,7 +1062,7 @@ function lozChess () {
   // The corresponding array of NET_H1_SIZE weights will be pointed to
   // by board.net_h1_w[index] and board.net_h2_w[index] for the flipped
   // accumulator. There is only one set of weights; board.net_h1_w and
-  // board.net_h2_w just point in different directions as needed. See
+  // board.net_h2_w just points in different directions as needed. See
   // also board.netLoad().
   //
   
@@ -2174,13 +2183,13 @@ function lozBoard () {
   this.wCount  = 0; //hack join
   this.bCount  = 0;
 
-  this.wHistory = Array(7) // hack flatten, use typed arrays and technique to limit counts on cpw
+  this.wHistory = Array(7) // hack flatten
   for (var i=0; i < 7; i++)
-    this.wHistory[i] = Array(144).fill(0);
+    this.wHistory[i] = new Uint32Array(144);
 
   this.bHistory = Array(7)
   for (var i=0; i < 7; i++)
-    this.bHistory[i] = Array(144).fill(0);
+    this.bHistory[i] = new Uint32Array(144);
 
   this.objHistory = Array(15).fill([]);
 
@@ -2205,14 +2214,12 @@ function lozBoard () {
 
 lozBoard.prototype.init = function () {
 
-  for (var i=0; i < this.b.length; i++)
-    this.b[i] = EDGE;
+  this.b.fill(EDGE);
 
   for (var i=0; i < B88.length; i++)
     this.b[B88[i]] = NULL;
 
-  for (var i=0; i < this.z.length; i++)
-    this.z[i] = NO_Z;
+  this.z.fill(NO_Z);
 
   this.loHash = 0;
   this.hiHash = 0;
@@ -2220,20 +2227,14 @@ lozBoard.prototype.init = function () {
   this.repLo = 0;
   this.repHi = 0;
 
-  for (var i=0; i < this.wCounts.length; i++)
-    this.wCounts[i] = 0;
-
-  for (var i=0; i < this.bCounts.length; i++)
-    this.bCounts[i] = 0;
+  this.wCounts.fill(0);
+  this.bCounts.fill(0);
 
   this.wCount = 0;
   this.bCount = 0;
 
-  for (var i=0; i < this.wList.length; i++)
-    this.wList[i] = EMPTY;
-
-  for (var i=0; i < this.bList.length; i++)
-    this.bList[i] = EMPTY;
+  this.wList.fill(EMPTY);
+  this.bList.fill(EMPTY);
 
   if (lozzaHost == HOST_WEB)
     this.mvFmt = SAN_FMT;
@@ -2360,10 +2361,10 @@ lozBoard.prototype.position = function () {
   this.netUpdate();
 
   for (let i=0; i < 7; i++)
-    this.wHistory[i].fill(0);
+    this.wHistory[i].fill(BASE_HISSLIDE);
 
   for (let i=0; i < 7; i++)
-    this.bHistory[i].fill(0);
+    this.bHistory[i].fill(BASE_HISSLIDE);
 
   return 1;
 }
@@ -4482,12 +4483,7 @@ function lozNode (parentNode) {
     this.grandparentNode = null;
 
   this.moves = new Uint32Array(MAX_MOVES);
-  this.ranks = new Array(MAX_MOVES); //hack use typed but need better (smaller) ranks
-
-  for (var i=0; i < MAX_MOVES; i++) {
-    this.moves[i] = 0;
-    this.ranks[i] = 0;
-  }
+  this.ranks = new Uint32Array(MAX_MOVES);
 
   this.killer1     = 0;
   this.killer2     = 0;
@@ -4593,20 +4589,21 @@ lozNode.prototype.uncacheB = function() {
 
 lozNode.prototype.getNextMove = function () {
 
-  if (this.sortedIndex == this.numMoves)
+  if (this.sortedIndex == this.numMoves) {
     return 0;
+  }
 
   var maxR = -INFINITY;
   var maxI = 0;
 
-  for (var i=this.sortedIndex; i < this.numMoves; i++) {
+  for (let i=this.sortedIndex; i < this.numMoves; i++) {
     if (this.ranks[i] > maxR) {
       maxR = this.ranks[i];
       maxI = i;
     }
   }
 
-  var maxM = this.moves[maxI]
+  const maxM = this.moves[maxI]
 
   this.moves[maxI] = this.moves[this.sortedIndex];
   this.ranks[maxI] = this.ranks[this.sortedIndex];
@@ -4670,11 +4667,11 @@ lozNode.prototype.slideBase = function (move) {
       var his = this.board.bHistory[frPiece][to];
     }
 
-    if (!his)
+    if (his == BASE_HISSLIDE)
       return BASE_PSTSLIDE + pst[to] - pst[fr];
 
     else
-      return BASE_HISSLIDE + his;
+      return his;
 }
 
 //}}}
