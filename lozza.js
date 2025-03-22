@@ -9,6 +9,9 @@ const BUILD = "6";
 
 /*
 
+- Simplify node.slideBase().
+- More use of typed arrays.
+- Flatten IMAP, history and piece Zobrists .
 - Limit history and move ranks to uint32.
 - Fix bug in RANK2W/B tables.
 - Use improving in NMP.
@@ -68,7 +71,7 @@ const NET_SCALE   = 400;
 const NET_I_SIZE  = 768;
 const NET_H1_SIZE = 128;
 
-const IMAP = Array(16); //hack
+const IMAP = new Uint32Array(15 * 256);
 
 const MATERIAL = new Int32Array([0,100,394,388,588,1207,10000]);  // hack simplify this away
 const ADJACENT = new Uint8Array([1,1,0,0,0,0,0,0,0,0,0,1,1,1]);
@@ -113,7 +116,7 @@ const BASE_GPKILLERS  = BASE_MYKILLERS  - 100;
 const BASE_CASTLING   = BASE_GPKILLERS  - 100;
 const BASE_BADTAKES   = BASE_CASTLING   - 1000;
 const BASE_HISSLIDE   = UINT32_MAX >>> 1;
-const BASE_PSTSLIDE   = 100;
+const BASE_SLIDE      = 100;
 
 const BASE_LMR = BASE_BADTAKES;
 
@@ -281,9 +284,9 @@ const OFFSETS = [ALL_OFFSETS,
                  BISHOP_OFFSETS,
                  ROOK_OFFSETS,
                  QUEEN_OFFSETS,
-                 KING_OFFSETS]; //hack flatten
+                 KING_OFFSETS];
 
-const LIMITS = new Int8Array([0,1,1,8,8,8,1]);            //hack flatten
+const LIMITS = new Int8Array([0,1,1,8,8,8,1]);
 
 const RANK_VECTOR = new Uint8Array([0,1,2,2,4,5,6]);  // for move sorting
 
@@ -448,8 +451,11 @@ const CENTRE = new Uint8Array([0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
                                0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
                                0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0]);
 
-const WMOVE = [NULL144, RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE]; //hack simplify
-const BMOVE = [NULL144, RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE];
+const SLIDE_SCORES = [NULL144,
+                      RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
+                      NULL144,
+                      NULL144,
+                      RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE];
 
 //{{{  ALIGNED
 //hack flatten
@@ -1055,42 +1061,24 @@ function lozChess () {
   
   //}}}
   //{{{  init IMAP
-  //
-  // In Lozza an 'object' is a piece of either colour.
-  //
-  // IMAP is used to lookup a [0,767] index from an (object,square) pair.
-  // The corresponding array of NET_H1_SIZE weights will be pointed to
-  // by board.net_h1_w[index] and board.net_h2_w[index] for the flipped
-  // accumulator. There is only one set of weights; board.net_h1_w and
-  // board.net_h2_w just points in different directions as needed. See
-  // also board.netLoad().
-  //
   
-  //hack flatten
-  
-  for (var i=0; i < 16; i++) {
-    IMAP[i] = Array(144).fill(0);
-  }
-  
-  for (var i=0; i < 64; i++) {
+  for (let i = 0; i < 64; i++) {
   
     const j = B88[i];
   
-    IMAP[0][j] = NET_I_SIZE;
+    IMAP[(W_PAWN << 8) + j]    =   0 + (PAWN-1)   * 64 + i;
+    IMAP[(W_KNIGHT << 8) + j]  =   0 + (KNIGHT-1) * 64 + i;
+    IMAP[(W_BISHOP << 8) + j]  =   0 + (BISHOP-1) * 64 + i;
+    IMAP[(W_ROOK << 8) + j]    =   0 + (ROOK-1)   * 64 + i;
+    IMAP[(W_QUEEN << 8) + j]   =   0 + (QUEEN-1)  * 64 + i;
+    IMAP[(W_KING << 8) + j]    =   0 + (KING-1)   * 64 + i;
   
-    IMAP[W_PAWN][j]   =   0 + (PAWN-1)   * 64 + i;
-    IMAP[W_KNIGHT][j] =   0 + (KNIGHT-1) * 64 + i;
-    IMAP[W_BISHOP][j] =   0 + (BISHOP-1) * 64 + i;
-    IMAP[W_ROOK][j]   =   0 + (ROOK-1)   * 64 + i;
-    IMAP[W_QUEEN][j]  =   0 + (QUEEN-1)  * 64 + i;
-    IMAP[W_KING][j]   =   0 + (KING-1)   * 64 + i;
-  
-    IMAP[B_PAWN][j]   = 384 + (PAWN-1)   * 64 + i;
-    IMAP[B_KNIGHT][j] = 384 + (KNIGHT-1) * 64 + i;
-    IMAP[B_BISHOP][j] = 384 + (BISHOP-1) * 64 + i;
-    IMAP[B_ROOK][j]   = 384 + (ROOK-1)   * 64 + i;
-    IMAP[B_QUEEN][j]  = 384 + (QUEEN-1)  * 64 + i;
-    IMAP[B_KING][j]   = 384 + (KING-1)   * 64 + i;
+    IMAP[(B_PAWN << 8) + j]    = 384 + (PAWN-1)   * 64 + i;
+    IMAP[(B_KNIGHT << 8) + j]  = 384 + (KNIGHT-1) * 64 + i;
+    IMAP[(B_BISHOP << 8) + j]  = 384 + (BISHOP-1) * 64 + i;
+    IMAP[(B_ROOK << 8) + j]    = 384 + (ROOK-1)   * 64 + i;
+    IMAP[(B_QUEEN << 8) + j]   = 384 + (QUEEN-1)  * 64 + i;
+    IMAP[(B_KING << 8) + j]    = 384 + (KING-1)   * 64 + i;
   }
   
   //}}}
@@ -2030,8 +2018,8 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 
 function lozBoard () {
 
-  this.net_h1_w = new Array(NET_I_SIZE + 1);       // us  hack flatten
-  this.net_h2_w = new Array(NET_I_SIZE + 1);       // them hack flatten
+  this.net_h1_w = new Array(NET_I_SIZE);       // us
+  this.net_h2_w = new Array(NET_I_SIZE);       // them
   this.net_h1_b = new Int32Array(NET_H1_SIZE);
   this.net_o_w  = new Int32Array(NET_H1_SIZE*2);
   this.net_o_b  = 0;
@@ -2040,16 +2028,12 @@ function lozBoard () {
     this.net_h1_w[i] = new Int32Array(NET_H1_SIZE);
   }
 
-  this.net_h1_w[NET_I_SIZE] = new Int32Array(NET_H1_SIZE).fill(0);
-
   for (let i=0; i < NET_I_SIZE; i++) {
     this.net_h2_w[i] = this.net_h1_w[flipIndex(i)];
   }
 
-  this.net_h2_w[NET_I_SIZE] = this.net_h1_w[NET_I_SIZE];
-
   this.ueFunc = myround;
-  this.ueArgs = Array(6);
+  this.ueArgs = new Uint8Array(6);
 
   this.verbose  = false;
   this.mvFmt    = 0;
@@ -2061,7 +2045,7 @@ function lozBoard () {
   this.wList = new Uint8Array(16); // list of squares with white pieces  // hack join together
   this.bList = new Uint8Array(16); // list of squares with black pieces
 
-  this.cxList = [this.wList, this.bList]; // hack join not do this
+  this.wbList = [this.wList, this.bList]; // hack join not do this
 
   this.rights   = 0;
   this.ep       = 0;
@@ -2069,23 +2053,19 @@ function lozBoard () {
   this.repHi    = 0;
   this.loHash   = 0;
   this.hiHash   = 0;
+
   this.net_h1_a = new Int32Array(NET_H1_SIZE);
   this.net_h2_a = new Int32Array(NET_H1_SIZE);
 
-  this.net_a = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]]; // hack flatten
+  this.net_a = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]];
 
-  //
-  // Use separate typed arrays to save space.  Optimiser probably has a go anyway but
-  // better to be explicit at the expense of some conversion.  Total width is 16 bytes.
-  //
-
-  this.ttLo      = new Int32Array(TTSIZE);
-  this.ttHi      = new Int32Array(TTSIZE);
-  this.ttType    = new Uint8Array(TTSIZE);
-  this.ttDepth   = new Int8Array(TTSIZE);   // allow -ve depths but currently not used for q
-  this.ttMove    = new Uint32Array(TTSIZE); // see constants for structure
-  this.ttEval    = new Int16Array(TTSIZE);
-  this.ttScore   = new Int16Array(TTSIZE);
+  this.ttLo    = new Int32Array(TTSIZE);
+  this.ttHi    = new Int32Array(TTSIZE);
+  this.ttType  = new Uint8Array(TTSIZE);
+  this.ttDepth = new Int8Array(TTSIZE);   // allow -ve depths but currently not used for q
+  this.ttMove  = new Uint32Array(TTSIZE); // see constants for structure
+  this.ttEval  = new Int16Array(TTSIZE);
+  this.ttScore = new Int16Array(TTSIZE);
 
   this.turn = 0;
 
@@ -2097,58 +2077,28 @@ function lozBoard () {
   //}}}
   //{{{  Zobrist pieces
   
-  //hack flatten
+  this.loObjPieces = new Int32Array(15 * 256);
+  this.hiObjPieces = new Int32Array(15 * 256);
   
-  this.loPieces = Array(2);
-  for (var i=0; i < 2; i++) {
-    this.loPieces[i] = Array(6);
-    for (var j=0; j < 6; j++) {
-      this.loPieces[i][j] = new Int32Array(144);
-      for (var k=0; k < 144; k++)
-        this.loPieces[i][j][k] = this.rand32();
+  for (let i = 0; i < 15; i++) {
+    if (i == 0) continue;
+    if (i == 7) continue;
+    if (i == 8) continue;
+    for (let j = 0; j < 144; j++) {
+      this.loObjPieces[(i << 8) + j] = this.rand32();
     }
   }
   
-  this.hiPieces = Array(2);
-  for (var i=0; i < 2; i++) {
-    this.hiPieces[i] = Array(6);
-    for (var j=0; j < 6; j++) {
-      this.hiPieces[i][j] = new Int32Array(144);
-      for (var k=0; k < 144; k++)
-        this.hiPieces[i][j][k] = this.rand32();
+  for (let i = 0; i < 15; i++) {
+    if (i == 0) continue;
+    if (i == 7) continue;
+    if (i == 8) continue;
+    for (let j = 0; j < 144; j++) {
+      this.hiObjPieces[(i << 8) + j] = this.rand32();
     }
   }
   
-  this.loObjPieces = Array(15).fill([]);
-  this.hiObjPieces = Array(15).fill([]);
-  
-  this.loObjPieces[W_PAWN]   = this.loPieces[I_WHITE][PAWN-1];
-  this.loObjPieces[W_KNIGHT] = this.loPieces[I_WHITE][KNIGHT-1];
-  this.loObjPieces[W_BISHOP] = this.loPieces[I_WHITE][BISHOP-1];
-  this.loObjPieces[W_ROOK]   = this.loPieces[I_WHITE][ROOK-1];
-  this.loObjPieces[W_QUEEN]  = this.loPieces[I_WHITE][QUEEN-1];
-  this.loObjPieces[W_KING]   = this.loPieces[I_WHITE][KING-1];
-  
-  this.hiObjPieces[W_PAWN]   = this.hiPieces[I_WHITE][PAWN-1];
-  this.hiObjPieces[W_KNIGHT] = this.hiPieces[I_WHITE][KNIGHT-1];
-  this.hiObjPieces[W_BISHOP] = this.hiPieces[I_WHITE][BISHOP-1];
-  this.hiObjPieces[W_ROOK]   = this.hiPieces[I_WHITE][ROOK-1];
-  this.hiObjPieces[W_QUEEN]  = this.hiPieces[I_WHITE][QUEEN-1];
-  this.hiObjPieces[W_KING]   = this.hiPieces[I_WHITE][KING-1];
-  
-  this.loObjPieces[B_PAWN]   = this.loPieces[I_BLACK][PAWN-1];
-  this.loObjPieces[B_KNIGHT] = this.loPieces[I_BLACK][KNIGHT-1];
-  this.loObjPieces[B_BISHOP] = this.loPieces[I_BLACK][BISHOP-1];
-  this.loObjPieces[B_ROOK]   = this.loPieces[I_BLACK][ROOK-1];
-  this.loObjPieces[B_QUEEN]  = this.loPieces[I_BLACK][QUEEN-1];
-  this.loObjPieces[B_KING]   = this.loPieces[I_BLACK][KING-1];
-  
-  this.hiObjPieces[B_PAWN]   = this.hiPieces[I_BLACK][PAWN-1];
-  this.hiObjPieces[B_KNIGHT] = this.hiPieces[I_BLACK][KNIGHT-1];
-  this.hiObjPieces[B_BISHOP] = this.hiPieces[I_BLACK][BISHOP-1];
-  this.hiObjPieces[B_ROOK]   = this.hiPieces[I_BLACK][ROOK-1];
-  this.hiObjPieces[B_QUEEN]  = this.hiPieces[I_BLACK][QUEEN-1];
-  this.hiObjPieces[B_KING]   = this.hiPieces[I_BLACK][KING-1];
+  // hack simplify and sprt
   
   //}}}
   //{{{  Zobrist rights
@@ -2183,29 +2133,7 @@ function lozBoard () {
   this.wCount  = 0; //hack join
   this.bCount  = 0;
 
-  this.wHistory = Array(7) // hack flatten
-  for (var i=0; i < 7; i++)
-    this.wHistory[i] = new Uint32Array(144);
-
-  this.bHistory = Array(7)
-  for (var i=0; i < 7; i++)
-    this.bHistory[i] = new Uint32Array(144);
-
-  this.objHistory = Array(15).fill([]);
-
-  this.objHistory[W_PAWN]   = this.wHistory[W_PAWN];
-  this.objHistory[W_KNIGHT] = this.wHistory[W_KNIGHT];
-  this.objHistory[W_BISHOP] = this.wHistory[W_BISHOP];
-  this.objHistory[W_ROOK]   = this.wHistory[W_ROOK];
-  this.objHistory[W_QUEEN]  = this.wHistory[W_QUEEN];
-  this.objHistory[W_KING]   = this.wHistory[W_KING];
-
-  this.objHistory[B_PAWN]   = this.bHistory[W_PAWN];    // sic
-  this.objHistory[B_KNIGHT] = this.bHistory[W_KNIGHT];
-  this.objHistory[B_BISHOP] = this.bHistory[W_BISHOP];
-  this.objHistory[B_ROOK]   = this.bHistory[W_ROOK];
-  this.objHistory[B_QUEEN]  = this.bHistory[W_QUEEN];
-  this.objHistory[B_KING]   = this.bHistory[W_KING];
+  this.objHistory = new Uint32Array(15 * 256);
 
 }
 
@@ -2321,8 +2249,8 @@ lozBoard.prototype.position = function () {
           this.bCount++;
         }
   
-        this.loHash ^= this.loObjPieces[obj][sq];
-        this.hiHash ^= this.hiObjPieces[obj][sq];
+        this.loHash ^= this.loObjPieces[(obj << 8) + sq];
+        this.hiHash ^= this.hiObjPieces[(obj << 8) + sq];
   
         sq++;
       }
@@ -2360,11 +2288,7 @@ lozBoard.prototype.position = function () {
   this.compact();
   this.netUpdate();
 
-  for (let i=0; i < 7; i++)
-    this.wHistory[i].fill(BASE_HISSLIDE);
-
-  for (let i=0; i < 7; i++)
-    this.bHistory[i].fill(BASE_HISSLIDE);
+  this.objHistory.fill(BASE_HISSLIDE);
 
   return 1;
 }
@@ -3034,7 +2958,6 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
   const frPiece = frObj & PIECE_MASK;
   const frCol   = frObj & COLOR_MASK;
-  const frColI  = frCol >>> 3;
 
   //{{{  slide piece
   
@@ -3047,19 +2970,13 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   z[fr] = NO_Z;
   z[to] = node.frZ;
   
-  this.loHash ^= this.loObjPieces[frObj][fr];
-  this.hiHash ^= this.hiObjPieces[frObj][fr];
+  this.loHash ^= this.loObjPieces[(frObj << 8) + fr];
+  this.hiHash ^= this.hiObjPieces[(frObj << 8) + fr];
   
-  this.loHash ^= this.loObjPieces[frObj][to];
-  this.hiHash ^= this.hiObjPieces[frObj][to];
+  this.loHash ^= this.loObjPieces[(frObj << 8) + to];
+  this.hiHash ^= this.hiObjPieces[(frObj << 8) + to];
   
-  if (frCol == WHITE) {
-    this.wList[node.frZ] = to;
-  }
-  
-  else {
-    this.bList[node.frZ] = to;
-  }
+  this.wbList[frCol >>> 3][node.frZ] = to;
   
   //}}}
   //{{{  clear rights?
@@ -3082,10 +2999,9 @@ lozBoard.prototype.makeMoveA = function (node,move) {
   
     const toPiece = toObj & PIECE_MASK;
     const toCol   = toObj & COLOR_MASK;
-    const toColI  = toCol >>> 3;
   
-    this.loHash ^= this.loObjPieces[toObj][to];
-    this.hiHash ^= this.hiObjPieces[toObj][to];
+    this.loHash ^= this.loObjPieces[(toObj << 8) + to];
+    this.hiHash ^= this.hiObjPieces[(toObj << 8) + to];
   
     if (toCol == WHITE) {
   
@@ -3163,8 +3079,8 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.bList[node.epZ] = EMPTY;
     
-        this.loHash ^= this.loObjPieces[B_PAWN][ep];
-        this.hiHash ^= this.hiObjPieces[B_PAWN][ep];
+        this.loHash ^= this.loObjPieces[(B_PAWN << 8) + ep];
+        this.hiHash ^= this.hiObjPieces[(B_PAWN << 8) + ep];
     
         this.bCounts[PAWN]--;
         this.bCount--;
@@ -3177,10 +3093,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.netPrepare(this.netPromote,W_PAWN,fr,to,toObj,pro|WHITE,0);
     
-        this.loHash ^= this.loObjPieces[W_PAWN][to];
-        this.hiHash ^= this.hiObjPieces[W_PAWN][to];
-        this.loHash ^= this.loObjPieces[WHITE|pro][to];
-        this.hiHash ^= this.hiObjPieces[WHITE|pro][to];
+        this.loHash ^= this.loObjPieces[(W_PAWN << 8) + to];
+        this.hiHash ^= this.hiObjPieces[(W_PAWN << 8) + to];
+        this.loHash ^= this.loObjPieces[((WHITE|pro) << 8) + to];
+        this.hiHash ^= this.hiObjPieces[((WHITE|pro) << 8) + to];
     
         this.wCounts[PAWN]--;
         this.wCounts[pro]++;
@@ -3198,10 +3114,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.wList[z[F1]] = F1;
     
-        this.loHash ^= this.loObjPieces[W_ROOK][H1];
-        this.hiHash ^= this.hiObjPieces[W_ROOK][H1];
-        this.loHash ^= this.loObjPieces[W_ROOK][F1];
-        this.hiHash ^= this.hiObjPieces[W_ROOK][F1];
+        this.loHash ^= this.loObjPieces[(W_ROOK << 8) + H1];
+        this.hiHash ^= this.hiObjPieces[(W_ROOK << 8) + H1];
+        this.loHash ^= this.loObjPieces[(W_ROOK << 8) + F1];
+        this.hiHash ^= this.hiObjPieces[(W_ROOK << 8) + F1];
     
       }
     
@@ -3216,10 +3132,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.wList[z[D1]] = D1;
     
-        this.loHash ^= this.loObjPieces[W_ROOK][A1];
-        this.hiHash ^= this.hiObjPieces[W_ROOK][A1];
-        this.loHash ^= this.loObjPieces[W_ROOK][D1];
-        this.hiHash ^= this.hiObjPieces[W_ROOK][D1];
+        this.loHash ^= this.loObjPieces[(W_ROOK << 8) + A1];
+        this.hiHash ^= this.hiObjPieces[(W_ROOK << 8) + A1];
+        this.loHash ^= this.loObjPieces[(W_ROOK << 8) + D1];
+        this.hiHash ^= this.hiObjPieces[(W_ROOK << 8) + D1];
     
       }
     }
@@ -3251,8 +3167,8 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.wList[node.epZ] = EMPTY;
     
-        this.loHash ^= this.loObjPieces[W_PAWN][ep];
-        this.hiHash ^= this.hiObjPieces[W_PAWN][ep];
+        this.loHash ^= this.loObjPieces[(W_PAWN << 8) + ep];
+        this.hiHash ^= this.hiObjPieces[(W_PAWN << 8) + ep];
     
         this.wCounts[PAWN]--;
         this.wCount--;
@@ -3265,10 +3181,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.netPrepare(this.netPromote,B_PAWN,fr,to,toObj,pro|BLACK,0);
     
-        this.loHash ^= this.loObjPieces[B_PAWN][to];
-        this.hiHash ^= this.hiObjPieces[B_PAWN][to];
-        this.loHash ^= this.loObjPieces[pro|BLACK][to];
-        this.hiHash ^= this.hiObjPieces[pro|BLACK][to];
+        this.loHash ^= this.loObjPieces[(B_PAWN << 8) + to];
+        this.hiHash ^= this.hiObjPieces[(B_PAWN << 8) + to];
+        this.loHash ^= this.loObjPieces[((pro|BLACK) << 8) + to];
+        this.hiHash ^= this.hiObjPieces[((pro|BLACK) << 8) + to];
     
         this.bCounts[PAWN]--;
         this.bCounts[pro]++;
@@ -3286,10 +3202,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.bList[z[F8]] = F8;
     
-        this.loHash ^= this.loObjPieces[B_ROOK][H8];
-        this.hiHash ^= this.hiObjPieces[B_ROOK][H8];
-        this.loHash ^= this.loObjPieces[B_ROOK][F8];
-        this.hiHash ^= this.hiObjPieces[B_ROOK][F8];
+        this.loHash ^= this.loObjPieces[(B_ROOK << 8) + H8];
+        this.hiHash ^= this.hiObjPieces[(B_ROOK << 8) + H8];
+        this.loHash ^= this.loObjPieces[(B_ROOK << 8) + F8];
+        this.hiHash ^= this.hiObjPieces[(B_ROOK << 8) + F8];
     
       }
     
@@ -3304,10 +3220,10 @@ lozBoard.prototype.makeMoveA = function (node,move) {
     
         this.bList[z[D8]] = D8;
     
-        this.loHash ^= this.loObjPieces[B_ROOK][A8];
-        this.hiHash ^= this.hiObjPieces[B_ROOK][A8];
-        this.loHash ^= this.loObjPieces[B_ROOK][D8];
-        this.hiHash ^= this.hiObjPieces[B_ROOK][D8];
+        this.loHash ^= this.loObjPieces[(B_ROOK << 8) + A8];
+        this.hiHash ^= this.hiObjPieces[(B_ROOK << 8) + A8];
+        this.loHash ^= this.loObjPieces[(B_ROOK << 8) + D8];
+        this.hiHash ^= this.hiObjPieces[(B_ROOK << 8) + D8];
     
       }
     }
@@ -3371,10 +3287,7 @@ lozBoard.prototype.unmakeMove = function (node,move) {
   z[fr] = node.frZ;
   z[to] = node.toZ;
 
-  if (frCol == WHITE)
-    this.wList[node.frZ] = fr;
-  else
-    this.bList[node.frZ] = fr;
+  this.wbList[frCol >>> 3][node.frZ] = fr;
 
   //{{{  capture?
   
@@ -3506,9 +3419,9 @@ lozBoard.prototype.makePseudoMove = function (move) {
 
   const b = this.b;
 
-  const fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  const to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  const to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
 
   b[fr] = NULL;
   b[to] = frObj;
@@ -3992,10 +3905,10 @@ lozBoard.prototype.getPVStr = function (node, move, depth) {
 
 lozBoard.prototype.addHistory = function (x, move) {
 
-  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-
-  this.objHistory[frObj][to] += x;
+  this.objHistory[
+    (((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) << 8) +
+    ((move & MOVE_TO_MASK) >>> MOVE_TO_BITS)
+  ] += x;
 
 }
 
@@ -4078,7 +3991,7 @@ lozBoard.prototype.netUpdate = function (turn) {
     if (!frObj)
       continue;
 
-    const i1 = IMAP[frObj][fr];
+    const i1 = IMAP[(frObj << 8) + fr];
 
     for (let h=0; h < NET_H1_SIZE; h++) {
       this.net_h1_a[h] += this.net_h1_w[i1][h];
@@ -4114,7 +4027,7 @@ lozBoard.prototype.netSlowEval = function (turn) {
     if (!frObj)
       continue;
 
-    const i1 = IMAP[frObj][fr];
+    const i1 = IMAP[(frObj << 8) + fr];
 
     for (let i=0; i < NET_H1_SIZE; i++) {
       wAcc[i] += this.net_h1_w[i1][i];
@@ -4208,8 +4121,8 @@ lozBoard.prototype.netMove = function () {
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
 
-  const i1 = IMAP[frObj][fr];
-  const i2 = IMAP[frObj][to];
+  const i1 = IMAP[(frObj << 8) + fr];
+  const i2 = IMAP[(frObj << 8) + to];
 
   const h1a = this.net_h1_w[i1];
   const h1b = this.net_h1_w[i2];
@@ -4236,9 +4149,9 @@ lozBoard.prototype.netCapture = function () {
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
 
-  const i1 = IMAP[frObj][fr];
-  const i2 = IMAP[toObj][to];
-  const i3 = IMAP[frObj][to];
+  const i1 = IMAP[(frObj << 8) + fr];
+  const i2 = IMAP[(toObj << 8) + to];
+  const i3 = IMAP[(frObj << 8) + to];
 
   const h1a = this.net_h1_w[i1];
   const h1b = this.net_h1_w[i2];
@@ -4268,9 +4181,9 @@ lozBoard.prototype.netPromote = function () {
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
 
-  const i1 = IMAP[pawnObj][pawnFr];
-  const i2 = IMAP[captureObj][pawnTo];
-  const i3 = IMAP[promoteObj][pawnTo];
+  const i1 = IMAP[(pawnObj << 8) + pawnFr];
+  const i2 = IMAP[(captureObj << 8) + pawnTo];
+  const i3 = IMAP[(promoteObj << 8) + pawnTo];
 
   const h1a = this.net_h1_w[i1];
   const h1b = this.net_h1_w[i2];
@@ -4300,9 +4213,9 @@ lozBoard.prototype.netEpCapture = function () {
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
 
-  const i1 = IMAP[pawnObj][pawnFr];
-  const i2 = IMAP[pawnObj][pawnTo];
-  const i3 = IMAP[pawnCaptureObj][ep];
+  const i1 = IMAP[(pawnObj << 8) + pawnFr];
+  const i2 = IMAP[(pawnObj << 8) + pawnTo];
+  const i3 = IMAP[(pawnCaptureObj << 8) + ep];
 
   const h1a = this.net_h1_w[i1];
   const h1b = this.net_h1_w[i2];
@@ -4333,10 +4246,10 @@ lozBoard.prototype.netCastle = function () {
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
 
-  const i1 = IMAP[kingObj][kingFr];
-  const i2 = IMAP[kingObj][kingTo];
-  const i3 = IMAP[rookObj][rookFr];
-  const i4 = IMAP[rookObj][rookTo];
+  const i1 = IMAP[(kingObj << 8) + kingFr];
+  const i2 = IMAP[(kingObj << 8) + kingTo];
+  const i3 = IMAP[(rookObj << 8) + rookFr];
+  const i4 = IMAP[(rookObj << 8) + rookTo];
 
   const h1a = this.net_h1_w[i1];
   const h1b = this.net_h1_w[i2];
@@ -4496,15 +4409,15 @@ function lozNode (parentNode) {
   this.inCheck     = 0;
   this.ev          = 0;
 
-  this.net_h1_a = new Int32Array(NET_H1_SIZE); // hack join
+  this.net_h1_a = new Int32Array(NET_H1_SIZE);
   this.net_h2_a = new Int32Array(NET_H1_SIZE);
 
-  this.C_rights       = 0;
-  this.C_ep           = 0;
-  this.C_repLo        = 0;
-  this.C_repHi        = 0;
-  this.C_loHash       = 0;
-  this.C_hiHash       = 0;
+  this.C_rights = 0;
+  this.C_ep     = 0;
+  this.C_repLo  = 0;
+  this.C_repHi  = 0;
+  this.C_loHash = 0;
+  this.C_hiHash = 0;
 
   this.toZ = 0;                 // move to square index (captures) to piece list - cached during make|unmakeMove
   this.frZ = 0;                 // move from square index to piece list          - ditto
@@ -4652,26 +4565,19 @@ lozNode.prototype.addSlide = function (move) {
 
 lozNode.prototype.slideBase = function (move) {
 
-    const to      = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-    const fr      = (move & MOVE_FR_MASK)    >>> MOVE_FR_BITS;
-    const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-    const frPiece = frObj & PIECE_MASK;
-    const frCol   = frObj & COLOR_MASK;
+  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
 
-    if (frCol == WHITE) {               // hack remove this if
-      var pst = WMOVE[frPiece];
-      var his = this.board.wHistory[frPiece][to];
-    }
-    else {
-      var pst = BMOVE[frPiece];
-      var his = this.board.bHistory[frPiece][to];
-    }
+  const hisScore = this.board.objHistory[(frObj << 8) + to];
 
-    if (his == BASE_HISSLIDE)
-      return BASE_PSTSLIDE + pst[to] - pst[fr];
+  if (hisScore == BASE_HISSLIDE) {
+    const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
+    const slideScores = SLIDE_SCORES[frObj];
+    return BASE_SLIDE + slideScores[to] - slideScores[fr];
+  }
 
-    else
-      return his;
+  else
+    return hisScore;
 }
 
 //}}}
@@ -4721,8 +4627,8 @@ lozNode.prototype.addCapture = function (move) {
 
   else {
 
-    var victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    var attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
 
     if (victim > attack)
       this.ranks[n] = BASE_GOODTAKES + (victim << 6) - attack;
@@ -4855,6 +4761,8 @@ lozNode.prototype.addQPromotion = function (move) {
 //}}}
 //{{{  .addKiller
 
+//hack yuk
+
 lozNode.prototype.addKiller = function (score, move) {
 
   move = moveClean(move);
@@ -4867,8 +4775,8 @@ lozNode.prototype.addKiller = function (score, move) {
 
   if (move & MOVE_TOOBJ_MASK) {
 
-    var victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    var attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
 
     if (victim >= attack)
       return; // before killers in move ordering.
@@ -5395,6 +5303,18 @@ function onmessage(e) {
       //{{{  bench
       
       uci.silent = 1;
+      
+      //{{{  warmup
+      
+      for (var i=0; i < BENCHFENS.length; i++) {
+        var fen = BENCHFENS[i];
+        docmd('ucinewgame');
+        docmd('position fen ' + fen);
+        docmd('id bench' + i);
+        docmd('go depth ' + BENCH_DEPTH);
+      }
+      
+      //}}}
       
       var nodes = 0;
       var time  = 0;
