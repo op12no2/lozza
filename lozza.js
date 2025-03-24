@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Remove divisions when calclating LMR.
 - Simplify node.slideBase().
 - More use of typed arrays.
 - Flatten IMAP, history and piece Zobrists .
@@ -76,8 +77,9 @@ const IMAP = new Uint32Array(15 * 256);
 const MATERIAL = new Int32Array([0,100,394,388,588,1207,10000]);  // hack simplify this away
 const ADJACENT = new Uint8Array([1,1,0,0,0,0,0,0,0,0,0,1,1,1]);
 
-const MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits
-const MAX_MOVES       = 250;
+const MAX_PLY         = 128;                // limited by lozza.board.ttDepth bits
+const MAX_MOVES       = 256;
+const LMR_LOOKUP      = new Uint8Array(MAX_PLY * MAX_MOVES);
 const INFINITY        = 30000;              // limited by lozza.board.ttScore bits
 const MATE            = 20000;
 const MINMATE         = (MATE - 2*MAX_PLY) | 0;
@@ -1082,6 +1084,16 @@ function lozChess () {
   }
   
   //}}}
+  //{{{  init LMR_LOOKUP
+  
+  for (let p=0; p < MAX_PLY; p++) {
+    for (let m=0; m < MAX_MOVES; m++) {
+      LMR_LOOKUP[(p << 7) + m] = 1 + p/5 + m/20 | 0;
+    }
+  }
+  
+  
+  //}}}
 
   return this;
 }
@@ -1386,7 +1398,7 @@ lozChess.prototype.rootSearch = function (node, depth, turn, alpha, beta) {
       keeper     = node.base >= BASE_LMR || (move & KEEPER_MASK) || givesCheck || board.alphaMate(alpha);
     
       if (!keeper && numSlides > 4) {
-        R = 1 + depth/5 + numSlides/20 | 0;
+        R = LMR_LOOKUP[(depth << 7) + numSlides];
       }
     }
     
@@ -1707,7 +1719,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta, inCheck) {
         }
     
         if (doLMR && !givesCheck && node.sortedIndex > 4) {
-          R = 1 + depth/5 + numSlides/20 | 0; // hack remove these /
+          R =LMR_LOOKUP[(depth << 7) + numSlides];
         }
       }
     }
@@ -2017,6 +2029,8 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 //{{{  lozBoard
 
 function lozBoard () {
+
+  this.randomEval = 0;
 
   this.net_h1_w = new Array(NET_I_SIZE);       // us
   this.net_h2_w = new Array(NET_I_SIZE);       // them
