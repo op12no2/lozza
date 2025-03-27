@@ -2,7 +2,7 @@
 // Lozza bullet net (768 -> 128)x2 -> 1 sqrrelu
 //
 
-const OUTPUT_DIR: &str = "/home/xyzzy/lozza/nets/leela";
+const OUTPUT_DIR: &str = "/home/xyzzy/lozza/nets/bumpy";
 const DATA_FILES: [&str; 2] = [
   "/home/xyzzy/lozza/data/gen5.bullet",
   "/home/xyzzy/lozza/data/gen4.bullet",
@@ -44,7 +44,7 @@ fn main() {
         .loss_fn(Loss::SigmoidMSE)
         .input(inputs::Chess768)
         .output_buckets(outputs::Single)
-        .feature_transformer(128)
+        .feature_transformer(256)
         .activate(Activation::SqrReLU)
         .add_layer(1)
         .build();
@@ -56,7 +56,7 @@ fn main() {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: 1000,
+            end_superbatch: 10000,
         },
         wdl_scheduler: wdl::ConstantWDL {
             value: 0.4
@@ -95,7 +95,7 @@ fn main() {
     };
 
 
-    //let data_loader = loader::DirectSequentialDataLoader::new(&DATA_FILES);
+    let data_loader = loader::DirectSequentialDataLoader::new(&DATA_FILES);
 
     trainer.run(&schedule, &settings, &data_loader);
 }
