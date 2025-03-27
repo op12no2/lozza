@@ -1,0 +1,9 @@
+#!/bin/bash
+
+rm -f v8.log
+node --prof "$1.js" bench q
+mv isolate* v8.log
+node --prof-process v8.log > v8.txt
+more v8.txt
+rm v8.log v8.txt
+
