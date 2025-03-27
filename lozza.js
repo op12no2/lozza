@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Fix network command.
 - Fix board.fen().
 - Don't use an array for the UE args.
 - Change datagen to 20k soft nodes.
@@ -3789,8 +3790,8 @@ lozBoard.prototype.hashCheck = function (turn) {
     var piece = obj & PIECE_MASK;
     var col   = obj & COLOR_MASK;
 
-    loHash ^= this.loPieces[col>>>3][piece-1][sq];
-    hiHash ^= this.hiPieces[col>>>3][piece-1][sq];
+    loHash ^= this.loObjPieces[(obj << 8) + sq];
+    hiHash ^= this.hiObjPieces[(obj << 8) + sq];
 
   }
 
@@ -5525,39 +5526,6 @@ function onmessage(e) {
       docmd('u');
       docmd('p s');
       docmd('e');
-      
-      let w = [];
-      
-      let min = 999;
-      let max = -999;
-      for (let i=0; i < NET_I_SIZE; i++) {
-        w = lozza.board.net_h1_w[i];
-        for (let j=0; j < NET_H1_SIZE; j++) {
-          min = Math.min(min,w[j]);
-          max = Math.max(max,w[j]);
-        }
-      }
-      console.log('h1_w min, max', min, max);
-      
-      min = 999;
-      max = -999;
-      w = lozza.board.net_h1_b;
-      for (let j=0; j < NET_H1_SIZE; j++) {
-        min = Math.min(min,w[j]);
-        max = Math.max(max,w[j]);
-      }
-      console.log('h1_b min, max', min, max);
-      
-      min = 999;
-      max = -999;
-      w = lozza.board.net_o_w;
-      for (let j=0; j < NET_H1_SIZE; j++) {
-        min = Math.min(min,w[j]);
-        max = Math.max(max,w[j]);
-      }
-      console.log('o_w min, max', min, max);
-      
-      console.log('o_b', lozza.board.net_o_b);
       
       break;
       
