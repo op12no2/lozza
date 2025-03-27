@@ -9,10 +9,13 @@ const BUILD = "6";
 
 /*
 
+- Fix board.fen().
+- Don't use an array for the UE args.
+- Change datagen to 20k soft nodes.
 - Remove divisions when calclating LMR.
 - Simplify node.slideBase().
 - More use of typed arrays.
-- Flatten IMAP, history and piece Zobrists .
+- Flatten IMAP, history and piece Zobrists.
 - Limit history and move ranks to uint32.
 - Fix bug in RANK2W/B tables.
 - Use improving in NMP.
@@ -400,18 +403,18 @@ const MAP = Object.seal({
 });
 
 const UMAP = Object.seal({
-  B_PAWN:   'p',
-  B_KNIGHT: 'n',
-  B_BISHOP: 'b',
-  B_ROOK:   'r',
-  B_QUEEN:  'q',
-  B_KING:   'k',
-  W_PAWN:   'P',
-  W_KNIGHT: 'N',
-  W_BISHOP: 'B',
-  W_ROOK:   'R',
-  W_QUEEN:  'Q',
-  W_KING:   'K'
+  9:  'p',
+  10: 'n',
+  11: 'b',
+  12: 'r',
+  13: 'q',
+  14: 'k',
+  1:  'P',
+  2:  'N',
+  3:  'B',
+  4:  'R',
+  5:  'Q',
+  6:  'K'
 });
 
 const RANK2W = new Uint8Array([0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
@@ -764,6 +767,10 @@ function colourMultiplier (c) {
 function colourToggle (c) {
   return ~c & COLOUR_MASK;
 }
+
+//
+// flipSq and flipFen are slow. Only use for init/test/datagen.
+//
 
 function flipSq (sq) {
   let m = (143 - sq) / 12 | 0;
@@ -2047,7 +2054,12 @@ function lozBoard () {
   }
 
   this.ueFunc = myround;
-  this.ueArgs = new Uint8Array(6);
+  this.ueArgs0 = 0;
+  this.ueArgs1 = 0;
+  this.ueArgs2 = 0;
+  this.ueArgs3 = 0;
+  this.ueArgs4 = 0;
+  this.ueArgs5 = 0;
 
   this.verbose  = false;
   this.mvFmt    = 0;
@@ -3033,20 +3045,20 @@ lozBoard.prototype.makeMoveA = function (node,move) {
       this.bCount--;
     }
   
-    this.ueFunc    = this.netCapture;
-    this.ueArgs[0] = frObj;
-    this.ueArgs[1] = fr;
-    this.ueArgs[2] = toObj;
-    this.ueArgs[3] = to;
+    this.ueFunc  = this.netCapture;
+    this.ueArgs0 = frObj;
+    this.ueArgs1 = fr;
+    this.ueArgs2 = toObj;
+    this.ueArgs3 = to;
   
   }
   
   else {
   
-    this.ueFunc    = this.netMove;
-    this.ueArgs[0] = frObj;
-    this.ueArgs[1] = fr;
-    this.ueArgs[2] = to;
+    this.ueFunc  = this.netMove;
+    this.ueArgs0 = frObj;
+    this.ueArgs1 = fr;
+    this.ueArgs2 = to;
   
   }
   
@@ -4110,16 +4122,16 @@ lozBoard.prototype.netFastEval = function (turn) {
 // some moves when search/QS returns early.
 //
 
-lozBoard.prototype.netPrepare = function (ueFunc,ueA,ueB,ueC,ueD,ueE,ueF) {
+lozBoard.prototype.netPrepare = function (ueFunc,ue0,ue1,ue2,ue3,ue4,ue5) {
 
   this.ueFunc = ueFunc;
 
-  this.ueArgs[0] = ueA;
-  this.ueArgs[1] = ueB;
-  this.ueArgs[2] = ueC;
-  this.ueArgs[3] = ueD;
-  this.ueArgs[4] = ueE;
-  this.ueArgs[5] = ueF;
+  this.ueArgs0 = ue0;
+  this.ueArgs1 = ue1;
+  this.ueArgs2 = ue2;
+  this.ueArgs3 = ue3;
+  this.ueArgs4 = ue4;
+  this.ueArgs5 = ue5;
 
 }
 
@@ -4128,9 +4140,9 @@ lozBoard.prototype.netPrepare = function (ueFunc,ueA,ueB,ueC,ueD,ueE,ueF) {
 
 lozBoard.prototype.netMove = function () {
 
-  const frObj = this.ueArgs[0];
-  const fr    = this.ueArgs[1];
-  const to    = this.ueArgs[2];
+  const frObj = this.ueArgs0;
+  const fr    = this.ueArgs1;
+  const to    = this.ueArgs2;
 
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
@@ -4155,10 +4167,10 @@ lozBoard.prototype.netMove = function () {
 
 lozBoard.prototype.netCapture = function () {
 
-  const frObj = this.ueArgs[0];
-  const fr    = this.ueArgs[1];
-  const toObj = this.ueArgs[2];
-  const to    = this.ueArgs[3];
+  const frObj = this.ueArgs0;
+  const fr    = this.ueArgs1;
+  const toObj = this.ueArgs2;
+  const to    = this.ueArgs3;
 
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
@@ -4186,11 +4198,11 @@ lozBoard.prototype.netCapture = function () {
 
 lozBoard.prototype.netPromote = function () {
 
-  const pawnObj    = this.ueArgs[0];
-  const pawnFr     = this.ueArgs[1];
-  const pawnTo     = this.ueArgs[2];
-  const captureObj = this.ueArgs[3];
-  const promoteObj = this.ueArgs[4];
+  const pawnObj    = this.ueArgs0;
+  const pawnFr     = this.ueArgs1;
+  const pawnTo     = this.ueArgs2;
+  const captureObj = this.ueArgs3;
+  const promoteObj = this.ueArgs4;
 
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
@@ -4218,11 +4230,11 @@ lozBoard.prototype.netPromote = function () {
 
 lozBoard.prototype.netEpCapture = function () {
 
-  const pawnObj        = this.ueArgs[0];
-  const pawnFr         = this.ueArgs[1];
-  const pawnTo         = this.ueArgs[2];
-  const pawnCaptureObj = this.ueArgs[3];
-  const ep             = this.ueArgs[4];
+  const pawnObj        = this.ueArgs0;
+  const pawnFr         = this.ueArgs1;
+  const pawnTo         = this.ueArgs2;
+  const pawnCaptureObj = this.ueArgs3;
+  const ep             = this.ueArgs4;
 
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
@@ -4250,12 +4262,12 @@ lozBoard.prototype.netEpCapture = function () {
 
 lozBoard.prototype.netCastle = function () {
 
-  const kingObj = this.ueArgs[0];
-  const kingFr  = this.ueArgs[1];
-  const kingTo  = this.ueArgs[2];
-  const rookObj = this.ueArgs[3];
-  const rookFr  = this.ueArgs[4];
-  const rookTo  = this.ueArgs[5];
+  const kingObj = this.ueArgs0;
+  const kingFr  = this.ueArgs1;
+  const kingTo  = this.ueArgs2;
+  const rookObj = this.ueArgs3;
+  const rookFr  = this.ueArgs4;
+  const rookTo  = this.ueArgs5;
 
   const a1 = this.net_h1_a;
   const a2 = this.net_h2_a;
