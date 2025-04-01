@@ -9,8 +9,9 @@ const BUILD = "6";
 
 /*
 
+- Swap to a stack based PV.
 - Merge datagen.js into lozza.js.
-- Refactor. Still nodes to do.
+- Refactor. Still more (nodeStruct) to do.
 - Fix network command.
 - Fix formatFen().
 - Don't use an array for the UE args.
@@ -39,6 +40,7 @@ const BUILD = "6";
 // + Set NET_WEIGHTS_FILE to ''.
 // + Tweak seal().
 // + Remove scrict mode.
+// + Disable upper/lower boud reports.
 //
 
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/bumpy/lozza-910/quantised.bin';
@@ -1035,13 +1037,13 @@ function newGameInit () {
 //}}}
 //{{{  report
 
-function report (units,value,depth) {
+function report (units, value, depth) {
 
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
   const scoreStr = 'score ' + units + ' ' + value;
   const nodeStr  = statsNodeStr();
   const hashStr  = 'hashfull ' + (1000 * ttHashUsed / TTSIZE | 0);
-  const pvStr    = 'pv ' + getPVStr(rootNode, statsBestMove, depth);
+  const pvStr    = 'pv ' + getPVStr(rootNode);
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 }
@@ -1157,9 +1159,9 @@ function go (maxPly) {
 
 function rootSearch (node, depth, turn, alpha, beta) {
 
-  statsNodes++;
-
-  //{{{  housekeeping
+  //{{{  check time
+  
+  node.pvLen = 0;
   
   if (!node.childNode) {
     statsTimeOut = 1;
@@ -1167,6 +1169,8 @@ function rootSearch (node, depth, turn, alpha, beta) {
   }
   
   //}}}
+
+  statsNodes++;
 
   const nextTurn = turn ^ COLOR_MASK;
   const oAlpha   = alpha;
@@ -1279,6 +1283,8 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
       if (bestScore > alpha) {
 
+        collectPV(node, move);
+
         alpha = bestScore;
 
         statsBestMove  = bestMove;
@@ -1324,7 +1330,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
 function search (node, depth, turn, alpha, beta, inCheck) {
 
-  //{{{  housekeeping
+  //{{{  check time
+  
+  node.pvLen = 0;
   
   if (!node.childNode) {
     statsTimeOut = 1;
@@ -1475,6 +1483,8 @@ function search (node, depth, turn, alpha, beta, inCheck) {
   
   R = 0;
   
+  node.pvLen = 0;
+  
   //}}}
 
   const oAlpha     = alpha;
@@ -1505,7 +1515,11 @@ function search (node, depth, turn, alpha, beta, inCheck) {
   if (doIID) {
   
     search(node, depth-2, turn, alpha, beta, inCheck);
+  
     ttGet(node, 0, alpha, beta);
+  
+    node.pvLen = 0;
+  
   }
   
   if (statsTimeOut)
@@ -1620,6 +1634,9 @@ function search (node, depth, turn, alpha, beta, inCheck) {
 
       if (bestScore > alpha) {
 
+        if (pvNode)
+          collectPV(node, move);
+
         alpha = bestScore;
 
         if (bestScore >= beta) {
@@ -1670,7 +1687,9 @@ function search (node, depth, turn, alpha, beta, inCheck) {
 
 function qSearch (node, depth, turn, alpha, beta) {
 
-  //{{{  housekeeping
+  //{{{  check time
+  
+  node.pvLen = 0;
   
   if (node.ply > statsSelDepth)
     statsSelDepth = node.ply;
@@ -1995,6 +2014,33 @@ function datagen() {
   }
 
   console.log('done');
+
+}
+
+//}}}
+//{{{  collectPV
+
+function collectPV(node, move) {
+
+  const cNode = node.childNode;
+
+  node.pv.set(cNode.pv.subarray(0, cNode.pvLen), 0);
+  node.pvLen = cNode.pvLen;
+  node.pv[node.pvLen++] = move;
+
+}
+
+//}}}
+//{{{  getPVStr
+
+function getPVStr (node) {
+
+  let pv = '';
+
+  for (let i=node.pvLen-1; i >= 0; i--)
+    pv += formatMove(node.pv[i]) + ' ';
+
+  return pv;
 
 }
 
@@ -4282,33 +4328,6 @@ function quickSee (turn, move) {
 }
 
 //}}}
-//{{{  getPVStr
-
-function getPVStr (node, move, depth) {
-
-  if (!node || !depth)
-    return '';
-
-  if (!move)
-    move = ttGetMove(node);
-
-  if (!move)
-    return '';
-
-  cache(node);
-  makeMoveA(node, move);
-
-  const mv = formatMove(move);
-  const pv = ' ' + getPVStr(node.childNode, 0, depth-1);
-
-  unmakeMove(node, move);
-  uncacheA(node);
-
-  return mv + pv;
-
-}
-
-//}}}
 //{{{  addHistory
 
 function addHistory (x, move) {
@@ -4420,6 +4439,8 @@ function nodeStruct () {
   this.frZ = 0;                 // move from square index to piece list          - ditto
   this.epZ = 0;                 // captured ep pawn index to piece list          - ditto
 
+  this.pv = new Uint32Array(MAX_MOVES);
+  this.pvLen = 0;
 }
 
 //}}}
