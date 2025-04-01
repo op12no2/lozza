@@ -9,9 +9,10 @@ const BUILD = "6";
 
 /*
 
-- Refactor.
+- Merge datagen.js into lozza.js.
+- Refactor. Still nodes to do.
 - Fix network command.
-- Fix board.fen().
+- Fix formatFen().
 - Don't use an array for the UE args.
 - Change datagen to 20k soft nodes.
 - Remove divisions when calclating LMR.
@@ -23,9 +24,9 @@ const BUILD = "6";
 - Use improving in NMP.
 - More aggressive beta pruning.
 - Simplify phase away.
-- Seal objects to catch accidental property additions (there were 4).
+- Seal nodes to catch accidental property additions.
 - Use >= when checking for time up.
-- Various minor optimisations.
+- Various minor optimisations not affecting bench.
 
 */
 
@@ -839,7 +840,7 @@ function colourIndex (c) {
 }
 
 function colourIndexToggle (i) {
-  return Math.abs(i-1);
+  return i ^ 1;
 }
 
 function colourMultiplier (c) {
@@ -847,7 +848,7 @@ function colourMultiplier (c) {
 }
 
 function colourToggle (c) {
-  return ~c & COLOUR_MASK;
+  return c ^ COLOUR_MASK;
 }
 
 //
@@ -1023,18 +1024,6 @@ function bullet2lozza (index) {
 //}}}
 //{{{  search
 
-//{{{  initTop
-
-function initTop () {
-
-  for (let i=0; i < nodes.length; i++)
-    initNode(nodes[i]);
-
-  initBoard();
-  statsInit();
-}
-
-//}}}
 //{{{  newGameInit
 
 function newGameInit () {
@@ -1044,26 +1033,15 @@ function newGameInit () {
 }
 
 //}}}
-//{{{  position
-
-function positionHack (bd, turn, rights, ep, moves) {
-
-  initTop();
-
-  position(bd, turn, rights, ep, moves);
-
-}
-
-//}}}
 //{{{  report
 
 function report (units,value,depth) {
 
-  var depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
-  var scoreStr = 'score ' + units + ' ' + value;
-  var nodeStr  = statsNodeStr();
-  var hashStr  = 'hashfull ' + (1000 * ttHashUsed / TTSIZE | 0);
-  var pvStr    = 'pv ' + getPVStr(rootNode, statsBestMove, depth);
+  const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
+  const scoreStr = 'score ' + units + ' ' + value;
+  const nodeStr  = statsNodeStr();
+  const hashStr  = 'hashfull ' + (1000 * ttHashUsed / TTSIZE | 0);
+  const pvStr    = 'pv ' + getPVStr(rootNode, statsBestMove, depth);
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 }
@@ -1209,7 +1187,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
   ttGet(node, depth, alpha, beta);  // load hash move
 
   node.inCheck = inCheck;
-  node.ev      = getEval(INFINITY,node,turn);
+  node.ev      = getEval(INFINITY, node, turn);
   cache(node);
 
   if (inCheck)
@@ -1222,13 +1200,13 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
   while (move = getNextMove(node)) {
 
-    makeMoveA(node,move);
+    makeMoveA(node, move);
 
     //{{{  legal?
     
     if (!(move & MOVE_LEGAL_MASK) && isKingAttacked(nextTurn)) {
     
-      unmakeMove(node,move);
+      unmakeMove(node, move);
     
       uncacheA(node);
     
@@ -1586,14 +1564,14 @@ function search (node, depth, turn, alpha, beta, inCheck) {
         }
     
         if (doLMR && !givesCheck && node.sortedIndex > 4) {
-          R =LMR_LOOKUP[(depth << 7) + numSlides];
+          R = LMR_LOOKUP[(depth << 7) + numSlides];
         }
       }
     }
     
     //}}}
 
-    makeMoveA(node,move);
+    makeMoveA(node, move);
 
     //{{{  legal
     
@@ -1749,7 +1727,7 @@ function qSearch (node, depth, turn, alpha, beta) {
     
     //}}}
 
-    makeMoveA(node,move);
+    makeMoveA(node, move);
 
     //{{{  legal?
     
@@ -1821,7 +1799,7 @@ function perft (node, depth, turn) {
 
   while (move = getNextMove(node)) {
 
-    makeMoveA(node,move);
+    makeMoveA(node, move);
 
     //{{{  legal?
     
@@ -1853,6 +1831,170 @@ function perft (node, depth, turn) {
   }
 
   return totalNodes;
+
+}
+
+//}}}
+//{{{  datagen
+//
+// Generate FENs in bullet text format.
+// Assumes existence of ./data.
+//
+
+function datagen() {
+
+  uciExec("bench warm 0");
+
+  silentMode = 1;
+
+  const nodesLimit     = 20000;  // hard limit is x10
+  const gamesLimit     = 100000;
+  const bufferSize     = 100000 + Math.random() * 100000;  // randomise writes
+  const reportInterval = 10;
+
+  const fileName = 'data/datagen' + Math.trunc(Math.random()*100000000000) + '.txt';
+
+  let result = '';
+  let o = '';
+  let t = now();
+  let totalFens = 0;
+
+  fs.writeFileSync(fileName, o);
+
+  for (let g=0; g < gamesLimit; g++) {
+    //{{{  log
+    
+    if ((g % reportInterval) == 0) {
+      console.log(fileName,g,'games',(totalFens/((now()-t)/1000)),'fens/sec');
+      t = now();
+      totalFens = 0;
+    }
+    
+    //}}}
+    //{{{  play game
+    
+    let randLimit   = 10;
+    let reportLimit = 16;
+    
+    if (Math.random() >= 0.5) {
+      randLimit--;
+      reportLimit--;
+    }
+    
+    uciExec('u');
+    uciExec('p s');
+    
+    let moves = '';
+    let hmc = 0;
+    let ply = 0;
+    let fens = [];
+    let scores = [];
+    
+    while (true) {
+    
+      ply++;
+    
+      const turn     = bdTurn;
+      const nextTurn = colourToggle(turn);
+    
+      //{{{  get a move
+      
+      if (ply <= randLimit)
+        randomEval = 1;
+      else
+        randomEval = 0;
+      
+      uciExec('go nodes ' + nodesLimit);
+      
+      if (ply <= randLimit)
+        uciExec('u');
+      
+      if (statsBestMove == 0) {
+        result = '0.5';
+        break;
+      }
+      
+      //}}}
+    
+      const move    = statsBestMove;
+      const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+      const frPiece = frObj & PIECE_MASK;
+      const moveStr = formatMove(move);
+      const inCheck = isKingAttacked(nextTurn);
+      const noisy   = moveIsNoisy(move);
+      const fen     = formatFen();
+      const score   = (turn == BLACK ? -statsBestScore : statsBestScore);
+    
+      if (ply > reportLimit && !inCheck && !noisy) {
+        fens.push(fen);
+        scores.push(score);
+      }
+    
+      //{{{  end of game?
+      
+      let rep = 0;
+      for (let i=0; i < fens.length; i++) {
+        if (fen == fens[i])
+          rep++;
+      }
+      
+      if (rep > 2) {
+        result = '0.5';
+        break;
+      }
+      
+      if (score >= MINMATE) {
+        result = '1.0';
+        break;
+      }
+      else if (score <= -MINMATE) {
+        result = '0.0';
+        break;
+      }
+      
+      if (!noisy && (frPiece != PAWN))
+        hmc++;
+      else
+        hmc = 0;
+      
+      if (hmc > 60) {
+        result = '0.5';
+        break;
+      }
+      
+      //}}}
+    
+      moves += ' ' + moveStr;
+    
+      uciExec('position fen ' + 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' + ' moves ' + moves)
+    }
+    
+    //}}}
+    //{{{  save it
+    
+    for (let i=0; i < fens.length; i++) {
+    
+      totalFens++;
+    
+      o += fens[i] + ' | ' + scores[i] + ' ' + ' | ' + result + '\r\n';
+    
+      if (o.length > bufferSize) {
+        const flushStart = performance.now();
+        fs.appendFileSync(fileName,o);
+        console.log('flush',performance.now()-flushStart);
+        o = '';
+      }
+    
+    }
+    
+    //}}}
+  }
+
+  if (o.length) {
+    fs.appendFileSync(fileName, o);
+  }
+
+  console.log('done');
 
 }
 
@@ -2014,7 +2156,7 @@ function netFastEval (turn) {
 // some moves when search/QS returns early.
 //
 
-function netPrepare (uef,ue0,ue1,ue2,ue3,ue4,ue5) {
+function netPrepare (uef, ue0, ue1, ue2, ue3, ue4, ue5) {
 
   ueFunc = uef;
 
@@ -2312,8 +2454,8 @@ const wbList = [wList, bList]; // hack join not do this
 const wCounts = new Uint8Array(7); //hack join
 const bCounts = new Uint8Array(7);
 
-let wCount  = 0; //hack join
-let bCount  = 0;
+let wCount = 0; //hack join
+let bCount = 0;
 
 const objHistory = new Uint32Array(15 * 256);
 
@@ -2543,6 +2685,12 @@ function initBoard () {
 
 function position (bd, turn, rights, ep, moves) {
 
+  for (let i=0; i < nodes.length; i++)
+    initNode(nodes[i]);
+
+  initBoard();
+  initStats();
+
   //{{{  board turn
   
   if (turn == 'w')
@@ -2677,7 +2825,7 @@ function playMove (moveStr) {
 
   while (move = getNextMove(node)) {
 
-    makeMoveA(node,move);
+    makeMoveA(node, move);
 
     var attacker = isKingAttacked(nextTurn);
 
@@ -3323,7 +3471,7 @@ function genQMoves (node, turn) {
 //}}}
 //{{{  makeMoveA
 
-function makeMoveA (node,move) {
+function makeMoveA (node, move) {
 
   const b = bdB;
   const z = bdZ;
@@ -3647,7 +3795,7 @@ function makeMoveB  () {
 //}}}
 //{{{  unmakeMove
 
-function unmakeMove (node,move) {
+function unmakeMove (node, move) {
 
   const b = bdB;
   const z = bdZ;
@@ -3827,7 +3975,9 @@ function unmakePseudoMove (move) {
 
 function isKingAttacked (byCol) {
 
-  return isAttacked((byCol == WHITE) ? bList[0] : wList[0], byCol);
+  const list = wbList[(byCol ^ COLOUR_MASK) >>> 3];
+
+  return isAttacked(list[0], byCol);
 
 }
 
@@ -4034,9 +4184,9 @@ function hashCheck (turn) {
 }
 
 //}}}
-//{{{  fen
+//{{{  formatFen
 
-function fen () {
+function formatFen () {
 
   var fen = '';
   var n   = 0;
@@ -4146,7 +4296,7 @@ function getPVStr (node, move, depth) {
     return '';
 
   cache(node);
-  makeMoveA(node,move);
+  makeMoveA(node, move);
 
   const mv = formatMove(move);
   const pv = ' ' + getPVStr(node.childNode, 0, depth-1);
@@ -4238,7 +4388,6 @@ function isDraw () {
 function nodeStruct () {
 
   this.ply             = 0;
-  this.root            = false;
   this.childNode       = null;
   this.parentNode      = null;
   this.grandparentNode = null;
@@ -4675,9 +4824,9 @@ let statsSelDepth  = 0;
 let statsBestMove  = 0;
 let statsBestScore = 0;
 
-//{{{  statsInit
+//{{{  initStats
 
-function statsInit () {
+function initStats () {
 
   statsStartTime = now();
   statsNodes     = 0;
@@ -4849,7 +4998,7 @@ function uciExec (commands) {
             moves.push(tokens[i]);
         }
         
-        positionHack(bd, turn, rights, ep, moves);
+        position(bd, turn, rights, ep, moves);
         
         break;
         
@@ -4860,7 +5009,7 @@ function uciExec (commands) {
       case 'g': {
         //{{{  go
         
-        statsInit();
+        initStats();
         
         let depth     = Math.max(uciGetInt(tokens, 'depth', 0), uciGetInt(tokens, 'd', 0));
         let moveTime  = uciGetInt(tokens, 'movetime', 0);
@@ -5002,7 +5151,7 @@ function uciExec (commands) {
       case 'b': {
         //{{{  board
         
-        uciSend(board.fen());
+        uciSend(formatFen());
         
         break;
         
@@ -5186,6 +5335,16 @@ function uciExec (commands) {
         //}}}
       }
 
+      case 'datagen': {
+        //{{{  datagen
+        
+        datagen();
+        
+        break;
+        
+        //}}}
+      }
+
       default: {
         //{{{  ?
         
@@ -5255,7 +5414,6 @@ function initOnce () {
     nodes[i] = new nodeStruct();
     seal(nodes[i]);
     nodes[i].ply = i;
-    nodes[i].root = i == 0;
   }
   
   for (let i=0; i < nodes.length-1; i++)
