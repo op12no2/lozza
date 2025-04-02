@@ -9,9 +9,10 @@ const BUILD = "6";
 
 /*
 
+- Simplify position().
 - Swap to a stack based PV.
 - Merge datagen.js into lozza.js.
-- Refactor. Still more (nodeStruct) to do.
+- Refactor.
 - Fix network command.
 - Fix formatFen().
 - Don't use an array for the UE args.
@@ -36,11 +37,11 @@ const BUILD = "6";
 //{{{  dev/release
 //
 // + Comment out randomEval stuff in evaluate().
-// + Serialise, plonk fold in netInitWeights().
+// + node lozza serialise > weights and plonk in netInitWeights().
 // + Set NET_WEIGHTS_FILE to ''.
-// + Tweak seal().
+// + Tweak seal() to be noop.
 // + Remove scrict mode.
-// + Disable upper/lower boud reports.
+// + Disable upper/lower bound reports.
 //
 
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/bumpy/lozza-910/quantised.bin';
@@ -854,13 +855,8 @@ function colourToggle (c) {
 }
 
 //
-// flipSq and flipFen are slow. Only use for init/test/datagen.
+// flipFen is slow. Only use for init/test/datagen.
 //
-
-function flipSq (sq) {
-  let m = (143 - sq) / 12 | 0;
-  return 12*m + sq%12;
-}
 
 function flipFen (fen) {
 
@@ -1026,15 +1022,6 @@ function bullet2lozza (index) {
 //}}}
 //{{{  search
 
-//{{{  newGameInit
-
-function newGameInit () {
-
-  ttInit();
-
-}
-
-//}}}
 //{{{  report
 
 function report (units, value, depth) {
@@ -2068,44 +2055,6 @@ let ueArgs3 = 0;
 let ueArgs4 = 0;
 let ueArgs5 = 0;
 
-//{{{  netReset
-
-function netReset () {
-
-  net_h1_a.set(net_h1_b);
-  net_h2_a.set(net_h1_b);
-
-}
-
-//}}}
-//{{{  netUpdate
-
-function netUpdate (turn) {
-
-  const b  = bdB;
-  const cx = colourMultiplier(turn)
-
-  netReset();
-
-  for (let sq=0; sq<64; sq++) {
-
-    const fr    = B88[sq];
-    const frObj = b[fr];
-
-    if (!frObj)
-      continue;
-
-    const i1 = IMAP[(frObj << 8) + fr];
-
-    for (let h=0; h < NET_H1_SIZE; h++) {
-      net_h1_a[h] += net_h1_w[i1][h];
-      net_h2_a[h] += net_h2_w[i1][h];
-    }
-  }
-
-}
-
-//}}}
 //{{{  netSlowEval
 //
 // Used to check UE.
@@ -2486,7 +2435,7 @@ function netCastle () {
 //{{{  board
 
 const bdB = new Uint8Array(144);    // pieces
-const bdZ = new Uint8Array(144);    // indexes to w|bList
+const bdZ = new Uint8Array(144);    // pointers to w|bList
 
 let bdTurn   = 0;
 let bdRights = 0;
@@ -2513,25 +2462,10 @@ let hiTurn = twisterRand();
 const loObjPieces = new Int32Array(15 * 256);
 const hiObjPieces = new Int32Array(15 * 256);
 
-for (let i=0; i < 15; i++) {
-  if (i == 0) continue;
-  if (i == 7) continue;
-  if (i == 8) continue;
-  for (let j = 0; j < 144; j++) {
-    loObjPieces[(i << 8) + j] = twisterRand();
-  }
+for (let i=0; i < 15 * 256; i++) {
+  loObjPieces[i] = twisterRand();
+  hiObjPieces[i] = twisterRand();
 }
-
-for (let i=0; i < 15; i++) {
-  if (i == 0) continue;
-  if (i == 7) continue;
-  if (i == 8) continue;
-  for (let j = 0; j < 144; j++) {
-    hiObjPieces[(i << 8) + j] = twisterRand();
-  }
-}
-
-// hack simplify and sprt
 
 const loRights = new Int32Array(16);
 const hiRights = new Int32Array(16);
@@ -2555,8 +2489,8 @@ for (let i=0; i < 144; i++) {
 const ttLo    = new Int32Array(TTSIZE);
 const ttHi    = new Int32Array(TTSIZE);
 const ttType  = new Uint8Array(TTSIZE);
-const ttDepth = new Int8Array(TTSIZE);   // allow -ve depths but currently not used for q
-const ttMove  = new Uint32Array(TTSIZE); // see constants for structure
+const ttDepth = new Int8Array(TTSIZE);   // hack try uint cos currently pathological prob at depth 128
+const ttMove  = new Uint32Array(TTSIZE);
 const ttEval  = new Int16Array(TTSIZE);
 const ttScore = new Int16Array(TTSIZE);
 
@@ -2643,20 +2577,6 @@ function ttGet (node, depth, alpha, beta) {
 }
 
 //}}}
-//{{{  ttGetMove
-
-function ttGetMove (node) {
-
-  const idx = loHash & TTMASK;
-
-  if (ttType[idx] != TT_EMPTY && ttLo[idx] == loHash && ttHi[idx] == hiHash)
-    return ttMove[idx];
-
-  return 0;
-
-}
-
-//}}}
 //{{{  ttUpdateEval
 
 function ttUpdateEval (ev) {
@@ -2672,9 +2592,6 @@ function ttUpdateEval (ev) {
 //{{{  ttInit
 
 function ttInit () {
-
-  loHash = 0;
-  hiHash = 0;
 
   ttType.fill(TT_EMPTY);
 
@@ -2698,35 +2615,6 @@ const repHiHash = new Int32Array(1024);
 
 //}}}
 
-//{{{  initBoard
-
-function initBoard () {
-
-  bdB.fill(EDGE);
-
-  for (var i=0; i < B88.length; i++)
-    bdB[B88[i]] = NULL;
-
-  bdZ.fill(NO_Z);
-
-  loHash = 0;
-  hiHash = 0;
-
-  repLo = 0;
-  repHi = 0;
-
-  wCounts.fill(0);
-  bCounts.fill(0);
-
-  wCount = 0;
-  bCount = 0;
-
-  wList.fill(EMPTY);
-  bList.fill(EMPTY);
-
-}
-
-//}}}
 //{{{  position
 
 function position (bd, turn, rights, ep, moves) {
@@ -2734,10 +2622,10 @@ function position (bd, turn, rights, ep, moves) {
   for (let i=0; i < nodes.length; i++)
     initNode(nodes[i]);
 
-  initBoard();
-  initStats();
+  loHash = 0;
+  hiHash = 0;
 
-  //{{{  board turn
+  //{{{  turn
   
   if (turn == 'w')
     bdTurn = WHITE;
@@ -2749,7 +2637,7 @@ function position (bd, turn, rights, ep, moves) {
   }
   
   //}}}
-  //{{{  board rights
+  //{{{  rights
   
   bdRights = 0;
   
@@ -2767,18 +2655,30 @@ function position (bd, turn, rights, ep, moves) {
   hiHash ^= hiRights[bdRights];
   
   //}}}
-  //{{{  board board
+  //{{{  board
   
-  netReset();
+  bdB.fill(EDGE);
   
-  var sq = 0;
-  var nw = 0;
-  var nb = 0;
+  for (var i=0; i < B88.length; i++)
+    bdB[B88[i]] = NULL;
+  
+  bdZ.fill(NO_Z);
+  
+  wCounts.fill(0);
+  bCounts.fill(0);
+  
+  wList.fill(EMPTY);
+  bList.fill(EMPTY);
+  
+  wCount = 1;
+  bCount = 1;
+  
+  let sq = 0;
   
   for (let j=0; j < bd.length; j++) {
   
-    var ch  = bd.charAt(j);
-    var chn = parseInt(ch);
+    const ch  = bd.charAt(j);
+    const chn = parseInt(ch);
   
     while (bdB[sq] == EDGE)
       sq++;
@@ -2787,26 +2687,38 @@ function position (bd, turn, rights, ep, moves) {
   
       if (ch != '/') {
   
-        var obj   = MAP[ch];
-        var piece = obj & PIECE_MASK;
-        var col   = obj & COLOR_MASK;
+        const obj   = MAP[ch];
+        const piece = obj & PIECE_MASK;
+        const col   = obj & COLOR_MASK;
+  
+        bdB[sq] = obj;
   
         if (col == WHITE) {
-          wList[nw] = sq;
-          bdB[sq]     = obj;
-          bdZ[sq]     = nw;
-          nw++;
-          wCounts[piece]++;
-          wCount++;
+          if (piece == KING) {
+            wList[0] = sq;
+            bdZ[sq] = 0;
+            wCounts[KING]++;
+          }
+          else {
+            wList[wCount] = sq;
+            bdZ[sq] = wCount;
+            wCounts[piece]++;
+            wCount++;
+          }
         }
   
         else {
-          bList[nb] = sq;
-          bdB[sq]     = obj;
-          bdZ[sq]     = nb;
-          nb++;
-          bCounts[piece]++;
-          bCount++;
+          if (piece == KING) {
+            bList[0] = sq;
+            bdZ[sq] = 0;
+            bCounts[KING]++;
+          }
+          else {
+            bList[bCount] = sq;
+            bdZ[sq] = bCount;
+            bCounts[piece]++;
+            bCount++;
+          }
         }
   
         loHash ^= loObjPieces[(obj << 8) + sq];
@@ -2826,7 +2738,7 @@ function position (bd, turn, rights, ep, moves) {
   }
   
   //}}}
-  //{{{  board ep
+  //{{{  ep
   
   if (ep.length == 2)
     bdEp = COORDS.indexOf(ep)
@@ -2838,120 +2750,89 @@ function position (bd, turn, rights, ep, moves) {
   
   //}}}
 
-  compact();
+  repLo = 0;
+  repHi = 0;
 
   for (let i=0; i < moves.length; i++) {
-    if (!playMove(moves[i]))
-      return 0;
+    //{{{  play move
+    
+    const moveStr = moves[i];
+    
+    let move = 0;
+    
+    genMoves(rootNode, bdTurn);
+    
+    while (move = getNextMove(rootNode)) {
+    
+      const moveStr2 = formatMove(move);
+    
+      if (moveStr == moveStr2) {
+        makeMoveA(rootNode, move);
+        bdTurn ^= COLOR_MASK;
+        break;
+      }
+    
+    }
+    
+    //}}}
   }
 
-  compact();
-  netUpdate();
-
-  objHistory.fill(BASE_HISSLIDE);
-
-}
-
-//}}}
-//{{{  playMove
-//
-// Assumes the accumulator will be computed with netUpdate
-// after all the moves have been played.
-//
-
-function playMove (moveStr) {
-
-  var move     = 0;
-  var node     = rootNode;
-  var nextTurn = ~bdTurn & COLOR_MASK;
-
-  cache(node);
-
-  genMoves(node, bdTurn);
-
-  while (move = getNextMove(node)) {
-
-    makeMoveA(node, move);
-
-    var attacker = isKingAttacked(nextTurn);
-
-    if (attacker) {
-
-      unmakeMove(node, move);
-      uncacheA(node);
-
+  //{{{  compact
+  
+  const wList2 = new Uint8Array(16);
+  const bList2 = new Uint8Array(16);
+  
+  let next = 0;
+  
+  for (let i=0; i < 16; i++) {
+    const sq = wList[i];
+    if (sq) {
+      bdZ[sq] = next;
+      wList2[next++] = sq;
+    }
+  }
+  
+  wList.set(wList2);
+  
+  next = 0;
+  
+  for (let i=0; i < 16; i++) {
+    const sq = bList[i];
+    if (sq) {
+      bdZ[sq] = next;
+      bList2[next++] = sq;
+    }
+  }
+  
+  bList.set(bList2);
+  
+  //}}}
+  //{{{  ue
+  
+  net_h1_a.set(net_h1_b);
+  net_h2_a.set(net_h1_b);
+  
+  for (let sq=0; sq < 64; sq++) {
+  
+    const fr    = B88[sq];
+    const frObj = bdB[fr];
+  
+    if (!frObj)
       continue;
+  
+    const i1 = IMAP[(frObj << 8) + fr];
+  
+    for (let h=0; h < NET_H1_SIZE; h++) {
+      net_h1_a[h] += net_h1_w[i1][h];
+      net_h2_a[h] += net_h2_w[i1][h];
     }
-
-    var fMove = formatMove(move);
-
-    if (moveStr == fMove || moveStr+'q' == fMove) {
-      bdTurn = ~bdTurn & COLOR_MASK;
-      return true;
-    }
-
-    unmakeMove(node, move);
-    uncacheA(node);
-  }
-
-  console.log('play move unmatched',moveStr)
-
-  process.exit();
-  return false;
-
-}
-
-//}}}
-//{{{  compact
-
-function compact () {
-
-  //{{{  compact white list
   
-  var v = [];
-  
-  for (let i=0; i<16; i++) {
-    if (wList[i])
-      v.push(wList[i]);
-  }
-  
-  v.sort(function(a,b) {
-    return bdB[b] - bdB[a];
-  });
-  
-  for (let i=0; i<16; i++) {
-    if (i < v.length) {
-      wList[i] = v[i];
-      bdZ[v[i]]  = i;
-    }
-    else
-      wList[i] = EMPTY;
   }
   
   //}}}
-  //{{{  compact black list
-  
-  var v = [];
-  
-  for (let i=0; i<16; i++) {
-    if (bList[i])
-      v.push(bList[i]);
-  }
-  
-  v.sort(function(a,b) {
-    return bdB[b] - bdB[a];
-  });
-  
-  for (let i=0; i<16; i++) {
-    if (i < v.length) {
-      bList[i] = v[i];
-      bdZ[v[i]]  = i;
-    }
-    else
-      bList[i] = EMPTY;
-  }
-  
-  //}}}
+
+  initNode(rootNode);
+  objHistory.fill(BASE_HISSLIDE);
 
 }
 
@@ -4396,13 +4277,6 @@ function isDraw () {
 //{{{  nodes
 
 //{{{  nodeStruct
-//
-// hack - gradually move stuff into ply indexed tables.
-// hack - or locals e.g. .hashMove/Eval .inCheck.
-// hack - .base can be a global - only ever one move iterator active.
-// hack - the cache can be a flat typed array (inc accumulators) shift indexed.
-// hack - etc...
-//
 
 function nodeStruct () {
 
@@ -4414,30 +4288,30 @@ function nodeStruct () {
   this.moves = new Uint32Array(MAX_MOVES);
   this.ranks = new Uint32Array(MAX_MOVES);
 
-  this.net_h1_a = new Int32Array(NET_H1_SIZE);
-  this.net_h2_a = new Int32Array(NET_H1_SIZE);
-
   this.killer1     = 0;
   this.killer2     = 0;
   this.mateKiller  = 0;
-  this.numMoves    = 0;         // number of pseudo-legal moves for this node
-  this.sortedIndex = 0;         // index to next selection-sorted pseudo-legal move
-  this.hashMove    = 0;         // loaded when we look up the tt
-  this.hashEval    = 0;         // loaded when we look up the tt
-  this.base        = 0;         // move type base (e.g. good capture) - can be used for LMR
+  this.numMoves    = 0;
+  this.sortedIndex = 0;
+  this.hashMove    = 0;
+  this.hashEval    = 0;
+  this.base        = 0;
   this.inCheck     = 0;
   this.ev          = 0;
 
-  this.C_rights = 0;
-  this.C_ep     = 0;
-  this.C_repLo  = 0;
-  this.C_repHi  = 0;
-  this.C_loHash = 0;
-  this.C_hiHash = 0;
+  this.rights = 0;
+  this.ep     = 0;
+  this.repLo  = 0;
+  this.repHi  = 0;
+  this.loHash = 0;
+  this.hiHash = 0;
 
-  this.toZ = 0;                 // move to square index (captures) to piece list - cached during make|unmakeMove
-  this.frZ = 0;                 // move from square index to piece list          - ditto
-  this.epZ = 0;                 // captured ep pawn index to piece list          - ditto
+  this.net_h1_a = new Int32Array(NET_H1_SIZE);
+  this.net_h2_a = new Int32Array(NET_H1_SIZE);
+
+  this.toZ = 0;
+  this.frZ = 0;
+  this.epZ = 0;
 
   this.pv = new Uint32Array(MAX_MOVES);
   this.pvLen = 0;
@@ -4473,12 +4347,12 @@ function initNode (node) {
 
 function cache (node) {
 
-  node.C_rights = bdRights;
-  node.C_ep     = bdEp;
-  node.C_repLo  = repLo;
-  node.C_repHi  = repHi;
-  node.C_loHash = loHash;
-  node.C_hiHash = hiHash;
+  node.rights = bdRights;
+  node.ep     = bdEp;
+  node.repLo  = repLo;
+  node.repHi  = repHi;
+  node.loHash = loHash;
+  node.hiHash = hiHash;
 
   node.net_h1_a.set(net_h1_a);
   node.net_h2_a.set(net_h2_a);
@@ -4490,12 +4364,12 @@ function cache (node) {
 
 function uncacheA (node) {
 
-  bdRights = node.C_rights;
-  bdEp     = node.C_ep;
-  repLo    = node.C_repLo;
-  repHi    = node.C_repHi;
-  loHash   = node.C_loHash;
-  hiHash   = node.C_hiHash;
+  bdRights = node.rights;
+  bdEp     = node.ep;
+  repLo    = node.repLo;
+  repHi    = node.repHi;
+  loHash   = node.loHash;
+  hiHash   = node.hiHash;
 
 }
 
@@ -5091,7 +4965,7 @@ function uciExec (commands) {
       case 'u': {
         //{{{  ucinewgame
         
-        newGameInit();
+        ttInit();
         
         break;
         
