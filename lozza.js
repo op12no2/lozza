@@ -9,7 +9,7 @@ const BUILD = "6";
 
 /*
 
-- Simplify position().
+- Simplify position() and report().
 - Swap to a stack based PV.
 - Merge datagen.js into lozza.js.
 - Refactor.
@@ -1020,19 +1020,460 @@ function bullet2lozza (index) {
 //}}}
 
 //}}}
+//{{{  nodes
+
+//{{{  nodeStruct
+
+function nodeStruct () {
+
+  this.ply             = 0;
+  this.childNode       = null;
+  this.parentNode      = null;
+  this.grandparentNode = null;
+
+  this.moves = new Uint32Array(MAX_MOVES);
+  this.ranks = new Uint32Array(MAX_MOVES);
+
+  this.killer1     = 0;
+  this.killer2     = 0;
+  this.mateKiller  = 0;
+  this.numMoves    = 0;
+  this.sortedIndex = 0;
+  this.hashMove    = 0;
+  this.hashEval    = 0;
+  this.base        = 0;
+  this.inCheck     = 0;
+  this.ev          = 0;
+
+  this.rights = 0;
+  this.ep     = 0;
+  this.repLo  = 0;
+  this.repHi  = 0;
+  this.loHash = 0;
+  this.hiHash = 0;
+
+  this.net_h1_a = new Int32Array(NET_H1_SIZE);
+  this.net_h2_a = new Int32Array(NET_H1_SIZE);
+
+  this.toZ = 0;
+  this.frZ = 0;
+  this.epZ = 0;
+
+  this.pv = new Uint32Array(MAX_MOVES);
+  this.pvLen = 0;
+}
+
+//}}}
+
+//{{{  initNode
+//
+// By storing the killers in the node, we are implicitly using depth from root, rather than
+// depth, which can jump around all over the place and is inappropriate to use for killers.
+//
+
+function initNode (node) {
+
+  node.killer1     = 0;
+  node.killer2     = 0;
+  node.mateKiller  = 0;
+  node.numMoves    = 0;
+  node.sortedIndex = 0;
+  node.hashMove    = 0;
+  node.base        = 0;
+  node.inCheck     = 0;
+
+  node.toZ = 0;
+  node.frZ = 0;
+  node.epZ = 0;
+
+}
+
+//}}}
+//{{{  cache
+
+function cache (node) {
+
+  node.rights = bdRights;
+  node.ep     = bdEp;
+  node.repLo  = repLo;
+  node.repHi  = repHi;
+  node.loHash = loHash;
+  node.hiHash = hiHash;
+
+  node.net_h1_a.set(net_h1_a);
+  node.net_h2_a.set(net_h2_a);
+
+}
+
+//}}}
+//{{{  uncacheA
+
+function uncacheA (node) {
+
+  bdRights = node.rights;
+  bdEp     = node.ep;
+  repLo    = node.repLo;
+  repHi    = node.repHi;
+  loHash   = node.loHash;
+  hiHash   = node.hiHash;
+
+}
+
+//}}}
+//{{{  uncacheB
+
+function uncacheB (node) {
+
+  net_h1_a.set(node.net_h1_a);
+  net_h2_a.set(node.net_h2_a);
+
+}
+
+//}}}
+//{{{  getNextMove
+
+function getNextMove (node) {
+
+  if (node.sortedIndex == node.numMoves) {
+    return 0;
+  }
+
+  const moves = node.moves;
+  const ranks = node.ranks;
+  const next  = node.sortedIndex;
+  const num   = node.numMoves;
+
+  let maxR = -INFINITY;
+  let maxI = 0;
+
+  for (let i=next; i < num; i++) {
+    if (ranks[i] > maxR) {
+      maxR = ranks[i];
+      maxI = i;
+    }
+  }
+
+  const maxM = moves[maxI]
+
+  moves[maxI] = moves[next];
+  ranks[maxI] = ranks[next];
+
+  node.base = maxR;
+
+  node.sortedIndex++;
+
+  return maxM;
+
+}
+
+//}}}
+//{{{  slideBase
+
+function slideBase (move) {
+
+  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+
+  const hisScore = objHistory[(frObj << 8) + to];
+
+  if (hisScore == BASE_HISSLIDE) {
+    const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
+    const slideScores = SLIDE_SCORES[frObj];
+    return BASE_SLIDE + slideScores[to] - slideScores[fr];
+  }
+
+  else
+    return hisScore;
+
+}
+
+//}}}
+//{{{  addSlide
+
+function addSlide (node, move) {
+
+  const m = moveClean(move);
+  const n = node.numMoves++;
+
+  node.moves[n] = move;
+
+  if (m == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+
+  else if (m == node.mateKiller)
+    node.ranks[n] = BASE_MATEKILLER;
+
+  else if (m == node.killer1)
+    node.ranks[n] = BASE_MYKILLERS + 1;
+
+  else if (m == node.killer2)
+    node.ranks[n] = BASE_MYKILLERS;
+
+  else if (node.grandparentNode && m == node.grandparentNode.killer1)
+    node.ranks[n] = BASE_GPKILLERS + 1;
+
+  else if (node.grandparentNode && m == node.grandparentNode.killer2)
+    node.ranks[n] = BASE_GPKILLERS;
+
+  else
+    node.ranks[n] = slideBase(move);
+
+}
+
+//}}}
+//{{{  addCastle
+
+function addCastle (node, move) {
+
+  const m = moveClean(move);
+  const n = node.numMoves++;
+
+  node.moves[n] = move;
+
+  if (m == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+
+  else if (m == node.mateKiller)
+    node.ranks[n] = BASE_MATEKILLER;
+
+  else if (m == node.killer1)
+    node.ranks[n] = BASE_MYKILLERS + 1;
+
+  else if (m == node.killer2)
+    node.ranks[n] = BASE_MYKILLERS;
+
+  else if (node.grandparentNode && m == node.grandparentNode.killer1)
+    node.ranks[n] = BASE_GPKILLERS + 1;
+
+  else if (node.grandparentNode && m == node.grandparentNode.killer2)
+    node.ranks[n] = BASE_GPKILLERS;
+
+  else
+    node.ranks[n] = BASE_CASTLING;
+}
+
+//}}}
+//{{{  addCapture
+
+function addCapture (node, move) {
+
+  const m = moveClean(move);
+  const n = node.numMoves++;
+
+  node.moves[n] = move;
+
+  if (m == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+
+  else {
+
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+
+    if (victim > attack)
+      node.ranks[n] = BASE_GOODTAKES + (victim << 6) - attack;
+
+    else if (victim == attack)
+      node.ranks[n] = BASE_EVENTAKES + (victim << 6) - attack;
+
+    else {
+
+      if (m == node.mateKiller)
+        node.ranks[n] = BASE_MATEKILLER;
+
+      else if (m == node.killer1)
+        node.ranks[n] = BASE_MYKILLERS + 1;
+
+      else if (m == node.killer2)
+        node.ranks[n] = BASE_MYKILLERS;
+
+      else if (node.grandparentNode && m == node.grandparentNode.killer1)
+        node.ranks[n] = BASE_GPKILLERS + 1;
+
+      else if (node.grandparentNode && m == node.grandparentNode.killer2)
+        node.ranks[n] = BASE_GPKILLERS;
+
+      else
+        node.ranks[n] = BASE_BADTAKES  + (victim << 6) - attack;
+    }
+  }
+}
+
+//}}}
+//{{{  addPromotion
+
+function addPromotion (node, move) {
+
+  const m = moveClean(move);
+
+  var n = 0;
+
+  n             = node.numMoves++;
+  node.moves[n] = move | QPRO;
+  if ((m | QPRO) == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+  else
+    node.ranks[n] = BASE_PROMOTES + QUEEN;
+
+  n             = node.numMoves++;
+  node.moves[n] = move | RPRO;
+  if ((m | RPRO) == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+  else
+    node.ranks[n] = BASE_PROMOTES + ROOK;
+
+  n             = node.numMoves++;
+  node.moves[n] = move | BPRO;
+  if ((m | BPRO) == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+  else
+    node.ranks[n] = BASE_PROMOTES + BISHOP;
+
+  n             = node.numMoves++;
+  node.moves[n] = move | NPRO;
+  if ((m | NPRO) == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+  else
+    node.ranks[n] = BASE_PROMOTES + KNIGHT;
+}
+
+//}}}
+//{{{  addEPTake
+
+function addEPTake (node, move) {
+
+  const m = moveClean(move);
+  const n = node.numMoves++;
+
+  node.moves[n] = move | MOVE_EPTAKE_MASK;
+
+  if ((m | MOVE_EPTAKE_MASK) == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+
+  else
+    node.ranks[n] = BASE_EPTAKES;
+
+}
+
+//}}}
+//{{{  addQMove
+
+function addQMove (node, move) {
+
+  const m = moveClean(move);
+  const n = node.numMoves++;
+
+  node.moves[n] = move;
+
+  if (m == node.hashMove)
+    node.ranks[n] = BASE_HASH;
+
+  else if (move & MOVE_PROMOTE_MASK)
+    node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS);  // QRBN
+
+  else if (move & MOVE_EPTAKE_MASK)
+    node.ranks[n] = BASE_EPTAKES;
+
+  else {
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+
+    if (victim > attack)
+      node.ranks[n] = BASE_GOODTAKES + (victim << 6) - attack;
+
+    else if (victim == attack)
+      node.ranks[n] = BASE_EVENTAKES + (victim << 6) - attack;
+
+    else
+      node.ranks[n] = BASE_BADTAKES + (victim << 6) - attack;
+  }
+}
+
+//}}}
+//{{{  addQPromotion
+
+function addQPromotion (node, move) {
+
+  addQMove (node, move | (QUEEN-2)  << MOVE_PROMAS_BITS);
+  addQMove (node, move | (ROOK-2)   << MOVE_PROMAS_BITS);
+  addQMove (node, move | (BISHOP-2) << MOVE_PROMAS_BITS);
+  addQMove (node, move | (KNIGHT-2) << MOVE_PROMAS_BITS);
+
+}
+
+//}}}
+//{{{  addKiller
+
+function addKiller (node, score, move) {
+
+  move = moveClean(move);
+
+  if (move == node.hashMove)
+    return;
+
+  if (move & (MOVE_EPTAKE_MASK | MOVE_PROMOTE_MASK))
+    return;  // before killers in move ordering.
+
+  if (move & MOVE_TOOBJ_MASK) {
+
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+
+    if (victim >= attack)
+      return; // before killers in move ordering.
+  }
+
+  if (score >= MINMATE && score <= MATE) {
+    node.mateKiller = move;
+    if (node.killer1 == move)
+      node.killer1 = 0;
+    if (node.killer2 == move)
+      node.killer2 = 0;
+    return;
+  }
+
+  if (node.killer1 == move || node.killer2 == move) {
+    return;
+  }
+
+  if (node.killer1 == 0) {
+    node.killer1 = move;
+    return;
+  }
+
+  if (node.killer2 == 0) {
+    node.killer2 = move;
+    return;
+  }
+
+  const tmp    = node.killer1;
+  node.killer1 = move;
+  node.killer2 = tmp;
+}
+
+//}}}
+
+//}}}
 //{{{  search
 
 //{{{  report
 
 function report (units, value, depth) {
 
+  let pvStr = 'pv';
+  for (let i=rootNode.pvLen-1; i >= 0; i--)
+    pvStr += ' ' + formatMove(rootNode.pv[i]);
+
+  const tim     = now() - statsStartTime;
+  const nps     = (statsNodes * 1000) / tim | 0;
+  const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
+
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
   const scoreStr = 'score ' + units + ' ' + value;
-  const nodeStr  = statsNodeStr();
   const hashStr  = 'hashfull ' + (1000 * ttHashUsed / TTSIZE | 0);
-  const pvStr    = 'pv ' + getPVStr(rootNode);
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
+
 }
 
 //}}}
@@ -1326,7 +1767,7 @@ function search (node, depth, turn, alpha, beta, inCheck) {
     return 0;
   }
   
-  statsCheckTime();
+  checkTime();
   if (statsTimeOut)
     return 0;
   
@@ -2014,20 +2455,6 @@ function collectPV(node, move) {
   node.pv.set(cNode.pv.subarray(0, cNode.pvLen), 0);
   node.pvLen = cNode.pvLen;
   node.pv[node.pvLen++] = move;
-
-}
-
-//}}}
-//{{{  getPVStr
-
-function getPVStr (node) {
-
-  let pv = '';
-
-  for (let i=node.pvLen-1; i >= 0; i--)
-    pv += formatMove(node.pv[i]) + ' ';
-
-  return pv;
 
 }
 
@@ -4274,440 +4701,6 @@ function isDraw () {
 //}}}
 
 //}}}
-//{{{  nodes
-
-//{{{  nodeStruct
-
-function nodeStruct () {
-
-  this.ply             = 0;
-  this.childNode       = null;
-  this.parentNode      = null;
-  this.grandparentNode = null;
-
-  this.moves = new Uint32Array(MAX_MOVES);
-  this.ranks = new Uint32Array(MAX_MOVES);
-
-  this.killer1     = 0;
-  this.killer2     = 0;
-  this.mateKiller  = 0;
-  this.numMoves    = 0;
-  this.sortedIndex = 0;
-  this.hashMove    = 0;
-  this.hashEval    = 0;
-  this.base        = 0;
-  this.inCheck     = 0;
-  this.ev          = 0;
-
-  this.rights = 0;
-  this.ep     = 0;
-  this.repLo  = 0;
-  this.repHi  = 0;
-  this.loHash = 0;
-  this.hiHash = 0;
-
-  this.net_h1_a = new Int32Array(NET_H1_SIZE);
-  this.net_h2_a = new Int32Array(NET_H1_SIZE);
-
-  this.toZ = 0;
-  this.frZ = 0;
-  this.epZ = 0;
-
-  this.pv = new Uint32Array(MAX_MOVES);
-  this.pvLen = 0;
-}
-
-//}}}
-
-//{{{  initNode
-//
-// By storing the killers in the node, we are implicitly using depth from root, rather than
-// depth, which can jump around all over the place and is inappropriate to use for killers.
-//
-
-function initNode (node) {
-
-  node.killer1     = 0;
-  node.killer2     = 0;
-  node.mateKiller  = 0;
-  node.numMoves    = 0;
-  node.sortedIndex = 0;
-  node.hashMove    = 0;
-  node.base        = 0;
-  node.inCheck     = 0;
-
-  node.toZ = 0;
-  node.frZ = 0;
-  node.epZ = 0;
-
-}
-
-//}}}
-//{{{  cache
-
-function cache (node) {
-
-  node.rights = bdRights;
-  node.ep     = bdEp;
-  node.repLo  = repLo;
-  node.repHi  = repHi;
-  node.loHash = loHash;
-  node.hiHash = hiHash;
-
-  node.net_h1_a.set(net_h1_a);
-  node.net_h2_a.set(net_h2_a);
-
-}
-
-//}}}
-//{{{  uncacheA
-
-function uncacheA (node) {
-
-  bdRights = node.rights;
-  bdEp     = node.ep;
-  repLo    = node.repLo;
-  repHi    = node.repHi;
-  loHash   = node.loHash;
-  hiHash   = node.hiHash;
-
-}
-
-//}}}
-//{{{  uncacheB
-
-function uncacheB (node) {
-
-  net_h1_a.set(node.net_h1_a);
-  net_h2_a.set(node.net_h2_a);
-
-}
-
-//}}}
-//{{{  getNextMove
-
-function getNextMove (node) {
-
-  if (node.sortedIndex == node.numMoves) {
-    return 0;
-  }
-
-  const moves = node.moves;
-  const ranks = node.ranks;
-  const next  = node.sortedIndex;
-  const num   = node.numMoves;
-
-  let maxR = -INFINITY;
-  let maxI = 0;
-
-  for (let i=next; i < num; i++) {
-    if (ranks[i] > maxR) {
-      maxR = ranks[i];
-      maxI = i;
-    }
-  }
-
-  const maxM = moves[maxI]
-
-  moves[maxI] = moves[next];
-  ranks[maxI] = ranks[next];
-
-  node.base = maxR;
-
-  node.sortedIndex++;
-
-  return maxM;
-
-}
-
-//}}}
-//{{{  slideBase
-
-function slideBase (move) {
-
-  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-
-  const hisScore = objHistory[(frObj << 8) + to];
-
-  if (hisScore == BASE_HISSLIDE) {
-    const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-    const slideScores = SLIDE_SCORES[frObj];
-    return BASE_SLIDE + slideScores[to] - slideScores[fr];
-  }
-
-  else
-    return hisScore;
-
-}
-
-//}}}
-//{{{  addSlide
-
-function addSlide (node, move) {
-
-  const m = moveClean(move);
-  const n = node.numMoves++;
-
-  node.moves[n] = move;
-
-  if (m == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-
-  else if (m == node.mateKiller)
-    node.ranks[n] = BASE_MATEKILLER;
-
-  else if (m == node.killer1)
-    node.ranks[n] = BASE_MYKILLERS + 1;
-
-  else if (m == node.killer2)
-    node.ranks[n] = BASE_MYKILLERS;
-
-  else if (node.grandparentNode && m == node.grandparentNode.killer1)
-    node.ranks[n] = BASE_GPKILLERS + 1;
-
-  else if (node.grandparentNode && m == node.grandparentNode.killer2)
-    node.ranks[n] = BASE_GPKILLERS;
-
-  else
-    node.ranks[n] = slideBase(move);
-
-}
-
-//}}}
-//{{{  addCastle
-
-function addCastle (node, move) {
-
-  const m = moveClean(move);
-  const n = node.numMoves++;
-
-  node.moves[n] = move;
-
-  if (m == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-
-  else if (m == node.mateKiller)
-    node.ranks[n] = BASE_MATEKILLER;
-
-  else if (m == node.killer1)
-    node.ranks[n] = BASE_MYKILLERS + 1;
-
-  else if (m == node.killer2)
-    node.ranks[n] = BASE_MYKILLERS;
-
-  else if (node.grandparentNode && m == node.grandparentNode.killer1)
-    node.ranks[n] = BASE_GPKILLERS + 1;
-
-  else if (node.grandparentNode && m == node.grandparentNode.killer2)
-    node.ranks[n] = BASE_GPKILLERS;
-
-  else
-    node.ranks[n] = BASE_CASTLING;
-}
-
-//}}}
-//{{{  addCapture
-
-function addCapture (node, move) {
-
-  const m = moveClean(move);
-  const n = node.numMoves++;
-
-  node.moves[n] = move;
-
-  if (m == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-
-  else {
-
-    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
-
-    if (victim > attack)
-      node.ranks[n] = BASE_GOODTAKES + (victim << 6) - attack;
-
-    else if (victim == attack)
-      node.ranks[n] = BASE_EVENTAKES + (victim << 6) - attack;
-
-    else {
-
-      if (m == node.mateKiller)
-        node.ranks[n] = BASE_MATEKILLER;
-
-      else if (m == node.killer1)
-        node.ranks[n] = BASE_MYKILLERS + 1;
-
-      else if (m == node.killer2)
-        node.ranks[n] = BASE_MYKILLERS;
-
-      else if (node.grandparentNode && m == node.grandparentNode.killer1)
-        node.ranks[n] = BASE_GPKILLERS + 1;
-
-      else if (node.grandparentNode && m == node.grandparentNode.killer2)
-        node.ranks[n] = BASE_GPKILLERS;
-
-      else
-        node.ranks[n] = BASE_BADTAKES  + (victim << 6) - attack;
-    }
-  }
-}
-
-//}}}
-//{{{  addPromotion
-
-function addPromotion (node, move) {
-
-  const m = moveClean(move);
-
-  var n = 0;
-
-  n             = node.numMoves++;
-  node.moves[n] = move | QPRO;
-  if ((m | QPRO) == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + QUEEN;
-
-  n             = node.numMoves++;
-  node.moves[n] = move | RPRO;
-  if ((m | RPRO) == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + ROOK;
-
-  n             = node.numMoves++;
-  node.moves[n] = move | BPRO;
-  if ((m | BPRO) == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + BISHOP;
-
-  n             = node.numMoves++;
-  node.moves[n] = move | NPRO;
-  if ((m | NPRO) == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + KNIGHT;
-}
-
-//}}}
-//{{{  addEPTake
-
-function addEPTake (node, move) {
-
-  const m = moveClean(move);
-  const n = node.numMoves++;
-
-  node.moves[n] = move | MOVE_EPTAKE_MASK;
-
-  if ((m | MOVE_EPTAKE_MASK) == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-
-  else
-    node.ranks[n] = BASE_EPTAKES;
-
-}
-
-//}}}
-//{{{  addQMove
-
-function addQMove (node, move) {
-
-  const m = moveClean(move);
-  const n = node.numMoves++;
-
-  node.moves[n] = move;
-
-  if (m == node.hashMove)
-    node.ranks[n] = BASE_HASH;
-
-  else if (move & MOVE_PROMOTE_MASK)
-    node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS);  // QRBN
-
-  else if (move & MOVE_EPTAKE_MASK)
-    node.ranks[n] = BASE_EPTAKES;
-
-  else {
-    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
-
-    if (victim > attack)
-      node.ranks[n] = BASE_GOODTAKES + (victim << 6) - attack;
-
-    else if (victim == attack)
-      node.ranks[n] = BASE_EVENTAKES + (victim << 6) - attack;
-
-    else
-      node.ranks[n] = BASE_BADTAKES + (victim << 6) - attack;
-  }
-}
-
-//}}}
-//{{{  addQPromotion
-
-function addQPromotion (node, move) {
-
-  addQMove (node, move | (QUEEN-2)  << MOVE_PROMAS_BITS);
-  addQMove (node, move | (ROOK-2)   << MOVE_PROMAS_BITS);
-  addQMove (node, move | (BISHOP-2) << MOVE_PROMAS_BITS);
-  addQMove (node, move | (KNIGHT-2) << MOVE_PROMAS_BITS);
-
-}
-
-//}}}
-//{{{  addKiller
-
-function addKiller (node, score, move) {
-
-  move = moveClean(move);
-
-  if (move == node.hashMove)
-    return;
-
-  if (move & (MOVE_EPTAKE_MASK | MOVE_PROMOTE_MASK))
-    return;  // before killers in move ordering.
-
-  if (move & MOVE_TOOBJ_MASK) {
-
-    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
-
-    if (victim >= attack)
-      return; // before killers in move ordering.
-  }
-
-  if (score >= MINMATE && score <= MATE) {
-    node.mateKiller = move;
-    if (node.killer1 == move)
-      node.killer1 = 0;
-    if (node.killer2 == move)
-      node.killer2 = 0;
-    return;
-  }
-
-  if (node.killer1 == move || node.killer2 == move) {
-    return;
-  }
-
-  if (node.killer1 == 0) {
-    node.killer1 = move;
-    return;
-  }
-
-  if (node.killer2 == 0) {
-    node.killer2 = move;
-    return;
-  }
-
-  const tmp    = node.killer1;
-  node.killer1 = move;
-  node.killer2 = tmp;
-}
-
-//}}}
-
-//}}}
 //{{{  stats
 
 let statsStartTime = 0;
@@ -4735,9 +4728,9 @@ function initStats () {
 }
 
 //}}}
-//{{{  statsCheckTime
+//{{{  checkTime
 
-function statsCheckTime () {
+function checkTime () {
 
   if (statsBestMove && statsMoveTime > 0 && ((now() - statsStartTime) >= statsMoveTime))
 
@@ -4746,18 +4739,6 @@ function statsCheckTime () {
   if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes * 10)
 
     statsTimeOut = 1;
-
-}
-
-//}}}
-//{{{  statsNodeStr
-
-function statsNodeStr () {
-
-  const tim = now() - statsStartTime;
-  const nps = (statsNodes * 1000) / tim | 0;
-
-  return 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
 
 }
 
