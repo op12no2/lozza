@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Swap from IID to IIR.
 - Increase hidden layer to 160.
 - Generate more data - total 357M fens.
 - Simplify position() and report().
@@ -1921,7 +1922,7 @@ function search (node, depth, turn, alpha, beta, inCheck) {
   const doFutility = !inCheck && depth <= 4;
   const doLMR      = !inCheck && depth >= 3;
   const doLMP      = !pvNode && !inCheck && depth <= 2;
-  const doIID      = !node.hashMove && pvNode && depth > 3;
+  const doIIR      = !node.hashMove && pvNode && depth > 3;
 
   var bestScore     = -INFINITY;
   var move          = 0;
@@ -1931,33 +1932,13 @@ function search (node, depth, turn, alpha, beta, inCheck) {
   var givesCheck    = INCHECK_UNKNOWN;
   var keeper        = false;
 
-  //{{{  IID
-  //
-  // If there is no hash move after IID it means that the search returned
-  // a mate or draw score and we could return immediately I think, because
-  // the subsequent search is presumably going to find the same.  However
-  // it's a small optimisation and I'm not totally convinced.  Needs to be
-  // tested.
-  //
-  // Use this node so the killers align.  Should be safe.
-  //
+  //{{{  IIR
   
-  if (doIID) {
+  if (doIIR) {
   
-    search(node, depth-2, turn, alpha, beta, inCheck);
-  
-    ttGet(node, 0, alpha, beta);
-  
-    node.pvLen = 0;
+    depth -= 1;
   
   }
-  
-  if (statsTimeOut)
-    return 0;
-  
-  //hack if (!node.hashMove) {
-    //depth = Math.max(depth-1,0);
-  //}
   
   //}}}
 
