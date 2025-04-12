@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Tidy LMR, LMP and FP.
 - Swap from IID to IIR.
 - Increase hidden layer to 160.
 - Generate more data - total 357M fens.
@@ -1673,14 +1674,14 @@ function rootSearch (node, depth, turn, alpha, beta) {
       E = 1;
     }
     
-    else if (doLMR && numLegalMoves > 1) {
+    else if (doLMR && numLegalMoves > 4) {
     
       givesCheck = isKingAttacked(turn);
-      keeper     = node.base >= BASE_LMR || (move & KEEPER_MASK) || givesCheck || alphaMate(alpha);
     
-      if (!keeper && numSlides > 4) {
+      if (!givesCheck) {
         R = LMR_LOOKUP[(depth << 7) + numSlides];
       }
+    
     }
     
     //}}}
@@ -1693,7 +1694,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
       score = -search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
 
     if (!statsTimeOut && (!nullWindow || score > alpha))
-     score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
+      score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
 
     //{{{  unmake move
     
@@ -1957,41 +1958,25 @@ function search (node, depth, turn, alpha, beta, inCheck) {
 
   while (move = getNextMove(node)) {
 
-    if (node.base < BASE_LMR)
-      numSlides++;
-
-    //{{{  extend/reduce/prune
+    //{{{  prune
     
     givesCheck = INCHECK_UNKNOWN;
-    E          = 0;
-    R          = 0;
+    keeper     = node.base >= BASE_LMR || (move & KEEPER_MASK) || alphaMate(alpha);
     
-    if (inCheck && (pvNode || depth < 5)) {
-      E = 1;
-    }
+    if (!keeper && numLegalMoves > 0 && (doLMP || doFutility)) {
     
-    else if (numLegalMoves > 0 && (doLMP || doLMR || doFutility)) {
+      makePseudoMove(move);
+      givesCheck = isKingAttacked(turn);
+      unmakePseudoMove(move);
     
-      keeper = node.base >= BASE_LMR || (move & KEEPER_MASK) || alphaMate(alpha);
-    
-      if (!keeper) {
-    
-        makePseudoMove(move);
-        givesCheck = isKingAttacked(turn);
-        unmakePseudoMove(move);
-    
-        if (doLMP && !givesCheck && numSlides > Math.imul(depth,5)) {
-          continue;
-        }
-    
-        if (doFutility && (ev + Math.imul(depth,120)) < alpha && !givesCheck) {
-          continue;
-        }
-    
-        if (doLMR && !givesCheck && node.sortedIndex > 4) {
-          R = LMR_LOOKUP[(depth << 7) + numSlides];
-        }
+      if (doLMP && !givesCheck && numSlides > Math.imul(depth,5)) {
+        continue;
       }
+    
+      if (doFutility && !givesCheck && (ev + Math.imul(depth,120)) < alpha) {
+        continue;
+      }
+    
     }
     
     //}}}
@@ -2015,6 +2000,31 @@ function search (node, depth, turn, alpha, beta, inCheck) {
     makeMoveB();
 
     numLegalMoves++;
+    if (node.base < BASE_LMR)
+      numSlides++;
+
+    //{{{  extend/reduce
+    
+    E = 0;
+    R = 0;
+    
+    if (inCheck && (pvNode || depth < 5)) {
+      E = 1;
+    }
+    
+    else if (doLMR && numLegalMoves > 4) {
+    
+      if (givesCheck == INCHECK_UNKNOWN) {
+        givesCheck = isKingAttacked(turn);
+      }
+    
+      if (!givesCheck) {
+        R = LMR_LOOKUP[(depth << 7) + numSlides];
+      }
+    
+    }
+    
+    //}}}
 
     const nullWindow = (pvNode && numLegalMoves > 1) || R;
 
