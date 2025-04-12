@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Micro optimisation to net* UE functions.
 - Simplify away givesCheck.
 - Tidy LMR, LMP and FP.
 - Swap from IID to IIR.
@@ -1866,9 +1867,6 @@ function search (node, depth, turn, alpha, beta) {
   cache(node);
 
   //{{{  NMP
-  //
-  // Use .childNode to make sure killers are aligned.
-  //
   
   R = 3 + improving;
   
@@ -1922,6 +1920,9 @@ function search (node, depth, turn, alpha, beta) {
   var numSlides     = 0;
 
   //{{{  IIR
+  //
+  // https://www.talkchess.com/forum3/viewtopic.php?f=7&t=74769
+  //
   
   if (doIIR) {
   
@@ -2669,9 +2670,6 @@ function netMove () {
   const fr    = ueArgs1;
   const to    = ueArgs2;
 
-  const a1 = net_h1_a;
-  const a2 = net_h2_a;
-
   const i1 = IMAP[(frObj << 8) + fr];
   const i2 = IMAP[(frObj << 8) + to];
 
@@ -2682,8 +2680,8 @@ function netMove () {
   const h2b = net_h2_w[i2];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    a1[h] += h1b[h] - h1a[h];
-    a2[h] += h2b[h] - h2a[h];
+    net_h1_a[h] += h1b[h] - h1a[h];
+    net_h2_a[h] += h2b[h] - h2a[h];
   }
 }
 
@@ -2696,9 +2694,6 @@ function netCapture () {
   const fr    = ueArgs1;
   const toObj = ueArgs2;
   const to    = ueArgs3;
-
-  const a1 = net_h1_a;
-  const a2 = net_h2_a;
 
   const i1 = IMAP[(frObj << 8) + fr];
   const i2 = IMAP[(toObj << 8) + to];
@@ -2713,8 +2708,8 @@ function netCapture () {
   const h2c = net_h2_w[i3];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    a1[h] += h1c[h] - h1b[h] - h1a[h];
-    a2[h] += h2c[h] - h2b[h] - h2a[h];
+    net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
+    net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
 }
 
@@ -2729,9 +2724,6 @@ function netPromote () {
   const captureObj = ueArgs3;
   const promoteObj = ueArgs4;
 
-  const a1 = net_h1_a;
-  const a2 = net_h2_a;
-
   const i1 = IMAP[(pawnObj << 8) + pawnFr];
   const i2 = IMAP[(captureObj << 8) + pawnTo];
   const i3 = IMAP[(promoteObj << 8) + pawnTo];
@@ -2745,8 +2737,8 @@ function netPromote () {
   const h2c = net_h2_w[i3];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    a1[h] += h1c[h] - h1b[h] - h1a[h];
-    a2[h] += h2c[h] - h2b[h] - h2a[h];
+    net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
+    net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
 }
 
@@ -2761,9 +2753,6 @@ function netEpCapture () {
   const pawnCaptureObj = ueArgs3;
   const ep             = ueArgs4;
 
-  const a1 = net_h1_a;
-  const a2 = net_h2_a;
-
   const i1 = IMAP[(pawnObj << 8) + pawnFr];
   const i2 = IMAP[(pawnObj << 8) + pawnTo];
   const i3 = IMAP[(pawnCaptureObj << 8) + ep];
@@ -2777,8 +2766,8 @@ function netEpCapture () {
   const h2c = net_h2_w[i3];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    a1[h] += h1b[h] - h1a[h] - h1c[h];
-    a2[h] += h2b[h] - h2a[h] - h2c[h];
+    net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
+    net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
   }
 }
 
@@ -2793,9 +2782,6 @@ function netCastle () {
   const rookObj = ueArgs3;
   const rookFr  = ueArgs4;
   const rookTo  = ueArgs5;
-
-  const a1 = net_h1_a;
-  const a2 = net_h2_a;
 
   const i1 = IMAP[(kingObj << 8) + kingFr];
   const i2 = IMAP[(kingObj << 8) + kingTo];
@@ -2813,8 +2799,8 @@ function netCastle () {
   const h2d = net_h2_w[i4];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    a1[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
-    a2[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
+    net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
+    net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
   }
 }
 
