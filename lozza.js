@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Simplify away givesCheck.
 - Tidy LMR, LMP and FP.
 - Swap from IID to IIR.
 - Increase hidden layer to 160.
@@ -78,8 +79,7 @@ const LMR_LOOKUP      = new Uint8Array(MAX_PLY * MAX_MOVES);
 const INFINITY        = 30000;              // limited by ttScore bits
 const MATE            = 20000;
 const MINMATE         = (MATE - 2*MAX_PLY) | 0;
-const INCHECK_UNKNOWN = MATE + 1;
-const TTSCORE_UNKNOWN = MATE + 2;
+const TTSCORE_UNKNOWN = MATE + 1;
 const EMPTY           = 0;
 
 const WHITE   = 0x0;                // toggle with: ~turn & COLOR_MASK
@@ -1617,8 +1617,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
   var bestScore      = -INFINITY;
   var R              = 0;
   var E              = 0;
-  var givesCheck     = INCHECK_UNKNOWN;
-  var keeper         = false;
 
   ttGet(node, depth, alpha, beta);  // load hash move
 
@@ -1666,22 +1664,15 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
     //{{{  extend/reduce
     
-    givesCheck = INCHECK_UNKNOWN;
-    E          = 0;
-    R          = 0;
+    E = 0;
+    R = 0;
     
     if (inCheck) {
       E = 1;
     }
     
     else if (doLMR && numLegalMoves > 4) {
-    
-      givesCheck = isKingAttacked(turn);
-    
-      if (!givesCheck) {
-        R = LMR_LOOKUP[(depth << 7) + numSlides];
-      }
-    
+      R = LMR_LOOKUP[(depth << 7) + numSlides];
     }
     
     //}}}
@@ -1691,10 +1682,10 @@ function rootSearch (node, depth, turn, alpha, beta) {
     score = alpha;
 
     if (nullWindow)
-      score = -search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
+      score = -search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha);
 
     if (!statsTimeOut && (!nullWindow || score > alpha))
-      score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
+      score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
 
     //{{{  unmake move
     
@@ -1760,7 +1751,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
 //}}}
 //{{{  search
 
-function search (node, depth, turn, alpha, beta, inCheck) {
+function search (node, depth, turn, alpha, beta) {
 
   //{{{  check time
   
@@ -1809,8 +1800,7 @@ function search (node, depth, turn, alpha, beta, inCheck) {
   
   //}}}
 
-  if (inCheck == INCHECK_UNKNOWN)
-    inCheck  = isKingAttacked(nextTurn);
+  const inCheck = isKingAttacked(nextTurn);
 
   //{{{  horizon
   
@@ -1895,7 +1885,7 @@ function search (node, depth, turn, alpha, beta, inCheck) {
     loHash ^= loTurn;
     hiHash ^= hiTurn;
   
-    score = -search(node.childNode, depth-R-1, nextTurn, -beta, -beta+1, INCHECK_UNKNOWN);
+    score = -search(node.childNode, depth-R-1, nextTurn, -beta, -beta+1);
   
     uncacheA(node);
     uncacheB(node);
@@ -1930,8 +1920,6 @@ function search (node, depth, turn, alpha, beta, inCheck) {
   var bestMove      = 0;
   var numLegalMoves = 0;
   var numSlides     = 0;
-  var givesCheck    = INCHECK_UNKNOWN;
-  var keeper        = false;
 
   //{{{  IIR
   
@@ -1960,23 +1948,12 @@ function search (node, depth, turn, alpha, beta, inCheck) {
 
     //{{{  prune
     
-    givesCheck = INCHECK_UNKNOWN;
-    keeper     = node.base >= BASE_LMR || (move & KEEPER_MASK) || alphaMate(alpha);
+    if (doLMP && numLegalMoves > 0 && node.base < BASE_LMR && !(move & KEEPER_MASK) && !alphaMate(alpha) && numSlides > Math.imul(depth,5)) {
+      continue;
+    }
     
-    if (!keeper && numLegalMoves > 0 && (doLMP || doFutility)) {
-    
-      makePseudoMove(move);
-      givesCheck = isKingAttacked(turn);
-      unmakePseudoMove(move);
-    
-      if (doLMP && !givesCheck && numSlides > Math.imul(depth,5)) {
-        continue;
-      }
-    
-      if (doFutility && !givesCheck && (ev + Math.imul(depth,120)) < alpha) {
-        continue;
-      }
-    
+    if (doFutility && numLegalMoves > 0 && node.base < BASE_LMR && !(move & KEEPER_MASK) && !alphaMate(alpha) && (ev + Math.imul(depth,120)) < alpha) {
+      continue;
     }
     
     //}}}
@@ -2013,15 +1990,7 @@ function search (node, depth, turn, alpha, beta, inCheck) {
     }
     
     else if (doLMR && numLegalMoves > 4) {
-    
-      if (givesCheck == INCHECK_UNKNOWN) {
-        givesCheck = isKingAttacked(turn);
-      }
-    
-      if (!givesCheck) {
-        R = LMR_LOOKUP[(depth << 7) + numSlides];
-      }
-    
+      R = LMR_LOOKUP[(depth << 7) + numSlides];
     }
     
     //}}}
@@ -2031,10 +2000,10 @@ function search (node, depth, turn, alpha, beta, inCheck) {
     score = alpha;
 
     if (nullWindow)
-      score = -search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, givesCheck);
+      score = -search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha);
 
     if (!statsTimeOut && (!nullWindow || score > alpha))
-      score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha, givesCheck);
+      score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
 
     //{{{  unmake move
     
