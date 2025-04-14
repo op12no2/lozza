@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Use switch in genMoves and genQMoves.
 - Simplify away genEvasions.
 - Micro optimisation to net* UE functions.
 - Simplify away givesCheck.
@@ -1996,14 +1997,14 @@ function perft (node, depth, turn) {
   if (depth == 0)
     return 1;
 
-  var numNodes      = 0;
-  var totalNodes    = 0;
-  var move          = 0;
-  var nextTurn      = ~turn & COLOR_MASK;
-  var numLegalMoves = 0;
-  var inCheck       = isKingAttacked(nextTurn);
+  const nextTurn = turn ^ COLOR_MASK;
+  const inCheck  = isKingAttacked(nextTurn);
+
+  var totalNodes = 0;
+  var move       = 0;
 
   node.inCheck = inCheck;
+
   cache(node);
 
   genMoves(node, turn);
@@ -2021,15 +2022,12 @@ function perft (node, depth, turn) {
       uncacheA(node);
     
       continue;
+    
     }
     
     //}}}
 
-    numLegalMoves++;
-
-    var numNodes = perft(node.childNode, depth-1, nextTurn);
-
-    totalNodes += numNodes;
+    totalNodes += perft(node.childNode, depth-1, nextTurn);
 
     //{{{  unmake move
     
@@ -3021,6 +3019,7 @@ function genMoves (node, turn) {
   node.sortedIndex = 0;
 
   const b = bdB;
+  const inCheck = node.inCheck;
 
   //{{{  colour based stuff
   
@@ -3038,7 +3037,7 @@ function genMoves (node, turn) {
     var CAPTURE      = IS_BNK;
     var aligned      = ALIGNED[wList[0]];
   
-    if (!node.inCheck && rights) {
+    if (!inCheck && rights) {
   
       if ((rights & WHITE_RIGHTS_KING)  && !b[F1] && !b[G1]           && b[SQG2] != B_KING && b[SQH2] != B_KING && !isAttacked(F1,BLACK))
         addCastle(node, MOVE_E1G1);
@@ -3062,7 +3061,7 @@ function genMoves (node, turn) {
     var CAPTURE      = IS_WNK;
     var aligned      = ALIGNED[bList[0]];
   
-    if (!node.inCheck && rights) {
+    if (!inCheck && rights) {
   
       if ((rights & BLACK_RIGHTS_KING)  && !b[F8] && !b[G8]           && b[SQG7] != B_KING && b[SQH7] != B_KING && !isAttacked(F8,WHITE))
         addCastle(node, MOVE_E8G8);
@@ -3074,15 +3073,15 @@ function genMoves (node, turn) {
   
   //}}}
 
-  var next    = 0;
-  var count   = 0;
-  var to      = 0;
-  var toObj   = 0;
-  var fr      = 0;
-  var frObj   = 0;
-  var frPiece = 0;
-  var frMove  = 0;
-  var frRank  = 0;
+  var next      = 0;
+  var count     = 0;
+  var to        = 0;
+  var toObj     = 0;
+  var fr        = 0;
+  var frObj     = 0;
+  var frPiece   = 0;
+  var frMove    = 0;
+  var frRank    = 0;
   var legalMask = 0;
 
   while (count < pCount) {
@@ -3097,136 +3096,205 @@ function genMoves (node, turn) {
     frPiece   = frObj & PIECE_MASK;
     frMove    = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
     frRank    = RANK[fr];
-    legalMask = !node.inCheck && !aligned[fr] ? MOVE_LEGAL_MASK : 0;
+    legalMask = !inCheck && !aligned[fr] ? MOVE_LEGAL_MASK : 0;
 
-    if (frPiece == PAWN) {
-      //{{{  P
-      
-      to     = fr + pOffsetOrth;
-      toObj  = b[to];
-      
-      if (!toObj) {
-      
-        if (frRank == pPromoteRank)
-          addPromotion(node, frMove | to | legalMask);
-      
-        else {
-          addSlide(node, frMove | to | legalMask);
-      
-          if (frRank == pHomeRank) {
-      
-            to += pOffsetOrth;
-            if (!b[to])
-              addSlide(node, frMove | to | MOVE_EPMAKE_MASK | legalMask);
+    switch (frPiece) {
+      case 1: {
+        //{{{  P
+        
+        to    = fr + pOffsetOrth;
+        toObj = b[to];
+        
+        if (!toObj) {
+        
+          if (frRank == pPromoteRank)
+            addPromotion(node, frMove | to | legalMask);
+        
+          else {
+            addSlide(node, frMove | to | legalMask);
+        
+            if (frRank == pHomeRank) {
+        
+              to += pOffsetOrth;
+              if (!b[to])
+                addSlide(node, frMove | to | MOVE_EPMAKE_MASK | legalMask);
+            }
           }
         }
-      }
-      
-      to    = fr + pOffsetDiag1;
-      toObj = b[to];
-      
-      if (CAPTURE[toObj]) {
-      
-        if (frRank == pPromoteRank)
-          addPromotion(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-        else
-          addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-      }
-      
-      else if (!toObj && to == bdEp)
-        addEPTake(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-      
-      to    = fr + pOffsetDiag2;
-      toObj = b[to];
-      
-      if (CAPTURE[toObj]) {
-      
-        if (frRank == pPromoteRank)
-          addPromotion(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-        else
-          addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-      }
-      
-      else if (!toObj && to == bdEp)
-        addEPTake(node, frMove | to);
-      
-      //}}}
-    }
-
-    else if (frPiece == KNIGHT) {
-      //{{{  N
-      
-      var offsets = OFFSETS[frPiece];
-      var dir     = 0;
-      
-      while (dir < 8) {
-      
-        to    = fr + offsets[dir++];
+        
+        to    = fr + pOffsetDiag1;
         toObj = b[to];
-      
-        if (!toObj)
-          addSlide(node, frMove | to | legalMask);
-      
-        else if (CAPTURE[toObj])
-          addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-      
-      }
-      
-      //}}}
-    }
-
-    else if (frPiece == KING) {
-      //{{{  K
-      
-      var offsets = OFFSETS[frPiece];
-      var dir     = 0;
-      
-      while (dir < 8) {
-      
-        to    = fr + offsets[dir++];
-        toObj = b[to];
-      
-        if (!ADJACENT[Math.abs(to-theirKingSq)]) {
-          if (!toObj)
-            addSlide(node, frMove | to);
-      
-          else if (CAPTURE[toObj])
-            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        
+        if (CAPTURE[toObj]) {
+        
+          if (frRank == pPromoteRank)
+            addPromotion(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          else
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
         }
-      
+        
+        else if (!toObj && to == bdEp)
+          addEPTake(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        
+        to    = fr + pOffsetDiag2;
+        toObj = b[to];
+        
+        if (CAPTURE[toObj]) {
+        
+          if (frRank == pPromoteRank)
+            addPromotion(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          else
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+        }
+        
+        else if (!toObj && to == bdEp)
+          addEPTake(node, frMove | to);
+        
+        break;
+        
+        //}}}
       }
-      
-      //}}}
-    }
-
-    else {
-      //{{{  BRQ
-      
-      var offsets = OFFSETS[frPiece];
-      var len     = offsets.length;
-      var dir     = 0;
-      
-      while (dir < len) {
-      
-        var offset = offsets[dir++];
-      
-        to     = fr + offset;
-        toObj  = b[to];
-      
-        while (!toObj) {
-      
-          addSlide(node, frMove | to | legalMask);
-      
-          to    += offset;
+      case 2: {
+        //{{{  N
+        
+        var offsets = OFFSETS[frPiece];
+        var dir     = 0;
+        
+        while (dir < 8) {
+        
+          to    = fr + offsets[dir++];
           toObj = b[to];
+        
+          if (!toObj)
+            addSlide(node, frMove | to | legalMask);
+        
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+        
         }
-      
-        if (CAPTURE[toObj])
-          addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-      
+        
+        break;
+        
+        //}}}
       }
-      
-      //}}}
+      case 3: {
+        //{{{  B
+        
+        var offsets = OFFSETS[frPiece];
+        var len     = offsets.length;
+        var dir     = 0;
+        
+        while (dir < len) {
+        
+          var offset = offsets[dir++];
+        
+          to    = fr + offset;
+          toObj = b[to];
+        
+          while (!toObj) {
+        
+            addSlide(node, frMove | to | legalMask);
+        
+            to += offset;
+            toObj = b[to];
+          }
+        
+          if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
+      case 4: {
+        //{{{  R
+        
+        var offsets = OFFSETS[frPiece];
+        var len     = offsets.length;
+        var dir     = 0;
+        
+        while (dir < len) {
+        
+          var offset = offsets[dir++];
+        
+          to    = fr + offset;
+          toObj = b[to];
+        
+          while (!toObj) {
+        
+            addSlide(node, frMove | to | legalMask);
+        
+            to += offset;
+            toObj = b[to];
+          }
+        
+          if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
+      case 5: {
+        //{{{  Q
+        
+        var offsets = OFFSETS[frPiece];
+        var len     = offsets.length;
+        var dir     = 0;
+        
+        while (dir < len) {
+        
+          var offset = offsets[dir++];
+        
+          to    = fr + offset;
+          toObj = b[to];
+        
+          while (!toObj) {
+        
+            addSlide(node, frMove | to | legalMask);
+        
+            to += offset;
+            toObj = b[to];
+          }
+        
+          if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
+      case 6: {
+        //{{{  K
+        
+        var offsets = OFFSETS[frPiece];
+        var dir     = 0;
+        
+        while (dir < 8) {
+        
+          to    = fr + offsets[dir++];
+          toObj = b[to];
+        
+          if (!ADJACENT[Math.abs(to-theirKingSq)]) {
+            if (!toObj)
+              addSlide(node, frMove | to);
+        
+            else if (CAPTURE[toObj])
+              addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          }
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
     }
 
     next++;
@@ -3273,15 +3341,15 @@ function genQMoves (node, turn) {
   
   //}}}
 
-  var next      = 0;
-  var count     = 0;
-  var to        = 0;
-  var toObj     = 0;
-  var fr        = 0;
-  var frObj     = 0;
-  var frPiece   = 0;
-  var frMove    = 0;
-  var frRank    = 0;
+  var next    = 0;
+  var count   = 0;
+  var to      = 0;
+  var toObj   = 0;
+  var fr      = 0;
+  var frObj   = 0;
+  var frPiece = 0;
+  var frMove  = 0;
+  var frRank  = 0;
 
   while (count < pCount) {
 
@@ -3296,108 +3364,172 @@ function genQMoves (node, turn) {
     frMove  = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
     frRank  = RANK[fr];
 
-    if (frPiece == PAWN) {
-      //{{{  P
-      
-      to     = fr + pOffsetOrth;
-      toObj  = b[to];
-      
-      if (!toObj) {
-      
-        if (frRank == pPromoteRank)
-          addQPromotion(node, MOVE_PROMOTE_MASK | frMove | to);
-      }
-      
-      to    = fr + pOffsetDiag1;
-      toObj = b[to];
-      
-      if (CAPTURE[toObj]) {
-      
-        if (frRank == pPromoteRank)
-          addQPromotion(node, MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-        else
-          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-      }
-      
-      else if (!toObj && to == bdEp)
-        addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
-      
-      to    = fr + pOffsetDiag2;
-      toObj = b[to];
-      
-      if (CAPTURE[toObj]) {
-      
-        if (frRank == pPromoteRank)
-          addQPromotion(node, MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-        else
-          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-      }
-      
-      else if (!toObj && to == bdEp)
-        addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
-      
-      //}}}
-    }
-
-    else if (frPiece == KNIGHT) {
-      //{{{  N
-      
-      var offsets = OFFSETS[frPiece];
-      var dir     = 0;
-      
-      while (dir < 8) {
-      
-        to    = fr + offsets[dir++];
+    switch (frPiece) {
+      case 1: {
+        //{{{  P
+        
+        to    = fr + pOffsetOrth;
         toObj = b[to];
-      
-        if (CAPTURE[toObj])
-          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-      }
-      
-      //}}}
-    }
-
-    else if (frPiece == KING) {
-      //{{{  K
-      
-      var offsets = OFFSETS[frPiece];
-      var dir     = 0;
-      
-      while (dir < 8) {
-      
-        to    = fr + offsets[dir++];
+        
+        if (!toObj) {
+        
+          if (frRank == pPromoteRank)
+            addQPromotion(node, MOVE_PROMOTE_MASK | frMove | to);
+        }
+        
+        to    = fr + pOffsetDiag1;
         toObj = b[to];
-      
-        if (CAPTURE[toObj] && !ADJACENT[Math.abs(to-theirKingSq)])
-          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-      }
-      
-      //}}}
-    }
-
-    else {
-      //{{{  BRQ
-      
-      var offsets = OFFSETS[frPiece];
-      var len     = offsets.length;
-      var dir     = 0;
-      
-      while (dir < len) {
-      
-        var offset = offsets[dir++];
-      
-        to = fr + offset;
-      
-        while (!b[to])
-          to += offset;
-      
+        
+        if (CAPTURE[toObj]) {
+        
+          if (frRank == pPromoteRank)
+            addQPromotion(node, MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          else
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        else if (!toObj && to == bdEp)
+          addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
+        
+        to    = fr + pOffsetDiag2;
         toObj = b[to];
-      
-        if (CAPTURE[toObj])
-          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        
+        if (CAPTURE[toObj]) {
+        
+          if (frRank == pPromoteRank)
+            addQPromotion(node, MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          else
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        else if (!toObj && to == bdEp)
+          addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
+        
+        break;
+        
+        //}}}
       }
-      
-      //}}}
+      case 2: {
+        //{{{  N
+        
+        var offsets = OFFSETS[frPiece];
+        var dir     = 0;
+        
+        while (dir < 8) {
+        
+          to    = fr + offsets[dir++];
+          toObj = b[to];
+        
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
+      case 3: {
+        //{{{  B
+        
+        var offsets = OFFSETS[frPiece];
+        var len     = offsets.length;
+        var dir     = 0;
+        
+        while (dir < len) {
+        
+          var offset = offsets[dir++];
+        
+          to = fr + offset;
+        
+          while (!b[to])
+            to += offset;
+        
+          toObj = b[to];
+        
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
+      case 4: {
+        //{{{  R
+        
+        var offsets = OFFSETS[frPiece];
+        var len     = offsets.length;
+        var dir     = 0;
+        
+        while (dir < len) {
+        
+          var offset = offsets[dir++];
+        
+          to = fr + offset;
+        
+          while (!b[to])
+            to += offset;
+        
+          toObj = b[to];
+        
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
+      case 5: {
+        //{{{  Q
+        
+        var offsets = OFFSETS[frPiece];
+        var len     = offsets.length;
+        var dir     = 0;
+        
+        while (dir < len) {
+        
+          var offset = offsets[dir++];
+        
+          to = fr + offset;
+        
+          while (!b[to])
+            to += offset;
+        
+          toObj = b[to];
+        
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
+      case 6: {
+        //{{{  K
+        
+        var offsets = OFFSETS[frPiece];
+        var dir     = 0;
+        
+        while (dir < 8) {
+        
+          to    = fr + offsets[dir++];
+          toObj = b[to];
+        
+          if (CAPTURE[toObj] && !ADJACENT[Math.abs(to-theirKingSq)])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        
+        }
+        
+        break;
+        
+        //}}}
+      }
     }
 
     next++;
