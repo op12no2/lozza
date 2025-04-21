@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Increase hidden layer to 168.
 - Use switch in genMoves and genQMoves.
 - Simplify away genEvasions.
 - Micro optimisation to net* UE functions.
@@ -52,7 +53,7 @@ const BUILD = "6";
 // + Disable upper/lower bound reports.
 //
 
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/teddy/lozza-934/quantised.bin';
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/teddy168/lozza-934/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 9;
 
@@ -69,7 +70,7 @@ const NET_QB      = 64;
 const NET_QAB     = NET_QA * NET_QB;
 const NET_SCALE   = 400;
 const NET_I_SIZE  = 768;
-const NET_H1_SIZE = 160;
+const NET_H1_SIZE = 168;
 
 const IMAP = new Uint32Array(15 * 256);
 
