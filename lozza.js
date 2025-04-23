@@ -9,6 +9,8 @@ const BUILD = "6";
 
 /*
 
+- Reorganise move generation in preparation for 8x8 board.
+- Add m (moves) command.
 - Increase hidden layer to 168.
 - Use switch in genMoves and genQMoves.
 - Simplify away genEvasions.
@@ -239,106 +241,335 @@ const BLACK_RIGHTS_QUEEN = 0x00000008;
 const WHITE_RIGHTS       = WHITE_RIGHTS_QUEEN | WHITE_RIGHTS_KING;
 const BLACK_RIGHTS       = BLACK_RIGHTS_QUEEN | BLACK_RIGHTS_KING;
 
-const MASK_RIGHTS = new Int8Array([15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, ~8, 15, 15, 15, ~12,15, 15, ~4, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, ~2, 15, 15, 15, ~3, 15, 15, ~1, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]);
-
-const WP_OFFSET_ORTH  = -12;
-const WP_OFFSET_DIAG1 = -13;
-const WP_OFFSET_DIAG2 = -11;
-
-const BP_OFFSET_ORTH  = 12;
-const BP_OFFSET_DIAG1 = 13;
-const BP_OFFSET_DIAG2 = 11;
-
-const WB_OFFSET_DIAG1 = new Int8Array([WP_OFFSET_DIAG1, BP_OFFSET_DIAG1]);
-const WB_OFFSET_DIAG2 = new Int8Array([WP_OFFSET_DIAG2, BP_OFFSET_DIAG2]);
-
-const ALL_OFFSETS = new Int8Array([
-  25, -25, 23, -23, 14, -14, 10, -10,
-  11, -11, 13, -13,
-  1, -1, 12, -12,
-  11, -11, 13, -13, 1, -1, 12, -12,
-  11, -11, 13, -13, 1, -1, 12, -12
+const MASK_RIGHTS = new Int8Array([
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, ~8, 15, 15, 15, ~12,15, 15, ~4, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, ~2, 15, 15, 15, ~3, 15, 15, ~1, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15
 ]);
-
-const KNIGHT_OFFSETS = ALL_OFFSETS.subarray(0, 8);
-const BISHOP_OFFSETS = ALL_OFFSETS.subarray(8, 12);
-const ROOK_OFFSETS   = ALL_OFFSETS.subarray(12, 16);
-const QUEEN_OFFSETS  = ALL_OFFSETS.subarray(16, 24);
-const KING_OFFSETS   = ALL_OFFSETS.subarray(24, 32);
-
-const OFFSETS = [ALL_OFFSETS,
-                 ALL_OFFSETS,
-                 KNIGHT_OFFSETS,
-                 BISHOP_OFFSETS,
-                 ROOK_OFFSETS,
-                 QUEEN_OFFSETS,
-                 KING_OFFSETS];
-
-const LIMITS = new Int8Array([0,1,1,8,8,8,1]);
 
 const RANK_VECTOR = new Uint8Array([0,1,2,2,4,5,6]);  // for move sorting
 
-const B88 = new Uint8Array([26, 27, 28, 29, 30, 31, 32, 33,
-                            38, 39, 40, 41, 42, 43, 44, 45,
-                            50, 51, 52, 53, 54, 55, 56, 57,
-                            62, 63, 64, 65, 66, 67, 68, 69,
-                            74, 75, 76, 77, 78, 79, 80, 81,
-                            86, 87, 88, 89, 90, 91, 92, 93,
-                            98, 99, 100,101,102,103,104,105,
-                            110,111,112,113,114,115,116,117]);
+const B88 = new Uint8Array([
+  26, 27, 28, 29, 30, 31, 32, 33,
+  38, 39, 40, 41, 42, 43, 44, 45,
+  50, 51, 52, 53, 54, 55, 56, 57,
+  62, 63, 64, 65, 66, 67, 68, 69,
+  74, 75, 76, 77, 78, 79, 80, 81,
+  86, 87, 88, 89, 90, 91, 92, 93,
+  98, 99, 100,101,102,103,104,105,
+  110,111,112,113,114,115,116,117
+]);
 
-const COORDS = ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-                '??', '??', 'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8', '??', '??',
-                '??', '??', 'a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7', '??', '??',
-                '??', '??', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '??', '??',
-                '??', '??', 'a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5', '??', '??',
-                '??', '??', 'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', '??', '??',
-                '??', '??', 'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', '??', '??',
-                '??', '??', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', '??', '??',
-                '??', '??', 'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', '??', '??',
-                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'];
+const COORDS = [
+  '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+  '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+  '??', '??', 'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8', '??', '??',
+  '??', '??', 'a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7', '??', '??',
+  '??', '??', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '??', '??',
+  '??', '??', 'a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5', '??', '??',
+  '??', '??', 'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', '??', '??',
+  '??', '??', 'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', '??', '??',
+  '??', '??', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', '??', '??',
+  '??', '??', 'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', '??', '??',
+  '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+  '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'
+];
 
 const NAMES    = ['-','P','N','B','R','Q','K','-'];
 const PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move
 
-const RANK = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                             0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
-                             0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
-                             0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
-                             0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
-                             0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
-                             0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
-                             0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
-                             0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
-                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+const RANK = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
+  0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
+  0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
+  0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
+  0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
+  0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+  0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
 
-const FILE = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                             0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-                             0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-                             0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-                             0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-                             0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-                             0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-                             0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-                             0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+const FILE = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+  0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+  0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+  0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+  0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+  0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+  0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+  0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+const BISHOPNE = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0,
+  0, 0, 3, 3, 3, 3, 3, 2, 1, 0, 0, 0,
+  0, 0, 4, 4, 4, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 5, 5, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 6, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const BISHOPNW = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 0, 0,
+  0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 6, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const BISHOPSE = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 6, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 5, 5, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 4, 4, 4, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 3, 3, 3, 3, 3, 2, 1, 0, 0, 0,
+  0, 0, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const BISHOPSW = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 6, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 0, 0,
+  0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 0, 0,
+  0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const ROOKN = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
+  0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+  0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
+  0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
+  0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
+  0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const ROOKS = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
+  0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
+  0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
+  0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
+  0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+  0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const ROOKE = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const ROOKW = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT0 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT1 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT2 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT3 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT4 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT5 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT6 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT7 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
+
+const KNIGHT8 = new Uint8Array([
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+]);
 
 const NULL144 = new Uint8Array(144);
 
@@ -372,50 +603,58 @@ const UMAP = Object.seal({
   6:  'K'
 });
 
-const RANK2W = new Uint8Array([0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-                               0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-                               0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-                               0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-                               0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-                               0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-                               0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0]);
+const RANK2W = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
+  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
+  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
 
-const RANK2B = new Uint8Array([0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-                               0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-                               0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-                               0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-                               0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-                               0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-                               0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0]);
+const RANK2B = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
+  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
+  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
 
-const CENTRE = new Uint8Array([0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-                               0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-                               0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-                               0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-                               0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-                               0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-                               0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-                               0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-                               0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0]);
+const CENTRE = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
 
-const SLIDE_SCORES = [NULL144,
-                      RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
-                      NULL144,
-                      NULL144,
-                      RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE];
+const SLIDE_SCORES = [
+  NULL144,
+  RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
+  NULL144,
+  NULL144,
+  RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE
+];
 
 const ALIGNED = Array(144);
 
@@ -3026,11 +3265,13 @@ function genMoves (node, turn) {
   
   if (turn == WHITE) {
   
-    var pOffsetOrth  = WP_OFFSET_ORTH;
-    var pOffsetDiag1 = WP_OFFSET_DIAG1;
-    var pOffsetDiag2 = WP_OFFSET_DIAG2;
-    var pHomeRank    = 2;
-    var pPromoteRank = 7;
+    var offsetOrth  = -12;
+    var offsetDiag1 = -13;
+    var offsetFile1 = 1;
+    var offsetDiag2 = -11;
+    var offsetFile2 = 8;
+    var homeRank    = 2;
+    var promoteRank = 7;
     var rights       = bdRights & WHITE_RIGHTS;
     var pList        = wList;
     var theirKingSq  = bList[0];
@@ -3050,11 +3291,13 @@ function genMoves (node, turn) {
   
   else {
   
-    var pOffsetOrth  = BP_OFFSET_ORTH;
-    var pOffsetDiag1 = BP_OFFSET_DIAG1;
-    var pOffsetDiag2 = BP_OFFSET_DIAG2;
-    var pHomeRank    = 7;
-    var pPromoteRank = 2;
+    var offsetOrth  = 12;
+    var offsetDiag1 = 13;
+    var offsetFile1 = 8;
+    var offsetDiag2 = 11;
+    var offsetFile2 = 1;
+    var homeRank    = 7;
+    var promoteRank = 2;
     var rights       = bdRights & BLACK_RIGHTS;
     var pList        = bList;
     var theirKingSq  = wList[0];
@@ -3077,13 +3320,16 @@ function genMoves (node, turn) {
   var next      = 0;
   var count     = 0;
   var to        = 0;
-  var toObj     = 0;
   var fr        = 0;
+  var toObj     = 0;
   var frObj     = 0;
   var frPiece   = 0;
   var frMove    = 0;
   var frRank    = 0;
+  var frFile    = 0;
   var legalMask = 0;
+  var myMove    = 0;
+  var n         = 0;
 
   while (count < pCount) {
 
@@ -3097,59 +3343,76 @@ function genMoves (node, turn) {
     frPiece   = frObj & PIECE_MASK;
     frMove    = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
     frRank    = RANK[fr];
+    frFile    = FILE[fr];
     legalMask = !inCheck && !aligned[fr] ? MOVE_LEGAL_MASK : 0;
 
     switch (frPiece) {
       case 1: {
         //{{{  P
         
-        to    = fr + pOffsetOrth;
+        //{{{  orth
+        
+        to    = fr + offsetOrth;
         toObj = b[to];
         
         if (!toObj) {
         
-          if (frRank == pPromoteRank)
+          if (frRank == promoteRank)
             addPromotion(node, frMove | to | legalMask);
         
           else {
             addSlide(node, frMove | to | legalMask);
         
-            if (frRank == pHomeRank) {
+            if (frRank == homeRank) {
         
-              to += pOffsetOrth;
+              to += offsetOrth;
               if (!b[to])
                 addSlide(node, frMove | to | MOVE_EPMAKE_MASK | legalMask);
             }
           }
         }
         
-        to    = fr + pOffsetDiag1;
-        toObj = b[to];
+        //}}}
         
-        if (CAPTURE[toObj]) {
-        
-          if (frRank == pPromoteRank)
-            addPromotion(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-          else
-            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+        if (frFile != offsetFile1) {
+          //{{{  diag1
+          
+          to    = fr + offsetDiag1;
+          toObj = b[to];
+          
+          if (CAPTURE[toObj]) {
+          
+            if (frRank == promoteRank)
+              addPromotion(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+            else
+              addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          }
+          
+          else if (!toObj && to == bdEp)
+            addEPTake(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          
+          //}}}
         }
         
-        else if (!toObj && to == bdEp)
-          addEPTake(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-        
-        to    = fr + pOffsetDiag2;
-        toObj = b[to];
-        
-        if (CAPTURE[toObj]) {
-        
-          if (frRank == pPromoteRank)
-            addPromotion(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-          else
-            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+        if (frFile != offsetFile2) {
+          //{{{  diag2
+          
+          to    = fr + offsetDiag2;
+          toObj = b[to];
+          
+          if (CAPTURE[toObj]) {
+          
+            if (frRank == promoteRank)
+              addPromotion(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+            else
+              addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+          }
+          
+          else if (!toObj && to == bdEp)
+            addEPTake(node, frMove | to);
+          
+          //}}}
         }
-        
-        else if (!toObj && to == bdEp)
-          addEPTake(node, frMove | to);
         
         break;
         
@@ -3158,20 +3421,78 @@ function genMoves (node, turn) {
       case 2: {
         //{{{  N
         
-        var offsets = OFFSETS[frPiece];
-        var dir     = 0;
+        myMove = frMove | legalMask;
         
-        while (dir < 8) {
-        
-          to    = fr + offsets[dir++];
+        if (KNIGHT1[fr]) {
+          to = fr + 25;
           toObj = b[to];
-        
           if (!toObj)
-            addSlide(node, frMove | to | legalMask);
-        
+            addSlide(node, myMove | to);
           else if (CAPTURE[toObj])
-            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+            addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
         
+        if (KNIGHT2[fr]) {
+          to = fr - 25;
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, myMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT3[fr]) {
+          to = fr + 23;
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, myMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT4[fr]) {
+          to = fr - 23;
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, myMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT5[fr]) {
+          to = fr + 14;
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, myMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT6[fr]) {
+          to = fr - 14;
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, myMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT7[fr]) {
+          to = fr + 10;
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, myMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT8[fr]) {
+          to = fr - 10;
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, myMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         }
         
         break;
@@ -3181,29 +3502,31 @@ function genMoves (node, turn) {
       case 3: {
         //{{{  B
         
-        var offsets = OFFSETS[frPiece];
-        var len     = offsets.length;
-        var dir     = 0;
+        myMove = frMove | legalMask;
         
-        while (dir < len) {
+        n = BISHOPSW[fr], to = fr + 11;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to += 11;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          var offset = offsets[dir++];
+        n = BISHOPNE[fr], to = fr - 11;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to -= 11;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          to    = fr + offset;
-          toObj = b[to];
+        n = BISHOPSE[fr], to = fr + 13;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to += 13;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          while (!toObj) {
-        
-            addSlide(node, frMove | to | legalMask);
-        
-            to += offset;
-            toObj = b[to];
-          }
-        
-          if (CAPTURE[toObj])
-            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-        
-        }
+        n = BISHOPNW[fr], to = fr - 13;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to -= 13;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
         break;
         
@@ -3212,29 +3535,31 @@ function genMoves (node, turn) {
       case 4: {
         //{{{  R
         
-        var offsets = OFFSETS[frPiece];
-        var len     = offsets.length;
-        var dir     = 0;
+        myMove = frMove | legalMask;
         
-        while (dir < len) {
+        n = ROOKE[fr], to = fr + 1;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to += 1;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          var offset = offsets[dir++];
+        n = ROOKW[fr], to = fr - 1;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to -= 1;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          to    = fr + offset;
-          toObj = b[to];
+        n = ROOKS[fr], to = fr + 12;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to += 12;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          while (!toObj) {
-        
-            addSlide(node, frMove | to | legalMask);
-        
-            to += offset;
-            toObj = b[to];
-          }
-        
-          if (CAPTURE[toObj])
-            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
-        
-        }
+        n = ROOKN[fr], to = fr - 12;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to -= 12;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
         break;
         
@@ -3243,29 +3568,55 @@ function genMoves (node, turn) {
       case 5: {
         //{{{  Q
         
-        var offsets = OFFSETS[frPiece];
-        var len     = offsets.length;
-        var dir     = 0;
+        myMove = frMove | legalMask;
         
-        while (dir < len) {
+        n = BISHOPSW[fr], to = fr + 11;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to += 11;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          var offset = offsets[dir++];
+        n = BISHOPNE[fr], to = fr - 11;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to -= 11;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          to    = fr + offset;
-          toObj = b[to];
+        n = BISHOPSE[fr], to = fr + 13;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to += 13;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          while (!toObj) {
+        n = BISHOPNW[fr], to = fr - 13;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to -= 13;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-            addSlide(node, frMove | to | legalMask);
+        n = ROOKE[fr], to = fr + 1;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to += 1;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-            to += offset;
-            toObj = b[to];
-          }
+        n = ROOKW[fr], to = fr - 1;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to -= 1;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          if (CAPTURE[toObj])
-            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | legalMask);
+        n = ROOKS[fr], to = fr + 12;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to += 12;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-        }
+        n = ROOKN[fr], to = fr - 12;
+        while (n-- && !(toObj = b[to]))
+          addSlide(node, myMove | to), to -= 12;
+        if (n >= 0 && CAPTURE[toObj])
+          addCapture(node, myMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
         break;
         
@@ -3274,22 +3625,76 @@ function genMoves (node, turn) {
       case 6: {
         //{{{  K
         
-        var offsets = OFFSETS[frPiece];
-        var dir     = 0;
-        
-        while (dir < 8) {
-        
-          to    = fr + offsets[dir++];
+        to = fr + 11;
+        if (BISHOPSW[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
           toObj = b[to];
+          if (!toObj)
+            addSlide(node, frMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
         
-          if (!ADJACENT[Math.abs(to-theirKingSq)]) {
-            if (!toObj)
-              addSlide(node, frMove | to);
+        to = fr - 11;
+        if (BISHOPNE[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, frMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
         
-            else if (CAPTURE[toObj])
-              addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-          }
+        to = fr + 13;
+        if (BISHOPSE[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, frMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
         
+        to = fr - 13;
+        if (BISHOPNW[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, frMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr + 1;
+        if (ROOKE[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, frMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr - 1;
+        if (ROOKW[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, frMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr + 12;
+        if (ROOKS[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, frMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr - 12;
+        if (ROOKN[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (!toObj)
+            addSlide(node, frMove | to);
+          else if (CAPTURE[toObj])
+            addCapture(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         }
         
         break;
@@ -3318,26 +3723,30 @@ function genQMoves (node, turn) {
   
   if (turn == WHITE) {
   
-    var pOffsetOrth  = WP_OFFSET_ORTH;
-    var pOffsetDiag1 = WP_OFFSET_DIAG1;
-    var pOffsetDiag2 = WP_OFFSET_DIAG2;
-    var pPromoteRank = 7;
-    var pList        = wList;
-    var theirKingSq  = bList[0];
-    var pCount       = wCount;
-    var CAPTURE      = IS_BNK;
+    var offsetOrth  = -12;
+    var offsetDiag1 = -13;
+    var offsetFile1 = 1;
+    var offsetDiag2 = -11;
+    var offsetFile2 = 8;
+    var promoteRank = 7;
+    var pList       = wList;
+    var theirKingSq = bList[0];
+    var pCount      = wCount;
+    var CAPTURE     = IS_BNK;
   }
   
   else {
   
-    var pOffsetOrth  = BP_OFFSET_ORTH;
-    var pOffsetDiag1 = BP_OFFSET_DIAG1;
-    var pOffsetDiag2 = BP_OFFSET_DIAG2;
-    var pPromoteRank = 2;
-    var pList        = bList;
-    var theirKingSq  = wList[0];
-    var pCount       = bCount;
-    var CAPTURE      = IS_WNK;
+    var offsetOrth  = 12;
+    var offsetDiag1 = 13;
+    var offsetFile1 = 8;
+    var offsetDiag2 = 11;
+    var offsetFile2 = 1;
+    var promoteRank = 2;
+    var pList       = bList;
+    var theirKingSq = wList[0];
+    var pCount      = bCount;
+    var CAPTURE     = IS_WNK;
   }
   
   //}}}
@@ -3351,6 +3760,8 @@ function genQMoves (node, turn) {
   var frPiece = 0;
   var frMove  = 0;
   var frRank  = 0;
+  var frFile  = 0;
+  var n       = 0;
 
   while (count < pCount) {
 
@@ -3364,47 +3775,64 @@ function genQMoves (node, turn) {
     frPiece = frObj & PIECE_MASK;
     frMove  = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
     frRank  = RANK[fr];
+    frFile  = FILE[fr];
 
     switch (frPiece) {
       case 1: {
         //{{{  P
         
-        to    = fr + pOffsetOrth;
+        //{{{  orth
+        
+        to    = fr + offsetOrth;
         toObj = b[to];
         
         if (!toObj) {
         
-          if (frRank == pPromoteRank)
+          if (frRank == promoteRank)
             addQPromotion(node, MOVE_PROMOTE_MASK | frMove | to);
         }
         
-        to    = fr + pOffsetDiag1;
-        toObj = b[to];
+        //}}}
         
-        if (CAPTURE[toObj]) {
-        
-          if (frRank == pPromoteRank)
-            addQPromotion(node, MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-          else
-            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        if (frFile != offsetFile1) {
+          //{{{  diag1
+          
+          to    = fr + offsetDiag1;
+          toObj = b[to];
+          
+          if (CAPTURE[toObj]) {
+          
+            if (frRank == promoteRank)
+              addQPromotion(node, MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+            else
+              addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          }
+          
+          else if (!toObj && to == bdEp)
+            addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
+          
+          //}}}
         }
         
-        else if (!toObj && to == bdEp)
-          addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
-        
-        to    = fr + pOffsetDiag2;
-        toObj = b[to];
-        
-        if (CAPTURE[toObj]) {
-        
-          if (frRank == pPromoteRank)
-            addQPromotion(node, MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-          else
-            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        if (frFile != offsetFile2) {
+          //{{{  diag2
+          
+          to    = fr + offsetDiag2;
+          toObj = b[to];
+          
+          if (CAPTURE[toObj]) {
+          
+            if (frRank == promoteRank)
+              addQPromotion(node, MOVE_PROMOTE_MASK | frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+            else
+              addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          }
+          
+          else if (!toObj && to == bdEp)
+            addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
+          
+          //}}}
         }
-        
-        else if (!toObj && to == bdEp)
-          addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
         
         break;
         
@@ -3413,17 +3841,60 @@ function genQMoves (node, turn) {
       case 2: {
         //{{{  N
         
-        var offsets = OFFSETS[frPiece];
-        var dir     = 0;
-        
-        while (dir < 8) {
-        
-          to    = fr + offsets[dir++];
+        if (KNIGHT1[fr]) {
+          to = fr + 25;
           toObj = b[to];
-        
           if (CAPTURE[toObj])
             addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
         
+        if (KNIGHT2[fr]) {
+          to = fr - 25;
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT3[fr]) {
+          to = fr + 23;
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT4[fr]) {
+          to = fr - 23;
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT5[fr]) {
+          to = fr + 14;
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT6[fr]) {
+          to = fr - 14;
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT7[fr]) {
+          to = fr + 10;
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        if (KNIGHT8[fr]) {
+          to = fr - 10;
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         }
         
         break;
@@ -3433,25 +3904,29 @@ function genQMoves (node, turn) {
       case 3: {
         //{{{  B
         
-        var offsets = OFFSETS[frPiece];
-        var len     = offsets.length;
-        var dir     = 0;
+        n = BISHOPSW[fr], to = fr + 11;
+        while (n-- && !b[to])
+          to += 11;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-        while (dir < len) {
+        n = BISHOPNE[fr], to = fr - 11;
+        while (n-- && !b[to])
+          to -= 11;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          var offset = offsets[dir++];
+        n = BISHOPSE[fr], to = fr + 13;
+        while (n-- && !b[to])
+          to += 13;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          to = fr + offset;
-        
-          while (!b[to])
-            to += offset;
-        
-          toObj = b[to];
-        
-          if (CAPTURE[toObj])
-            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-        
-        }
+        n = BISHOPNW[fr], to = fr - 13;
+        while (n-- && !b[to])
+          to -= 13;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
         break;
         
@@ -3460,25 +3935,29 @@ function genQMoves (node, turn) {
       case 4: {
         //{{{  R
         
-        var offsets = OFFSETS[frPiece];
-        var len     = offsets.length;
-        var dir     = 0;
+        n = ROOKE[fr], to = fr + 1;
+        while (n-- && !b[to])
+          to += 1;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-        while (dir < len) {
+        n = ROOKW[fr], to = fr - 1;
+        while (n-- && !b[to])
+          to -= 1;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          var offset = offsets[dir++];
+        n = ROOKS[fr], to = fr + 12;
+        while (n-- && !b[to])
+          to += 12;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          to = fr + offset;
-        
-          while (!b[to])
-            to += offset;
-        
-          toObj = b[to];
-        
-          if (CAPTURE[toObj])
-            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
-        
-        }
+        n = ROOKN[fr], to = fr - 12;
+        while (n-- && !b[to])
+          to -= 12;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
         break;
         
@@ -3487,25 +3966,53 @@ function genQMoves (node, turn) {
       case 5: {
         //{{{  Q
         
-        var offsets = OFFSETS[frPiece];
-        var len     = offsets.length;
-        var dir     = 0;
+        n = BISHOPSW[fr], to = fr + 11;
+        while (n-- && !b[to])
+          to += 11;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-        while (dir < len) {
+        n = BISHOPNE[fr], to = fr - 11;
+        while (n-- && !b[to])
+          to -= 11;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          var offset = offsets[dir++];
+        n = BISHOPSE[fr], to = fr + 13;
+        while (n-- && !b[to])
+          to += 13;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          to = fr + offset;
+        n = BISHOPNW[fr], to = fr - 13;
+        while (n-- && !b[to])
+          to -= 13;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          while (!b[to])
-            to += offset;
+        n = ROOKE[fr], to = fr + 1;
+        while (n-- && !b[to])
+          to += 1;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          toObj = b[to];
+        n = ROOKW[fr], to = fr - 1;
+        while (n-- && !b[to])
+          to -= 1;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-          if (CAPTURE[toObj])
-            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        n = ROOKS[fr], to = fr + 12;
+        while (n-- && !b[to])
+          to += 12;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
-        }
+        n = ROOKN[fr], to = fr - 12;
+        while (n-- && !b[to])
+          to -= 12;
+        if (n >= 0 && CAPTURE[toObj=b[to]])
+          addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         
         break;
         
@@ -3514,17 +4021,60 @@ function genQMoves (node, turn) {
       case 6: {
         //{{{  K
         
-        var offsets = OFFSETS[frPiece];
-        var dir     = 0;
-        
-        while (dir < 8) {
-        
-          to    = fr + offsets[dir++];
+        to = fr + 11;
+        if (BISHOPSW[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
           toObj = b[to];
-        
-          if (CAPTURE[toObj] && !ADJACENT[Math.abs(to-theirKingSq)])
+          if (CAPTURE[toObj])
             addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
         
+        to = fr - 11;
+        if (BISHOPNE[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr + 13;
+        if (BISHOPSE[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr - 13;
+        if (BISHOPNW[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr + 1;
+        if (ROOKE[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr - 1;
+        if (ROOKW[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr + 12;
+        if (ROOKS[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
+        
+        to = fr - 12;
+        if (ROOKN[fr] && !ADJACENT[Math.abs(to-theirKingSq)]) {
+          toObj = b[to];
+          if (CAPTURE[toObj])
+            addQMove(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
         }
         
         break;
@@ -4023,9 +4573,11 @@ function isKingAttacked (byCol) {
 //}}}
 //{{{  isAttacked
 
+// hack needs tweaking for 8x8 board
+
 function isAttacked (to, byCol) {
 
-  const b  = bdB;
+  const b = bdB;
 
   var fr = 0;
 
@@ -4283,6 +4835,11 @@ function formatFen () {
 
 //}}}
 //{{{  quickSee
+
+// needs tweaking for 8x8 board
+
+const WB_OFFSET_DIAG1 = new Int8Array([-13, 13]);
+const WB_OFFSET_DIAG2 = new Int8Array([-11, 11]);
 
 const QS = new Uint8Array([0,0,3,3,5,9,0]);
 
@@ -4881,15 +5438,17 @@ function uciExec (commands) {
         //}}}
       }
 
-      case 't': {
-        //{{{  tests
+      case 'm': {
+        //{{{  moves
         
-        uciExec('pt n 40');
-        uciExec('et');
-        uciExec('bench');
-        uciExec('u');
-        uciExec('p s');
-        uciExec('g movetime 1000');
+        rootNode.inCheck = 1;
+        
+        let move = 0;
+        
+        genMoves(rootNode, bdTurn);
+        
+        while(move = getNextMove(rootNode))
+          console.log(formatMove(move));
         
         break;
         
