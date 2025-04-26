@@ -76,7 +76,7 @@ const NET_H1_SIZE = 168;
 
 const IMAP = new Uint32Array(15 * 256);
 
-const MATERIAL = new Int32Array([0,100,394,388,588,1207,10000]);  // hack simplify this away
+const MATERIAL = new Int32Array([0,100,394,388,588,1207,10000]);
 const ADJACENT = new Uint8Array([1,1,0,0,0,0,0,0,0,0,0,1,1,1]);
 
 const MAX_PLY         = 128;                // limited by ttDepth bits
@@ -88,12 +88,12 @@ const MINMATE         = (MATE - 2*MAX_PLY) | 0;
 const TTSCORE_UNKNOWN = MATE + 1;
 const EMPTY           = 0;
 
-const WHITE   = 0x0;                // toggle with: ~turn & COLOR_MASK
+const WHITE   = 0x0;
 const BLACK   = 0x8;
-const I_WHITE = 0;                  // 0/1 colour index, compute with: turn >>> 3
+const I_WHITE = 0;
 const I_BLACK = 1;
 const M_WHITE = 1;
-const M_BLACK = -1;                 // hack +1/-1 colour multiplier, compute with: (-turn >> 31) | 1
+const M_BLACK = -1;
 
 const PIECE_MASK  = 0x7;
 const COLOR_MASK  = 0x8;
@@ -862,6 +862,7 @@ function nodeStruct () {
 
   this.pv = new Uint32Array(MAX_MOVES);
   this.pvLen = 0;
+
 }
 
 //}}}
@@ -1051,6 +1052,7 @@ function addCastle (node, move) {
 
   else
     node.ranks[n] = BASE_CASTLING;
+
 }
 
 //}}}
@@ -1098,6 +1100,7 @@ function addCapture (node, move) {
         node.ranks[n] = BASE_BADTAKES  + (victim << 6) - attack;
     }
   }
+
 }
 
 //}}}
@@ -1136,6 +1139,7 @@ function addPromotion (node, move) {
     node.ranks[n] = BASE_HASH;
   else
     node.ranks[n] = BASE_PROMOTES + KNIGHT;
+
 }
 
 //}}}
@@ -1188,6 +1192,7 @@ function addQMove (node, move) {
     else
       node.ranks[n] = BASE_BADTAKES + (victim << 6) - attack;
   }
+
 }
 
 //}}}
@@ -1250,6 +1255,7 @@ function addKiller (node, score, move) {
   const tmp    = node.killer1;
   node.killer1 = move;
   node.killer2 = tmp;
+
 }
 
 //}}}
@@ -1381,6 +1387,7 @@ function go (maxPly) {
 
   //uciSend('info score cp', statsBestScore);
   uciSend('bestmove',bestMoveStr);
+
 }
 
 //}}}
@@ -1540,6 +1547,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
     return bestScore;
   }
+
 }
 
 //}}}
@@ -1663,7 +1671,7 @@ function search (node, depth, turn, alpha, beta) {
   
   R = 3 + improving;
   
-  if (doBeta && depth > 2 && ev > beta) {  // hack
+  if (doBeta && depth > 2 && ev > beta) {
   
     loHash ^= loEP[bdEp];
     hiHash ^= hiEP[bdEp];
@@ -1861,6 +1869,7 @@ function search (node, depth, turn, alpha, beta) {
     ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
     return bestScore;
   }
+
 }
 
 //}}}
@@ -1912,8 +1921,6 @@ function qSearch (node, depth, turn, alpha, beta) {
   while (move = getNextMove(node)) {
 
     //{{{  prune?
-    
-    // hack try and simplify this top one out
     
     if ((wCount + bCount) > 6 &&
          !(move & MOVE_SPECIAL_MASK)      &&
@@ -1972,6 +1979,7 @@ function qSearch (node, depth, turn, alpha, beta) {
   ttPut(TT_ALPHA, 0, alpha, 0, node.ply, alpha, beta, ev);
 
   return alpha;
+
 }
 
 //}}}
@@ -2020,7 +2028,8 @@ function perft (node, depth, turn) {
     
     unmakeMove(node, move);
     
-    uncacheA(node);
+    bdRights = node.rights;
+    bdEp     = node.ep;
     
     //}}}
 
@@ -2440,7 +2449,7 @@ function netSerialise () {
 //}}}
 //{{{  netInitWeights
 //
-// 'weights' - click to load the serialised weights fold
+// 'weights' - click to load the result of "node lozza serialise q > weights"
 //
 
 function netInitWeights () {
@@ -2469,6 +2478,7 @@ function netMove () {
     net_h1_a[h] += h1b[h] - h1a[h];
     net_h2_a[h] += h2b[h] - h2a[h];
   }
+
 }
 
 //}}}
@@ -2497,6 +2507,7 @@ function netCapture () {
     net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
     net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
+
 }
 
 //}}}
@@ -2526,6 +2537,7 @@ function netPromote () {
     net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
     net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
   }
+
 }
 
 //}}}
@@ -2555,6 +2567,7 @@ function netEpCapture () {
     net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
     net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
   }
+
 }
 
 //}}}
@@ -2588,6 +2601,7 @@ function netCastle () {
     net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
     net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
   }
+
 }
 
 //}}}
@@ -2602,15 +2616,15 @@ let bdTurn   = 0;
 let bdRights = 0;
 let bdEp     = 0;
 
-const wList = new Uint8Array(16); // hack join together
+const wList = new Uint8Array(16);
 const bList = new Uint8Array(16);
 
-const wbList = [wList, bList]; // hack join not do this
+const wbList = [wList, bList];
 
-const wCounts = new Uint8Array(7); //hack join
+const wCounts = new Uint8Array(7);
 const bCounts = new Uint8Array(7);
 
-let wCount = 0; //hack join
+let wCount = 0;
 let bCount = 0;
 
 const objHistory = new Uint32Array(15 * 256);
@@ -2650,7 +2664,7 @@ for (let i=0; i < 144; i++) {
 const ttLo    = new Int32Array(TTSIZE);
 const ttHi    = new Int32Array(TTSIZE);
 const ttType  = new Uint8Array(TTSIZE);
-const ttDepth = new Int8Array(TTSIZE);   // hack try uint cos currently pathological prob at depth 128
+const ttDepth = new Int8Array(TTSIZE);
 const ttMove  = new Uint32Array(TTSIZE);
 const ttEval  = new Int16Array(TTSIZE);
 const ttScore = new Int16Array(TTSIZE);
@@ -2896,6 +2910,7 @@ function position (bd, turn, rights, ep, moves) {
         sq++;
       }
     }
+  
   }
   
   //}}}
@@ -3032,6 +3047,7 @@ function genMoves (node, turn) {
       if ((rights & WHITE_RIGHTS_QUEEN) && !b[B1] && !b[C1] && !b[D1] && b[SQB2] != B_KING && b[SQC2] != B_KING && !isAttacked(D1,BLACK))
         addCastle(node, MOVE_E1C1);
     }
+  
   }
   
   else {
@@ -3056,6 +3072,7 @@ function genMoves (node, turn) {
       if ((rights & BLACK_RIGHTS_QUEEN) && !b[B8] && !b[C8] && !b[D8] && b[SQB7] != B_KING && b[SQC7] != B_KING && !isAttacked(D8,WHITE))
         addCastle(node, MOVE_E8C8);
     }
+  
   }
   
   //}}}
@@ -3110,6 +3127,7 @@ function genMoves (node, turn) {
                 addSlide(node, frMove | to | MOVE_EPMAKE_MASK | legalMask);
             }
           }
+        
         }
         
         //}}}
@@ -3436,6 +3454,7 @@ function genQMoves (node, turn) {
     var theirKingSq = bList[0];
     var pCount      = wCount;
     var CAPTURE     = IS_BNK;
+  
   }
   
   else {
@@ -3448,6 +3467,7 @@ function genQMoves (node, turn) {
     var theirKingSq = wList[0];
     var pCount      = bCount;
     var CAPTURE     = IS_WNK;
+  
   }
   
   //}}}
@@ -3783,6 +3803,7 @@ function makeMoveA (node, move) {
   
     loHash ^= loRights[bdRights];
     hiHash ^= hiRights[bdRights];
+  
   }
   
   //}}}
@@ -4019,6 +4040,7 @@ function makeMoveA (node, move) {
         hiHash ^= hiObjPieces[(B_ROOK << 8) + D8];
     
       }
+    
     }
     
     //}}}
@@ -4054,6 +4076,10 @@ function makeMoveA (node, move) {
 
 //}}}
 //{{{  makeMoveB
+//
+// If the ue* data is moved into nodes, this could be deferred and
+// done in getEval().
+//
 
 function makeMoveB  () {
 
@@ -4220,8 +4246,6 @@ function isKingAttacked (byCol) {
 
 //}}}
 //{{{  isAttacked
-
-// hack needs tweaking for 8x8 board
 
 function isAttacked (to, byCol) {
 
@@ -4479,6 +4503,7 @@ function formatFen () {
   fen += ' 0 1';
 
   return fen;
+
 }
 
 //}}}
@@ -4666,6 +4691,7 @@ function uciGetInt (tokens, key, def) {
         return parseInt(tokens[i+1]);
 
   return def;
+
 }
 
 //}}}
@@ -4679,6 +4705,7 @@ function uciGetStr (tokens, key, def) {
         return tokens[i+1];
 
   return def;
+
 }
 
 //}}}
@@ -4702,6 +4729,7 @@ function uciGetArr (tokens, key, to) {
   }
 
   return {lo:lo, hi:hi};
+
 }
 
 //}}}
@@ -5057,6 +5085,7 @@ function uciExec (commands) {
           uciExec('position fen ' + flippedFen);
           uciSend(flippedFen, 'flipped fen')
           uciExec('e');
+        
         }
         
         break;
@@ -5135,6 +5164,7 @@ function uciExec (commands) {
       }
     }
   }
+
 }
 
 //}}}
@@ -5283,6 +5313,7 @@ function initOnce () {
       a[from] = dir;
       from += dir;
     }
+  
   }
   
   //}}}
