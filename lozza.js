@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Tweak bench output for OpenBench.
 - Unroll move generation.
 - Add moves/m command.
 - Increase hidden layer to 168.
@@ -5002,7 +5003,8 @@ function uciExec (commands) {
         const elapsed = now() - start;
         const nps = nodes/elapsed * 1000 | 0;
         
-        uciSend('warm', warm, 'depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
+        //uciSend('warm', warm, 'depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
+        uciSend(nodes, 'nodes', nps, 'nps');
         
         break;
         
