@@ -9,7 +9,7 @@ const BUILD = "6";
 
 /*
 
-- Tweak bench output for OpenBench.
+- Fix web config.
 - Unroll move generation.
 - Add moves/m command.
 - Increase hidden layer to 168.
@@ -4677,7 +4677,10 @@ function uciSend () {
 
   //fs.writeSync(1, s + '\n');
 
-  console.log(s);
+  if (nodeHost)
+    console.log(s);
+  else
+    postMessage(s);
 
 }
 
@@ -5003,8 +5006,7 @@ function uciExec (commands) {
         const elapsed = now() - start;
         const nps = nodes/elapsed * 1000 | 0;
         
-        //uciSend('warm', warm, 'depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
-        uciSend(nodes, 'nodes', nps, 'nps');
+        uciSend('warm', warm, 'depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
         
         break;
         
@@ -5171,10 +5173,16 @@ function uciExec (commands) {
 
 //}}}
 
+function onmessage(m) {
+  uciExec(m.data);
+}
+
 //}}}
 //{{{  init
 
-const fs = require('fs');
+const nodeHost = (typeof process) != 'undefined';
+
+const fs = (nodeHost) ? require('fs') : 0;
 
 const nodes = Array(MAX_PLY);
 
@@ -5330,26 +5338,30 @@ const rootNode = nodes[0];
 
 //}}}
 
-if (process.argv.length > 2) {
+if (nodeHost && process.argv.length > 2) {
   for (let i=2; i < process.argv.length; i++)
     uciExec(process.argv[i]);
 }
 
 //{{{  stdio
 
-process.stdin.setEncoding('utf8');
+if (nodeHost) {
 
-process.stdin.on('readable', function() {
-  const chunk = process.stdin.read();
-  process.stdin.resume();
-  if (chunk !== null) {
-    uciExec(chunk);
-  }
-});
+  process.stdin.setEncoding('utf8');
 
-process.stdin.on('end', function() {
-  process.exit();
-});
+  process.stdin.on('readable', function() {
+    const chunk = process.stdin.read();
+    process.stdin.resume();
+    if (chunk !== null) {
+      uciExec(chunk);
+    }
+  });
+
+  process.stdin.on('end', function() {
+    process.exit();
+  });
+
+}
 
 //}}}
 
