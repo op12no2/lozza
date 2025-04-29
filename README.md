@@ -2,7 +2,7 @@
 
 A UCI Javascript chess engine with NNUE evaluation. Try her here:-
 
-https://op12no2.github.io/lozza-ui
+https://op12no2.github.io/lozza-ui/play.htm
 
 Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node and on pretty-much any platform (see below). Note however that Lozza is relatively slow compared to compiled engines of a similar design, which also makes her relatively weak. 
 
@@ -40,7 +40,7 @@ https://github.com/op12no2/lozza-ui
 
 You can try them here:-
 
-https://op12no2.github.io/lozza-ui
+https://op12no2.github.io/lozza-ui/play.htm
 
 ## Play Lozza offline in chess user interfaces
 
