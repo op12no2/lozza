@@ -9,6 +9,8 @@ const BUILD = "6";
 
 /*
 
+- Decrease depth on lower bound in go().
+- Generate more data - total 376M fens.
 - Fix web config.
 - Unroll move generation.
 - Add moves/m command.
@@ -1374,7 +1376,7 @@ function go (maxPly) {
       
         report('lowerbound',score,depth);
       
-        //depth = Math.max(1,depth-1);
+        depth = Math.max(1,depth-1);
       }
       
       //}}}
