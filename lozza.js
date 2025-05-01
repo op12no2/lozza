@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Treat a null move like a pawn move in rep detection.
 - Decrease depth on lower bound in go().
 - Generate more data - total 376M fens.
 - Fix web config.
@@ -1686,6 +1687,8 @@ function search (node, depth, turn, alpha, beta) {
   
     loHash ^= loTurn;
     hiHash ^= hiTurn;
+  
+    repLo = repHi;
   
     score = -search(node.childNode, depth-R-1, nextTurn, -beta, -beta+1);
   
