@@ -44,9 +44,11 @@ https://op12no2.github.io/lozza-ui/play.htm
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest Lozza release and then follow the instructions in the ```readme.txt``` file. Any platform that supports Node can be targetted.   
+Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest Lozza release and then follow the instructions in the wiki. Pretty much any platform can be supported.  
 
 https://github.com/op12no2/lozza/releases
+
+https://github.com/op12no2/lozza/wiki/Loading-Lozza-into-chess-user-interfaces
 
 ## Acknowledgements
 
