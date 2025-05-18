@@ -9,29 +9,27 @@ const BUILD = "6";
 
 /*
 
+- Increase default bench depth to 10.
+- Fix formatFen().
+- Fix netPromote() when no captured piece.
+- Change hard nodes to soft nodes * 100.
 - Treat a null move like a pawn move in rep detection.
 - Decrease depth on lower bound in go().
-- Generate more data - total 376M fens.
 - Fix web config.
 - Unroll move generation.
 - Add moves/m command.
-- Increase hidden layer to 168.
 - Use switch in genMoves and genQMoves.
 - Simplify away genEvasions.
 - Micro optimisation to net* UE functions.
 - Simplify away givesCheck.
 - Tidy LMR, LMP and FP.
 - Swap from IID to IIR.
-- Increase hidden layer to 160.
-- Generate more data - total 357M fens.
 - Simplify position() and report().
 - Swap to a stack based PV.
 - Merge datagen.js into lozza.js.
 - Refactor.
 - Fix network command.
-- Fix formatFen().
 - Don't use an array for the UE args.
-- Change datagen to 20k soft nodes.
 - Remove divisions when calclating LMR.
 - Simplify slideBase().
 - More use of typed arrays.
@@ -51,17 +49,12 @@ const BUILD = "6";
 
 //{{{  dev/release
 //
-// + Comment out randomEval stuff in evaluate().
-// + node lozza serialise > weights and plonk in netInitWeights().
-// + Set NET_WEIGHTS_FILE to ''.
-// + Tweak seal() to be noop.
-// + Remove scrict mode.
-// + Disable upper/lower bound reports.
+//  See https://github.com/op12no2/lozza/wiki/Making-a-release.
 //
 
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/teddy168/lozza-934/quantised.bin';
 const TTSIZE           = 1 << 23;
-const BENCH_DEPTH      = 9;
+const BENCH_DEPTH      = 10;
 
 //}}}
 //{{{  constants
@@ -1715,7 +1708,7 @@ function search (node, depth, turn, alpha, beta) {
   //}}}
 
   const oAlpha     = alpha;
-  const doFutility = !inCheck && depth <= 4;
+  const doFP       = !inCheck && depth <= 4;
   const doLMR      = !inCheck && depth >= 3;
   const doLMP      = !pvNode && !inCheck && depth <= 2;
   const doIIR      = !node.hashMove && pvNode && depth > 3;
@@ -1757,7 +1750,7 @@ function search (node, depth, turn, alpha, beta) {
       continue;
     }
     
-    if (doFutility && numLegalMoves > 0 && node.base < BASE_LMR && !(move & KEEPER_MASK) && !alphaMate(alpha) && (ev + Math.imul(depth,120)) < alpha) {
+    if (doFP && numLegalMoves > 0 && node.base < BASE_LMR && !(move & KEEPER_MASK) && !alphaMate(alpha) && (ev + Math.imul(depth,120)) < alpha) {
       continue;
     }
     
@@ -2058,7 +2051,7 @@ function datagen() {
 
   silentMode = 1;
 
-  const nodesLimit     = 20000;  // hard limit is x10
+  const nodesLimit     = 5000;  // hard limit is x10
   const gamesLimit     = 100000;
   const bufferSize     = 100000 + Math.random() * 100000;  // randomise writes
   const reportInterval = 10;
@@ -2085,7 +2078,7 @@ function datagen() {
     //{{{  play game
     
     let randLimit   = 10;
-    let reportLimit = 16;
+    let reportLimit = 14;
     
     if (Math.random() >= 0.5) {
       randLimit--;
@@ -2133,7 +2126,7 @@ function datagen() {
       const moveStr = formatMove(move);
       const inCheck = isKingAttacked(nextTurn);
       const noisy   = moveIsNoisy(move);
-      const fen     = formatFen();
+      const fen     = formatFen(turn);
       const score   = (turn == BLACK ? -statsBestScore : statsBestScore);
     
       if (ply > reportLimit && !inCheck && !noisy) {
@@ -2305,9 +2298,12 @@ function netSlowEval (turn) {
 }
 
 //}}}
-//{{{  netFastEval
+//{{{  netEval
+//
+// SqrRelu.
+//
 
-function netFastEval (turn) {
+function netEval (turn) {
 
   const w  = net_o_w;
   const a  = net_a[colourIndex(turn)];
@@ -2528,22 +2524,29 @@ function netPromote () {
   const promoteObj = ueArgs4;
 
   const i1 = IMAP[(pawnObj << 8) + pawnFr];
-  const i2 = IMAP[(captureObj << 8) + pawnTo];
-  const i3 = IMAP[(promoteObj << 8) + pawnTo];
+  const i2 = IMAP[(promoteObj << 8) + pawnTo];
 
   const h1a = net_h1_w[i1];
   const h1b = net_h1_w[i2];
-  const h1c = net_h1_w[i3];
 
   const h2a = net_h2_w[i1];
   const h2b = net_h2_w[i2];
-  const h2c = net_h2_w[i3];
 
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
-    net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
+  if (captureObj) {
+    const i3 = IMAP[(captureObj << 8) + pawnTo];
+    const h1c = net_h1_w[i3];
+    const h2c = net_h2_w[i3];
+    for (let h=0; h < NET_H1_SIZE; h++) {
+      net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
+      net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
+    }
   }
-
+  else {
+    for (let h=0; h < NET_H1_SIZE; h++) {
+      net_h1_a[h] += h1b[h] - h1a[h];
+      net_h2_a[h] += h2b[h] - h2a[h];
+    }
+  }
 }
 
 //}}}
@@ -4386,7 +4389,10 @@ function evaluate (turn) {
   if (randomEval)
     return Math.trunc((Math.random() * 1000) - 500);
   else {
-    const e1 = netFastEval(turn);
+    const e1 = netEval(turn);
+    //const e2 = netSlowEval(turn);
+    //if (e1 != e2)
+      //console.log(e1, e2);
     return e1;
   }
 
@@ -4455,7 +4461,7 @@ function hashCheck (turn) {
 //}}}
 //{{{  formatFen
 
-function formatFen () {
+function formatFen (turn) {
 
   var fen = '';
   var n   = 0;
@@ -4482,7 +4488,7 @@ function formatFen () {
       fen += '/';
   }
 
-  if (bdTurn == WHITE)
+  if (turn == WHITE)
     fen += ' w';
   else
     fen += ' b';
@@ -4657,7 +4663,7 @@ function checkTime () {
 
     statsTimeOut = 1;
 
-  if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes * 10)
+  if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes * 100)
 
     statsTimeOut = 1;
 
@@ -4893,12 +4899,6 @@ function uciExec (commands) {
 
       case 'stop': {
         //{{{  stop
-        //
-        // This will have no effect. To stop an analysis or long move
-        // the worker must be killed. It's just the way Javascript works.
-        //
-        
-        statsTimeOut = 1;
         
         break;
         
@@ -4941,7 +4941,7 @@ function uciExec (commands) {
         //{{{  eval
         
         const e1 = netSlowEval(bdTurn);
-        const e2 = netFastEval(bdTurn);
+        const e2 = netEval(bdTurn);
         
         uciSend('full',e1,'ue',e2);
         
@@ -4954,7 +4954,7 @@ function uciExec (commands) {
       case 'b': {
         //{{{  board
         
-        uciSend(formatFen());
+        uciSend(formatFen(bdTurn));
         
         break;
         
