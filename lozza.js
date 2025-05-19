@@ -9,6 +9,7 @@ const BUILD = "6";
 
 /*
 
+- Use Leela data and increase hidden layer to 384.
 - Increase default bench depth to 10.
 - Fix formatFen().
 - Fix netPromote() when no captured piece.
@@ -52,7 +53,7 @@ const BUILD = "6";
 //  See https://github.com/op12no2/lozza/wiki/Making-a-release.
 //
 
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/teddy168/lozza-934/quantised.bin';
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/leela2/lozza-500/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 10;
 
@@ -69,7 +70,7 @@ const NET_QB      = 64;
 const NET_QAB     = NET_QA * NET_QB;
 const NET_SCALE   = 400;
 const NET_I_SIZE  = 768;
-const NET_H1_SIZE = 168;
+const NET_H1_SIZE = 384;
 
 const IMAP = new Uint32Array(15 * 256);
 
