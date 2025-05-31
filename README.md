@@ -2,13 +2,15 @@
 
 A UCI Javascript chess engine with NNUE evaluation. Try her here:-
 
-https://op12no2.github.io/lozza-ui
+https://op12no2.github.io/lozza-ui/play.htm
 
 Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node and on pretty-much any platform (see below). Note however that Lozza is relatively slow compared to compiled engines of a similar design, which also makes her relatively weak. 
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from the latest release.  
+All you need is ```lozza.js``` from release "Lozza 5.0" (not the repo root - which will not work in a web env.).  
+
+https://github.com/op12no2/lozza/releases/tag/5
 
 Here is a little example to do a 10 ply search:-
 
@@ -40,13 +42,15 @@ https://github.com/op12no2/lozza-ui
 
 You can try them here:-
 
-https://op12no2.github.io/lozza-ui
+https://op12no2.github.io/lozza-ui/play.htm
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest Lozza release and then follow the instructions in the ```readme.txt``` file. Any platform that supports Node can be targetted.   
+Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest Lozza release and then follow the instructions in the wiki. Pretty much any platform can be supported.  
 
 https://github.com/op12no2/lozza/releases
+
+https://github.com/op12no2/lozza/wiki/Loading-Lozza-into-chess-user-interfaces
 
 ## Acknowledgements
 
