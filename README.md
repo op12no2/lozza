@@ -8,7 +8,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from the latest release (the repo root is usually broken).  
+All you need is ```lozza.js``` from release "Lozza 5" (not the repo root).  
 
 Here is a little example to do a 10 ply search:-
 
