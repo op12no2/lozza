@@ -10,6 +10,8 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 All you need is ```lozza.js``` from release "Lozza 5" (not the repo root).  
 
+https://github.com/op12no2/lozza/releases/tag/5
+
 Here is a little example to do a 10 ply search:-
 
 ```Javascript
