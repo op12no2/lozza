@@ -8,7 +8,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from release "Lozza 5" (not the repo root - which will not work in a web env.).  
+All you need is ```lozza.js``` from release "Lozza 5" (not the repo root - which will not work in a web env and Lozza 5.1 web config is also broken.).  
 
 https://github.com/op12no2/lozza/releases/tag/5
 
