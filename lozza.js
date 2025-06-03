@@ -3,7 +3,7 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "6";
+const BUILD = "7";
 
 //{{{  dev/release
 //
@@ -823,10 +823,6 @@ function nodeStruct () {
 //}}}
 
 //{{{  initNode
-//
-// By storing the killers in the node, we are implicitly using depth from root, rather than
-// depth, which can jump around all over the place and is inappropriate to use for killers.
-//
 
 function initNode (node) {
 
@@ -1401,6 +1397,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
       uncacheA(node);
     
       continue;
+    
     }
     
     //}}}
@@ -1814,6 +1811,7 @@ function search (node, depth, turn, alpha, beta) {
       //ttPut(TT_EXACT, depth, 0, 0, node.ply, alpha, beta, ev);
       return 0;
     }
+  
   }
   
   //}}}
@@ -1902,6 +1900,7 @@ function qSearch (node, depth, turn, alpha, beta) {
       uncacheA(node);
     
       continue;
+    
     }
     
     //}}}
@@ -2332,6 +2331,7 @@ function netLoad () {
     for (let j=0; j < NET_H1_SIZE; j++) {
       net_h1_w[lozIndex][j] = dataView[h + j];
     }
+  
   }
   
   //}}}
@@ -2505,6 +2505,7 @@ function netPromote () {
       net_h2_a[h] += h2b[h] - h2a[h];
     }
   }
+
 }
 
 //}}}
@@ -4098,6 +4099,7 @@ function unmakeMove (node, move) {
       bCounts[toPiece]++;
       bCount++;
     }
+  
   }
   
   //}}}
@@ -4118,6 +4120,7 @@ function unmakeMove (node, move) {
     
         bCounts[PAWN]++;
         bCount++;
+    
       }
     
       else if (move & MOVE_PROMOTE_MASK) {
