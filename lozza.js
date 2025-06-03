@@ -2035,8 +2035,8 @@ function datagen() {
     //}}}
     //{{{  play game
     
-    let randLimit   = 12;
-    let reportLimit = 16;
+    let randLimit   = 9;
+    let reportLimit = 11;
     
     if (Math.random() >= 0.5) {
       randLimit--;
