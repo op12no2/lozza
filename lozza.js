@@ -2662,8 +2662,10 @@ function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
   ttType[idx]  = type;
   ttDepth[idx] = depth;
   ttScore[idx] = score;
-  ttMove[idx]  = moveClean(move);
   ttEval[idx]  = ev;
+
+  if (move)
+    ttMove[idx] = moveClean(move);
 
 }
 
@@ -5139,14 +5141,16 @@ function uciExec (commands) {
 
 //}}}
 
-onmessage = function(e) {
-  uciExec(m.data);
-}
-
 //}}}
 //{{{  init
 
 const nodeHost = (typeof process) != 'undefined';
+
+if (!nodeHost) {
+  onmessage = function(e) {
+    uciExec(m.data);
+  }
+}
 
 const fs = (nodeHost) ? require('fs') : 0;
 
