@@ -2739,6 +2739,7 @@ function ttUpdateEval (ev) {
 function ttInit () {
 
   ttType.fill(TT_EMPTY);
+  ttMove.fill(0);
 
   ttHashUsed = 0;
 
