@@ -10,7 +10,7 @@ Todo list: https://github.com/op12no2/lozza/issues/30
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from release "Lozza 5" (not the repo itself - which will not work in a web envitonment and Lozza 5.1's web config is also broken.).  
+All you need is ```lozza.js``` from release "Lozza 5" (not the repo itself - which will not work in a web environment and Lozza 5.1's web config is also broken.).  
 
 https://github.com/op12no2/lozza/releases/tag/5
 
