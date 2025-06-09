@@ -4,13 +4,13 @@ A UCI Javascript chess engine with NNUE evaluation. Try her here:-
 
 https://op12no2.github.io/lozza-ui/play.htm
 
-Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node and because of that, on pretty-much any platform. 
+Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node - and because of that, on pretty-much any platform. 
 
 Todo list: https://github.com/op12no2/lozza/issues/30
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from release "Lozza 5" (not the repo itself - which will not work in a web env and Lozza 5.1 web config is also broken.).  
+All you need is ```lozza.js``` from release "Lozza 5" (not the repo itself - which will not work in a web envitonment and Lozza 5.1's web config is also broken.).  
 
 https://github.com/op12no2/lozza/releases/tag/5
 
