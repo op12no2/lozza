@@ -9,8 +9,9 @@ const BUILD = "7";
 //
 // See https://github.com/op12no2/lozza/wiki/Making-a-release.
 //
-
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/teddy168/lozza-934/quantised.bin';
+const NET_NAME         = 'teddy168';
+const NET_SB           = '934';
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 10;
 
@@ -2013,7 +2014,7 @@ function datagen() {
   const bufferSize     = 100000 + Math.random() * 100000;  // randomise writes
   const reportInterval = 10;
 
-  const fileName = 'data/datagen' + Math.trunc(Math.random()*100000000000) + '.txt';
+  const fileName = 'data/dg_' + BUILD + '_' + NET_NAME + '_' + NET_SB + '_' + Math.trunc(Math.random()*100000000000) + '.txt';
 
   let result = '';
   let o = '';
@@ -5192,7 +5193,7 @@ function initOnce () {
   
   }
   
-  if (NET_WEIGHTS_FILE)
+  if (NET_NAME)
     netLoad();
   else
     netInitWeights();
