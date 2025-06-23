@@ -4885,16 +4885,26 @@ function uciExec (commands) {
       case 'perft': {
         //{{{  perft
         
-        const depth = uciGetInt(tokens, 'depth', 0);
+        uciExec('b');
+        
+        const depth1 = uciGetInt(tokens, 'depth', 0);
+        const depth2 = uciGetInt(tokens, 'to', depth1);
+        const warm = uciGetInt(tokens, 'warm', 0);
         
         const start = now();
         
-        const nodes = perft(rootNode, depth, bdTurn);
+        for (let w=0; w < warm; w++) {
+          for (let depth=depth1; depth <= depth2; depth++) {
+            const nodes = perft(rootNode, depth, bdTurn);
+          }
+        }
         
-        const elapsed = now() - start;
-        const nps = nodes / elapsed * 1000 | 0;
-        
-        uciSend('nodes', nodes, 'time', elapsed, 'nps', nps);
+        for (let depth=depth1; depth <= depth2; depth++) {
+          const nodes = perft(rootNode, depth, bdTurn);
+          const elapsed = now() - start;
+          const nps = nodes / elapsed * 1000 | 0;
+          uciSend('depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
+        }
         
         break;
         
