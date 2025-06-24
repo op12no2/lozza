@@ -4891,8 +4891,6 @@ function uciExec (commands) {
         const depth2 = uciGetInt(tokens, 'to', depth1);
         const warm = uciGetInt(tokens, 'warm', 0);
         
-        const start = now();
-        
         for (let w=0; w < warm; w++) {
           for (let depth=depth1; depth <= depth2; depth++) {
             const nodes = perft(rootNode, depth, bdTurn);
@@ -4900,6 +4898,7 @@ function uciExec (commands) {
         }
         
         for (let depth=depth1; depth <= depth2; depth++) {
+          const start = now();
           const nodes = perft(rootNode, depth, bdTurn);
           const elapsed = now() - start;
           const nps = nodes / elapsed * 1000 | 0;
