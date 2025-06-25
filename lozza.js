@@ -9,8 +9,8 @@ const BUILD = "7";
 //
 // See https://github.com/op12no2/lozza/wiki/Making-a-release.
 //
-const NET_NAME         = 'teddy168';
-const NET_SB           = '934';
+const NET_NAME         = 'louis3';
+const NET_SB           = '400';
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 10;
@@ -28,7 +28,7 @@ const NET_QB      = 64;
 const NET_QAB     = NET_QA * NET_QB;
 const NET_SCALE   = 400;
 const NET_I_SIZE  = 768;
-const NET_H1_SIZE = 168;
+const NET_H1_SIZE = 256;
 
 const IMAP = new Uint32Array(15 * 256);
 
