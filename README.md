@@ -1,12 +1,12 @@
 # Lozza
 
-A UCI Javascript chess engine with NNUE evaluation. Try her here:-
+A UCI Javascript chess engine with [NNUE evaluation](https://github.com/op12no2/lozza/wiki/Lozza's-net). Try her here:-
 
 https://op12no2.github.io/lozza-ui/play.htm
 
 Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node - and because of that, on pretty-much any platform. 
 
-Todo list: https://github.com/op12no2/lozza/issues/30
+Issues and Todo list: https://github.com/op12no2/lozza/issues
 
 ## Basic use in a browser
 
