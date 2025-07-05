@@ -630,33 +630,35 @@ function uncacheB (node) {
 
 function getNextMove (node) {
 
-  if (node.sortedIndex === node.numMoves) {
-    return 0;
-  }
+  let maxM = 0;
 
-  const moves = node.moves;
-  const ranks = node.ranks;
-  const next  = node.sortedIndex;
-  const num   = node.numMoves;
+  if (node.sortedIndex !== node.numMoves) {
 
-  let maxR = -INFINITY;
-  let maxI = 0;
+    const moves = node.moves;
+    const ranks = node.ranks;
+    const next  = node.sortedIndex;
+    const num   = node.numMoves;
 
-  for (let i=next; i < num; i++) {
-    if (ranks[i] > maxR) {
-      maxR = ranks[i];
-      maxI = i;
+    let maxR = -INFINITY;
+    let maxI = 0;
+
+    for (let i=next; i < num; i++) {
+      if (ranks[i] > maxR) {
+        maxR = ranks[i];
+        maxI = i;
+      }
     }
+
+    maxM = moves[maxI]
+
+    moves[maxI] = moves[next];
+    ranks[maxI] = ranks[next];
+
+    node.base = maxR;
+
+    node.sortedIndex++;
+
   }
-
-  const maxM = moves[maxI]
-
-  moves[maxI] = moves[next];
-  ranks[maxI] = ranks[next];
-
-  node.base = maxR;
-
-  node.sortedIndex++;
 
   return maxM;
 
