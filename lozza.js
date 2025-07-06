@@ -4127,18 +4127,6 @@ function isAttacked (to, byCol) {
   fr = to - 13; while (b[fr] === 0) fr -= 13; if (BQ[b[fr]] !== 0) return 1;
   
   //}}}
-  //{{{  kings
-  
-  //if (b[to + -11] === king) return 1;
-  //if (b[to + -13] === king) return 1;
-  //if (b[to + -12] === king) return 1;
-  //if (b[to + -1 ] === king) return 1;
-  //if (b[to +  11] === king) return 1;
-  //if (b[to +  13] === king) return 1;
-  //if (b[to +  12] === king) return 1;
-  //if (b[to +  1 ] === king) return 1;
-  
-  //}}}
 
   return 0;
 
@@ -4171,36 +4159,36 @@ function evaluate (turn) {
   if (numPieces === 2)
     return 0;
   
-  if (numPieces === 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))
+  if (numPieces === 3 && (wNumKnights !== 0 || wNumBishops !== 0 || bNumKnights !== 0 || bNumBishops !== 0))
     return 0;
   
-  if (numPieces === 4 && (wNumKnights || wNumBishops) && (bNumKnights || bNumBishops))
+  if (numPieces === 4 && (wNumKnights !== 0 || wNumBishops !== 0) && (bNumKnights !== 0 || bNumBishops !== 0))
     return 0;
   
   if (numPieces === 4 && (wNumKnights === 2 || bNumKnights === 2))
     return 0;
   
-  if (numPieces === 5 && wNumKnights === 2 && (bNumKnights || bNumBishops))
+  if (numPieces === 5 && wNumKnights === 2 && (bNumKnights !== 0 || bNumBishops !== 0))
     return 0;
   
-  if (numPieces === 5 && bNumKnights === 2 && (wNumKnights || wNumBishops))
+  if (numPieces === 5 && bNumKnights === 2 && (wNumKnights !== 0 || wNumBishops !== 0))
     return 0;
   
-  if (numPieces === 5 && wNumBishops === 2 && bNumBishops)
+  if (numPieces === 5 && wNumBishops === 2 && bNumBishops !== 0)
     return 0;
   
-  if (numPieces === 5 && bNumBishops === 2 && wNumBishops)
+  if (numPieces === 5 && bNumBishops === 2 && wNumBishops !== 0)
     return 0;
   
-  if (numPieces === 4 && wNumRooks && bNumRooks)
+  if (numPieces === 4 && wNumRooks !== 0 && bNumRooks !== 0)
     return 0;
   
-  if (numPieces === 4 && wNumQueens && bNumQueens)
+  if (numPieces === 4 && wNumQueens !== 0 && bNumQueens !== 0)
     return 0;
   
   //}}}
 
-  if (randomEval)
+  if (randomEval !== 0)
     return Math.trunc((Math.random() * 1000) - 500);
   else
     return netEval(turn);
@@ -4407,7 +4395,7 @@ function isDraw () {
   const bNumBishops = bCounts[BISHOP];
   const bNumKnights = bCounts[KNIGHT];
 
-  if (numPieces === 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))
+  if (numPieces === 3 && (wNumKnights !== 0 || wNumBishops !== 0 || bNumKnights !== 0 || bNumBishops !== 0))
     return 1;
 
   return 0;
