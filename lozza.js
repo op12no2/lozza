@@ -104,7 +104,6 @@ const MOVE_SPECIAL_MASK = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MAS
 const KEEPER_MASK       = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility etc
 const MOVE_NOISY_MASK   = MOVE_TOOBJ_MASK | MOVE_EPTAKE_MASK;
 
-const NULL   = 0;
 const PAWN   = 1;
 const KNIGHT = 2;
 const BISHOP = 3;
@@ -1272,7 +1271,7 @@ function search (node, depth, turn, alpha, beta) {
   //}}}
 
   const nextTurn = turn ^ COLOR_MASK;
-  const pvNode   = (beta != (alpha + 1)) | 0;
+  const pvNode   = (beta !== (alpha + 1)) | 0;
 
   //{{{  mate distance pruning
   
@@ -1435,7 +1434,7 @@ function search (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  if (ev != INFINITY)
+  if (ev !== INFINITY)
     ttUpdateEval(ev);
 
   genMoves(node, turn);
@@ -1859,7 +1858,7 @@ function datagen() {
         break;
       }
       
-      if (!noisy && (frPiece != PAWN))
+      if (noisy === 0 && (frPiece !== PAWN))
         hmc++;
       else
         hmc = 0;
@@ -1986,7 +1985,7 @@ function netSlowEval (turn) {
     const fr    = B88[sq];
     const frObj = b[fr];
 
-    if (!frObj)
+    if (frObj === 0)
       continue;
 
     const i1 = IMAP[(frObj << 8) + fr];
@@ -2668,7 +2667,7 @@ function position (bd, turn, rights, ep, moves) {
   bdB.fill(EDGE);
   
   for (var i=0; i < B88.length; i++)
-    bdB[B88[i]] = NULL;
+    bdB[B88[i]] = 0;
   
   bdZ.fill(NO_Z);
   
@@ -2739,7 +2738,7 @@ function position (bd, turn, rights, ep, moves) {
     else {
   
       for (let k=0; k < chn; k++) {
-        bdB[sq] = NULL;
+        bdB[sq] = 0;
         sq++;
       }
     }
@@ -2826,7 +2825,7 @@ function position (bd, turn, rights, ep, moves) {
     const fr    = B88[sq];
     const frObj = bdB[fr];
   
-    if (!frObj)
+    if (frObj === 0)
       continue;
   
     const i1 = IMAP[(frObj << 8) + fr];
@@ -3598,7 +3597,7 @@ function makeMoveA (node, move) {
 
   //{{{  slide piece
   
-  b[fr] = NULL;
+  b[fr] = 0;
   b[to] = frObj;
   
   node.frZ = z[fr];
@@ -3711,7 +3710,7 @@ function makeMoveA (node, move) {
     
         netPrepare(netEpCapture,frObj,fr,to,B_PAWN,ep,0);
     
-        b[ep]    = NULL;
+        b[ep]    = 0;
         node.epZ = z[ep];
         z[ep]    = NO_Z;
     
@@ -3745,7 +3744,7 @@ function makeMoveA (node, move) {
     
         netPrepare(netCastle,W_KING,fr,to,W_ROOK,H1,F1);
     
-        b[H1] = NULL;
+        b[H1] = 0;
         b[F1] = W_ROOK;
         z[F1] = z[H1];
         z[H1] = NO_Z;
@@ -3763,7 +3762,7 @@ function makeMoveA (node, move) {
     
         netPrepare(netCastle,W_KING,fr,to,W_ROOK,A1,D1);
     
-        b[A1] = NULL;
+        b[A1] = 0;
         b[D1] = W_ROOK;
         z[D1] = z[A1];
         z[A1] = NO_Z;
@@ -3799,7 +3798,7 @@ function makeMoveA (node, move) {
     
         netPrepare(netEpCapture,frObj,fr,to,W_PAWN,ep,0);
     
-        b[ep]    = NULL;
+        b[ep]    = 0;
         node.epZ = z[ep];
         z[ep]    = NO_Z;
     
@@ -3833,7 +3832,7 @@ function makeMoveA (node, move) {
     
         netPrepare(netCastle,B_KING,fr,to,B_ROOK,H8,F8);
     
-        b[H8] = NULL;
+        b[H8] = 0;
         b[F8] = B_ROOK;
         z[F8] = z[H8];
         z[H8] = NO_Z;
@@ -3851,7 +3850,7 @@ function makeMoveA (node, move) {
     
         netPrepare(netCastle,B_KING,fr,to,B_ROOK,A8,D8);
     
-        b[A8] = NULL;
+        b[A8] = 0;
         b[D8] = B_ROOK;
         z[D8] = z[A8];
         z[A8] = NO_Z;
@@ -3991,7 +3990,7 @@ function unmakeMove (node, move) {
       else if (move === MOVE_E1G1) {
     
         b[H1] = W_ROOK;
-        b[F1] = NULL;
+        b[F1] = 0;
         z[H1] = z[F1];
         z[F1] = NO_Z;
     
@@ -4001,7 +4000,7 @@ function unmakeMove (node, move) {
       else if (move === MOVE_E1C1) {
     
         b[A1] = W_ROOK;
-        b[D1] = NULL;
+        b[D1] = 0;
         z[A1] = z[D1];
         z[D1] = NO_Z;
     
@@ -4036,7 +4035,7 @@ function unmakeMove (node, move) {
       else if (move === MOVE_E8G8) {
     
         b[H8] = B_ROOK;
-        b[F8] = NULL;
+        b[F8] = 0;
         z[H8] = z[F8];
         z[F8] = NO_Z;
     
@@ -4046,7 +4045,7 @@ function unmakeMove (node, move) {
       else if (move === MOVE_E8C8) {
     
         b[A8] = B_ROOK;
-        b[D8] = NULL;
+        b[D8] = 0;
         z[A8] = z[D8];
         z[D8] = NO_Z;
     
@@ -4231,7 +4230,7 @@ function hashCheck (turn) {
 
     var obj = bdB[sq];
 
-    if (obj === NULL || obj === EDGE)
+    if (obj === 0 || obj === EDGE)
       continue;
 
     var piece = obj & PIECE_MASK;
@@ -4242,10 +4241,10 @@ function hashCheck (turn) {
 
   }
 
-  if (loH != loHash)
+  if (loH !== loHash)
     console.log('*************** LO',loH,loHash);
 
-  if (hiH != hiHash)
+  if (hiH !== hiHash)
     console.log('*************** HI',hiH,hiHash);
 
 }
@@ -4262,7 +4261,7 @@ function formatFen (turn) {
     for (var j=0; j < 8; j++) {
       var sq  = B88[i*8 + j]
       var obj = bdB[sq];
-      if (obj === NULL)
+      if (obj === 0)
         n++;
       else {
         if (n) {
@@ -4336,16 +4335,16 @@ function quickSee (turn, move) {
 
   const nextTurn = turn ^ BLACK;
 
-  const p1 = bdB[to + WB_OFFSET_DIAG1[cx]] === (PAWN | nextTurn);
-  const p2 = bdB[to + WB_OFFSET_DIAG2[cx]] === (PAWN | nextTurn);
+  const p1 = (bdB[to + WB_OFFSET_DIAG1[cx]] === (PAWN | nextTurn)) | 0;
+  const p2 = (bdB[to + WB_OFFSET_DIAG2[cx]] === (PAWN | nextTurn)) | 0;
 
-  if (!toObj && (p1 || p2))
+  if (toObj === 0 && (p1 !== 0 || p2 !== 0))
     return -1;
 
   const toPiece = toObj & PIECE_MASK;
-  const dodgy   = QS[frPiece] > QS[toPiece];
+  const dodgy   = (QS[frPiece] > QS[toPiece]) | 0;
 
-  if (dodgy && (p1 || p2))
+  if (dodgy !== 0 && (p1 !== 0 || p2 !== 0))
     return -1;
 
   return 0;
@@ -5147,56 +5146,56 @@ function initOnce () {
   
     let dir = 1;
     let from = to + dir;
-    while (a[from] != EDGE) {
+    while (a[from] !== EDGE) {
       a[from] = dir;
       from += dir;
     }
   
     dir = -1;
     from = to + dir;
-    while (a[from] != EDGE) {
+    while (a[from] !== EDGE) {
       a[from] = dir;
       from += dir;
     }
   
     dir = 12;
     from = to + dir;
-    while (a[from] != EDGE) {
+    while (a[from] !== EDGE) {
       a[from] = dir;
       from += dir;
     }
   
     dir = -12;
     from = to + dir;
-    while (a[from] != EDGE) {
+    while (a[from] !== EDGE) {
       a[from] = dir;
       from += dir;
     }
   
     dir = 13;
     from = to + dir;
-    while (a[from] != EDGE) {
+    while (a[from] !== EDGE) {
       a[from] = dir;
       from += dir;
     }
   
     dir = -13;
     from = to + dir;
-    while (a[from] != EDGE) {
+    while (a[from] !== EDGE) {
       a[from] = dir;
       from += dir;
     }
   
     dir = 11;
     from = to + dir;
-    while (a[from] != EDGE) {
+    while (a[from] !== EDGE) {
       a[from] = dir;
       from += dir;
     }
   
     dir = -11;
     from = to + dir;
-    while (a[from] != EDGE) {
+    while (a[from] !== EDGE) {
       a[from] = dir;
       from += dir;
     }
