@@ -9,8 +9,8 @@ const BUILD = "7";
 //
 // See https://github.com/op12no2/lozza/wiki/Making-a-release.
 //
-const NET_NAME         = 'louis3';
-const NET_SB           = '400';
+const NET_NAME         = 'farm1';
+const NET_SB           = '500';
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 10;
