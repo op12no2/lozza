@@ -49,12 +49,8 @@ const MINMATE         = (MATE - 2*MAX_PLY) | 0;
 const TTSCORE_UNKNOWN = MATE + 1;
 const EMPTY           = 0;
 
-const WHITE   = 0x0;
-const BLACK   = 0x8;
-const I_WHITE = 0;
-const I_BLACK = 1;
-const M_WHITE = 1;
-const M_BLACK = -1;
+const WHITE = 0x0;
+const BLACK = 0x8;
 
 const PIECE_MASK  = 0x7;
 const COLOR_MASK  = 0x8;
@@ -2054,28 +2050,6 @@ function netEval (turn) {
 }
 
 //}}}
-//{{{  netPrepare
-//
-// Note the UE needed so it can be done after a legal move is confirmed.
-// Needs to be extended to push a stack of deferred updates, which are
-// done when the TT eval misses. That potentially means no updates for
-// some moves when search/QS returns early.
-//
-
-function netPrepare (uef, ue0, ue1, ue2, ue3, ue4, ue5) {
-
-  ueFunc = uef;
-
-  ueArgs0 = ue0;
-  ueArgs1 = ue1;
-  ueArgs2 = ue2;
-  ueArgs3 = ue3;
-  ueArgs4 = ue4;
-  ueArgs5 = ue5;
-
-}
-
-//}}}
 //{{{  netLoad
 //
 // Copy the weights so that the buffer can be released.
@@ -2188,12 +2162,12 @@ function netInitWeights () {
 
 function netMove () {
 
-  const frObj = ueArgs0;
-  const fr    = ueArgs1;
-  const to    = ueArgs2;
+  const frObj = ueArgs0 << 8;
+  const fr    = ueArgs1 | 0;
+  const to    = ueArgs2 | 0;
 
-  const i1 = IMAP[(frObj << 8) + fr];
-  const i2 = IMAP[(frObj << 8) + to];
+  const i1 = IMAP[frObj + fr] | 0;
+  const i2 = IMAP[frObj + to] | 0;
 
   const h1a = net_h1_w[i1];
   const h1b = net_h1_w[i2];
@@ -2213,14 +2187,14 @@ function netMove () {
 
 function netCapture () {
 
-  const frObj = ueArgs0;
-  const fr    = ueArgs1;
-  const toObj = ueArgs2;
-  const to    = ueArgs3;
+  const frObj = ueArgs0 << 8;
+  const fr    = ueArgs1 | 0;
+  const toObj = ueArgs2 << 8;
+  const to    = ueArgs3 | 0;
 
-  const i1 = IMAP[(frObj << 8) + fr];
-  const i2 = IMAP[(toObj << 8) + to];
-  const i3 = IMAP[(frObj << 8) + to];
+  const i1 = IMAP[frObj + fr] | 0;
+  const i2 = IMAP[toObj + to] | 0;
+  const i3 = IMAP[frObj + to] | 0;
 
   const h1a = net_h1_w[i1];
   const h1b = net_h1_w[i2];
@@ -2242,14 +2216,14 @@ function netCapture () {
 
 function netPromote () {
 
-  const pawnObj    = ueArgs0;
-  const pawnFr     = ueArgs1;
-  const pawnTo     = ueArgs2;
-  const captureObj = ueArgs3;
-  const promoteObj = ueArgs4;
+  const pawnObj    = ueArgs0 << 8;
+  const pawnFr     = ueArgs1 | 0;
+  const pawnTo     = ueArgs2 | 0;
+  const captureObj = ueArgs3 << 8;
+  const promoteObj = ueArgs4 << 8;
 
-  const i1 = IMAP[(pawnObj << 8) + pawnFr];
-  const i2 = IMAP[(promoteObj << 8) + pawnTo];
+  const i1 = IMAP[pawnObj    + pawnFr] | 0;
+  const i2 = IMAP[promoteObj + pawnTo] | 0;
 
   const h1a = net_h1_w[i1];
   const h1b = net_h1_w[i2];
@@ -2258,7 +2232,7 @@ function netPromote () {
   const h2b = net_h2_w[i2];
 
   if (captureObj !== 0) {
-    const i3  = IMAP[(captureObj << 8) + pawnTo];
+    const i3  = IMAP[captureObj + pawnTo] | 0;
     const h1c = net_h1_w[i3];
     const h2c = net_h2_w[i3];
     for (let h=0; h < NET_H1_SIZE; h++) {
@@ -2280,15 +2254,15 @@ function netPromote () {
 
 function netEpCapture () {
 
-  const pawnObj        = ueArgs0;
-  const pawnFr         = ueArgs1;
-  const pawnTo         = ueArgs2;
-  const pawnCaptureObj = ueArgs3;
-  const ep             = ueArgs4;
+  const pawnObj        = ueArgs0 << 8;
+  const pawnFr         = ueArgs1 | 0;
+  const pawnTo         = ueArgs2 | 0;
+  const pawnCaptureObj = ueArgs3 << 8;
+  const ep             = ueArgs4 | 0;
 
-  const i1 = IMAP[(pawnObj << 8) + pawnFr];
-  const i2 = IMAP[(pawnObj << 8) + pawnTo];
-  const i3 = IMAP[(pawnCaptureObj << 8) + ep];
+  const i1 = IMAP[pawnObj        + pawnFr] | 0;
+  const i2 = IMAP[pawnObj        + pawnTo] | 0;
+  const i3 = IMAP[pawnCaptureObj + ep]     | 0;
 
   const h1a = net_h1_w[i1];
   const h1b = net_h1_w[i2];
@@ -2310,17 +2284,17 @@ function netEpCapture () {
 
 function netCastle () {
 
-  const kingObj = ueArgs0;
-  const kingFr  = ueArgs1;
-  const kingTo  = ueArgs2;
-  const rookObj = ueArgs3;
-  const rookFr  = ueArgs4;
-  const rookTo  = ueArgs5;
+  const kingObj = ueArgs0 << 8;
+  const kingFr  = ueArgs1 | 0;
+  const kingTo  = ueArgs2 | 0;
+  const rookObj = ueArgs3 << 8;
+  const rookFr  = ueArgs4 | 0;
+  const rookTo  = ueArgs5 | 0;
 
-  const i1 = IMAP[(kingObj << 8) + kingFr];
-  const i2 = IMAP[(kingObj << 8) + kingTo];
-  const i3 = IMAP[(rookObj << 8) + rookFr];
-  const i4 = IMAP[(rookObj << 8) + rookTo];
+  const i1 = IMAP[kingObj + kingFr] | 0;
+  const i2 = IMAP[kingObj + kingTo] | 0;
+  const i3 = IMAP[rookObj + rookFr] | 0;
+  const i4 = IMAP[rookObj + rookTo] | 0;
 
   const h1a = net_h1_w[i1];
   const h1b = net_h1_w[i2];
@@ -3695,7 +3669,10 @@ function makeMoveA (node, move) {
     
       if ((move & MOVE_EPMAKE_MASK) !== 0) {
     
-        netPrepare(netMove,frObj,fr,to,0,0,0);
+        ueFunc  = netMove;
+        ueArgs0 = frObj;
+        ueArgs1 = fr;
+        ueArgs2 = to;
     
         loHash ^= loEP[bdEp];
         hiHash ^= hiEP[bdEp];
@@ -3708,7 +3685,12 @@ function makeMoveA (node, move) {
     
       else if ((move & MOVE_EPTAKE_MASK) !== 0) {
     
-        netPrepare(netEpCapture,frObj,fr,to,B_PAWN,ep,0);
+        ueFunc  = netEpCapture;
+        ueArgs0 = frObj;
+        ueArgs1 = fr;
+        ueArgs2 = to;
+        ueArgs3 = B_PAWN;
+        ueArgs4 = ep;
     
         b[ep]    = 0;
         node.epZ = z[ep];
@@ -3728,7 +3710,12 @@ function makeMoveA (node, move) {
         const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]     = WHITE | pro;
     
-        netPrepare(netPromote,W_PAWN,fr,to,toObj,pro|WHITE,0);
+        ueFunc  = netPromote;
+        ueArgs0 = W_PAWN;
+        ueArgs1 = fr;
+        ueArgs2 = to;
+        ueArgs3 = toObj;
+        ueArgs4 = pro|WHITE;
     
         loHash ^= loObjPieces[(W_PAWN << 8) + to];
         hiHash ^= hiObjPieces[(W_PAWN << 8) + to];
@@ -3742,7 +3729,13 @@ function makeMoveA (node, move) {
     
       else if (move === MOVE_E1G1) {
     
-        netPrepare(netCastle,W_KING,fr,to,W_ROOK,H1,F1);
+        ueFunc  = netCastle;
+        ueArgs0 = W_KING;
+        ueArgs1 = fr;
+        ueArgs2 = to;
+        ueArgs3 = W_ROOK;
+        ueArgs4 = H1;
+        ueArgs5 = F1;
     
         b[H1] = 0;
         b[F1] = W_ROOK;
@@ -3760,7 +3753,13 @@ function makeMoveA (node, move) {
     
       else if (move === MOVE_E1C1) {
     
-        netPrepare(netCastle,W_KING,fr,to,W_ROOK,A1,D1);
+        ueFunc  = netCastle;
+        ueArgs0 = W_KING;
+        ueArgs1 = fr;
+        ueArgs2 = to;
+        ueArgs3 = W_ROOK;
+        ueArgs4 = A1;
+        ueArgs5 = D1;
     
         b[A1] = 0;
         b[D1] = W_ROOK;
@@ -3783,7 +3782,10 @@ function makeMoveA (node, move) {
     
       if ((move & MOVE_EPMAKE_MASK) !== 0) {
     
-        netPrepare(netMove,frObj,fr,to,0,0,0);
+        ueFunc  = netMove;
+        ueArgs0 = frObj;
+        ueArgs1 = fr;
+        ueArgs2 = to;
     
         loHash ^= loEP[bdEp];
         hiHash ^= hiEP[bdEp];
@@ -3796,7 +3798,12 @@ function makeMoveA (node, move) {
     
       else if ((move & MOVE_EPTAKE_MASK) !== 0) {
     
-        netPrepare(netEpCapture,frObj,fr,to,W_PAWN,ep,0);
+        ueFunc  = netEpCapture;
+        ueArgs0 = frObj;
+        ueArgs1 = fr;
+        ueArgs2 = to;
+        ueArgs3 = W_PAWN;
+        ueArgs4 = ep;
     
         b[ep]    = 0;
         node.epZ = z[ep];
@@ -3816,7 +3823,12 @@ function makeMoveA (node, move) {
         const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]     = BLACK | pro;
     
-        netPrepare(netPromote,B_PAWN,fr,to,toObj,pro|BLACK,0);
+        ueFunc  = netPromote;
+        ueArgs0 = B_PAWN;
+        ueArgs1 = fr;
+        ueArgs2 = to;
+        ueArgs3 = toObj;
+        ueArgs4 = pro|BLACK;
     
         loHash ^= loObjPieces[(B_PAWN << 8) + to];
         hiHash ^= hiObjPieces[(B_PAWN << 8) + to];
@@ -3830,7 +3842,13 @@ function makeMoveA (node, move) {
     
       else if (move === MOVE_E8G8) {
     
-        netPrepare(netCastle,B_KING,fr,to,B_ROOK,H8,F8);
+        ueFunc  = netCastle;
+        ueArgs0 = B_KING;
+        ueArgs1 = fr;
+        ueArgs2 = to;
+        ueArgs3 = B_ROOK;
+        ueArgs4 = H8;
+        ueArgs5 = F8;
     
         b[H8] = 0;
         b[F8] = B_ROOK;
@@ -3848,7 +3866,13 @@ function makeMoveA (node, move) {
     
       else if (move === MOVE_E8C8) {
     
-        netPrepare(netCastle,B_KING,fr,to,B_ROOK,A8,D8);
+        ueFunc  = netCastle;
+        ueArgs0 = B_KING;
+        ueArgs1 = fr;
+        ueArgs2 = to;
+        ueArgs3 = B_ROOK;
+        ueArgs4 = A8;
+        ueArgs5 = D8;
     
         b[A8] = 0;
         b[D8] = B_ROOK;
