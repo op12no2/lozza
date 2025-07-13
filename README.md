@@ -10,14 +10,14 @@ Issues and Todo list: https://github.com/op12no2/lozza/issues
 
 ## Basic use in a browser
 
-All you need is ```lozzaN.js``` from the latest ```lozzaN.zip``` release.  
+All you need is ```lozzaN.js``` from the latest ```lozzaN.zip``` release; for example lozza7.js from lozza7.zip.  
 
 https://github.com/op12no2/lozza/releases
 
 Here is a little example to do a 10 ply search:-
 
 ```Javascript
-var lozza = new Worker('lozza.js');      // i renamed lozzaN.js to lozza.js
+var lozza = new Worker('lozza.js');      // i renamed lozza7.js to be lozza.js
 
 lozza.onmessage = function (e) {
   $('#dump').append(e.data);             // assuming jquery and a div called #dump
