@@ -10,7 +10,7 @@ Issues and Todo list: https://github.com/op12no2/lozza/issues
 
 ## Basic use in a browser
 
-All you need is ```lozzaN.js``` from the latest ```lozzaN.zip``` release; for example lozza7.js from lozza7.zip.  
+All you need is ```lozzaN.js``` from the latest ```lozzaN.zip``` release; for example ```lozza7.js``` from ```lozza7.zip```.  
 
 https://github.com/op12no2/lozza/releases
 
