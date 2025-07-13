@@ -10,9 +10,9 @@ Issues and Todo list: https://github.com/op12no2/lozza/issues
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from release "Lozza 5" (not the repo itself - which will not work in a web environment and Lozza 5.1's web config is also broken.).  
+All you need is ```lozza.js``` from the latest ```lozzaN.zip``` release.  
 
-https://github.com/op12no2/lozza/releases/tag/5
+https://github.com/op12no2/lozza/releases
 
 Here is a little example to do a 10 ply search:-
 
@@ -48,7 +48,7 @@ https://op12no2.github.io/lozza-ui/play.htm
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest Lozza release and then follow the instructions in the wiki.   
+Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest ```LozzaN.zip``` release and then follow the instructions in the wiki.   
 
 https://github.com/op12no2/lozza/releases
 
