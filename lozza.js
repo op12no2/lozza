@@ -3,7 +3,7 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "7";
+const BUILD = "8";
 
 //{{{  dev/release
 //
@@ -1210,17 +1210,22 @@ function rootSearch (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
-          addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
+          if ((move & MOVE_NOISY_MASK) === 0)
+            addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
           return bestScore;
         }
 
-        else
-          addHistory(Math.imul(depth,depth), bestMove);
+        else {
+          if ((move & MOVE_NOISY_MASK) === 0)
+            addHistory(Math.imul(depth,depth), bestMove);
+        }
       }
     }
 
-    else
-      addHistory(-depth, move);
+    else {
+      if ((move & MOVE_NOISY_MASK) === 0)
+        addHistory(-depth, move);
+    }
   }
 
   if (numLegalMoves === 1)
@@ -1317,7 +1322,7 @@ function search (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  const doBeta = (pvNode === 0 && inCheck === 0 && betaMate(beta) === 0) | 0;
+  const doBeta = ((pvNode === 0 && inCheck === 0 && betaMate(beta) === 0)) | 0;
 
   var R = 0;
   var E = 0;
@@ -1350,10 +1355,8 @@ function search (node, depth, turn, alpha, beta) {
   //}}}
   //{{{  alpha prune
   
-  //var doAlpha = pvNode === 0 && inCheck === 0 && alphaMate(alpha) === 0;
-  
-  //if (doAlpha && depth <= 5 && (ev + 1000) <= alpha)
-    //return alpha;
+  //if (pvNode === 0 && inCheck === 0 && alphaMate(alpha) === 0 && depth <= 4 && (ev + 3500) <= alpha)
+    //return ev;
   
   //}}}
 
@@ -1528,17 +1531,22 @@ function search (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
-          addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
+          if ((move & MOVE_NOISY_MASK) === 0)
+            addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
           return bestScore;
         }
 
-        else
-          addHistory(Math.imul(depth,depth), bestMove);
+        else {
+          if ((move & MOVE_NOISY_MASK) === 0)
+            addHistory(Math.imul(depth,depth), bestMove);
+        }
       }
     }
 
-    else
-      addHistory(-depth, move);
+    else {
+      if ((move & MOVE_NOISY_MASK) === 0)
+        addHistory(-depth, move);
+    }
   }
 
   //{{{  mate
