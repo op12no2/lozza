@@ -525,13 +525,17 @@ function nodeStruct () {
   this.parentNode      = null;
   this.grandparentNode = null;
 
-  this.moves = new Uint32Array(MAX_MOVES);
-  this.ranks = new Uint32Array(MAX_MOVES);
+  this.moves  = new Uint32Array(MAX_MOVES);
+  this.ranks  = new Uint32Array(MAX_MOVES);
+  this.moves2 = new Uint32Array(MAX_MOVES);
+  this.ranks2 = new Uint32Array(MAX_MOVES);
 
   this.killer1     = 0;
   this.killer2     = 0;
   this.mateKiller  = 0;
+  this.stage       = 0;
   this.numMoves    = 0;
+  this.numMoves2   = 0;
   this.sortedIndex = 0;
   this.hashMove    = 0;
   this.hashEval    = 0;
@@ -553,7 +557,7 @@ function nodeStruct () {
   this.frZ = 0;
   this.epZ = 0;
 
-  this.pv = new Uint32Array(MAX_MOVES);
+  this.pv    = new Uint32Array(MAX_MOVES);
   this.pvLen = 0;
 
 }
@@ -625,59 +629,130 @@ function uncacheB (node) {
 
 function getNextMove (node) {
 
-  let maxM = 0;
+  switch (node.stage) {
 
-  if (node.sortedIndex !== node.numMoves) {
-
-    const moves = node.moves;
-    const ranks = node.ranks;
-    const next  = node.sortedIndex;
-    const num   = node.numMoves;
-
-    let maxR = -INFINITY;
-    let maxI = 0;
-
-    for (let i=next; i < num; i++) {
-      if (ranks[i] > maxR) {
-        maxR = ranks[i];
-        maxI = i;
+    case 0: {
+      //{{{  node.moves
+      
+      if (node.sortedIndex !== node.numMoves) {
+      
+        let maxM = 0;
+      
+        const moves = node.moves;
+        const ranks = node.ranks;
+        const next  = node.sortedIndex;
+        const num   = node.numMoves;
+      
+        let maxR = -INFINITY;
+        let maxI = 0;
+      
+        for (let i=next; i < num; i++) {
+          if (ranks[i] > maxR) {
+            maxR = ranks[i];
+            maxI = i;
+          }
+        }
+      
+        maxM = moves[maxI]
+      
+        moves[maxI] = moves[next];
+        ranks[maxI] = ranks[next];
+      
+        node.base = maxR;
+      
+        node.sortedIndex++;
+      
+        return maxM;
+      
       }
+      
+      else {
+      
+        node.stage++;
+        node.sortedIndex = 0;
+      
+        rankSlides(node);
+      
+      }
+      
+      //}}}
     }
 
-    maxM = moves[maxI]
-
-    moves[maxI] = moves[next];
-    ranks[maxI] = ranks[next];
-
-    node.base = maxR;
-
-    node.sortedIndex++;
+    case 1: {
+      //{{{  node.moves2
+      
+      if (node.sortedIndex !== node.numMoves2) {
+      
+        let maxM = 0;
+      
+        const moves = node.moves2;
+        const ranks = node.ranks2;
+        const next  = node.sortedIndex;
+        const num   = node.numMoves2;
+      
+        let maxR = -INFINITY;
+        let maxI = 0;
+      
+        for (let i=next; i < num; i++) {
+          if (ranks[i] > maxR) {
+            maxR = ranks[i];
+            maxI = i;
+          }
+        }
+      
+        maxM = moves[maxI]
+      
+        moves[maxI] = moves[next];
+        ranks[maxI] = ranks[next];
+      
+        node.base = maxR;
+      
+        node.sortedIndex++;
+      
+        return maxM;
+      
+      }
+      
+      else {
+      
+        return 0;
+      
+      }
+      
+      //}}}
+    }
 
   }
-
-  return maxM;
-
 }
 
 //}}}
-//{{{  slideBase
+//{{{  rankSlides
 
-function slideBase (move) {
+function rankSlides (node) {
 
-  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  for (let i=0; i < node.numMoves2; i++) {
 
-  const hisScore = objHistory[(frObj << 8) + to];
+    const move  = node.moves2[i];
+    const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+    const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
 
-  if (hisScore === BASE_HISSLIDE) {
-    const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-    const slideScores = SLIDE_SCORES[frObj];
-    return BASE_SLIDE + slideScores[to] - slideScores[fr];
+    const hisScore = objHistory[(frObj << 8) + to];
+
+    if (hisScore === BASE_HISSLIDE) {
+
+      const fr          = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
+      const slideScores = SLIDE_SCORES[frObj];
+
+      node.ranks2[i] = BASE_SLIDE + slideScores[to] - slideScores[fr];
+
+    }
+
+    else {
+
+      node.ranks2[i] = hisScore;
+
+    }
   }
-
-  else
-    return hisScore;
-
 }
 
 //}}}
@@ -686,30 +761,40 @@ function slideBase (move) {
 function addSlide (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
-  const n = node.numMoves++;
 
-  node.moves[n] = move;
+  if (m === node.hashMove) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
 
-  if (m === node.hashMove)
-    node.ranks[n] = BASE_HASH;
+  else if (m === node.mateKiller) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MATEKILLER;
+  }
 
-  else if (m === node.mateKiller)
-    node.ranks[n] = BASE_MATEKILLER;
+  else if (m === node.killer1) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MYKILLERS + 1;
+  }
 
-  else if (m === node.killer1)
-    node.ranks[n] = BASE_MYKILLERS + 1;
+  else if (m === node.killer2) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MYKILLERS;
+  }
 
-  else if (m === node.killer2)
-    node.ranks[n] = BASE_MYKILLERS;
+  else if (node.grandparentNode !== null && m === node.grandparentNode.killer1) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_GPKILLERS + 1;
+  }
 
-  else if (node.grandparentNode !== null && m === node.grandparentNode.killer1)
-    node.ranks[n] = BASE_GPKILLERS + 1;
+  else if (node.grandparentNode !== null && m === node.grandparentNode.killer2) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_GPKILLERS;
+  }
 
-  else if (node.grandparentNode !== null && m === node.grandparentNode.killer2)
-    node.ranks[n] = BASE_GPKILLERS;
-
-  else
-    node.ranks[n] = slideBase(move);
+  else {
+    node.moves2[node.numMoves2++] = move;  // defer ranking until later
+  }
 
 }
 
@@ -719,30 +804,41 @@ function addSlide (node, move) {
 function addCastle (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
-  const n = node.numMoves++;
 
-  node.moves[n] = move;
+  if (m === node.hashMove) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
 
-  if (m === node.hashMove)
-    node.ranks[n] = BASE_HASH;
+  else if (m === node.mateKiller) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MATEKILLER;
+  }
 
-  else if (m === node.mateKiller)
-    node.ranks[n] = BASE_MATEKILLER;
+  else if (m === node.killer1) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MYKILLERS + 1;
+  }
 
-  else if (m === node.killer1)
-    node.ranks[n] = BASE_MYKILLERS + 1;
+  else if (m === node.killer2) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MYKILLERS;
+  }
 
-  else if (m === node.killer2)
-    node.ranks[n] = BASE_MYKILLERS;
+  else if (node.grandparentNode !== null && m === node.grandparentNode.killer1) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_GPKILLERS + 1;
+  }
 
-  else if (node.grandparentNode !== null && m === node.grandparentNode.killer1)
-    node.ranks[n] = BASE_GPKILLERS + 1;
+  else if (node.grandparentNode !== null && m === node.grandparentNode.killer2) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_GPKILLERS;
+  }
 
-  else if (node.grandparentNode !== null && m === node.grandparentNode.killer2)
-    node.ranks[n] = BASE_GPKILLERS;
-
-  else
-    node.ranks[n] = BASE_CASTLING;
+  else {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_CASTLING;
+  }
 
 }
 
@@ -752,46 +848,61 @@ function addCastle (node, move) {
 function addCapture (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
-  const n = node.numMoves++;
 
-  node.moves[n] = move;
-
-  if (m === node.hashMove)
-    node.ranks[n] = BASE_HASH;
+  if (m === node.hashMove) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
 
   else {
 
     const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
     const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
 
-    if (victim > attack)
-      node.ranks[n] = BASE_GOODTAKES + (victim << 6) - attack;
+    if (victim > attack) {
+      node.moves[node.numMoves]   = move;
+      node.ranks[node.numMoves++] = BASE_GOODTAKES + (victim << 6) - attack;
+    }
 
-    else if (victim === attack)
-      node.ranks[n] = BASE_EVENTAKES + (victim << 6) - attack;
+    else if (victim === attack) {
+      node.moves[node.numMoves]   = move;
+      node.ranks[node.numMoves++] = BASE_EVENTAKES + (victim << 6) - attack;
+    }
 
     else {
 
-      if (m === node.mateKiller)
-        node.ranks[n] = BASE_MATEKILLER;
+      if (m === node.mateKiller) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_MATEKILLER;
+      }
 
-      else if (m === node.killer1)
-        node.ranks[n] = BASE_MYKILLERS + 1;
+      else if (m === node.killer1) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_MYKILLERS + 1;
+      }
 
-      else if (m === node.killer2)
-        node.ranks[n] = BASE_MYKILLERS;
+      else if (m === node.killer2) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_MYKILLERS;
+      }
 
-      else if (node.grandparentNode !== null && m === node.grandparentNode.killer1)
-        node.ranks[n] = BASE_GPKILLERS + 1;
+      else if (node.grandparentNode !== null && m === node.grandparentNode.killer1) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_GPKILLERS + 1;
+      }
 
-      else if (node.grandparentNode !== null && m === node.grandparentNode.killer2)
-        node.ranks[n] = BASE_GPKILLERS;
+      else if (node.grandparentNode !== null && m === node.grandparentNode.killer2) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_GPKILLERS;
+      }
 
-      else
-        node.ranks[n] = BASE_BADTAKES + (victim << 6) - attack;
+      else {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_BADTAKES + (victim << 6) - attack;
+      }
+
     }
   }
-
 }
 
 //}}}
@@ -801,35 +912,41 @@ function addPromotion (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
 
-  var n = 0;
+  if ((m | QPRO) === node.hashMove) {
+    node.moves[node.numMoves]   = move | QPRO;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
+  else {
+    node.moves[node.numMoves]   = move | QPRO;
+    node.ranks[node.numMoves++] = BASE_PROMOTES + QUEEN;
+  }
 
-  n             = node.numMoves++;
-  node.moves[n] = move | QPRO;
-  if ((m | QPRO) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + QUEEN;
+  if ((m | RPRO) === node.hashMove) {
+    node.moves[node.numMoves]   = move | RPRO;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
+  else {
+    node.moves[node.numMoves]   = move | RPRO;
+    node.ranks[node.numMoves++] = BASE_PROMOTES + ROOK;
+  }
 
-  n             = node.numMoves++;
-  node.moves[n] = move | RPRO;
-  if ((m | RPRO) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + ROOK;
+  if ((m | BPRO) === node.hashMove) {
+    node.moves[node.numMoves]   = move | BPRO;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
+  else {
+    node.moves[node.numMoves]   = move | BPRO;
+    node.ranks[node.numMoves++] = BASE_PROMOTES + BISHOP;
+  }
 
-  n             = node.numMoves++;
-  node.moves[n] = move | BPRO;
-  if ((m | BPRO) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + BISHOP;
-
-  n             = node.numMoves++;
-  node.moves[n] = move | NPRO;
-  if ((m | NPRO) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + KNIGHT;
+  if ((m | NPRO) === node.hashMove) {
+    node.moves[node.numMoves]   = move | NPRO;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
+  else {
+    node.moves[node.numMoves]   = move | NPRO;
+    node.ranks[node.numMoves++] = BASE_PROMOTES + KNIGHT;
+  }
 
 }
 
@@ -839,15 +956,16 @@ function addPromotion (node, move) {
 function addEPTake (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
-  const n = node.numMoves++;
 
-  node.moves[n] = move | MOVE_EPTAKE_MASK;
+  if ((m | MOVE_EPTAKE_MASK) === node.hashMove) {
+    node.moves[node.numMoves]   = move | MOVE_EPTAKE_MASK;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
 
-  if ((m | MOVE_EPTAKE_MASK) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-
-  else
-    node.ranks[n] = BASE_EPTAKES;
+  else {
+    node.moves[node.numMoves]   = move | MOVE_EPTAKE_MASK;
+    node.ranks[node.numMoves++] = BASE_EPTAKES;
+  }
 
 }
 
@@ -2537,7 +2655,9 @@ function ttGet (node, depth, alpha, beta) {
   // so that iterative deepening works.
   //
 
-  node.hashMove = ttMove[idx];
+  if (ttValidate(ttMove[idx]) !== 0)
+    node.hashMove = ttMove[idx];
+
   node.hashEval = ttEval[idx];
 
   if (ttDepth[idx] < depth)
@@ -2585,6 +2705,29 @@ function ttInit () {
   ttMove.fill(0);
 
   ttHashUsed = 0;
+
+}
+
+//}}}
+//{{{  ttValidate
+
+function ttValidate (move) {
+
+  const b = bdB;
+
+  const fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+
+  if (b[fr] !== frObj)
+    return 0;
+
+  const to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  const toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
+
+  if (b[to] !== toObj)
+    return 0;
+
+  return 1;
 
 }
 
@@ -2831,7 +2974,9 @@ function position (bd, turn, rights, ep, moves) {
 
 function genMoves (node, turn) {
 
+  node.stage       = 0;
   node.numMoves    = 0;
+  node.numMoves2   = 0;
   node.sortedIndex = 0;
 
   const b = bdB;
@@ -3238,8 +3383,8 @@ function genMoves (node, turn) {
 
     next++;
     count++
-  }
 
+  }
 }
 
 //}}}
@@ -3247,7 +3392,9 @@ function genMoves (node, turn) {
 
 function genQMoves (node, turn) {
 
+  node.stage       = 0;
   node.numMoves    = 0;
+  node.numMoves2   = 0;
   node.sortedIndex = 0;
 
   const b = bdB;
@@ -4907,6 +5054,17 @@ function uciExec (commands) {
         //}}}
       }
 
+      case 'qb': {
+        //{{{  quick bench
+        
+        uciExec('bench warm 0');
+        
+        break;
+        
+        //}}}
+      }
+
+
       case 'pt': {
         //{{{  perft tests
         
@@ -5145,7 +5303,7 @@ function initOnce () {
   
   for (let p=0; p < MAX_PLY; p++) {
     for (let m=0; m < MAX_MOVES; m++) {
-      LMR_LOOKUP[(p << 7) + m] = 1 + p/5 + m/20 | 0;
+      LMR_LOOKUP[(p << 7) + m] = (1 + p/5 + m/20) | 0;
     }
   }
   
