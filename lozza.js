@@ -1467,7 +1467,7 @@ function search (node, depth, turn, alpha, beta) {
   //}}}
   //{{{  beta prune
   
-  if (doBeta !== 0 && depth <= 8 && (ev - Math.imul(depth,100)) >= beta)
+  if (doBeta !== 0 && depth <= 8 && (ev - Math.imul(depth,100)) >= (beta - improving * 50))
     return ev;
   
   //}}}
