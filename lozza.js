@@ -1356,11 +1356,11 @@ function rootSearch (node, depth, turn, alpha, beta) {
   }
 
   if (bestScore > oAlpha) {
-    ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
+    ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
     return bestScore;
   }
   else {
-    ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
+    ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
     return bestScore;
   }
 
