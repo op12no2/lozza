@@ -1236,12 +1236,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
   node.inCheck = inCheck;
   node.ev      = node.hashEval !== INFINITY ? node.hashEval : evaluate(turn);
 
+  ttUpdateEval(node.ev);
   cache(node);
-
   genMoves(node, turn);
-
-  if (statsTimeOut !== 0)
-    return 0;
 
   while ((move = getNextMove(node)) !== 0) {
 
@@ -1507,9 +1504,6 @@ function search (node, depth, turn, alpha, beta) {
     uncacheA(node);
     uncacheB(node);
   
-    if (statsTimeOut !== 0)
-      return 0;
-  
     if (score >= beta) {
       if (betaMate(score) !== 0)
         score = beta;
@@ -1551,13 +1545,8 @@ function search (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  if (ev !== INFINITY)
-    ttUpdateEval(ev);
-
+  ttUpdateEval(ev);
   genMoves(node, turn);
-
-  if (statsTimeOut !== 0)
-    return 0;
 
   statsNodes++;
 
@@ -1701,7 +1690,7 @@ function search (node, depth, turn, alpha, beta) {
 
 function qSearch (node, depth, turn, alpha, beta) {
 
-  //{{{  check time
+  //{{{  check depth
   
   node.pvLen = 0;
   
@@ -1730,13 +1719,10 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (ev >= alpha)
     alpha = ev;
 
-  if (ev !== INFINITY)
-    ttUpdateEval(ev);
-
   node.inCheck = 0;  // but not used
 
+  ttUpdateEval(ev);
   cache(node);
-
   genQMoves(node, turn);
 
   statsNodes++;
@@ -1787,8 +1773,8 @@ function qSearch (node, depth, turn, alpha, beta) {
     
     //}}}
 
-    if (statsTimeOut !== 0)
-      return 0;
+    //if (statsTimeOut !== 0)
+      //return 0;
 
     if (score > alpha) {
       if (score >= beta) {
