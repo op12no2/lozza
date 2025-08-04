@@ -1,6 +1,6 @@
 
-CC      = cc
-CFLAGS  = -Wall -Wextra -std=c99 -O0 -g
+CC      = clang
+CFLAGS  = -O3 -march=native -Wall -Wextra -std=c99 
 TARGET  = lozza8
 
 SRCS    = lozza.c 
