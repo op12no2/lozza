@@ -14,6 +14,7 @@
 /*{{{  constants*/
 
 #define MAX_PLY 128
+#define MAX_MOVES 256
 
 #define UCI_LINE_LENGTH 8192
 #define UCI_TOKENS      8192
@@ -25,7 +26,6 @@
 #define WHITE_RIGHTS_QUEEN 2
 #define BLACK_RIGHTS_KING  4
 #define BLACK_RIGHTS_QUEEN 8
-
 
 enum {
   EMPTY = 0,
@@ -51,6 +51,8 @@ enum {
   BQUEEN,
   BKING
 };
+
+#define CAPTURE_FLAG (1 << 12)
 
 static const uint8_t char_to_piece[128] = {
   ['P'] = WPAWN,
@@ -98,13 +100,16 @@ typedef struct {
 } Position;
 
 /*}}}*/
-/*{{{  Ply struct*/
+/*{{{  Node struct*/
 
 typedef struct {
 
   Position pos;
 
-} Ply;
+  uint32_t moves[MAX_MOVES];
+  uint32_t num_moves;
+
+} Node;
 
 /*}}}*/
 /*{{{  Attack struct*/
@@ -127,7 +132,7 @@ static Attack rook_attacks[64];
 static Attack bishop_attacks[64];
 
 int ply = 0;
-Ply ss[MAX_PLY];
+Node ss[MAX_PLY];
 
 /*}}}*/
 
@@ -162,6 +167,63 @@ static void print_bb(uint64_t bb) {
   }
 
   printf("\n   a b c d e f g h\n\n");
+
+}
+
+/*}}}*/
+/*{{{  select_bb*/
+
+static inline uint64_t select_bb(int stm, uint64_t white_bb, uint64_t black_bb) {
+
+  int s = stm >> 3;
+
+  uint64_t mask = 0ULL - (uint64_t)s;
+
+  return (white_bb & ~mask) | (black_bb & mask);
+
+}
+
+/*}}}*/
+/*{{{  format_move*/
+
+static const char *format_move(uint32_t move) {
+
+  static char buf[5];
+
+  const int from = (move >> 6) & 0x3F;
+  const int to   = move & 0x3F;
+
+  buf[0] = 'a' + (from % 8);
+  buf[1] = '1' + (from / 8);
+  buf[2] = 'a' + (to % 8);
+  buf[3] = '1' + (to / 8);
+  buf[4] = '\0';
+
+  return buf;
+
+}
+
+/*}}}*/
+/*{{{  format_flags*/
+
+const char *format_flags(uint32_t move) {
+
+  static char buf[8];
+  int i = 0;
+
+  if (move & CAPTURE_FLAG) buf[i++] = 'C';
+
+  buf[i] = '\0';
+
+  return buf;
+}
+
+/*}}}*/
+/*{{{  new_move*/
+
+static inline uint32_t new_move(int from, int to, uint32_t flags) {
+
+  return (from << 6) | to | flags;
 
 }
 
@@ -243,13 +305,16 @@ static void get_blockers(Attack *a, uint64_t *blockers) {
 
 /*}}}*/
 /*{{{  find_magics*/
+
 static void find_magics(Attack attacks[64], const char *label) {
+
   int total_tries = 0;
 
   printf("\n%-2s %3s %12s %5s  %-18s %6s\n", "T", "Sq", "Tries", "Bits", "Magic", "Fill");
   printf("---------------------------------------------------------------\n");
 
   for (int sq = 0; sq < 64; sq++) {
+
     Attack *a = &attacks[sq];
 
     uint64_t blockers[a->count];
@@ -258,7 +323,9 @@ static void find_magics(Attack attacks[64], const char *label) {
     int tries = 0;
 
     while (1) {
+
       tries++;
+
       uint64_t magic = xorshift64star() & xorshift64star() & xorshift64star();
 
       if (popcount((a->mask * magic) >> (64 - a->bits)) < a->bits - 2)
@@ -280,7 +347,9 @@ static void find_magics(Attack attacks[64], const char *label) {
         if (attacks[index] == 0) {
           attacks[index] = attack;
           populated++;
-        } else if (attacks[index] != attack) {
+        }
+
+        else if (attacks[index] != attack) {
           fail = 1;
           free(attacks);
           break;
@@ -304,6 +373,7 @@ static void find_magics(Attack attacks[64], const char *label) {
 
   printf("---------------------------------------------------------------\n");
   printf("Total tries for %s: %d\n\n", label, total_tries);
+
 }
 
 /*}}}*/
@@ -484,6 +554,85 @@ static void init_bishop_attacks(void) {
 
 /*}}}*/
 
+/*{{{  gen_sliders*/
+
+typedef struct {
+
+  const Attack *attacks;
+  uint64_t pieces;
+  uint64_t friendlies;
+  uint64_t enemies;
+  uint64_t occ;
+  uint32_t *moves;
+  int *num_moves;
+
+} SliderGenParams;
+
+static inline void gen_sliders(const SliderGenParams *p) {
+
+  uint64_t bb = p->pieces;
+
+  while (bb) {
+
+    int from = bsf(bb);
+    bb &= bb - 1;
+
+    const Attack *a = &p->attacks[from];
+    uint64_t blockers = p->occ & a->mask;
+    int index = magic_index(blockers, a->magic, a->bits);
+    uint64_t attacks = a->attacks[index] & ~p->friendlies;
+
+    while (attacks) {
+
+      int to = bsf(attacks);
+      attacks &= attacks - 1;
+
+      uint32_t flags = 0;
+      flags |= !!((1ULL << to) & p->enemies) * CAPTURE_FLAG;
+
+      p->moves[(*p->num_moves)++] = new_move(from, to, flags);
+
+    }
+  }
+}
+
+/*}}}*/
+/*{{{  gen_moves*/
+
+static void gen_moves(Node *node) {
+
+  Position *pos = &node->pos;
+  int stm = pos->stm;
+
+  node->num_moves = 0;
+
+  SliderGenParams args = {
+    .friendlies = select_bb(stm, pos->white, pos->black),
+    .enemies    = select_bb(stm, pos->black, pos->white),
+    .occ        = pos->occupied,
+    .moves      = node->moves,
+    .num_moves  = &node->num_moves
+  };
+
+  args.pieces  = select_bb(stm, pos->wrooks, pos->brooks);
+  args.attacks = rook_attacks;
+  gen_sliders(&args);
+
+  args.pieces  = select_bb(stm, pos->wbishops, pos->bbishops);
+  args.attacks = bishop_attacks;
+  gen_sliders(&args);
+
+  args.pieces  = select_bb(stm, pos->wqueens, pos->bqueens);
+  args.attacks = rook_attacks;
+  gen_sliders(&args);
+
+  args.attacks = bishop_attacks;
+  gen_sliders(&args);
+
+}
+
+
+/*}}}*/
 /*{{{  print_board*/
 
 static void print_board(const Position *pos) {
@@ -695,19 +844,21 @@ static int uci_tokens(int n, char **tokens) {
   else if (!strcmp(cmd, "m")) {
     /*{{{  moves*/
     
-    int sq = 0;
-    Attack *a = &rook_attacks[sq];
-    uint64_t occ = ss[0].pos.occupied;
-    uint64_t blockers = occ & a->mask;
-    int idx = magic_index(blockers, a->magic, a->bits);
-    print_bb(a->attacks[idx]);
+    Node *node = &ss[ply];
     
-    sq = 7;
-    a = &rook_attacks[sq];
-    occ = ss[0].pos.occupied;
-    blockers = occ & a->mask;
-    idx = magic_index(blockers, a->magic, a->bits);
-    print_bb(a->attacks[idx]);
+    gen_moves(node);
+    
+    const Position *pos = &node->pos;
+    
+    for (int i=0; i < node->num_moves; i++) {
+    
+      const uint32_t move = node->moves[i];
+      const char *mstr = format_move(move);
+      const char *fstr = format_flags(move);
+    
+      printf("%s %s\n", mstr, fstr);
+    
+    }
     
     /*}}}*/
   }
