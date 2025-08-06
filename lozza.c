@@ -27,17 +27,15 @@
 enum {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING};
 enum {WHITE, BLACK};
 
-#define SQ_MASK 0x3F;
-
-#define CAPTURE_FLAG    (1 << 18)
-#define EPPUSH_FLAG     (1 << 19)
-#define EPCAPTURE_FLAG  (1 << 20)
-#define KCASTLE_FLAG    (1 << 21)
-#define QCASTLE_FLAG    (1 << 22)
-#define QPROMOTION_FLAG (1 << 23)
-#define RPROMOTION_FLAG (1 << 24)
-#define BPROMOTION_FLAG (1 << 25)
-#define NPROMOTION_FLAG (1 << 26)
+#define CAPTURE_FLAG    (1U << 20)
+#define EPPUSH_FLAG     (1U << 21)
+#define EPCAPTURE_FLAG  (1U << 22)
+#define KCASTLE_FLAG    (1U << 23)
+#define QCASTLE_FLAG    (1U << 24)
+#define QPROMOTION_FLAG (1U << 25)
+#define RPROMOTION_FLAG (1U << 26)
+#define BPROMOTION_FLAG (1U << 27)
+#define NPROMOTION_FLAG (1U << 28)
 
 #define CASTLE_MASK (KCASTLE_FLAG | QCASTLE_FLAG)
 #define PROMOTION_MASK (QPROMOTION_FLAG | RPROMOTION_FLAG | BPROMOTION_FLAG | NPROMOTION_FLAG)
@@ -59,20 +57,18 @@ static const uint64_t rank_mask[8] = {
 /*}}}*/
 /*{{{  macros*/
 
-#define decode_move(move, from, to, from_idx, cap_idx) \
-  do { \
-    (to)       =  (move)        & 0x3F; \
-    (from)     = ((move) >> 6)  & 0x3F; \
-    (cap_idx)  = ((move) >> 12) & 0x7;  \
-    (from_idx) = ((move) >> 15) & 0x7;  \
-  } while (0)
-
 #define encode_move(from, to, from_idx, cap_idx, flags) \
-  (((to)        & 0x3F)          | \
-   (((from)     & 0x3F)   << 6)  | \
-   (((cap_idx)  & 0x7)    << 12) | \
-   (((from_idx) & 0x7)    << 15) | \
-   (((flags)    & 0x3FFF) << 18))
+  (((from)     << 6)  | \
+   ((from_idx) << 12) | \
+   ((cap_idx)  << 16) | \
+   ((flags)    << 20) | \
+   ((to) & 0x3F))
+
+#define decode_move(m, from, to, from_idx, cap_idx) \
+  from     = ((m) >> 6)  & 0x3F; \
+  to       =  (m)        & 0x3F; \
+  from_idx = ((m) >> 12) & 0xF; \
+  cap_idx  = ((m) >> 16) & 0xF;
 
 /*}}}*/
 /*{{{  structs*/
@@ -833,7 +829,6 @@ static void gen_pawns(Node *node) {
   const int stm = pos->stm;
   const uint64_t pawns = pos->all[piece_index(PAWN, stm)];
   const uint64_t occ = pos->occupied;
-  const uint64_t friends = pos->colour[stm];
   const uint64_t enemies = pos->colour[toggle(stm)];
   const uint8_t *indexes = pos->indexes;
   const int ep = pos->ep;
@@ -983,6 +978,41 @@ static void gen_moves(Node *node) {
   gen_sliders(node, rook_attacks,   QUEEN);
   gen_sliders(node, bishop_attacks, QUEEN);
   gen_jumpers(node, king_attacks,   KING);
+
+}
+
+/*}}}*/
+
+/*{{{  make_move*/
+
+static void make_move(Position *pos, uint32_t move) {
+
+  int from, to, from_idx, cap_idx;
+  decode_move(move, from, to, from_idx, cap_idx);
+
+  uint64_t from_bb = 1ULL << from;
+  uint64_t to_bb   = 1ULL << to;
+
+  int colour = pos->stm;
+
+  pos->all[from_idx]  &= ~from_bb;
+  pos->colour[colour] &= ~from_bb;
+  pos->occupied       &= ~from_bb;
+
+  if (move & CAPTURE_FLAG) {
+    pos->all[cap_idx]           &= ~to_bb;
+    pos->colour[toggle(colour)] &= ~to_bb;
+    pos->occupied               &= ~to_bb;
+  }
+
+  pos->all[from_idx]  |= to_bb;
+  pos->colour[colour] |= to_bb;
+  pos->occupied       |= to_bb;
+
+  pos->indexes[from] = 0;           // not needed but why not
+  pos->indexes[to]   = from_idx;
+
+  pos->stm = toggle(colour);
 
 }
 
