@@ -1,6 +1,8 @@
 
 /*{{{  includes*/
 
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,48 +29,11 @@
 enum {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING};
 enum {WHITE, BLACK};
 
-#define CAPTURE_FLAG    (1U << 20)
-#define EPPUSH_FLAG     (1U << 21)
-#define EPCAPTURE_FLAG  (1U << 22)
-#define KCASTLE_FLAG    (1U << 23)
-#define QCASTLE_FLAG    (1U << 24)
-#define QPROMOTION_FLAG (1U << 25)
-#define RPROMOTION_FLAG (1U << 26)
-#define BPROMOTION_FLAG (1U << 27)
-#define NPROMOTION_FLAG (1U << 28)
-
-#define CASTLE_MASK (KCASTLE_FLAG | QCASTLE_FLAG)
-#define PROMOTION_MASK (QPROMOTION_FLAG | RPROMOTION_FLAG | BPROMOTION_FLAG | NPROMOTION_FLAG)
-#define EP_MASK (EPPUSH_FLAG | EPCAPTURE_FLAG)
-#define SPECIAL_MASK (EP_MASK | CASTLE_MASK | PROMOTION_MASK)
-#define NOISY_MASK (CAPTURE_FLAG | EPCAPTURE_FLAG | PROMOTION_MASK)
-
-static const uint64_t rank_mask[8] = {
-  0x00000000000000FFULL,  // rank 1
-  0x000000000000FF00ULL,  // rank 2
-  0x0000000000FF0000ULL,  // rank 3
-  0x00000000FF000000ULL,  // rank 4
-  0x000000FF00000000ULL,  // rank 5
-  0x0000FF0000000000ULL,  // rank 6
-  0x00FF000000000000ULL,  // rank 7
-  0xFF00000000000000ULL   // rank 8
-};
+#define EMPTY 255
 
 /*}}}*/
 /*{{{  macros*/
 
-#define encode_move(from, to, from_idx, cap_idx, flags) \
-  (((from)     << 6)  | \
-   ((from_idx) << 12) | \
-   ((cap_idx)  << 16) | \
-   ((flags)    << 20) | \
-   ((to) & 0x3F))
-
-#define decode_move(m, from, to, from_idx, cap_idx) \
-  from     = ((m) >> 6)  & 0x3F; \
-  to       =  (m)        & 0x3F; \
-  from_idx = ((m) >> 12) & 0xF; \
-  cap_idx  = ((m) >> 16) & 0xF;
 
 /*}}}*/
 /*{{{  structs*/
@@ -81,7 +46,7 @@ typedef struct {
   uint64_t colour[2];
   uint64_t occupied;
 
-  uint8_t indexes[64]; // holds an all[] index (0 to 11) but can be stale
+  uint8_t board[64];
 
   uint8_t stm;
   uint8_t rights;
@@ -91,13 +56,23 @@ typedef struct {
 } Position;
 
 /*}}}*/
+/*{{{  Move struct*/
+
+typedef struct {
+
+  int from;
+  int to;
+
+} Move;
+
+/*}}}*/
 /*{{{  Node struct*/
 
 typedef struct {
 
   Position pos;
 
-  uint32_t moves[MAX_MOVES];
+  Move moves[MAX_MOVES];
   int num_moves;
 
 } Node;
@@ -127,11 +102,23 @@ static Attack   bishop_attacks[64];
 static uint64_t knight_attacks[64];
 static uint64_t king_attacks[64];
 
-static int ply = 0;
 static Node ss[MAX_PLY];
 
 /*}}}*/
 
+/*{{{  get_ms*/
+
+static inline double get_ms() {
+
+  struct timespec ts;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+
+  return (ts.tv_sec * 1000.0) + (ts.tv_nsec / 1e6);
+
+}
+
+/*}}}*/
 /*{{{  popcount*/
 
 static inline int popcount(uint64_t bb) {
@@ -172,8 +159,10 @@ static uint64_t xorshift64star(void) {
 static void cleanup() {
 
   for (int sq = 0; sq < 64; sq++) {
+
     free(rook_attacks[sq].attacks);
     free(bishop_attacks[sq].attacks);
+
   }
 
 }
@@ -223,6 +212,29 @@ static void print_bb(uint64_t bb, char *tag) {
 }
 
 /*}}}*/
+/*{{{  pp_move*/
+
+static void pp_move(Move move) {
+
+  const char files[] = "abcdefgh";
+  const char ranks[] = "12345678";
+
+  int from = move.from;
+  int to   = move.to;
+
+  char buf[6];
+
+  buf[0] = files[from % 8];
+  buf[1] = ranks[from / 8];
+  buf[2] = files[to % 8];
+  buf[3] = ranks[to / 8];
+  buf[4] = '\0';
+
+  printf("%s\n", buf);
+
+}
+
+/*}}}*/
 /*{{{  print_board*/
 
 static void print_board(const Position *pos) {
@@ -256,54 +268,6 @@ static void print_board(const Position *pos) {
   }
 
   printf("\n   a b c d e f g h\n\n");
-
-}
-
-/*}}}*/
-/*{{{  pp_move*/
-
-static const char *pp_move(uint32_t move) {
-
-  static char buf[32];
-
-  int from, to, from_idx, cap_idx;
-  decode_move(move, from, to, from_idx, cap_idx);
-
-  char from_file = 'a' + (from % 8);
-  char from_rank = '1' + (from / 8);
-  char to_file   = 'a' + (to % 8);
-  char to_rank   = '1' + (to / 8);
-
-  const char piece_chars[] = {'P', 'N', 'B', 'R', 'Q', 'K',
-                              'p', 'n', 'b', 'r', 'q', 'k'};
-
-  char from_piece = piece_chars[from_idx];  // can be stale
-  char cap_piece  = piece_chars[cap_idx];   // can be stale
-
-  char flags[16];
-  int f = 0;
-
-  if (move & CAPTURE_FLAG)    flags[f++] = 'C';
-  if (move & EPPUSH_FLAG)     flags[f++] = 'E';
-  if (move & EPCAPTURE_FLAG)  flags[f++] = 'c';
-  if (move & KCASTLE_FLAG)    flags[f++] = 'K';
-  if (move & QCASTLE_FLAG)    flags[f++] = 'Q';
-  if (move & QPROMOTION_FLAG) flags[f++] = 'q';
-  if (move & RPROMOTION_FLAG) flags[f++] = 'r';
-  if (move & BPROMOTION_FLAG) flags[f++] = 'b';
-  if (move & NPROMOTION_FLAG) flags[f++] = 'n';
-  flags[f] = '\0';
-
-  if (move & CAPTURE_FLAG || move & EPCAPTURE_FLAG)
-    snprintf(buf, sizeof(buf), "%c%c%c%c %-5s %c x %c",
-             from_file, from_rank, to_file, to_rank,
-             flags, from_piece, cap_piece);
-  else
-    snprintf(buf, sizeof(buf), "%c%c%c%c %-5s %c",
-             from_file, from_rank, to_file, to_rank,
-             flags, from_piece);
-
-  return buf;
 
 }
 
@@ -666,6 +630,9 @@ static void position(Position *pos, const char *board_fen, const char *stm_str, 
 
   /*{{{  board*/
   
+  for (int i=0; i < 64; i++)
+    pos->board[i] = EMPTY;
+  
   int sq = 56;
   
   for (const char *p = board_fen; *p; ++p) {
@@ -686,11 +653,11 @@ static void position(Position *pos, const char *board_fen, const char *stm_str, 
   
       uint64_t bb = 1ULL << sq;
   
-      pos->indexes[sq] = index; // 0 to 11
-  
       pos->all[index]     |= bb;
       pos->occupied       |= bb;
       pos->colour[colour] |= bb;
+  
+      pos->board[sq] = index;
   
       sq++;
   
@@ -700,7 +667,7 @@ static void position(Position *pos, const char *board_fen, const char *stm_str, 
   /*}}}*/
   /*{{{  stm*/
   
-  pos->stm = (stm_str[0] == 'w') ? 0 : 1;
+  pos->stm = (stm_str[0] == 'w') ? WHITE : BLACK;
   
   /*}}}*/
   /*{{{  rights*/
@@ -729,6 +696,7 @@ static void position(Position *pos, const char *board_fen, const char *stm_str, 
     int rank = ep_str[1] - '1';
   
     pos->ep = rank * 8 + file;
+  
   }
   
   /*}}}*/
@@ -749,7 +717,8 @@ static inline void gen_sliders(Node *node, Attack *attack_table, int piece) {
   const Position *pos = &node->pos;
   const int stm = pos->stm;
   const uint64_t friends = pos->colour[stm];
-  const uint64_t enemies = pos->colour[toggle(stm)];
+  //const uint64_t enemies = pos->colour[toggle(stm)];
+  const uint64_t opp_king = pos->all[piece_index(KING, toggle(stm))];
 
   uint64_t bb = pos->all[piece_index(piece, stm)];
 
@@ -761,22 +730,19 @@ static inline void gen_sliders(Node *node, Attack *attack_table, int piece) {
     const Attack *a = &attack_table[from];
     const uint64_t blockers = pos->occupied & a->mask;
     const int index = magic_index(blockers, a->magic, a->bits);
-    const int from_idx = pos->indexes[from];
 
-    uint64_t attacks = a->attacks[index] & ~friends;
+    uint64_t attacks = a->attacks[index];
+    attacks &= ~friends;
+    attacks &= ~opp_king;
 
     while (attacks) {
 
       int to = bsf(attacks);
       attacks &= attacks - 1;
 
-      int cap_idx = pos->indexes[to];
-
-      uint32_t flags = 0;
-      if ((1ULL << to) & enemies)
-        flags |= CAPTURE_FLAG;
-
-      node->moves[node->num_moves++] = encode_move(from, to, from_idx, cap_idx, flags);
+      Move *move = &node->moves[node->num_moves++];
+      move->from = from;
+      move->to = to;
 
     }
   }
@@ -790,7 +756,8 @@ static inline void gen_jumpers(Node *node, uint64_t *attack_table, int piece) {
   const Position *pos = &node->pos;
   const int stm = pos->stm;
   const uint64_t friends = pos->colour[stm];
-  const uint64_t enemies = pos->colour[toggle(stm)];
+  //const uint64_t enemies = pos->colour[toggle(stm)];
+  const uint64_t opp_king = pos->all[piece_index(KING, toggle(stm))];
 
   uint64_t bb = pos->all[piece_index(piece, stm)];
 
@@ -799,22 +766,18 @@ static inline void gen_jumpers(Node *node, uint64_t *attack_table, int piece) {
     const int from = bsf(bb);
     bb &= bb - 1;
 
-    const int from_idx = pos->indexes[from];
-
-    uint64_t attacks = attack_table[from] & ~friends;
+    uint64_t attacks = attack_table[from];
+    attacks &= ~friends;
+    attacks &= ~opp_king;
 
     while (attacks) {
 
       int to = bsf(attacks);
       attacks &= attacks - 1;
 
-      int cap_idx = pos->indexes[to];
-
-      uint32_t flags = 0;
-      if ((1ULL << to) & enemies)
-        flags |= CAPTURE_FLAG;
-
-      node->moves[node->num_moves++] = encode_move(from, to, from_idx, cap_idx, flags);
+      Move *move = &node->moves[node->num_moves++];
+      move->from = from;
+      move->to = to;
 
     }
   }
@@ -830,137 +793,59 @@ static void gen_pawns(Node *node) {
   const uint64_t pawns = pos->all[piece_index(PAWN, stm)];
   const uint64_t occ = pos->occupied;
   const uint64_t enemies = pos->colour[toggle(stm)];
-  const uint8_t *indexes = pos->indexes;
-  const int ep = pos->ep;
+  const uint64_t opp_king = pos->all[piece_index(KING, toggle(stm))];
 
   const int is_white = (stm == WHITE);
   const int up = is_white ? 8 : -8;
-  const uint64_t rank7 = rank_mask[6];
 
-  const uint64_t empty = ~occ;
+  uint64_t bb = pawns;
 
-  // Single pushes
-  uint64_t single_push = is_white ? (pawns << 8) : (pawns >> 8);
-  single_push &= empty;
+  while (bb) {
 
-  uint64_t promo_push = single_push & rank7;
-  uint64_t quiet_push = single_push & ~rank7;
+    int from = bsf(bb);
+    bb &= bb - 1;
 
-  while (promo_push) {
-    int to = bsf(promo_push);
-    promo_push &= promo_push - 1;
-    int from = to - up;
-    int from_idx = indexes[from];
+    int to_one = from + up;
+    uint64_t to_one_bb = 1ULL << to_one;
 
-    for (int i = 0; i < 4; i++) {
-      uint32_t flag = (QPROMOTION_FLAG >> i);
-      node->moves[node->num_moves++] = encode_move(from, to, from_idx, 0, flag);
-    }
-  }
+    // Single push
+    if (!(to_one_bb & occ)) {
+      Move *move = &node->moves[node->num_moves++];
+      move->from = from;
+      move->to = to_one;
 
-  while (quiet_push) {
-    int to = bsf(quiet_push);
-    quiet_push &= quiet_push - 1;
-    int from = to - up;
-    int from_idx = indexes[from];
-
-    node->moves[node->num_moves++] = encode_move(from, to, from_idx, 0, 0);
-  }
-
-  // Double pushes
-  uint64_t dbl_push_pawns = pawns & (is_white ? rank_mask[1] : rank_mask[6]);
-  uint64_t dbl_one_step = is_white ? (dbl_push_pawns << 8) : (dbl_push_pawns >> 8);
-  dbl_one_step &= empty;
-  uint64_t dbl_push = is_white ? (dbl_one_step << 8) : (dbl_one_step >> 8);
-  dbl_push &= empty;
-
-  while (dbl_push) {
-    int to = bsf(dbl_push);
-    dbl_push &= dbl_push - 1;
-    int from = to - (is_white ? 16 : -16);
-    int from_idx = indexes[from];
-
-    node->moves[node->num_moves++] = encode_move(from, to, from_idx, 0, EPPUSH_FLAG);
-  }
-
-  // Captures
-  const uint64_t not_a_file = 0xfefefefefefefefeULL;
-  const uint64_t not_h_file = 0x7f7f7f7f7f7f7f7fULL;
-
-  uint64_t left_cap  = is_white ? (pawns << 7) : (pawns >> 9);
-  uint64_t right_cap = is_white ? (pawns << 9) : (pawns >> 7);
-
-  left_cap  &= enemies & (is_white ? not_a_file : not_h_file);
-  right_cap &= enemies & (is_white ? not_h_file : not_a_file);
-
-  uint64_t promo_left  = left_cap & rank7;
-  uint64_t promo_right = right_cap & rank7;
-  left_cap  &= ~rank7;
-  right_cap &= ~rank7;
-
-  while (promo_left) {
-    int to = bsf(promo_left);
-    promo_left &= promo_left - 1;
-    int from = to - (is_white ? 7 : -9);
-    int from_idx = indexes[from];
-    int cap_idx = indexes[to];
-
-    for (int i = 0; i < 4; i++) {
-      uint32_t flag = (QPROMOTION_FLAG >> i) | CAPTURE_FLAG;
-      node->moves[node->num_moves++] = encode_move(from, to, from_idx, cap_idx, flag);
-    }
-  }
-
-  while (promo_right) {
-    int to = bsf(promo_right);
-    promo_right &= promo_right - 1;
-    int from = to - (is_white ? 9 : -7);
-    int from_idx = indexes[from];
-    int cap_idx = indexes[to];
-
-    for (int i = 0; i < 4; i++) {
-      uint32_t flag = (QPROMOTION_FLAG >> i) | CAPTURE_FLAG;
-      node->moves[node->num_moves++] = encode_move(from, to, from_idx, cap_idx, flag);
-    }
-  }
-
-  while (left_cap) {
-    int to = bsf(left_cap);
-    left_cap &= left_cap - 1;
-    int from = to - (is_white ? 7 : -9);
-    int from_idx = indexes[from];
-    int cap_idx = indexes[to];
-
-    node->moves[node->num_moves++] = encode_move(from, to, from_idx, cap_idx, CAPTURE_FLAG);
-  }
-
-  while (right_cap) {
-    int to = bsf(right_cap);
-    right_cap &= right_cap - 1;
-    int from = to - (is_white ? 9 : -7);
-    int from_idx = indexes[from];
-    int cap_idx = indexes[to];
-
-    node->moves[node->num_moves++] = encode_move(from, to, from_idx, cap_idx, CAPTURE_FLAG);
-  }
-
-  // En passant
-  assert(ep == 0 || (ep >= 16 && ep <= 23) || (ep >= 40 && ep <= 47));
-  if (ep != 0) {
-    uint64_t ep_mask = 1ULL << ep;
-    int from_left  = ep - (is_white ? 7 : -9);
-    int from_right = ep - (is_white ? 9 : -7);
-
-    if ((pawns & (1ULL << from_left)) && (ep_mask & (is_white ? not_a_file : not_h_file))) {
-      int from_idx = indexes[from_left];
-      node->moves[node->num_moves++] = encode_move(from_left, ep, from_idx, 0, EPCAPTURE_FLAG);
+      // Double push
+      if ((is_white && (from / 8 == 1)) || (!is_white && (from / 8 == 6))) {
+        int to_two = from + (2 * up);
+        uint64_t to_two_bb = 1ULL << to_two;
+        if (!(to_two_bb & occ)) {
+          Move *move2 = &node->moves[node->num_moves++];
+          move2->from = from;
+          move2->to = to_two;
+        }
+      }
     }
 
-    if ((pawns & (1ULL << from_right)) && (ep_mask & (is_white ? not_h_file : not_a_file))) {
-      int from_idx = indexes[from_right];
-      node->moves[node->num_moves++] = encode_move(from_right, ep, from_idx, 0, EPCAPTURE_FLAG);
+    // Captures
+    if ((from & 7) != 0) { // not a-file
+      int to = from + (is_white ? 7 : -9);
+      uint64_t to_bb = 1ULL << to;
+      if ((to_bb & enemies) && !(to_bb & opp_king)) {
+        Move *move = &node->moves[node->num_moves++];
+        move->from = from;
+        move->to = to;
+      }
     }
 
+    if ((from & 7) != 7) { // not h-file
+      int to = from + (is_white ? 9 : -7);
+      uint64_t to_bb = 1ULL << to;
+      if ((to_bb & enemies) && !(to_bb & opp_king)) {
+        Move *move = &node->moves[node->num_moves++];
+        move->from = from;
+        move->to = to;
+      }
+    }
   }
 }
 
@@ -985,34 +870,123 @@ static void gen_moves(Node *node) {
 
 /*{{{  make_move*/
 
-static void make_move(Position *pos, uint32_t move) {
+static void make_move(Position *pos, Move move) {
 
-  int from, to, from_idx, cap_idx;
-  decode_move(move, from, to, from_idx, cap_idx);
+  const int from = move.from;
+  const int to   = move.to;
 
-  uint64_t from_bb = 1ULL << from;
-  uint64_t to_bb   = 1ULL << to;
+  const uint64_t from_bb = 1ULL << from;
+  const uint64_t to_bb   = 1ULL << to;
 
-  int colour = pos->stm;
+  const int stm = pos->stm;
+  const int opp = toggle(stm);
 
-  pos->all[from_idx]  &= ~from_bb;
-  pos->colour[colour] &= ~from_bb;
-  pos->occupied       &= ~from_bb;
+  const int from_piece = pos->board[from];
+  const int to_piece   = pos->board[to];
 
-  if (move & CAPTURE_FLAG) {
-    pos->all[cap_idx]           &= ~to_bb;
-    pos->colour[toggle(colour)] &= ~to_bb;
-    pos->occupied               &= ~to_bb;
+  pos->all[from_piece] &= ~from_bb;
+  pos->colour[stm]     &= ~from_bb;
+
+  pos->board[from] = EMPTY;
+
+  if (to_piece != EMPTY) {
+    pos->all[to_piece] &= ~to_bb;
+    pos->colour[opp]   &= ~to_bb;
   }
 
-  pos->all[from_idx]  |= to_bb;
-  pos->colour[colour] |= to_bb;
-  pos->occupied       |= to_bb;
+  pos->all[from_piece] |= to_bb;
+  pos->colour[stm]     |= to_bb;
 
-  pos->indexes[from] = 0;           // not needed but why not
-  pos->indexes[to]   = from_idx;
+  pos->board[to] = from_piece;
 
-  pos->stm = toggle(colour);
+  pos->occupied = pos->colour[WHITE] | pos->colour[BLACK];
+
+  pos->stm = opp;
+
+}
+
+/*}}}*/
+/*{{{  is_attacked*/
+
+static inline int is_attacked(const Position *pos, int sq, const int opp) {
+
+  const uint64_t bb_sq = 1ULL << sq;
+  const int is_white = (opp == WHITE);
+
+  const uint64_t pawns = pos->all[piece_index(PAWN, opp)];
+
+  const uint64_t pawn_attacks = is_white ?
+    ((bb_sq & ~0x0101010101010101ULL) >> 9) | ((bb_sq & ~0x8080808080808080ULL) >> 7) :
+    ((bb_sq & ~0x0101010101010101ULL) << 7) | ((bb_sq & ~0x8080808080808080ULL) << 9);
+
+  if (pawns & pawn_attacks)
+    return 1;
+
+  // Knight attacks
+  if (pos->all[piece_index(KNIGHT, opp)] & knight_attacks[sq])
+    return 1;
+
+  // King attacks
+  if (pos->all[piece_index(KING, opp)] & king_attacks[sq])
+    return 1;
+
+  // Bishop / Queen
+  const Attack *b = &bishop_attacks[sq];
+  uint64_t blockers = pos->occupied & b->mask;
+  int idx = magic_index(blockers, b->magic, b->bits);
+  uint64_t b_attacks = b->attacks[idx];
+  if (b_attacks & (pos->all[piece_index(BISHOP, opp)] | pos->all[piece_index(QUEEN, opp)]))
+    return 1;
+
+  // Rook / Queen
+  const Attack *r = &rook_attacks[sq];
+  blockers = pos->occupied & r->mask;
+  idx = magic_index(blockers, r->magic, r->bits);
+  uint64_t r_attacks = r->attacks[idx];
+  if (r_attacks & (pos->all[piece_index(ROOK, opp)] | pos->all[piece_index(QUEEN, opp)]))
+    return 1;
+
+  return 0;
+
+}
+
+/*}}}*/
+
+/*{{{  perft*/
+
+static uint64_t perft(int ply, int depth) {
+
+  if (depth == 0)
+    return 1;
+
+  Node *node = &ss[ply];
+  Node *next = &ss[ply+1];
+
+  gen_moves(node);
+
+  const int stm = node->pos.stm;
+  const int opp = toggle(stm);
+
+  uint64_t total_searched = 0;
+
+  for (int i=0; i < node->num_moves; i++) {
+
+    memcpy(&next->pos, &node->pos, sizeof(Position));
+
+    make_move(&next->pos, node->moves[i]);
+
+    int king_sq = bsf(next->pos.all[piece_index(KING, stm)]);
+    if (is_attacked(&next->pos, king_sq, opp)) {
+      continue;
+    }
+
+    uint64_t nodes_searched = perft(ply+1, depth-1);
+
+    total_searched += nodes_searched;
+
+  }
+
+  return total_searched;
 
 }
 
@@ -1039,11 +1013,9 @@ static int uci_tokens(int n, char **tokens) {
   if (!strcmp(cmd, "position") || !strcmp(cmd, "p")) {
     /*{{{  position*/
     
-    ply = 0;
-    
     if (!strcmp(sub, "startpos") || !strcmp(sub, "s")) {
     
-      position(&ss[ply].pos, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR", "w", "KQkq", "-");
+      position(&ss[0].pos, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR", "w", "KQkq", "-");
     
       //if (n > 2 && !strcmp(tokens[2],"moves")) {
         //for (int i=3; i < n; i++)
@@ -1053,7 +1025,7 @@ static int uci_tokens(int n, char **tokens) {
     
     else if (!strcmp(sub, "fen") || !strcmp(sub, "f") ) {
     
-      position(&ss[ply].pos, tokens[2], tokens[3], tokens[4], tokens[5]);
+      position(&ss[0].pos, tokens[2], tokens[3], tokens[4], tokens[5]);
     
       //if (n > 8 && !strcmp(tokens[8],"moves")) {
         //for (int i=9; i < n; i++)
@@ -1077,7 +1049,7 @@ static int uci_tokens(int n, char **tokens) {
   else if (!strcmp(cmd, "b")) {
     /*{{{  board*/
     
-    print_board(&ss[ply].pos);
+    print_board(&ss[0].pos);
     
     /*}}}*/
   }
@@ -1085,16 +1057,49 @@ static int uci_tokens(int n, char **tokens) {
   else if (!strcmp(cmd, "m")) {
     /*{{{  moves*/
     
-    Node *node = &ss[ply];
+    Node *node = &ss[0];
+    Node *next = &ss[1];
     
     gen_moves(node);
     
+    const int stm = node->pos.stm;
+    const int opp = toggle(stm);
+    
     for (int i=0; i < node->num_moves; i++) {
     
-      const uint32_t move = node->moves[i];
-      const char *pp = pp_move(move);
+      memcpy(&next->pos, &node->pos, sizeof(Position));
     
-      printf("%s\n", pp);
+      Move move = node->moves[i];
+    
+      make_move(&next->pos, move);
+    
+      int king_sq = bsf(next->pos.all[piece_index(KING, stm)]);
+    
+      if (is_attacked(&next->pos, king_sq, opp)) {
+        continue;
+      }
+    
+      pp_move(move);
+    
+    }
+    
+    /*}}}*/
+  }
+
+  else if (!strcmp(cmd, "perft")) {
+    /*{{{  perft*/
+    
+    for (int depth = 0; depth < 5; depth++) {
+    
+      double start = get_ms();
+      uint64_t num_nodes = perft(0, depth);
+      double end = get_ms();
+    
+      double elapsed_ms = end - start;
+      double nps = (elapsed_ms > 0.0) ? (num_nodes / (elapsed_ms / 1000.0)) : 0;
+    
+      printf("perft(%d) = %llu  |  time = %.2f ms  |  NPS = %.0f\n",
+             depth, (unsigned long long)num_nodes, elapsed_ms, nps);
     
     }
     
