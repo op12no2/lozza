@@ -31,6 +31,17 @@ enum {WHITE, BLACK};
 
 #define EMPTY 255
 
+#define RANK_2 0x000000000000FF00ULL
+#define RANK_7 0x00FF000000000000ULL
+
+#define NOT_A_FILE 0xfefefefefefefefeULL
+#define NOT_H_FILE 0x7f7f7f7f7f7f7f7fULL
+
+#define PAWN_PUSH  (1 << 12)
+#define EP_CAPTURE (1 << 13)
+
+#define SPECIAL (PAWN_PUSH | EP_CAPTURE)
+
 /*}}}*/
 /*{{{  macros*/
 
@@ -56,23 +67,13 @@ typedef struct {
 } Position;
 
 /*}}}*/
-/*{{{  Move struct*/
-
-typedef struct {
-
-  int from;
-  int to;
-
-} Move;
-
-/*}}}*/
 /*{{{  Node struct*/
 
 typedef struct {
 
   Position pos;
 
-  Move moves[MAX_MOVES];
+  uint32_t moves[MAX_MOVES];
   int num_moves;
 
 } Node;
@@ -84,6 +85,7 @@ typedef struct {
 
   int bits;
   int count;
+  int shift;
 
   uint64_t mask;
   uint64_t magic;
@@ -97,9 +99,10 @@ typedef struct {
 /*}}}*/
 /*{{{  globals*/
 
-static Attack   rook_attacks[64];
-static Attack   bishop_attacks[64];
+static uint64_t pawn_attacks[2][64];
 static uint64_t knight_attacks[64];
+static Attack   bishop_attacks[64];
+static Attack   rook_attacks[64];
 static uint64_t king_attacks[64];
 
 static Node ss[MAX_PLY];
@@ -119,18 +122,41 @@ static inline double get_ms() {
 }
 
 /*}}}*/
+/*{{{  shift*/
+
+//static inline uint64_t shift(const uint64_t bb, const int n) {
+  //return n > 0 ? bb << n : bb >> -n;
+//}
+
+static inline __attribute__((always_inline)) uint64_t shift(uint64_t bb, int n) {
+  const uint64_t left  = bb << (n & 63);         // if n = 0
+  const uint64_t right = bb >> ((-n) & 63);      // if n < 0
+  const uint64_t mask = -(n >= 0);               // 0xFFFFFFFFFFFFFFFF if n = 0, else 0
+  return (left & mask) | (right & ~mask);  // select branchlessly
+}
+
+/*}}}*/
 /*{{{  popcount*/
 
-static inline int popcount(uint64_t bb) {
+static inline __attribute__((always_inline)) int popcount(const uint64_t bb) {
 
   return __builtin_popcountll(bb);
 
 }
 
 /*}}}*/
+/*{{{  encode_move*/
+
+static inline __attribute__((always_inline)) uint32_t encode_move(const int from, const int to, const uint32_t flags) {
+
+  return (from << 6) | to | flags;
+
+}
+
+/*}}}*/
 /*{{{  bsf*/
 
-static inline int bsf(uint64_t bb) {
+static inline __attribute__((always_inline)) int bsf(const uint64_t bb) {
 
   assert(bb != 0 && "bsf called with zero");
 
@@ -141,15 +167,15 @@ static inline int bsf(uint64_t bb) {
 /*}}}*/
 /*{{{  xorshift64star*/
 
-static uint64_t seed = 0xDEADBEEFCAFEBABEULL;
+static uint64_t rand_seed = 0xDEADBEEFCAFEBABEULL;
 
 static uint64_t xorshift64star(void) {
 
-  seed ^= seed >> 12;
-  seed ^= seed << 25;
-  seed ^= seed >> 27;
+  rand_seed ^= rand_seed >> 12;
+  rand_seed ^= rand_seed << 25;
+  rand_seed ^= rand_seed >> 27;
 
-  return seed * 2685821657736338717ULL;
+  return rand_seed * 2685821657736338717ULL;
 
 }
 
@@ -170,7 +196,7 @@ static void cleanup() {
 /*}}}*/
 /*{{{  piece_index*/
 
-static inline int piece_index(int piece, int colour) {
+static inline __attribute__((always_inline)) int piece_index(const int piece, const int colour) {
 
   return piece + colour * 6;
 
@@ -179,7 +205,7 @@ static inline int piece_index(int piece, int colour) {
 /*}}}*/
 /*{{{  toggle*/
 
-static inline int toggle(int stm) {
+static inline __attribute__((always_inline)) int toggle(const int stm) {
 
   return stm ^ 1;
 
@@ -188,7 +214,7 @@ static inline int toggle(int stm) {
 /*}}}*/
 /*{{{  print_bb*/
 
-static void print_bb(uint64_t bb, char *tag) {
+static void print_bb(const uint64_t bb, const char *tag) {
 
   printf("%s\n", tag);
 
@@ -214,13 +240,13 @@ static void print_bb(uint64_t bb, char *tag) {
 /*}}}*/
 /*{{{  pp_move*/
 
-static void pp_move(Move move) {
+static void pp_move(const uint32_t move) {
 
   const char files[] = "abcdefgh";
   const char ranks[] = "12345678";
 
-  int from = move.from;
-  int to   = move.to;
+  int from = (move >> 6) & 0x3F;
+  int to   = move & 0x3F;
 
   char buf[6];
 
@@ -267,7 +293,8 @@ static void print_board(const Position *pos) {
     printf("\n");
   }
 
-  printf("\n   a b c d e f g h\n\n");
+  printf("   a b c d e f g h\n");
+  printf("ep=%d\n", pos->ep);
 
 }
 
@@ -275,9 +302,9 @@ static void print_board(const Position *pos) {
 
 /*{{{  magic_index*/
 
-static inline int magic_index(uint64_t blockers, uint64_t magic, int bits) {
+static inline int magic_index(const uint64_t blockers, const uint64_t magic, const int shift) {
 
-  return (int)((blockers * magic) >> (64 - bits));
+  return (int)((blockers * magic) >> shift);
 
 }
 
@@ -351,7 +378,7 @@ static void find_magics(Attack attacks[64], const char *label) {
       for (int i = 0; i < a->count; i++) {
         uint64_t blocker = blockers[i];
         uint64_t attack = a->attacks[i];
-        int index = magic_index(blocker, magic, a->bits);
+        int index = magic_index(blocker, magic, a->shift);
 
         if (attacks[index] == 0) {
           attacks[index] = attack;
@@ -387,6 +414,26 @@ static void find_magics(Attack attacks[64], const char *label) {
 
 /*}}}*/
 
+/*{{{  init_pawn_attacks*/
+
+// these are attacks *to* the sq and used in pawn_gen (ep) and is_attacked
+
+static void init_pawn_attacks(void) {
+
+  for (int sq = 0; sq < 64; sq++) {
+
+    const uint64_t bb = 1ULL << sq;
+
+    pawn_attacks[WHITE][sq] =
+      ((bb >> 7) & NOT_A_FILE) | ((bb >> 9) & NOT_H_FILE);
+
+    pawn_attacks[BLACK][sq] =
+      ((bb << 7) & NOT_H_FILE) | ((bb << 9) & NOT_A_FILE);
+
+  }
+}
+
+/*}}}*/
 /*{{{  init_knight_attacks*/
 
 static void init_knight_attacks(void) {
@@ -441,6 +488,7 @@ static void init_bishop_attacks(void) {
     /*}}}*/
 
     a->bits = popcount(a->mask);
+    a->shift = 64 - a->bits;
     a->count = 1 << a->bits;
 
     a->attacks = malloc(a->count * sizeof(uint64_t));
@@ -528,6 +576,7 @@ static void init_rook_attacks(void) {
     /*}}}*/
 
     a->bits = popcount(a->mask);
+    a->shift = 64 - a->bits;
     a->count = 1 << a->bits;
 
     a->attacks = malloc(a->count * sizeof(uint64_t));
@@ -712,7 +761,7 @@ static void position(Position *pos, const char *board_fen, const char *stm_str, 
 
 /*{{{  gen_sliders*/
 
-static inline void gen_sliders(Node *node, Attack *attack_table, int piece) {
+static inline void gen_sliders(Node *node, Attack *attack_table, const int piece) {
 
   const Position *pos = &node->pos;
   const int stm = pos->stm;
@@ -729,20 +778,16 @@ static inline void gen_sliders(Node *node, Attack *attack_table, int piece) {
 
     const Attack *a = &attack_table[from];
     const uint64_t blockers = pos->occupied & a->mask;
-    const int index = magic_index(blockers, a->magic, a->bits);
+    const int index = magic_index(blockers, a->magic, a->shift);
 
-    uint64_t attacks = a->attacks[index];
-    attacks &= ~friends;
-    attacks &= ~opp_king;
+    uint64_t attacks = a->attacks[index] & ~friends & ~opp_king;
 
     while (attacks) {
 
-      int to = bsf(attacks);
+      const int to = bsf(attacks);
       attacks &= attacks - 1;
 
-      Move *move = &node->moves[node->num_moves++];
-      move->from = from;
-      move->to = to;
+      node->moves[node->num_moves++] = encode_move(from, to, 0);
 
     }
   }
@@ -751,7 +796,7 @@ static inline void gen_sliders(Node *node, Attack *attack_table, int piece) {
 /*}}}*/
 /*{{{  gen_jumpers*/
 
-static inline void gen_jumpers(Node *node, uint64_t *attack_table, int piece) {
+static inline void gen_jumpers(Node *node, const uint64_t *attack_table, const int piece) {
 
   const Position *pos = &node->pos;
   const int stm = pos->stm;
@@ -766,18 +811,14 @@ static inline void gen_jumpers(Node *node, uint64_t *attack_table, int piece) {
     const int from = bsf(bb);
     bb &= bb - 1;
 
-    uint64_t attacks = attack_table[from];
-    attacks &= ~friends;
-    attacks &= ~opp_king;
+    uint64_t attacks = attack_table[from] & ~friends & ~opp_king;
 
     while (attacks) {
 
-      int to = bsf(attacks);
+      const int to = bsf(attacks);
       attacks &= attacks - 1;
 
-      Move *move = &node->moves[node->num_moves++];
-      move->from = from;
-      move->to = to;
+      node->moves[node->num_moves++] = encode_move(from, to, 0);
 
     }
   }
@@ -786,66 +827,86 @@ static inline void gen_jumpers(Node *node, uint64_t *attack_table, int piece) {
 /*}}}*/
 /*{{{  gen_pawns*/
 
+static const uint64_t home_rank[2] = {RANK_2, RANK_7};
+static const int orth_offset[2]    = {8, -8};
+static const int left_offset[2]    = {7, -9};
+static const int right_offset[2]   = {9, -7};
+
 static void gen_pawns(Node *node) {
 
   const Position *pos = &node->pos;
   const int stm = pos->stm;
-  const uint64_t pawns = pos->all[piece_index(PAWN, stm)];
-  const uint64_t occ = pos->occupied;
-  const uint64_t enemies = pos->colour[toggle(stm)];
-  const uint64_t opp_king = pos->all[piece_index(KING, toggle(stm))];
+  const int opp = toggle(stm);
 
-  const int is_white = (stm == WHITE);
-  const int up = is_white ? 8 : -8;
+  const uint64_t pawns    = pos->all[piece_index(PAWN, stm)];
+  const uint64_t occupied = pos->occupied;
+  const uint64_t enemies  = pos->colour[opp];
+  const uint64_t opp_king = pos->all[piece_index(KING, opp)];
 
-  uint64_t bb = pawns;
-
+  /*{{{  push 1*/
+  
+  int offset = orth_offset[stm];
+  uint64_t bb = shift(pawns, offset) & ~occupied;
+  
   while (bb) {
-
-    int from = bsf(bb);
+    const int to = bsf(bb);
     bb &= bb - 1;
+    node->moves[node->num_moves++] = encode_move(to - offset, to, 0);
+  }
+  
+  /*}}}*/
+  /*{{{  push 2*/
+  
+  bb = pawns & home_rank[stm];
+  bb = shift(bb, offset) & ~occupied;
+  bb = shift(bb, offset) & ~occupied;
+  
+  offset += offset;
+  
+  while (bb) {
+    const int to = bsf(bb);
+    bb &= bb - 1;
+    node->moves[node->num_moves++] = encode_move(to - offset, to, PAWN_PUSH);
+  }
+  
+  /*}}}*/
+  /*{{{  left*/
+  
+  offset = left_offset[stm];
+  bb = shift(pawns, offset) & enemies & NOT_H_FILE & ~opp_king;
+  
+  while (bb) {
+    const int to = bsf(bb);
+    bb &= bb - 1;
+    node->moves[node->num_moves++] = encode_move(to - offset, to, 0);
+  }
+  
+  /*}}}*/
+  /*{{{  right*/
+  
+  offset = right_offset[stm];
+  bb = shift(pawns, offset) & enemies & NOT_A_FILE & ~opp_king;
+  
+  while (bb) {
+    const int to = bsf(bb);
+    bb &= bb - 1;
+    node->moves[node->num_moves++] = encode_move(to - offset, to, 0);
+  }
+  
+  /*}}}*/
 
-    int to_one = from + up;
-    uint64_t to_one_bb = 1ULL << to_one;
-
-    // Single push
-    if (!(to_one_bb & occ)) {
-      Move *move = &node->moves[node->num_moves++];
-      move->from = from;
-      move->to = to_one;
-
-      // Double push
-      if ((is_white && (from / 8 == 1)) || (!is_white && (from / 8 == 6))) {
-        int to_two = from + (2 * up);
-        uint64_t to_two_bb = 1ULL << to_two;
-        if (!(to_two_bb & occ)) {
-          Move *move2 = &node->moves[node->num_moves++];
-          move2->from = from;
-          move2->to = to_two;
-        }
-      }
+  if (pos->ep) {
+    /*{{{  ep*/
+    
+    bb = pawn_attacks[stm][pos->ep] & pawns;
+    
+    while (bb) {
+      const int from = bsf(bb);
+      bb &= bb - 1;
+      node->moves[node->num_moves++] = encode_move(from, pos->ep, EP_CAPTURE);
     }
-
-    // Captures
-    if ((from & 7) != 0) { // not a-file
-      int to = from + (is_white ? 7 : -9);
-      uint64_t to_bb = 1ULL << to;
-      if ((to_bb & enemies) && !(to_bb & opp_king)) {
-        Move *move = &node->moves[node->num_moves++];
-        move->from = from;
-        move->to = to;
-      }
-    }
-
-    if ((from & 7) != 7) { // not h-file
-      int to = from + (is_white ? 9 : -7);
-      uint64_t to_bb = 1ULL << to;
-      if ((to_bb & enemies) && !(to_bb & opp_king)) {
-        Move *move = &node->moves[node->num_moves++];
-        move->from = from;
-        move->to = to;
-      }
-    }
+    
+    /*}}}*/
   }
 }
 
@@ -870,10 +931,10 @@ static void gen_moves(Node *node) {
 
 /*{{{  make_move*/
 
-static void make_move(Position *pos, Move move) {
+static void make_move(Position * __restrict pos, const uint64_t move) {
 
-  const int from = move.from;
-  const int to   = move.to;
+  const int from = (move >> 6) & 0x3F;
+  const int to   = move & 0x3F;
 
   const uint64_t from_bb = 1ULL << from;
   const uint64_t to_bb   = 1ULL << to;
@@ -884,23 +945,63 @@ static void make_move(Position *pos, Move move) {
   const int from_piece = pos->board[from];
   const int to_piece   = pos->board[to];
 
+  /*{{{  remove from piece*/
+  
   pos->all[from_piece] &= ~from_bb;
   pos->colour[stm]     &= ~from_bb;
-
+  
   pos->board[from] = EMPTY;
+  
+  /*}}}*/
 
   if (to_piece != EMPTY) {
+    /*{{{  remove to piece*/
+    
     pos->all[to_piece] &= ~to_bb;
     pos->colour[opp]   &= ~to_bb;
+    
+    /*}}}*/
   }
 
+  /*{{{  move from piece*/
+  
   pos->all[from_piece] |= to_bb;
   pos->colour[stm]     |= to_bb;
-
+  
   pos->board[to] = from_piece;
+  
+  /*}}}*/
+
+  pos->ep = 0;
+
+  if (move & SPECIAL) {
+    /*{{{  specials*/
+    
+    if (move & EP_CAPTURE) {
+      /*{{{  ep*/
+      
+      const int pawn_sq = to + orth_offset[opp];
+      const uint64_t pawn_bb = 1ULL << pawn_sq;
+      
+      pos->all[piece_index(PAWN, opp)] &= ~pawn_bb;
+      pos->colour[opp] &= ~pawn_bb;
+      pos->board[pawn_sq] = EMPTY;
+      
+      /*}}}*/
+    }
+    
+    else if (move & PAWN_PUSH) {
+      /*{{{  set ep*/
+      
+      pos->ep = from + orth_offset[stm];
+      
+      /*}}}*/
+    }
+    
+    /*}}}*/
+  }
 
   pos->occupied = pos->colour[WHITE] | pos->colour[BLACK];
-
   pos->stm = opp;
 
 }
@@ -908,42 +1009,29 @@ static void make_move(Position *pos, Move move) {
 /*}}}*/
 /*{{{  is_attacked*/
 
-static inline int is_attacked(const Position *pos, int sq, const int opp) {
+static inline int is_attacked(const Position * __restrict pos, int sq, const int opp) {
 
-  const uint64_t bb_sq = 1ULL << sq;
-  const int is_white = (opp == WHITE);
-
-  const uint64_t pawns = pos->all[piece_index(PAWN, opp)];
-
-  const uint64_t pawn_attacks = is_white ?
-    ((bb_sq & ~0x0101010101010101ULL) >> 9) | ((bb_sq & ~0x8080808080808080ULL) >> 7) :
-    ((bb_sq & ~0x0101010101010101ULL) << 7) | ((bb_sq & ~0x8080808080808080ULL) << 9);
-
-  if (pawns & pawn_attacks)
+  if (pos->all[piece_index(PAWN, opp)] & pawn_attacks[opp][sq])
     return 1;
 
-  // Knight attacks
   if (pos->all[piece_index(KNIGHT, opp)] & knight_attacks[sq])
     return 1;
 
-  // King attacks
   if (pos->all[piece_index(KING, opp)] & king_attacks[sq])
     return 1;
 
-  // Bishop / Queen
-  const Attack *b = &bishop_attacks[sq];
-  uint64_t blockers = pos->occupied & b->mask;
-  int idx = magic_index(blockers, b->magic, b->bits);
-  uint64_t b_attacks = b->attacks[idx];
-  if (b_attacks & (pos->all[piece_index(BISHOP, opp)] | pos->all[piece_index(QUEEN, opp)]))
+  Attack *a = &bishop_attacks[sq];
+  uint64_t blockers = pos->occupied & a->mask;
+  int idx = magic_index(blockers, a->magic, a->shift);
+  uint64_t attacks = a->attacks[idx];
+  if (attacks & (pos->all[piece_index(BISHOP, opp)] | pos->all[piece_index(QUEEN, opp)]))
     return 1;
 
-  // Rook / Queen
-  const Attack *r = &rook_attacks[sq];
-  blockers = pos->occupied & r->mask;
-  idx = magic_index(blockers, r->magic, r->bits);
-  uint64_t r_attacks = r->attacks[idx];
-  if (r_attacks & (pos->all[piece_index(ROOK, opp)] | pos->all[piece_index(QUEEN, opp)]))
+  a = &rook_attacks[sq];
+  blockers = pos->occupied & a->mask;
+  idx = magic_index(blockers, a->magic, a->shift);
+  attacks = a->attacks[idx];
+  if (attacks & (pos->all[piece_index(ROOK, opp)] | pos->all[piece_index(QUEEN, opp)]))
     return 1;
 
   return 0;
@@ -967,6 +1055,8 @@ static uint64_t perft(int ply, int depth) {
   const int stm = node->pos.stm;
   const int opp = toggle(stm);
 
+  const int king = piece_index(KING, stm);
+
   uint64_t total_searched = 0;
 
   for (int i=0; i < node->num_moves; i++) {
@@ -975,7 +1065,7 @@ static uint64_t perft(int ply, int depth) {
 
     make_move(&next->pos, node->moves[i]);
 
-    int king_sq = bsf(next->pos.all[piece_index(KING, stm)]);
+    int king_sq = bsf(next->pos.all[king]);
     if (is_attacked(&next->pos, king_sq, opp)) {
       continue;
     }
@@ -1069,7 +1159,7 @@ static int uci_tokens(int n, char **tokens) {
     
       memcpy(&next->pos, &node->pos, sizeof(Position));
     
-      Move move = node->moves[i];
+      uint32_t move = node->moves[i];
     
       make_move(&next->pos, move);
     
@@ -1086,22 +1176,25 @@ static int uci_tokens(int n, char **tokens) {
     /*}}}*/
   }
 
-  else if (!strcmp(cmd, "perft")) {
+  else if (!strcmp(cmd, "perft") || !strcmp(cmd, "f")) {
     /*{{{  perft*/
     
-    for (int depth = 0; depth < 5; depth++) {
+    const int depth = atoi(sub);
+    double start = get_ms();
+    uint64_t total_nodes = 0;
     
-      double start = get_ms();
-      uint64_t num_nodes = perft(0, depth);
-      double end = get_ms();
-    
-      double elapsed_ms = end - start;
-      double nps = (elapsed_ms > 0.0) ? (num_nodes / (elapsed_ms / 1000.0)) : 0;
-    
-      printf("perft(%d) = %llu  |  time = %.2f ms  |  NPS = %.0f\n",
-             depth, (unsigned long long)num_nodes, elapsed_ms, nps);
-    
+    for (int d=0; d <= depth; d++) {
+      uint64_t num_nodes = perft(0, d);
+      total_nodes += num_nodes;
+      printf("perft(%d) = %llu\n", d, (unsigned long long)num_nodes);
     }
+    
+    double end = get_ms();
+    
+    double elapsed_ms = end - start;
+    double nps = (elapsed_ms > 0.0) ? (total_nodes / (elapsed_ms / 1000.0)) : 0;
+    
+    printf("time = %.2f ms,  nps = %.0f\n", elapsed_ms, nps);
     
     /*}}}*/
   }
@@ -1177,6 +1270,7 @@ static void init_once() {
 
   memset(ss, 0, sizeof(ss));
 
+  init_pawn_attacks();
   init_knight_attacks();
   init_bishop_attacks();
   init_rook_attacks();
