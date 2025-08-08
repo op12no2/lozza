@@ -25,6 +25,7 @@
 #define WHITE_RIGHTS_QUEEN 2
 #define BLACK_RIGHTS_KING  4
 #define BLACK_RIGHTS_QUEEN 8
+#define ALL_RIGHTS         15
 
 enum {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING};
 enum {WHITE, BLACK};
@@ -37,10 +38,22 @@ enum {WHITE, BLACK};
 #define NOT_A_FILE 0xfefefefefefefefeULL
 #define NOT_H_FILE 0x7f7f7f7f7f7f7f7fULL
 
-#define PAWN_PUSH  (1 << 12)
-#define EP_CAPTURE (1 << 13)
+#define FLAG_PAWN_PUSH  (1 << 12)
+#define FLAG_EP_CAPTURE (1 << 13)
+#define FLAG_CASTLE     (1 << 14)
 
-#define SPECIAL (PAWN_PUSH | EP_CAPTURE)
+#define MASK_SPECIAL (FLAG_PAWN_PUSH | FLAG_EP_CAPTURE | FLAG_CASTLE)
+
+enum {
+  A1, B1, C1, D1, E1, F1, G1, H1,
+  A2, B2, C2, D2, E2, F2, G2, H2,
+  A3, B3, C3, D3, E3, F3, G3, H3,
+  A4, B4, C4, D4, E4, F4, G4, H4,
+  A5, B5, C5, D5, E5, F5, G5, H5,
+  A6, B6, C6, D6, E6, F6, G6, H6,
+  A7, B7, C7, D7, E7, F7, G7, H7,
+  A8, B8, C8, D8, E8, F8, G8, H8
+};
 
 /*}}}*/
 /*{{{  macros*/
@@ -335,13 +348,19 @@ static void pp_move(const uint32_t move) {
   int from = (move >> 6) & 0x3F;
   int to   = move & 0x3F;
 
-  char buf[6];
+  char buf[7];
 
   buf[0] = files[from % 8];
   buf[1] = ranks[from / 8];
   buf[2] = files[to % 8];
   buf[3] = ranks[to / 8];
-  buf[4] = '\0';
+
+  buf[4] = ' ';
+
+  if (move & FLAG_CASTLE)
+    buf[5] = 'C';
+
+  buf[6] = '\0';
 
   printf("%s\n", buf);
 
@@ -845,6 +864,38 @@ static void position(Position *pos, const char *board_fen, const char *stm_str, 
 }
 
 /*}}}*/
+/*{{{  is_attacked*/
+
+static inline int is_attacked(const Position * __restrict pos, int sq, const int opp) {
+
+  if (pos->all[piece_index(PAWN, opp)] & pawn_attacks[opp][sq])
+    return 1;
+
+  if (pos->all[piece_index(KNIGHT, opp)] & knight_attacks[sq])
+    return 1;
+
+  if (pos->all[piece_index(KING, opp)] & king_attacks[sq])
+    return 1;
+
+  Attack *a = &bishop_attacks[sq];
+  uint64_t blockers = pos->occupied & a->mask;
+  int idx = magic_index(blockers, a->magic, a->shift);
+  uint64_t attacks = a->attacks[idx];
+  if (attacks & (pos->all[piece_index(BISHOP, opp)] | pos->all[piece_index(QUEEN, opp)]))
+    return 1;
+
+  a = &rook_attacks[sq];
+  blockers = pos->occupied & a->mask;
+  idx = magic_index(blockers, a->magic, a->shift);
+  attacks = a->attacks[idx];
+  if (attacks & (pos->all[piece_index(ROOK, opp)] | pos->all[piece_index(QUEEN, opp)]))
+    return 1;
+
+  return 0;
+
+}
+
+/*}}}*/
 
 /*{{{  gen_sliders*/
 
@@ -953,7 +1004,7 @@ static void gen_pawns(Node *node) {
   while (bb) {
     const int to = bsf(bb);
     bb &= bb - 1;
-    node->moves[node->num_moves++] = encode_move(to - offset, to, PAWN_PUSH);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, FLAG_PAWN_PUSH);
   }
   
   /*}}}*/
@@ -990,10 +1041,57 @@ static void gen_pawns(Node *node) {
     while (bb) {
       const int from = bsf(bb);
       bb &= bb - 1;
-      node->moves[node->num_moves++] = encode_move(from, pos->ep, EP_CAPTURE);
+      node->moves[node->num_moves++] = encode_move(from, pos->ep, FLAG_EP_CAPTURE);
     }
     
     /*}}}*/
+  }
+}
+
+/*}}}*/
+/*{{{  gen_castling*/
+
+//hack optimise/generalise
+
+static void gen_castling(Node *node) {
+
+  const Position *pos = &node->pos;
+  const int stm = pos->stm;
+  const int opp = toggle(stm);
+
+  const uint64_t occupied = pos->occupied;
+
+  if (stm == WHITE) {
+    if ((pos->rights & WHITE_RIGHTS_KING) &&
+        !(occupied & 0x0000000000000060ULL) &&
+        !is_attacked(pos, E1, opp) &&
+        !is_attacked(pos, F1, opp) &&
+        !is_attacked(pos, G1, opp)) {
+      node->moves[node->num_moves++] = encode_move(E1, G1, FLAG_CASTLE);
+    }
+    if ((pos->rights & WHITE_RIGHTS_QUEEN) &&
+        !(occupied & 0x000000000000000EULL) &&
+        !is_attacked(pos, E1, opp) &&
+        !is_attacked(pos, D1, opp) &&
+        !is_attacked(pos, C1, opp)) {
+      node->moves[node->num_moves++] = encode_move(E1, C1, FLAG_CASTLE);
+    }
+  }
+  else {
+    if ((pos->rights & BLACK_RIGHTS_KING) &&
+        !(occupied & 0x6000000000000000ULL) &&
+        !is_attacked(pos, E8, opp) &&
+        !is_attacked(pos, F8, opp) &&
+        !is_attacked(pos, G8, opp)) {
+      node->moves[node->num_moves++] = encode_move(E8, G8, FLAG_CASTLE);
+    }
+    if ((pos->rights & BLACK_RIGHTS_QUEEN) &&
+        !(occupied & 0x0E00000000000000ULL) &&
+        !is_attacked(pos, E8, opp) &&
+        !is_attacked(pos, D8, opp) &&
+        !is_attacked(pos, C8, opp)) {
+      node->moves[node->num_moves++] = encode_move(E8, C8, FLAG_CASTLE);
+    }
   }
 }
 
@@ -1011,12 +1109,45 @@ static void gen_moves(Node *node) {
   gen_sliders(node, rook_attacks,   QUEEN);
   gen_sliders(node, bishop_attacks, QUEEN);
   gen_jumpers(node, king_attacks,   KING);
+  gen_castling(node);
 
 }
 
 /*}}}*/
 
 /*{{{  make_move*/
+
+/*{{{  helper tables*/
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winitializer-overrides"
+
+static const uint8_t rook_to[64] = {
+  [G1] = F1,
+  [C1] = D1,
+  [G8] = F8,
+  [C8] = D8,
+};
+
+static const uint8_t rook_from[64] = {
+  [G1] = H1,
+  [C1] = A1,
+  [G8] = H8,
+  [C8] = A8,
+};
+
+static const uint8_t rights_mask[64] = {
+  [0 ... 63] = ALL_RIGHTS,
+  [A1] = ALL_RIGHTS & ~WHITE_RIGHTS_QUEEN,
+  [H1] = ALL_RIGHTS & ~WHITE_RIGHTS_KING,
+  [E1] = ALL_RIGHTS & ~(WHITE_RIGHTS_KING | WHITE_RIGHTS_QUEEN),
+
+  [A8] = ALL_RIGHTS & ~BLACK_RIGHTS_QUEEN,
+  [H8] = ALL_RIGHTS & ~BLACK_RIGHTS_KING,
+  [E8] = ALL_RIGHTS & ~(BLACK_RIGHTS_KING | BLACK_RIGHTS_QUEEN)
+};
+
+/*}}}*/
 
 static void make_move(Position * __restrict pos, const uint64_t move) {
 
@@ -1060,11 +1191,14 @@ static void make_move(Position * __restrict pos, const uint64_t move) {
   /*}}}*/
 
   pos->ep = 0;
+  pos->rights &= rights_mask[from] & rights_mask[to];
 
-  if (move & SPECIAL) {
+  if (move & MASK_SPECIAL) {
     /*{{{  specials*/
     
-    if (move & EP_CAPTURE) {
+    // hack - use an indirect fun call? measure it - maybe different make_move versions
+    
+    if (move & FLAG_EP_CAPTURE) {
       /*{{{  ep*/
       
       const int pawn_sq = to + orth_offset[opp];
@@ -1077,7 +1211,7 @@ static void make_move(Position * __restrict pos, const uint64_t move) {
       /*}}}*/
     }
     
-    else if (move & PAWN_PUSH) {
+    else if (move & FLAG_PAWN_PUSH) {
       /*{{{  set ep*/
       
       pos->ep = from + orth_offset[stm];
@@ -1085,43 +1219,31 @@ static void make_move(Position * __restrict pos, const uint64_t move) {
       /*}}}*/
     }
     
+    else if (move & FLAG_CASTLE) {
+      /*{{{  castle*/
+      
+      const int rook = piece_index(ROOK, stm);
+      
+      uint64_t rook_from_bb = 1ULL << rook_from[to];
+      uint64_t rook_to_bb   = 1ULL << rook_to[to];
+      
+      pos->all[rook]   &= ~rook_from_bb;
+      pos->colour[stm] &= ~rook_from_bb;
+      pos->board[rook_from[to]] = EMPTY;
+      
+      pos->all[rook]   |= rook_to_bb;
+      pos->colour[stm] |= rook_to_bb;
+      pos->board[rook_to[to]] = rook;
+      
+      /*}}}*/
+    }
+    
+    
     /*}}}*/
   }
 
   pos->occupied = pos->colour[WHITE] | pos->colour[BLACK];
   pos->stm = opp;
-
-}
-
-/*}}}*/
-/*{{{  is_attacked*/
-
-static inline int is_attacked(const Position * __restrict pos, int sq, const int opp) {
-
-  if (pos->all[piece_index(PAWN, opp)] & pawn_attacks[opp][sq])
-    return 1;
-
-  if (pos->all[piece_index(KNIGHT, opp)] & knight_attacks[sq])
-    return 1;
-
-  if (pos->all[piece_index(KING, opp)] & king_attacks[sq])
-    return 1;
-
-  Attack *a = &bishop_attacks[sq];
-  uint64_t blockers = pos->occupied & a->mask;
-  int idx = magic_index(blockers, a->magic, a->shift);
-  uint64_t attacks = a->attacks[idx];
-  if (attacks & (pos->all[piece_index(BISHOP, opp)] | pos->all[piece_index(QUEEN, opp)]))
-    return 1;
-
-  a = &rook_attacks[sq];
-  blockers = pos->occupied & a->mask;
-  idx = magic_index(blockers, a->magic, a->shift);
-  attacks = a->attacks[idx];
-  if (attacks & (pos->all[piece_index(ROOK, opp)] | pos->all[piece_index(QUEEN, opp)]))
-    return 1;
-
-  return 0;
 
 }
 
@@ -1291,8 +1413,8 @@ static int uci_tokens(int n, char **tokens) {
   else if (!strcmp(cmd, "pt")) {
     /*{{{  perft tests*/
     
-    //const int num_tests = 64;
-    const int num_tests = 14;
+    const int num_tests = 64;
+    //const int num_tests = 14;
     
     double start = get_ms();
     
@@ -1311,11 +1433,12 @@ static int uci_tokens(int n, char **tokens) {
       uint64_t num_nodes = perft(0, test->depth);
       total_nodes += num_nodes;
     
-      printf("%s %llu %llu (%llu)\n",
+      printf("%s %d %llu %llu (%d)\n",
       test->fen,
+      test->depth,
       (unsigned long long)num_nodes,
       (unsigned long long)test->expected,
-      (unsigned long long)(num_nodes - test->expected));
+      num_nodes - test->expected);
     
     }
     
