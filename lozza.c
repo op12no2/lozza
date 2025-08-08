@@ -27,22 +27,34 @@
 #define BLACK_RIGHTS_QUEEN 8
 #define ALL_RIGHTS         15
 
-enum {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING};
-enum {WHITE, BLACK};
-
 #define EMPTY 255
 
+#define RANK_1 0x00000000000000FFULL
 #define RANK_2 0x000000000000FF00ULL
 #define RANK_7 0x00FF000000000000ULL
+#define RANK_8 0xFF00000000000000ULL
+
+#define RANK_PROMO (RANK_1 | RANK_8)
 
 #define NOT_A_FILE 0xfefefefefefefefeULL
 #define NOT_H_FILE 0x7f7f7f7f7f7f7f7fULL
 
+enum {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING};
+enum {WHITE, BLACK};
+
 #define FLAG_PAWN_PUSH  (1 << 12)
 #define FLAG_EP_CAPTURE (1 << 13)
 #define FLAG_CASTLE     (1 << 14)
+#define FLAG_PROMO      (1 << 15)
 
-#define MASK_SPECIAL (FLAG_PAWN_PUSH | FLAG_EP_CAPTURE | FLAG_CASTLE)
+#define PROMO_SHIFT 17
+
+#define MASK_N_PROMO (FLAG_PROMO | ((KNIGHT-1) << PROMO_SHIFT))
+#define MASK_B_PROMO (FLAG_PROMO | ((BISHOP-1) << PROMO_SHIFT))
+#define MASK_R_PROMO (FLAG_PROMO | ((ROOK-1)   << PROMO_SHIFT))
+#define MASK_Q_PROMO (FLAG_PROMO | ((QUEEN-1)  << PROMO_SHIFT))
+
+#define MASK_SPECIAL (FLAG_PAWN_PUSH | FLAG_EP_CAPTURE | FLAG_CASTLE | FLAG_PROMO)
 
 enum {
   A1, B1, C1, D1, E1, F1, G1, H1,
@@ -985,11 +997,22 @@ static void gen_pawns(Node *node) {
   
   int offset = orth_offset[stm];
   uint64_t bb = shift(pawns, offset) & ~occupied;
+  uint64_t quiet_bb = bb & ~RANK_PROMO;
+  uint64_t promo_bb = bb & RANK_PROMO;
   
-  while (bb) {
-    const int to = bsf(bb);
-    bb &= bb - 1;
+  while (quiet_bb) {
+    const int to = bsf(quiet_bb);
+    quiet_bb &= quiet_bb - 1;
     node->moves[node->num_moves++] = encode_move(to - offset, to, 0);
+  }
+  
+  while (promo_bb) {
+    const int to = bsf(promo_bb);
+    promo_bb &= promo_bb - 1;
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_Q_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_R_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_B_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_N_PROMO);
   }
   
   /*}}}*/
@@ -1012,11 +1035,22 @@ static void gen_pawns(Node *node) {
   
   offset = left_offset[stm];
   bb = shift(pawns, offset) & enemies & NOT_H_FILE & ~opp_king;
+  quiet_bb = bb & ~RANK_PROMO;
+  promo_bb = bb & RANK_PROMO;
   
-  while (bb) {
-    const int to = bsf(bb);
-    bb &= bb - 1;
+  while (quiet_bb) {
+    const int to = bsf(quiet_bb);
+    quiet_bb &= quiet_bb - 1;
     node->moves[node->num_moves++] = encode_move(to - offset, to, 0);
+  }
+  
+  while (promo_bb) {
+    const int to = bsf(promo_bb);
+    promo_bb &= promo_bb - 1;
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_Q_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_R_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_B_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_N_PROMO);
   }
   
   /*}}}*/
@@ -1024,11 +1058,22 @@ static void gen_pawns(Node *node) {
   
   offset = right_offset[stm];
   bb = shift(pawns, offset) & enemies & NOT_A_FILE & ~opp_king;
+  quiet_bb = bb & ~RANK_PROMO;
+  promo_bb = bb & RANK_PROMO;
   
-  while (bb) {
-    const int to = bsf(bb);
-    bb &= bb - 1;
+  while (quiet_bb) {
+    const int to = bsf(quiet_bb);
+    quiet_bb &= quiet_bb - 1;
     node->moves[node->num_moves++] = encode_move(to - offset, to, 0);
+  }
+  
+  while (promo_bb) {
+    const int to = bsf(promo_bb);
+    promo_bb &= promo_bb - 1;
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_Q_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_R_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_B_PROMO);
+    node->moves[node->num_moves++] = encode_move(to - offset, to, MASK_N_PROMO);
   }
   
   /*}}}*/
@@ -1046,6 +1091,7 @@ static void gen_pawns(Node *node) {
     
     /*}}}*/
   }
+
 }
 
 /*}}}*/
@@ -1198,7 +1244,20 @@ static void make_move(Position * __restrict pos, const uint64_t move) {
     
     // hack - use an indirect fun call? measure it - maybe different make_move versions
     
-    if (move & FLAG_EP_CAPTURE) {
+    if (move & FLAG_PROMO) {
+      /*{{{  promo*/
+      
+      const int pro = piece_index(((move >> PROMO_SHIFT) & 3) + 1, stm);
+      
+      pos->all[from_piece] &= ~to_bb;
+      pos->all[pro]        |= to_bb;
+      
+      pos->board[to] = pro;
+      
+      /*}}}*/
+    }
+    
+    else if (move & FLAG_EP_CAPTURE) {
       /*{{{  ep*/
       
       const int pawn_sq = to + orth_offset[opp];
@@ -1433,7 +1492,7 @@ static int uci_tokens(int n, char **tokens) {
       uint64_t num_nodes = perft(0, test->depth);
       total_nodes += num_nodes;
     
-      printf("%s %d %llu %llu (%d)\n",
+      printf("%s %d %llu %llu (%lu)\n",
       test->fen,
       test->depth,
       (unsigned long long)num_nodes,
