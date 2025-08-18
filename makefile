@@ -18,8 +18,8 @@ else
 endif
 
 # --- single source ---
-SRC := magics.c
-BIN := magics
+SRC := lozza.c
+BIN := lozza
 
 # --- rules ---
 all: $(BIN)
