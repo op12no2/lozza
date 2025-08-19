@@ -9,6 +9,8 @@ const BUILD = "8";
 //
 // See https://github.com/op12no2/lozza/wiki/Making-a-release.
 //
+
+const NET_LOCAL        = 0;
 const NET_NAME         = 'farm1';
 const NET_SB           = '500';
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
@@ -2034,16 +2036,14 @@ function collectPV(node, move) {
 //}}}
 //{{{  net
 
-const net_h1_w = new Array(NET_I_SIZE);       // us
-const net_h2_w = new Array(NET_I_SIZE);       // them
-const net_h1_b = new Int32Array(NET_H1_SIZE);
-const net_o_w  = new Int32Array(NET_H1_SIZE*2);
-let   net_o_b  = 0;
-
-const net_h1_a = new Int32Array(NET_H1_SIZE);
-const net_h2_a = new Int32Array(NET_H1_SIZE);
-
-const net_a = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
+const net_h1_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // us
+const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
+const net_h1_b      = new Int32Array(NET_H1_SIZE);
+const net_o_w       = new Int32Array(NET_H1_SIZE*2);
+let   net_o_b       = 0;
+const net_h1_a      = new Int32Array(NET_H1_SIZE);
+const net_h2_a      = new Int32Array(NET_H1_SIZE);
+const net_a         = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
 
 let ueFunc  = myround;
 let ueArgs0 = 0;
@@ -2053,87 +2053,6 @@ let ueArgs3 = 0;
 let ueArgs4 = 0;
 let ueArgs5 = 0;
 
-//{{{  netSlowEval
-//
-// Used to check UE.
-//
-
-//{{{  activations
-
-function relu(x) {
-  return Math.max(0, x);
-}
-
-function crelu(x) {
-  return Math.min(Math.max(x, 0), NET_QA);
-}
-
-function screlu(x) {
-  const y = Math.min(Math.max(x, 0), NET_QA);
-  return y * y;
-}
-
-function sqrrelu(x) {
-  const y = Math.max(0, x);
-  return y * y;
-}
-
-//}}}
-
-function netSlowEval (turn) {
-
-  hashCheck(turn);
-
-  const b = bdB;
-
-  let wAcc = new Int32Array(NET_H1_SIZE);
-  let bAcc = new Int32Array(NET_H1_SIZE);
-
-  wAcc.set(net_h1_b);
-  bAcc.set(net_h1_b);
-
-  for (let sq=0; sq<64; sq++) {
-
-    const fr    = B88[sq];
-    const frObj = b[fr];
-
-    if (frObj === 0)
-      continue;
-
-    const i1 = IMAP[(frObj << 8) + fr];
-
-    for (let i=0; i < NET_H1_SIZE; i++) {
-      wAcc[i] += net_h1_w[i1][i];
-      bAcc[i] += net_h2_w[i1][i];
-    }
-  }
-
-  let e = 0;
-
-  if (turn === WHITE) {
-    var a1 = wAcc;
-    var a2 = bAcc;
-  }
-  else {
-    var a1 = bAcc;
-    var a2 = wAcc;
-  }
-
-  for (let i=0; i < NET_H1_SIZE; i++) {
-    e += net_o_w[i]             * sqrrelu(a1[i]);
-    e += net_o_w[i+NET_H1_SIZE] * sqrrelu(a2[i]);
-  }
-
-  e /= NET_QA;
-  e += net_o_b;
-  e *= NET_SCALE;
-  e /= NET_QAB;
-
-  return e | 0;
-
-}
-
-//}}}
 //{{{  netEval
 //
 // SqrRelu.
@@ -2167,109 +2086,65 @@ function netEval (turn) {
 
 //}}}
 //{{{  netLoad
-//
-// Copy the weights so that the buffer can be released.
-//
+
+//{{{  local weights
+
+//xxd -p -c 64 quantised.bin > weights.hex
+//'weights.hex'
+
+const WEIGHTS_HEX = `
+`;
+
+//}}}
+//{{{  getWeightsBuffer
+
+function getWeightsBuffer() {
+
+  if (NET_LOCAL === 0)
+    return fs.readFileSync(NET_WEIGHTS_FILE);
+
+  const hex = WEIGHTS_HEX.replace(/\s+/g, "");
+
+  return Buffer.from(hex, "hex");
+
+}
+
+//}}}
 
 function netLoad () {
 
   let offset = 0;
 
-  const buffer   = fs.readFileSync(NET_WEIGHTS_FILE);
-  const dataView = new Int16Array(buffer.buffer, offset);
+  const buffer = getWeightsBuffer();
 
-  //{{{  net_h1_w
-  
-  for (let i=0; i < NET_I_SIZE; i++) {
-  
-    const lozIndex = bullet2lozza(i);  // map bullet to lozza input indexes.
-    const h        = i * NET_H1_SIZE;
-  
-    for (let j=0; j < NET_H1_SIZE; j++) {
-      net_h1_w[lozIndex][j] = dataView[h + j];
+  const dataView = new Int16Array(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength >> 1
+  );
+
+  for (let i = 0; i < NET_I_SIZE; i++) {
+    const lozIndex = bullet2lozza(i);
+    const h = i * NET_H1_SIZE;
+    for (let j = 0; j < NET_H1_SIZE; j++) {
+      net_h1_w_flat[lozIndex            * NET_H1_SIZE + j] = dataView[h + j];  // us
+      net_h2_w_flat[flipIndex(lozIndex) * NET_H1_SIZE + j] = dataView[h + j];  // them
     }
-  
   }
-  
-  //}}}
-  //{{{  net_h1_b
-  
+
   offset += NET_I_SIZE * NET_H1_SIZE;
-  
-  for (let i=0; i < NET_H1_SIZE; i++) {
+  for (let i = 0; i < NET_H1_SIZE; i++) {
     net_h1_b[i] = dataView[offset + i];
   }
-  
-  //}}}
-  //{{{  net_o_w
-  
+
   offset += NET_H1_SIZE;
-  
-  for (let i=0; i < NET_H1_SIZE*2; i++) {
+  for (let i = 0; i < NET_H1_SIZE * 2; i++) {
     net_o_w[i] = dataView[offset + i];
   }
-  
-  //}}}
-  //{{{  net_o_b
-  
+
   offset += NET_H1_SIZE * 2;
-  
   net_o_b = dataView[offset];
-  
-  //}}}
 
-}
-
-//}}}
-//{{{  netSerialise
-
-function netSerialise () {
-
-  console.log('{{{  weights');
-
-  let w = [];
-  console.log('let w = [];');
-
-
-  for (let i=0; i < NET_I_SIZE; i++) {
-    console.log('{{{  h1_w ' + i);
-    console.log('w = net_h1_w[' + i + '];');
-    w = net_h1_w[i];
-    for (let j=0; j < NET_H1_SIZE; j++) {
-      console.log('w[' + j + '] = ' + w[j] + ';');
-    }
-    console.log('}}}');
-  }
-
-  console.log('{{{  h1_b ');
-  console.log('w = net_h1_b;');
-  w = net_h1_b;
-  for (let j=0; j < NET_H1_SIZE; j++) {
-    console.log('w[' + j + '] = ' + w[j] + ';');
-  }
-  console.log('}}}');
-
-  console.log('{{{  o_w ');
-  console.log('w = net_o_w;');
-  w = net_o_w;
-  for (let j=0; j < NET_H1_SIZE*2; j++) {
-    console.log('w[' + j + '] = ' + w[j] + ';');
-  }
-  console.log('}}}');
-
-  console.log('net_o_b = ' + net_o_b + ';');
-
-  console.log('}}}');
-
-}
-
-//}}}
-//{{{  netInitWeights
-//
-// 'weights' - click to load the result of "node lozza serialise q > weights"
-//
-
-function netInitWeights () {
 }
 
 //}}}
@@ -2279,21 +2154,21 @@ function netInitWeights () {
 function netMove () {
 
   const frObj = ueArgs0 << 8;
-  const fr    = ueArgs1 | 0;
+  const from  = ueArgs1 | 0;
   const to    = ueArgs2 | 0;
 
-  const i1 = IMAP[frObj + fr] | 0;
-  const i2 = IMAP[frObj + to] | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
+  const off1 = map[frObj + from];
+  const off2 = map[frObj + to];
 
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
-
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1b[h] - h1a[h];
-    net_h2_a[h] += h2b[h] - h2a[h];
+  for (let h = 0, N = NET_H1_SIZE | 0; h < N; h++) {
+    const idx1 = off1 + h;
+    const idx2 = off2 + h;
+    h1a[h] += h1w[idx2] - h1w[idx1];
+    h2a[h] += h2w[idx2] - h2w[idx1];
   }
 
 }
@@ -2308,21 +2183,20 @@ function netCapture () {
   const toObj = ueArgs2 << 8;
   const to    = ueArgs3 | 0;
 
-  const i1 = IMAP[frObj + fr] | 0;
-  const i2 = IMAP[toObj + to] | 0;
-  const i3 = IMAP[frObj + to] | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
-  const h1c = net_h1_w[i3];
-
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
-  const h2c = net_h2_w[i3];
+  const off1 = map[frObj + fr];
+  const off2 = map[toObj + to];
+  const off3 = map[frObj + to];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
-    net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
+    const idx1 = off1 + h;
+    const idx2 = off2 + h;
+    const idx3 = off3 + h;
+    h1a[h] += h1w[idx3] - h1w[idx2] - h1w[idx1];
+    h2a[h] += h2w[idx3] - h2w[idx2] - h2w[idx1];
   }
 
 }
@@ -2338,28 +2212,29 @@ function netPromote () {
   const captureObj = ueArgs3 << 8;
   const promoteObj = ueArgs4 << 8;
 
-  const i1 = IMAP[pawnObj    + pawnFr] | 0;
-  const i2 = IMAP[promoteObj + pawnTo] | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
-
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
+  const off1 = map[pawnObj    + pawnFr];
+  const off2 = map[promoteObj + pawnTo];
 
   if (captureObj !== 0) {
-    const i3  = IMAP[captureObj + pawnTo] | 0;
-    const h1c = net_h1_w[i3];
-    const h2c = net_h2_w[i3];
+    const off3 = map[captureObj + pawnTo];
     for (let h=0; h < NET_H1_SIZE; h++) {
-      net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
-      net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
+      const idx1 = off1 + h;
+      const idx2 = off2 + h;
+      const idx3 = off3 + h;
+      h1a[h] += h1w[idx2] - h1w[idx1] - h1w[idx3];
+      h2a[h] += h2w[idx2] - h2w[idx1] - h2w[idx3];
     }
   }
   else {
     for (let h=0; h < NET_H1_SIZE; h++) {
-      net_h1_a[h] += h1b[h] - h1a[h];
-      net_h2_a[h] += h2b[h] - h2a[h];
+      const idx1 = off1 + h;
+      const idx2 = off2 + h;
+      h1a[h] += h1w[idx2] - h1w[idx1];
+      h2a[h] += h2w[idx2] - h2w[idx1];
     }
   }
 
@@ -2376,21 +2251,20 @@ function netEpCapture () {
   const pawnCaptureObj = ueArgs3 << 8;
   const ep             = ueArgs4 | 0;
 
-  const i1 = IMAP[pawnObj        + pawnFr] | 0;
-  const i2 = IMAP[pawnObj        + pawnTo] | 0;
-  const i3 = IMAP[pawnCaptureObj + ep]     | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
-  const h1c = net_h1_w[i3];
-
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
-  const h2c = net_h2_w[i3];
+  const off1 = map[pawnObj        + pawnFr];
+  const off2 = map[pawnObj        + pawnTo];
+  const off3 = map[pawnCaptureObj + ep];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
-    net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
+    const idx1 = off1 + h;
+    const idx2 = off2 + h;
+    const idx3 = off3 + h;
+    h1a[h] += h1w[idx2] - h1w[idx1] - h1w[idx3];
+    h2a[h] += h2w[idx2] - h2w[idx1] - h2w[idx3];
   }
 
 }
@@ -2407,24 +2281,22 @@ function netCastle () {
   const rookFr  = ueArgs4 | 0;
   const rookTo  = ueArgs5 | 0;
 
-  const i1 = IMAP[kingObj + kingFr] | 0;
-  const i2 = IMAP[kingObj + kingTo] | 0;
-  const i3 = IMAP[rookObj + rookFr] | 0;
-  const i4 = IMAP[rookObj + rookTo] | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
-  const h1c = net_h1_w[i3];
-  const h1d = net_h1_w[i4];
-
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
-  const h2c = net_h2_w[i3];
-  const h2d = net_h2_w[i4];
+  const off1 = map[kingObj + kingFr];
+  const off2 = map[kingObj + kingTo];
+  const off3 = map[rookObj + rookFr];
+  const off4 = map[rookObj + rookTo];
 
   for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
-    net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
+    const idx1 = off1 + h;
+    const idx2 = off2 + h;
+    const idx3 = off3 + h;
+    const idx4 = off4 + h;
+    h1a[h] += h1w[idx2] - h1w[idx1] + h1w[idx4] - h1w[idx3];
+    h2a[h] += h2w[idx2] - h2w[idx1] + h2w[idx4] - h2w[idx3];
   }
 
 }
@@ -2943,11 +2815,12 @@ function position (bd, turn, rights, ep, moves) {
     if (frObj === 0)
       continue;
   
-    const i1 = IMAP[(frObj << 8) + fr];
+    const off1 = IMAP[(frObj << 8) + fr];
   
     for (let h=0; h < NET_H1_SIZE; h++) {
-      net_h1_a[h] += net_h1_w[i1][h];
-      net_h2_a[h] += net_h2_w[i1][h];
+      const idx1 = off1 + h;
+      net_h1_a[h] += net_h1_w_flat[idx1];
+      net_h2_a[h] += net_h2_w_flat[idx1];
     }
   
   }
@@ -4966,10 +4839,9 @@ function uciExec (commands) {
       case 'e': {
         //{{{  eval
         
-        const e1 = netSlowEval(bdTurn);
-        const e2 = netEval(bdTurn);
+        const e = netEval(bdTurn);
         
-        uciSend('full',e1,'ue',e2);
+        uciSend(e);
         
         break;
         
@@ -5239,36 +5111,27 @@ function initOnce () {
 
   //{{{  init net
   
-  for (let i=0; i < NET_I_SIZE; i++)
-    net_h1_w[i] = new Int32Array(NET_H1_SIZE);
-  
-  for (let i=0; i < NET_I_SIZE; i++)
-    net_h2_w[i] = net_h1_w[flipIndex(i)];
-  
   for (let i = 0; i < 64; i++) {
   
     const j = B88[i];
   
-    IMAP[(W_PAWN << 8) + j]    =   0 + (PAWN-1)   * 64 + i;
-    IMAP[(W_KNIGHT << 8) + j]  =   0 + (KNIGHT-1) * 64 + i;
-    IMAP[(W_BISHOP << 8) + j]  =   0 + (BISHOP-1) * 64 + i;
-    IMAP[(W_ROOK << 8) + j]    =   0 + (ROOK-1)   * 64 + i;
-    IMAP[(W_QUEEN << 8) + j]   =   0 + (QUEEN-1)  * 64 + i;
-    IMAP[(W_KING << 8) + j]    =   0 + (KING-1)   * 64 + i;
+    IMAP[(W_PAWN << 8) + j]    =   (0 + (PAWN-1)   * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_KNIGHT << 8) + j]  =   (0 + (KNIGHT-1) * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_BISHOP << 8) + j]  =   (0 + (BISHOP-1) * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_ROOK << 8) + j]    =   (0 + (ROOK-1)   * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_QUEEN << 8) + j]   =   (0 + (QUEEN-1)  * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_KING << 8) + j]    =   (0 + (KING-1)   * 64 + i) * NET_H1_SIZE;
   
-    IMAP[(B_PAWN << 8) + j]    = 384 + (PAWN-1)   * 64 + i;
-    IMAP[(B_KNIGHT << 8) + j]  = 384 + (KNIGHT-1) * 64 + i;
-    IMAP[(B_BISHOP << 8) + j]  = 384 + (BISHOP-1) * 64 + i;
-    IMAP[(B_ROOK << 8) + j]    = 384 + (ROOK-1)   * 64 + i;
-    IMAP[(B_QUEEN << 8) + j]   = 384 + (QUEEN-1)  * 64 + i;
-    IMAP[(B_KING << 8) + j]    = 384 + (KING-1)   * 64 + i;
+    IMAP[(B_PAWN << 8) + j]    = (384 + (PAWN-1)   * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_KNIGHT << 8) + j]  = (384 + (KNIGHT-1) * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_BISHOP << 8) + j]  = (384 + (BISHOP-1) * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_ROOK << 8) + j]    = (384 + (ROOK-1)   * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_QUEEN << 8) + j]   = (384 + (QUEEN-1)  * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_KING << 8) + j]    = (384 + (KING-1)   * 64 + i) * NET_H1_SIZE;
   
   }
   
-  if (NET_NAME)
-    netLoad();
-  else
-    netInitWeights();
+  netLoad();
   
   //}}}
   //{{{  init nodes
