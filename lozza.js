@@ -2067,7 +2067,9 @@ function netEval (turn) {
 
   let e = 0;
 
-  for (let i=0; i < NET_H1_SIZE; i++) {
+  const N = NET_H1_SIZE | 0;
+
+  for (let i=0; i < N; i++) {
     const y1 = Math.max(0,a1[i]);
     const y2 = Math.max(0,a2[i]);
     e += (Math.imul(w[i],Math.imul(y1,y1)) + Math.imul(w[i+NET_H1_SIZE],Math.imul(y2,y2))) | 0;
@@ -2161,14 +2163,16 @@ function netMove () {
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
   const h1a = net_h1_a, h2a = net_h2_a;
 
-  const off1 = map[frObj + from];
-  const off2 = map[frObj + to];
+  const N = NET_H1_SIZE | 0;
 
-  for (let h = 0, N = NET_H1_SIZE | 0; h < N; h++) {
-    const idx1 = off1 + h;
-    const idx2 = off2 + h;
-    h1a[h] += h1w[idx2] - h1w[idx1];
-    h2a[h] += h2w[idx2] - h2w[idx1];
+  let h = 0;
+  let p1 = map[frObj + from] | 0;
+  let p2 = map[frObj + to]   | 0;
+
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1];
+    h2a[h] += h2w[p2] - h2w[p1];
+    h++; p1++; p2++;
   }
 
 }
@@ -2187,16 +2191,17 @@ function netCapture () {
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
   const h1a = net_h1_a, h2a = net_h2_a;
 
-  const off1 = map[frObj + fr];
-  const off2 = map[toObj + to];
-  const off3 = map[frObj + to];
+  const N = NET_H1_SIZE | 0;
 
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    const idx1 = off1 + h;
-    const idx2 = off2 + h;
-    const idx3 = off3 + h;
-    h1a[h] += h1w[idx3] - h1w[idx2] - h1w[idx1];
-    h2a[h] += h2w[idx3] - h2w[idx2] - h2w[idx1];
+  let h = 0;
+  let p1 = map[frObj + fr] | 0;
+  let p2 = map[toObj + to] | 0;
+  let p3 = map[frObj + to] | 0;
+
+  while (h < N) {
+    h1a[h] += h1w[p3] - h1w[p2] - h1w[p1];
+    h2a[h] += h2w[p3] - h2w[p2] - h2w[p1];
+    h++; p1++; p2++; p3++;
   }
 
 }
@@ -2216,25 +2221,25 @@ function netPromote () {
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
   const h1a = net_h1_a, h2a = net_h2_a;
 
-  const off1 = map[pawnObj    + pawnFr];
-  const off2 = map[promoteObj + pawnTo];
+  const N = NET_H1_SIZE | 0;
+
+  let h = 0;
+  let p1 = map[pawnObj    + pawnFr] | 0;
+  let p2 = map[promoteObj + pawnTo] | 0;
 
   if (captureObj !== 0) {
-    const off3 = map[captureObj + pawnTo];
-    for (let h=0; h < NET_H1_SIZE; h++) {
-      const idx1 = off1 + h;
-      const idx2 = off2 + h;
-      const idx3 = off3 + h;
-      h1a[h] += h1w[idx2] - h1w[idx1] - h1w[idx3];
-      h2a[h] += h2w[idx2] - h2w[idx1] - h2w[idx3];
+    let p3 = map[captureObj + pawnTo] | 0;
+    while (h < N) {
+      h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
+      h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+      h++; p1++; p2++; p3++;
     }
   }
   else {
-    for (let h=0; h < NET_H1_SIZE; h++) {
-      const idx1 = off1 + h;
-      const idx2 = off2 + h;
-      h1a[h] += h1w[idx2] - h1w[idx1];
-      h2a[h] += h2w[idx2] - h2w[idx1];
+    while (h < N) {
+      h1a[h] += h1w[p2] - h1w[p1];
+      h2a[h] += h2w[p2] - h2w[p1];
+      h++; p1++; p2++;
     }
   }
 
@@ -2255,16 +2260,17 @@ function netEpCapture () {
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
   const h1a = net_h1_a, h2a = net_h2_a;
 
-  const off1 = map[pawnObj        + pawnFr];
-  const off2 = map[pawnObj        + pawnTo];
-  const off3 = map[pawnCaptureObj + ep];
+  const N = NET_H1_SIZE | 0;
 
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    const idx1 = off1 + h;
-    const idx2 = off2 + h;
-    const idx3 = off3 + h;
-    h1a[h] += h1w[idx2] - h1w[idx1] - h1w[idx3];
-    h2a[h] += h2w[idx2] - h2w[idx1] - h2w[idx3];
+  let h = 0;
+  let p1 = map[pawnObj        + pawnFr] | 0;
+  let p2 = map[pawnObj        + pawnTo] | 0;
+  let p3 = map[pawnCaptureObj + ep] | 0;
+
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
+    h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+    h++; p1++; p2++; p3++;
   }
 
 }
@@ -2285,18 +2291,18 @@ function netCastle () {
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
   const h1a = net_h1_a, h2a = net_h2_a;
 
-  const off1 = map[kingObj + kingFr];
-  const off2 = map[kingObj + kingTo];
-  const off3 = map[rookObj + rookFr];
-  const off4 = map[rookObj + rookTo];
+  const N = NET_H1_SIZE | 0;
 
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    const idx1 = off1 + h;
-    const idx2 = off2 + h;
-    const idx3 = off3 + h;
-    const idx4 = off4 + h;
-    h1a[h] += h1w[idx2] - h1w[idx1] + h1w[idx4] - h1w[idx3];
-    h2a[h] += h2w[idx2] - h2w[idx1] + h2w[idx4] - h2w[idx3];
+  let h = 0;
+  let p1 = map[kingObj + kingFr] | 0;
+  let p2 = map[kingObj + kingTo] | 0;
+  let p3 = map[rookObj + rookFr] | 0;
+  let p4 = map[rookObj + rookTo] | 0;
+
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
+    h2a[h] += h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
+    h++; p1++; p2++; p3++; p4++;
   }
 
 }
