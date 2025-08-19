@@ -982,8 +982,12 @@ function addQMove (node, move) {
   if (m === node.hashMove)
     node.ranks[n] = BASE_HASH;
 
-  else if ((move & MOVE_PROMOTE_MASK) !== 0)
-    node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS);  // QRBN
+  else if ((move & MOVE_PROMOTE_MASK) !== 0) {
+    if ((move & MOVE_NOISY_MASK) !== 0)
+      node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 8;  // QRBN capture
+    else
+      node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS);      // QRBN slide (allowed in qs)
+  }
 
   else if ((move & MOVE_EPTAKE_MASK) !== 0)
     node.ranks[n] = BASE_EPTAKES;
