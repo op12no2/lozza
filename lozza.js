@@ -2055,32 +2055,41 @@ let ueArgs5 = 0;
 
 //{{{  netEval
 //
-// SqrRelu.
+// squared relu.
 //
 
-function netEval (turn) {
+function netEval(turn) {
 
   const w  = net_o_w;
   const a  = net_a[turn >>> 3];
   const a1 = a[0];
   const a2 = a[1];
-
-  let e = 0;
-
   const N = NET_H1_SIZE | 0;
 
-  for (let i=0; i < N; i++) {
-    const y1 = Math.max(0,a1[i]);
-    const y2 = Math.max(0,a2[i]);
-    e += (Math.imul(w[i],Math.imul(y1,y1)) + Math.imul(w[i+NET_H1_SIZE],Math.imul(y2,y2))) | 0;
+  let e = 0 | 0;
+  let p1 = 0 | 0;
+  let p2 = N | 0;
+
+  while (p1 < N) {
+
+    const x1 = a1[p1] | 0;
+    const x2 = a2[p1] | 0;
+
+    const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
+    const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
+
+    e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0;
+
+    p1++; p2++;
+
   }
 
   let e2 = e;
 
-  e2 /= NET_QA;
-  e2 += net_o_b;
-  e2 *= NET_SCALE;
-  e2 /= NET_QAB;
+  e2 = (e2 / NET_QA) | 0;
+  e2 = (e2 + (net_o_b | 0)) | 0;
+  e2 = Math.imul(e2, NET_SCALE | 0) | 0;
+  e2 = (e2 / NET_QAB) | 0;
 
   return e2 | 0;
 
@@ -2091,8 +2100,8 @@ function netEval (turn) {
 
 //{{{  local weights
 
-//xxd -p -c 64 quantised.bin > weights.hex
-//'weights.hex'
+// xxd -p -c 64 quantised.bin > weights.hex
+// 'weights.hex'
 
 const WEIGHTS_HEX = `
 `;
@@ -5017,16 +5026,6 @@ function uciExec (commands) {
         //}}}
       }
 
-      case 'serialise': {
-        //{{{  serialise
-        
-        netSerialise();
-        
-        break;
-        
-        //}}}
-      }
-
       case 'network':
       case 'n': {
         //{{{  network
@@ -5035,6 +5034,7 @@ function uciExec (commands) {
         uciSend('i_size, h1_size', NET_I_SIZE, NET_H1_SIZE);
         uciSend('qa, qb', NET_QA, NET_QB);
         uciSend('scale', NET_SCALE);
+        uciSend('local', NET_LOCAL);
         
         uciExec('u');
         uciExec('p s');
@@ -5116,6 +5116,10 @@ let randomEval = 0;
 function initOnce () {
 
   //{{{  init net
+  //
+  // IMAP is used to map a piece+colour to an offset in the flat weights array.
+  // Used when updating the accumulators.
+  //
   
   for (let i = 0; i < 64; i++) {
   
