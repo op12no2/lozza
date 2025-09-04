@@ -6,7 +6,7 @@ https://op12no2.github.io/lozza-ui/play.htm
 
 Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node - and because of that, on pretty-much any platform. 
 
-Issues and Todo list: https://github.com/op12no2/lozza/issues
+There is also a C version of Lozza in development here: https://github.com/op12no2/clozza
 
 ## Basic use in a browser
 
@@ -71,4 +71,5 @@ https://discord.gg/uM8J3x46 - Engine Programming Discord
 https://talkchess.com - Talkchess forums
 
 https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
+
 
