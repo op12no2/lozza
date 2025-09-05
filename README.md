@@ -8,6 +8,8 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 There is also a C version of Lozza in development here: https://github.com/op12no2/clozza
 
+The code is best read using a folding editor. Start/end fold markers are ```/*{{{  fold name*/``` and ```/*}}}*/```.
+
 ## Basic use in a browser
 
 All you need is ```lozzaN.js``` from the latest ```lozzaN.zip``` release; for example ```lozza7.js``` from ```lozza7.zip```.  
@@ -33,8 +35,6 @@ lozza.postMessage('go depth 10');        // 10 ply search
 Try this example here:-
 
 https://op12no2.github.io/lozza-ui/ex.htm
-
-Please note that Lozza's code is folded using ```{{{``` and ```}}}``` (emacs convention) and most easily read using an editor with a folding capability.
 
 ## More examples
 
@@ -71,5 +71,6 @@ https://discord.gg/uM8J3x46 - Engine Programming Discord
 https://talkchess.com - Talkchess forums
 
 https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
+
 
 
