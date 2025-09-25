@@ -3,7 +3,7 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "8";
+const BUILD = "9";
 
 //{{{  dev/release
 //
@@ -2116,7 +2116,17 @@ function getWeightsBuffer() {
 
   const hex = WEIGHTS_HEX.replace(/\s+/g, "");
 
-  return Buffer.from(hex, "hex");
+  if (typeof Buffer !== 'undefined' && Buffer.from) {
+    return Buffer.from(hex, 'hex');
+  }
+
+  const n = hex.length >> 1;
+  const bytes = new Uint8Array(n);
+  for (let i = 0, j = 0; j < n; i += 2, j++) {
+    bytes[j] = parseInt(hex.slice(i, i + 2), 16);
+  }
+
+  return bytes;
 
 }
 
@@ -5100,7 +5110,7 @@ const nodeHost = (typeof process) != 'undefined';
 
 if (!nodeHost) {
   onmessage = function(e) {
-    uciExec(m.data);
+    uciExec(e.data);
   }
 }
 
