@@ -6,18 +6,20 @@ https://op12no2.github.io/lozza-ui/play.htm
 
 Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node - and because of that, on pretty-much any platform. 
 
-Issues and Todo list: https://github.com/op12no2/lozza/issues
+There is also a C version of Lozza available here: https://github.com/op12no2/cwtch
+
+The code is best read using a folding editor. Start/end fold markers are ```/*{{{  fold name*/``` and ```/*}}}*/```.
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from release "Lozza 5.0" (not the repo itself - which will not work in a web environment and Lozza 5.1's web config is also broken.).  
+All you need is ```lozza.js``` from the latest ```lozzaN.zip``` release.  
 
-https://github.com/op12no2/lozza/releases/tag/5
+https://github.com/op12no2/lozza/releases
 
 Here is a little example to do a 10 ply search:-
 
 ```Javascript
-var lozza = new Worker('lozza.js');
+var lozza = new Worker('lozza.js');      
 
 lozza.onmessage = function (e) {
   $('#dump').append(e.data);             // assuming jquery and a div called #dump
@@ -34,8 +36,6 @@ Try this example here:-
 
 https://op12no2.github.io/lozza-ui/ex.htm
 
-Please note that Lozza's code is folded using ```{{{``` and ```}}}``` (emacs convention) and most easily read using an editor with a folding capability.
-
 ## More examples
 
 A sister repo has more browser-based examples for playing and analysing etc. with Lozza.
@@ -48,7 +48,7 @@ https://op12no2.github.io/lozza-ui/play.htm
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest Lozza release and then follow the instructions in the wiki.   
+Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest ```LozzaN.zip``` release and then follow the instructions in the wiki.   
 
 https://github.com/op12no2/lozza/releases
 
@@ -71,4 +71,10 @@ https://discord.gg/uM8J3x46 - Engine Programming Discord
 https://talkchess.com - Talkchess forums
 
 https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
+
+
+
+
+
+
 

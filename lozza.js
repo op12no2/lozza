@@ -3,9 +3,11 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "7.0";
+const BUILD = "8.0";
 
 //{{{  dev/release
+
+const NET_LOCAL        = 0;
 const NET_NAME         = 'farm1';
 const NET_SB           = '500';
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
@@ -522,13 +524,17 @@ function nodeStruct () {
   this.parentNode      = null;
   this.grandparentNode = null;
 
-  this.moves = new Uint32Array(MAX_MOVES);
-  this.ranks = new Uint32Array(MAX_MOVES);
+  this.moves  = new Uint32Array(MAX_MOVES);
+  this.ranks  = new Uint32Array(MAX_MOVES);
+  this.moves2 = new Uint32Array(MAX_MOVES);
+  this.ranks2 = new Uint32Array(MAX_MOVES);
 
   this.killer1     = 0;
   this.killer2     = 0;
   this.mateKiller  = 0;
+  this.stage       = 0;
   this.numMoves    = 0;
+  this.numMoves2   = 0;
   this.sortedIndex = 0;
   this.hashMove    = 0;
   this.hashEval    = 0;
@@ -550,7 +556,7 @@ function nodeStruct () {
   this.frZ = 0;
   this.epZ = 0;
 
-  this.pv = new Uint32Array(MAX_MOVES);
+  this.pv    = new Uint32Array(MAX_MOVES);
   this.pvLen = 0;
 
 }
@@ -622,59 +628,130 @@ function uncacheB (node) {
 
 function getNextMove (node) {
 
-  let maxM = 0;
+  switch (node.stage) {
 
-  if (node.sortedIndex !== node.numMoves) {
-
-    const moves = node.moves;
-    const ranks = node.ranks;
-    const next  = node.sortedIndex;
-    const num   = node.numMoves;
-
-    let maxR = -INFINITY;
-    let maxI = 0;
-
-    for (let i=next; i < num; i++) {
-      if (ranks[i] > maxR) {
-        maxR = ranks[i];
-        maxI = i;
+    case 0: {
+      //{{{  node.moves
+      
+      if (node.sortedIndex !== node.numMoves) {
+      
+        let maxM = 0;
+      
+        const moves = node.moves;
+        const ranks = node.ranks;
+        const next  = node.sortedIndex;
+        const num   = node.numMoves;
+      
+        let maxR = -INFINITY;
+        let maxI = 0;
+      
+        for (let i=next; i < num; i++) {
+          if (ranks[i] > maxR) {
+            maxR = ranks[i];
+            maxI = i;
+          }
+        }
+      
+        maxM = moves[maxI]
+      
+        moves[maxI] = moves[next];
+        ranks[maxI] = ranks[next];
+      
+        node.base = maxR;
+      
+        node.sortedIndex++;
+      
+        return maxM;
+      
       }
+      
+      else {
+      
+        node.stage++;
+        node.sortedIndex = 0;
+      
+        rankSlides(node);
+      
+      }
+      
+      //}}}
     }
 
-    maxM = moves[maxI]
-
-    moves[maxI] = moves[next];
-    ranks[maxI] = ranks[next];
-
-    node.base = maxR;
-
-    node.sortedIndex++;
+    case 1: {
+      //{{{  node.moves2
+      
+      if (node.sortedIndex !== node.numMoves2) {
+      
+        let maxM = 0;
+      
+        const moves = node.moves2;
+        const ranks = node.ranks2;
+        const next  = node.sortedIndex;
+        const num   = node.numMoves2;
+      
+        let maxR = -INFINITY;
+        let maxI = 0;
+      
+        for (let i=next; i < num; i++) {
+          if (ranks[i] > maxR) {
+            maxR = ranks[i];
+            maxI = i;
+          }
+        }
+      
+        maxM = moves[maxI]
+      
+        moves[maxI] = moves[next];
+        ranks[maxI] = ranks[next];
+      
+        node.base = maxR;
+      
+        node.sortedIndex++;
+      
+        return maxM;
+      
+      }
+      
+      else {
+      
+        return 0;
+      
+      }
+      
+      //}}}
+    }
 
   }
-
-  return maxM;
-
 }
 
 //}}}
-//{{{  slideBase
+//{{{  rankSlides
 
-function slideBase (move) {
+function rankSlides (node) {
 
-  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  for (let i=0; i < node.numMoves2; i++) {
 
-  const hisScore = objHistory[(frObj << 8) + to];
+    const move  = node.moves2[i];
+    const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+    const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
 
-  if (hisScore === BASE_HISSLIDE) {
-    const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-    const slideScores = SLIDE_SCORES[frObj];
-    return BASE_SLIDE + slideScores[to] - slideScores[fr];
+    const hisScore = objHistory[(frObj << 8) + to];
+
+    if (hisScore === BASE_HISSLIDE) {
+
+      const fr          = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
+      const slideScores = SLIDE_SCORES[frObj];
+
+      node.ranks2[i] = BASE_SLIDE + slideScores[to] - slideScores[fr];
+
+    }
+
+    else {
+
+      node.ranks2[i] = hisScore;
+
+    }
   }
-
-  else
-    return hisScore;
-
 }
 
 //}}}
@@ -683,30 +760,40 @@ function slideBase (move) {
 function addSlide (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
-  const n = node.numMoves++;
 
-  node.moves[n] = move;
+  if (m === node.hashMove) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
 
-  if (m === node.hashMove)
-    node.ranks[n] = BASE_HASH;
+  else if (m === node.mateKiller) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MATEKILLER;
+  }
 
-  else if (m === node.mateKiller)
-    node.ranks[n] = BASE_MATEKILLER;
+  else if (m === node.killer1) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MYKILLERS + 1;
+  }
 
-  else if (m === node.killer1)
-    node.ranks[n] = BASE_MYKILLERS + 1;
+  else if (m === node.killer2) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MYKILLERS;
+  }
 
-  else if (m === node.killer2)
-    node.ranks[n] = BASE_MYKILLERS;
+  else if (node.grandparentNode !== null && m === node.grandparentNode.killer1) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_GPKILLERS + 1;
+  }
 
-  else if (node.grandparentNode !== null && m === node.grandparentNode.killer1)
-    node.ranks[n] = BASE_GPKILLERS + 1;
+  else if (node.grandparentNode !== null && m === node.grandparentNode.killer2) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_GPKILLERS;
+  }
 
-  else if (node.grandparentNode !== null && m === node.grandparentNode.killer2)
-    node.ranks[n] = BASE_GPKILLERS;
-
-  else
-    node.ranks[n] = slideBase(move);
+  else {
+    node.moves2[node.numMoves2++] = move;  // defer ranking until later
+  }
 
 }
 
@@ -716,30 +803,41 @@ function addSlide (node, move) {
 function addCastle (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
-  const n = node.numMoves++;
 
-  node.moves[n] = move;
+  if (m === node.hashMove) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
 
-  if (m === node.hashMove)
-    node.ranks[n] = BASE_HASH;
+  else if (m === node.mateKiller) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MATEKILLER;
+  }
 
-  else if (m === node.mateKiller)
-    node.ranks[n] = BASE_MATEKILLER;
+  else if (m === node.killer1) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MYKILLERS + 1;
+  }
 
-  else if (m === node.killer1)
-    node.ranks[n] = BASE_MYKILLERS + 1;
+  else if (m === node.killer2) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_MYKILLERS;
+  }
 
-  else if (m === node.killer2)
-    node.ranks[n] = BASE_MYKILLERS;
+  else if (node.grandparentNode !== null && m === node.grandparentNode.killer1) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_GPKILLERS + 1;
+  }
 
-  else if (node.grandparentNode !== null && m === node.grandparentNode.killer1)
-    node.ranks[n] = BASE_GPKILLERS + 1;
+  else if (node.grandparentNode !== null && m === node.grandparentNode.killer2) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_GPKILLERS;
+  }
 
-  else if (node.grandparentNode !== null && m === node.grandparentNode.killer2)
-    node.ranks[n] = BASE_GPKILLERS;
-
-  else
-    node.ranks[n] = BASE_CASTLING;
+  else {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_CASTLING;
+  }
 
 }
 
@@ -749,46 +847,61 @@ function addCastle (node, move) {
 function addCapture (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
-  const n = node.numMoves++;
 
-  node.moves[n] = move;
-
-  if (m === node.hashMove)
-    node.ranks[n] = BASE_HASH;
+  if (m === node.hashMove) {
+    node.moves[node.numMoves]   = move;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
 
   else {
 
     const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
     const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
 
-    if (victim > attack)
-      node.ranks[n] = BASE_GOODTAKES + (victim << 6) - attack;
+    if (victim > attack) {
+      node.moves[node.numMoves]   = move;
+      node.ranks[node.numMoves++] = BASE_GOODTAKES + (victim << 6) - attack;
+    }
 
-    else if (victim === attack)
-      node.ranks[n] = BASE_EVENTAKES + (victim << 6) - attack;
+    else if (victim === attack) {
+      node.moves[node.numMoves]   = move;
+      node.ranks[node.numMoves++] = BASE_EVENTAKES + (victim << 6) - attack;
+    }
 
     else {
 
-      if (m === node.mateKiller)
-        node.ranks[n] = BASE_MATEKILLER;
+      if (m === node.mateKiller) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_MATEKILLER;
+      }
 
-      else if (m === node.killer1)
-        node.ranks[n] = BASE_MYKILLERS + 1;
+      else if (m === node.killer1) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_MYKILLERS + 1;
+      }
 
-      else if (m === node.killer2)
-        node.ranks[n] = BASE_MYKILLERS;
+      else if (m === node.killer2) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_MYKILLERS;
+      }
 
-      else if (node.grandparentNode !== null && m === node.grandparentNode.killer1)
-        node.ranks[n] = BASE_GPKILLERS + 1;
+      else if (node.grandparentNode !== null && m === node.grandparentNode.killer1) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_GPKILLERS + 1;
+      }
 
-      else if (node.grandparentNode !== null && m === node.grandparentNode.killer2)
-        node.ranks[n] = BASE_GPKILLERS;
+      else if (node.grandparentNode !== null && m === node.grandparentNode.killer2) {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_GPKILLERS;
+      }
 
-      else
-        node.ranks[n] = BASE_BADTAKES + (victim << 6) - attack;
+      else {
+        node.moves[node.numMoves]   = move;
+        node.ranks[node.numMoves++] = BASE_BADTAKES + (victim << 6) - attack;
+      }
+
     }
   }
-
 }
 
 //}}}
@@ -798,35 +911,41 @@ function addPromotion (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
 
-  var n = 0;
+  if ((m | QPRO) === node.hashMove) {
+    node.moves[node.numMoves]   = move | QPRO;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
+  else {
+    node.moves[node.numMoves]   = move | QPRO;
+    node.ranks[node.numMoves++] = BASE_PROMOTES + QUEEN;
+  }
 
-  n             = node.numMoves++;
-  node.moves[n] = move | QPRO;
-  if ((m | QPRO) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + QUEEN;
+  if ((m | RPRO) === node.hashMove) {
+    node.moves[node.numMoves]   = move | RPRO;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
+  else {
+    node.moves[node.numMoves]   = move | RPRO;
+    node.ranks[node.numMoves++] = BASE_PROMOTES + ROOK;
+  }
 
-  n             = node.numMoves++;
-  node.moves[n] = move | RPRO;
-  if ((m | RPRO) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + ROOK;
+  if ((m | BPRO) === node.hashMove) {
+    node.moves[node.numMoves]   = move | BPRO;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
+  else {
+    node.moves[node.numMoves]   = move | BPRO;
+    node.ranks[node.numMoves++] = BASE_PROMOTES + BISHOP;
+  }
 
-  n             = node.numMoves++;
-  node.moves[n] = move | BPRO;
-  if ((m | BPRO) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + BISHOP;
-
-  n             = node.numMoves++;
-  node.moves[n] = move | NPRO;
-  if ((m | NPRO) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-  else
-    node.ranks[n] = BASE_PROMOTES + KNIGHT;
+  if ((m | NPRO) === node.hashMove) {
+    node.moves[node.numMoves]   = move | NPRO;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
+  else {
+    node.moves[node.numMoves]   = move | NPRO;
+    node.ranks[node.numMoves++] = BASE_PROMOTES + KNIGHT;
+  }
 
 }
 
@@ -836,15 +955,16 @@ function addPromotion (node, move) {
 function addEPTake (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
-  const n = node.numMoves++;
 
-  node.moves[n] = move | MOVE_EPTAKE_MASK;
+  if ((m | MOVE_EPTAKE_MASK) === node.hashMove) {
+    node.moves[node.numMoves]   = move | MOVE_EPTAKE_MASK;
+    node.ranks[node.numMoves++] = BASE_HASH;
+  }
 
-  if ((m | MOVE_EPTAKE_MASK) === node.hashMove)
-    node.ranks[n] = BASE_HASH;
-
-  else
-    node.ranks[n] = BASE_EPTAKES;
+  else {
+    node.moves[node.numMoves]   = move | MOVE_EPTAKE_MASK;
+    node.ranks[node.numMoves++] = BASE_EPTAKES;
+  }
 
 }
 
@@ -861,8 +981,12 @@ function addQMove (node, move) {
   if (m === node.hashMove)
     node.ranks[n] = BASE_HASH;
 
-  else if ((move & MOVE_PROMOTE_MASK) !== 0)
-    node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS);  // QRBN
+  else if ((move & MOVE_PROMOTE_MASK) !== 0) {
+    if ((move & MOVE_NOISY_MASK) !== 0)
+      node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 8;  // QRBN capture
+    else
+      node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS);      // QRBN slide (allowed in qs)
+  }
 
   else if ((move & MOVE_EPTAKE_MASK) !== 0)
     node.ranks[n] = BASE_EPTAKES;
@@ -1115,12 +1239,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
   node.inCheck = inCheck;
   node.ev      = node.hashEval !== INFINITY ? node.hashEval : evaluate(turn);
 
+  ttUpdateEval(node.ev);
   cache(node);
-
   genMoves(node, turn);
-
-  if (statsTimeOut !== 0)
-    return 0;
 
   while ((move = getNextMove(node)) !== 0) {
 
@@ -1207,17 +1328,22 @@ function rootSearch (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
-          addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
+          if ((move & MOVE_NOISY_MASK) === 0)
+            addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
           return bestScore;
         }
 
-        else
-          addHistory(Math.imul(depth,depth), bestMove);
+        else {
+          if ((move & MOVE_NOISY_MASK) === 0)
+            addHistory(Math.imul(depth,depth), bestMove);
+        }
       }
     }
 
-    else
-      addHistory(-depth, move);
+    else {
+      if ((move & MOVE_NOISY_MASK) === 0)
+        addHistory(-depth, move);
+    }
   }
 
   if (numLegalMoves === 1)
@@ -1230,11 +1356,11 @@ function rootSearch (node, depth, turn, alpha, beta) {
   }
 
   if (bestScore > oAlpha) {
-    ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
+    ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
     return bestScore;
   }
   else {
-    ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
+    ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
     return bestScore;
   }
 
@@ -1314,7 +1440,7 @@ function search (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  const doBeta = (pvNode === 0 && inCheck === 0 && betaMate(beta) === 0) | 0;
+  const doBeta = ((pvNode === 0 && inCheck === 0 && betaMate(beta) === 0)) | 0;
 
   var R = 0;
   var E = 0;
@@ -1341,16 +1467,14 @@ function search (node, depth, turn, alpha, beta) {
   //}}}
   //{{{  beta prune
   
-  if (doBeta !== 0 && depth <= 8 && (ev - Math.imul(depth,100)) >= beta)
+  if (doBeta !== 0 && depth <= 8 && (ev - Math.imul(depth,100)) >= (beta - improving * 50))
     return ev;
   
   //}}}
   //{{{  alpha prune
   
-  //var doAlpha = pvNode === 0 && inCheck === 0 && alphaMate(alpha) === 0;
-  
-  //if (doAlpha && depth <= 5 && (ev + 1000) <= alpha)
-    //return alpha;
+  //if (pvNode === 0 && inCheck === 0 && alphaMate(alpha) === 0 && depth <= 4 && (ev + 3500) <= alpha)
+    //return ev;
   
   //}}}
 
@@ -1382,9 +1506,6 @@ function search (node, depth, turn, alpha, beta) {
   
     uncacheA(node);
     uncacheB(node);
-  
-    if (statsTimeOut !== 0)
-      return 0;
   
     if (score >= beta) {
       if (betaMate(score) !== 0)
@@ -1427,13 +1548,8 @@ function search (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  if (ev !== INFINITY)
-    ttUpdateEval(ev);
-
+  ttUpdateEval(ev);
   genMoves(node, turn);
-
-  if (statsTimeOut !== 0)
-    return 0;
 
   statsNodes++;
 
@@ -1525,17 +1641,22 @@ function search (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
-          addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
+          if ((move & MOVE_NOISY_MASK) === 0)
+            addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
           return bestScore;
         }
 
-        else
-          addHistory(Math.imul(depth,depth), bestMove);
+        else {
+          if ((move & MOVE_NOISY_MASK) === 0)
+            addHistory(Math.imul(depth,depth), bestMove);
+        }
       }
     }
 
-    else
-      addHistory(-depth, move);
+    else {
+      if ((move & MOVE_NOISY_MASK) === 0)
+        addHistory(-depth, move);
+    }
   }
 
   //{{{  mate
@@ -1572,7 +1693,7 @@ function search (node, depth, turn, alpha, beta) {
 
 function qSearch (node, depth, turn, alpha, beta) {
 
-  //{{{  check time
+  //{{{  check depth
   
   node.pvLen = 0;
   
@@ -1601,13 +1722,10 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (ev >= alpha)
     alpha = ev;
 
-  if (ev !== INFINITY)
-    ttUpdateEval(ev);
-
   node.inCheck = 0;  // but not used
 
+  ttUpdateEval(ev);
   cache(node);
-
   genQMoves(node, turn);
 
   statsNodes++;
@@ -1658,8 +1776,8 @@ function qSearch (node, depth, turn, alpha, beta) {
     
     //}}}
 
-    if (statsTimeOut !== 0)
-      return 0;
+    //if (statsTimeOut !== 0)
+      //return 0;
 
     if (score > alpha) {
       if (score >= beta) {
@@ -1915,16 +2033,14 @@ function collectPV(node, move) {
 //}}}
 //{{{  net
 
-const net_h1_w = new Array(NET_I_SIZE);       // us
-const net_h2_w = new Array(NET_I_SIZE);       // them
-const net_h1_b = new Int32Array(NET_H1_SIZE);
-const net_o_w  = new Int32Array(NET_H1_SIZE*2);
-let   net_o_b  = 0;
-
-const net_h1_a = new Int32Array(NET_H1_SIZE);
-const net_h2_a = new Int32Array(NET_H1_SIZE);
-
-const net_a = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
+const net_h1_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // us
+const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
+const net_h1_b      = new Int32Array(NET_H1_SIZE);
+const net_o_w       = new Int32Array(NET_H1_SIZE*2);
+let   net_o_b       = 0;
+const net_h1_a      = new Int32Array(NET_H1_SIZE);
+const net_h2_a      = new Int32Array(NET_H1_SIZE);
+const net_a         = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
 
 let ueFunc  = myround;
 let ueArgs0 = 0;
@@ -1934,113 +2050,43 @@ let ueArgs3 = 0;
 let ueArgs4 = 0;
 let ueArgs5 = 0;
 
-//{{{  netSlowEval
-//
-// Used to check UE.
-//
-
-//{{{  activations
-
-function relu(x) {
-  return Math.max(0, x);
-}
-
-function crelu(x) {
-  return Math.min(Math.max(x, 0), NET_QA);
-}
-
-function screlu(x) {
-  const y = Math.min(Math.max(x, 0), NET_QA);
-  return y * y;
-}
-
-function sqrrelu(x) {
-  const y = Math.max(0, x);
-  return y * y;
-}
-
-//}}}
-
-function netSlowEval (turn) {
-
-  hashCheck(turn);
-
-  const b = bdB;
-
-  let wAcc = new Int32Array(NET_H1_SIZE);
-  let bAcc = new Int32Array(NET_H1_SIZE);
-
-  wAcc.set(net_h1_b);
-  bAcc.set(net_h1_b);
-
-  for (let sq=0; sq<64; sq++) {
-
-    const fr    = B88[sq];
-    const frObj = b[fr];
-
-    if (frObj === 0)
-      continue;
-
-    const i1 = IMAP[(frObj << 8) + fr];
-
-    for (let i=0; i < NET_H1_SIZE; i++) {
-      wAcc[i] += net_h1_w[i1][i];
-      bAcc[i] += net_h2_w[i1][i];
-    }
-  }
-
-  let e = 0;
-
-  if (turn === WHITE) {
-    var a1 = wAcc;
-    var a2 = bAcc;
-  }
-  else {
-    var a1 = bAcc;
-    var a2 = wAcc;
-  }
-
-  for (let i=0; i < NET_H1_SIZE; i++) {
-    e += net_o_w[i]             * sqrrelu(a1[i]);
-    e += net_o_w[i+NET_H1_SIZE] * sqrrelu(a2[i]);
-  }
-
-  e /= NET_QA;
-  e += net_o_b;
-  e *= NET_SCALE;
-  e /= NET_QAB;
-
-  return e | 0;
-
-}
-
-//}}}
 //{{{  netEval
 //
-// SqrRelu.
+// squared relu.
 //
 
-function netEval (turn) {
+function netEval(turn) {
 
   const w  = net_o_w;
   const a  = net_a[turn >>> 3];
   const a1 = a[0];
   const a2 = a[1];
+  const N = NET_H1_SIZE | 0;
 
-  let e = 0;
+  let e = 0 | 0;
+  let p1 = 0 | 0;
+  let p2 = N | 0;
 
-  for (let i=0; i < NET_H1_SIZE; i++) {
-    const y1 = Math.max(0,a1[i]);
-    const y2 = Math.max(0,a2[i]);
-    e += (Math.imul(w[i],Math.imul(y1,y1)) + Math.imul(w[i+NET_H1_SIZE],Math.imul(y2,y2))) | 0;
+  while (p1 < N) {
+
+    const x1 = a1[p1] | 0;
+    const x2 = a2[p1] | 0;
+
+    const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
+    const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
+
+    e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0;
+
+    p1++; p2++;
+
   }
 
   let e2 = e;
 
-  e2 /= NET_QA;
-  e2 += net_o_b;
-  e2 *= NET_SCALE;
-  e2 /= NET_QAB;
+  e2 = (e2 / NET_QA) | 0;
+  e2 = (e2 + (net_o_b | 0)) | 0;
+  e2 = Math.imul(e2, NET_SCALE | 0) | 0;
+  e2 = (e2 / NET_QAB) | 0;
 
   return e2 | 0;
 
@@ -2048,109 +2094,65 @@ function netEval (turn) {
 
 //}}}
 //{{{  netLoad
-//
-// Copy the weights so that the buffer can be released.
-//
+
+//{{{  local weights
+
+// xxd -p -c 64 quantised.bin > weights.hex
+// 'weights.hex'
+
+const WEIGHTS_HEX = `
+`;
+
+//}}}
+//{{{  getWeightsBuffer
+
+function getWeightsBuffer() {
+
+  if (NET_LOCAL === 0)
+    return fs.readFileSync(NET_WEIGHTS_FILE);
+
+  const hex = WEIGHTS_HEX.replace(/\s+/g, "");
+
+  return Buffer.from(hex, "hex");
+
+}
+
+//}}}
 
 function netLoad () {
 
   let offset = 0;
 
-  const buffer   = fs.readFileSync(NET_WEIGHTS_FILE);
-  const dataView = new Int16Array(buffer.buffer, offset);
+  const buffer = getWeightsBuffer();
 
-  //{{{  net_h1_w
-  
-  for (let i=0; i < NET_I_SIZE; i++) {
-  
-    const lozIndex = bullet2lozza(i);  // map bullet to lozza input indexes.
-    const h        = i * NET_H1_SIZE;
-  
-    for (let j=0; j < NET_H1_SIZE; j++) {
-      net_h1_w[lozIndex][j] = dataView[h + j];
+  const dataView = new Int16Array(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength >> 1
+  );
+
+  for (let i = 0; i < NET_I_SIZE; i++) {
+    const lozIndex = bullet2lozza(i);
+    const h = i * NET_H1_SIZE;
+    for (let j = 0; j < NET_H1_SIZE; j++) {
+      net_h1_w_flat[lozIndex            * NET_H1_SIZE + j] = dataView[h + j];  // us
+      net_h2_w_flat[flipIndex(lozIndex) * NET_H1_SIZE + j] = dataView[h + j];  // them
     }
-  
   }
-  
-  //}}}
-  //{{{  net_h1_b
-  
+
   offset += NET_I_SIZE * NET_H1_SIZE;
-  
-  for (let i=0; i < NET_H1_SIZE; i++) {
+  for (let i = 0; i < NET_H1_SIZE; i++) {
     net_h1_b[i] = dataView[offset + i];
   }
-  
-  //}}}
-  //{{{  net_o_w
-  
+
   offset += NET_H1_SIZE;
-  
-  for (let i=0; i < NET_H1_SIZE*2; i++) {
+  for (let i = 0; i < NET_H1_SIZE * 2; i++) {
     net_o_w[i] = dataView[offset + i];
   }
-  
-  //}}}
-  //{{{  net_o_b
-  
+
   offset += NET_H1_SIZE * 2;
-  
   net_o_b = dataView[offset];
-  
-  //}}}
 
-}
-
-//}}}
-//{{{  netSerialise
-
-function netSerialise () {
-
-  console.log('{{{  weights');
-
-  let w = [];
-  console.log('let w = [];');
-
-
-  for (let i=0; i < NET_I_SIZE; i++) {
-    console.log('{{{  h1_w ' + i);
-    console.log('w = net_h1_w[' + i + '];');
-    w = net_h1_w[i];
-    for (let j=0; j < NET_H1_SIZE; j++) {
-      console.log('w[' + j + '] = ' + w[j] + ';');
-    }
-    console.log('}}}');
-  }
-
-  console.log('{{{  h1_b ');
-  console.log('w = net_h1_b;');
-  w = net_h1_b;
-  for (let j=0; j < NET_H1_SIZE; j++) {
-    console.log('w[' + j + '] = ' + w[j] + ';');
-  }
-  console.log('}}}');
-
-  console.log('{{{  o_w ');
-  console.log('w = net_o_w;');
-  w = net_o_w;
-  for (let j=0; j < NET_H1_SIZE*2; j++) {
-    console.log('w[' + j + '] = ' + w[j] + ';');
-  }
-  console.log('}}}');
-
-  console.log('net_o_b = ' + net_o_b + ';');
-
-  console.log('}}}');
-
-}
-
-//}}}
-//{{{  netInitWeights
-//
-// 'weights' - click to load the result of "node lozza serialise q > weights"
-//
-
-function netInitWeights () {
 }
 
 //}}}
@@ -2160,21 +2162,23 @@ function netInitWeights () {
 function netMove () {
 
   const frObj = ueArgs0 << 8;
-  const fr    = ueArgs1 | 0;
+  const from  = ueArgs1 | 0;
   const to    = ueArgs2 | 0;
 
-  const i1 = IMAP[frObj + fr] | 0;
-  const i2 = IMAP[frObj + to] | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
+  const N = NET_H1_SIZE | 0;
 
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
+  let h = 0;
+  let p1 = map[frObj + from] | 0;
+  let p2 = map[frObj + to]   | 0;
 
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1b[h] - h1a[h];
-    net_h2_a[h] += h2b[h] - h2a[h];
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1];
+    h2a[h] += h2w[p2] - h2w[p1];
+    h++; p1++; p2++;
   }
 
 }
@@ -2189,21 +2193,21 @@ function netCapture () {
   const toObj = ueArgs2 << 8;
   const to    = ueArgs3 | 0;
 
-  const i1 = IMAP[frObj + fr] | 0;
-  const i2 = IMAP[toObj + to] | 0;
-  const i3 = IMAP[frObj + to] | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
-  const h1c = net_h1_w[i3];
+  const N = NET_H1_SIZE | 0;
 
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
-  const h2c = net_h2_w[i3];
+  let h = 0;
+  let p1 = map[frObj + fr] | 0;
+  let p2 = map[toObj + to] | 0;
+  let p3 = map[frObj + to] | 0;
 
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1c[h] - h1b[h] - h1a[h];
-    net_h2_a[h] += h2c[h] - h2b[h] - h2a[h];
+  while (h < N) {
+    h1a[h] += h1w[p3] - h1w[p2] - h1w[p1];
+    h2a[h] += h2w[p3] - h2w[p2] - h2w[p1];
+    h++; p1++; p2++; p3++;
   }
 
 }
@@ -2219,28 +2223,29 @@ function netPromote () {
   const captureObj = ueArgs3 << 8;
   const promoteObj = ueArgs4 << 8;
 
-  const i1 = IMAP[pawnObj    + pawnFr] | 0;
-  const i2 = IMAP[promoteObj + pawnTo] | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
+  const N = NET_H1_SIZE | 0;
 
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
+  let h = 0;
+  let p1 = map[pawnObj    + pawnFr] | 0;
+  let p2 = map[promoteObj + pawnTo] | 0;
 
   if (captureObj !== 0) {
-    const i3  = IMAP[captureObj + pawnTo] | 0;
-    const h1c = net_h1_w[i3];
-    const h2c = net_h2_w[i3];
-    for (let h=0; h < NET_H1_SIZE; h++) {
-      net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
-      net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
+    let p3 = map[captureObj + pawnTo] | 0;
+    while (h < N) {
+      h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
+      h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+      h++; p1++; p2++; p3++;
     }
   }
   else {
-    for (let h=0; h < NET_H1_SIZE; h++) {
-      net_h1_a[h] += h1b[h] - h1a[h];
-      net_h2_a[h] += h2b[h] - h2a[h];
+    while (h < N) {
+      h1a[h] += h1w[p2] - h1w[p1];
+      h2a[h] += h2w[p2] - h2w[p1];
+      h++; p1++; p2++;
     }
   }
 
@@ -2257,21 +2262,21 @@ function netEpCapture () {
   const pawnCaptureObj = ueArgs3 << 8;
   const ep             = ueArgs4 | 0;
 
-  const i1 = IMAP[pawnObj        + pawnFr] | 0;
-  const i2 = IMAP[pawnObj        + pawnTo] | 0;
-  const i3 = IMAP[pawnCaptureObj + ep]     | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
-  const h1c = net_h1_w[i3];
+  const N = NET_H1_SIZE | 0;
 
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
-  const h2c = net_h2_w[i3];
+  let h = 0;
+  let p1 = map[pawnObj        + pawnFr] | 0;
+  let p2 = map[pawnObj        + pawnTo] | 0;
+  let p3 = map[pawnCaptureObj + ep] | 0;
 
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1b[h] - h1a[h] - h1c[h];
-    net_h2_a[h] += h2b[h] - h2a[h] - h2c[h];
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
+    h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+    h++; p1++; p2++; p3++;
   }
 
 }
@@ -2288,24 +2293,22 @@ function netCastle () {
   const rookFr  = ueArgs4 | 0;
   const rookTo  = ueArgs5 | 0;
 
-  const i1 = IMAP[kingObj + kingFr] | 0;
-  const i2 = IMAP[kingObj + kingTo] | 0;
-  const i3 = IMAP[rookObj + rookFr] | 0;
-  const i4 = IMAP[rookObj + rookTo] | 0;
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
 
-  const h1a = net_h1_w[i1];
-  const h1b = net_h1_w[i2];
-  const h1c = net_h1_w[i3];
-  const h1d = net_h1_w[i4];
+  const N = NET_H1_SIZE | 0;
 
-  const h2a = net_h2_w[i1];
-  const h2b = net_h2_w[i2];
-  const h2c = net_h2_w[i3];
-  const h2d = net_h2_w[i4];
+  let h = 0;
+  let p1 = map[kingObj + kingFr] | 0;
+  let p2 = map[kingObj + kingTo] | 0;
+  let p3 = map[rookObj + rookFr] | 0;
+  let p4 = map[rookObj + rookTo] | 0;
 
-  for (let h=0; h < NET_H1_SIZE; h++) {
-    net_h1_a[h] += h1b[h] - h1a[h] + h1d[h] - h1c[h];
-    net_h2_a[h] += h2b[h] - h2a[h] + h2d[h] - h2c[h];
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
+    h2a[h] += h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
+    h++; p1++; p2++; p3++; p4++;
   }
 
 }
@@ -2526,7 +2529,9 @@ function ttGet (node, depth, alpha, beta) {
   // so that iterative deepening works.
   //
 
-  node.hashMove = ttMove[idx];
+  if (ttValidate(ttMove[idx]) !== 0)
+    node.hashMove = ttMove[idx];
+
   node.hashEval = ttEval[idx];
 
   if (ttDepth[idx] < depth)
@@ -2574,6 +2579,29 @@ function ttInit () {
   ttMove.fill(0);
 
   ttHashUsed = 0;
+
+}
+
+//}}}
+//{{{  ttValidate
+
+function ttValidate (move) {
+
+  const b = bdB;
+
+  const fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+
+  if (b[fr] !== frObj)
+    return 0;
+
+  const to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
+  const toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
+
+  if (b[to] !== toObj)
+    return 0;
+
+  return 1;
 
 }
 
@@ -2799,11 +2827,12 @@ function position (bd, turn, rights, ep, moves) {
     if (frObj === 0)
       continue;
   
-    const i1 = IMAP[(frObj << 8) + fr];
+    const off1 = IMAP[(frObj << 8) + fr];
   
     for (let h=0; h < NET_H1_SIZE; h++) {
-      net_h1_a[h] += net_h1_w[i1][h];
-      net_h2_a[h] += net_h2_w[i1][h];
+      const idx1 = off1 + h;
+      net_h1_a[h] += net_h1_w_flat[idx1];
+      net_h2_a[h] += net_h2_w_flat[idx1];
     }
   
   }
@@ -2820,7 +2849,9 @@ function position (bd, turn, rights, ep, moves) {
 
 function genMoves (node, turn) {
 
+  node.stage       = 0;
   node.numMoves    = 0;
+  node.numMoves2   = 0;
   node.sortedIndex = 0;
 
   const b = bdB;
@@ -3227,8 +3258,8 @@ function genMoves (node, turn) {
 
     next++;
     count++
-  }
 
+  }
 }
 
 //}}}
@@ -3236,7 +3267,9 @@ function genMoves (node, turn) {
 
 function genQMoves (node, turn) {
 
+  node.stage       = 0;
   node.numMoves    = 0;
+  node.numMoves2   = 0;
   node.sortedIndex = 0;
 
   const b = bdB;
@@ -4818,10 +4851,9 @@ function uciExec (commands) {
       case 'e': {
         //{{{  eval
         
-        const e1 = netSlowEval(bdTurn);
-        const e2 = netEval(bdTurn);
+        const e = netEval(bdTurn);
         
-        uciSend('full',e1,'ue',e2);
+        uciSend(e);
         
         break;
         
@@ -4895,6 +4927,17 @@ function uciExec (commands) {
         
         //}}}
       }
+
+      case 'qb': {
+        //{{{  quick bench
+        
+        uciExec('bench warm 0');
+        
+        break;
+        
+        //}}}
+      }
+
 
       case 'pt': {
         //{{{  perft tests
@@ -4980,16 +5023,6 @@ function uciExec (commands) {
         //}}}
       }
 
-      case 'serialise': {
-        //{{{  serialise
-        
-        netSerialise();
-        
-        break;
-        
-        //}}}
-      }
-
       case 'network':
       case 'n': {
         //{{{  network
@@ -4998,6 +5031,7 @@ function uciExec (commands) {
         uciSend('i_size, h1_size', NET_I_SIZE, NET_H1_SIZE);
         uciSend('qa, qb', NET_QA, NET_QB);
         uciSend('scale', NET_SCALE);
+        uciSend('local', NET_LOCAL);
         
         uciExec('u');
         uciExec('p s');
@@ -5079,37 +5113,32 @@ let randomEval = 0;
 function initOnce () {
 
   //{{{  init net
-  
-  for (let i=0; i < NET_I_SIZE; i++)
-    net_h1_w[i] = new Int32Array(NET_H1_SIZE);
-  
-  for (let i=0; i < NET_I_SIZE; i++)
-    net_h2_w[i] = net_h1_w[flipIndex(i)];
+  //
+  // IMAP is used to map a piece+colour to an offset in the flat weights array.
+  // Used when updating the accumulators.
+  //
   
   for (let i = 0; i < 64; i++) {
   
     const j = B88[i];
   
-    IMAP[(W_PAWN << 8) + j]    =   0 + (PAWN-1)   * 64 + i;
-    IMAP[(W_KNIGHT << 8) + j]  =   0 + (KNIGHT-1) * 64 + i;
-    IMAP[(W_BISHOP << 8) + j]  =   0 + (BISHOP-1) * 64 + i;
-    IMAP[(W_ROOK << 8) + j]    =   0 + (ROOK-1)   * 64 + i;
-    IMAP[(W_QUEEN << 8) + j]   =   0 + (QUEEN-1)  * 64 + i;
-    IMAP[(W_KING << 8) + j]    =   0 + (KING-1)   * 64 + i;
+    IMAP[(W_PAWN << 8) + j]    =   (0 + (PAWN-1)   * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_KNIGHT << 8) + j]  =   (0 + (KNIGHT-1) * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_BISHOP << 8) + j]  =   (0 + (BISHOP-1) * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_ROOK << 8) + j]    =   (0 + (ROOK-1)   * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_QUEEN << 8) + j]   =   (0 + (QUEEN-1)  * 64 + i) * NET_H1_SIZE;
+    IMAP[(W_KING << 8) + j]    =   (0 + (KING-1)   * 64 + i) * NET_H1_SIZE;
   
-    IMAP[(B_PAWN << 8) + j]    = 384 + (PAWN-1)   * 64 + i;
-    IMAP[(B_KNIGHT << 8) + j]  = 384 + (KNIGHT-1) * 64 + i;
-    IMAP[(B_BISHOP << 8) + j]  = 384 + (BISHOP-1) * 64 + i;
-    IMAP[(B_ROOK << 8) + j]    = 384 + (ROOK-1)   * 64 + i;
-    IMAP[(B_QUEEN << 8) + j]   = 384 + (QUEEN-1)  * 64 + i;
-    IMAP[(B_KING << 8) + j]    = 384 + (KING-1)   * 64 + i;
+    IMAP[(B_PAWN << 8) + j]    = (384 + (PAWN-1)   * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_KNIGHT << 8) + j]  = (384 + (KNIGHT-1) * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_BISHOP << 8) + j]  = (384 + (BISHOP-1) * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_ROOK << 8) + j]    = (384 + (ROOK-1)   * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_QUEEN << 8) + j]   = (384 + (QUEEN-1)  * 64 + i) * NET_H1_SIZE;
+    IMAP[(B_KING << 8) + j]    = (384 + (KING-1)   * 64 + i) * NET_H1_SIZE;
   
   }
   
-  if (NET_NAME)
-    netLoad();
-  else
-    netInitWeights();
+  netLoad();
   
   //}}}
   //{{{  init nodes
@@ -5134,7 +5163,7 @@ function initOnce () {
   
   for (let p=0; p < MAX_PLY; p++) {
     for (let m=0; m < MAX_MOVES; m++) {
-      LMR_LOOKUP[(p << 7) + m] = 1 + p/5 + m/20 | 0;
+      LMR_LOOKUP[(p << 7) + m] = (1 + p/5 + m/20) | 0;
     }
   }
   
