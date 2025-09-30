@@ -1331,20 +1331,20 @@ function rootSearch (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
-          if ((move & MOVE_NOISY_MASK) === 0)
+          if ((move & MOVE_NOISY_MASK) === 0 || (move & MOVE_PROMOTE_MASK) !== 0)
             addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
           return bestScore;
         }
 
         else {
-          if ((move & MOVE_NOISY_MASK) === 0)
+          if ((move & MOVE_NOISY_MASK) === 0 || (move & MOVE_PROMOTE_MASK) !== 0)
             addHistory(Math.imul(depth,depth), bestMove);
         }
       }
     }
 
     else {
-      if ((move & MOVE_NOISY_MASK) === 0)
+      if ((move & MOVE_NOISY_MASK) === 0 || (move & MOVE_PROMOTE_MASK) !== 0)
         addHistory(-depth, move);
     }
   }
@@ -1443,7 +1443,7 @@ function search (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  const doBeta = ((pvNode === 0 && inCheck === 0 && betaMate(beta) === 0)) | 0;
+  const doBeta = ((pvNode === 0 && inCheck === 0 && beta < MINMATE)) | 0;
 
   var R = 0;
   var E = 0;
@@ -1476,8 +1476,12 @@ function search (node, depth, turn, alpha, beta) {
   //}}}
   //{{{  alpha prune
   
-  //if (pvNode === 0 && inCheck === 0 && alphaMate(alpha) === 0 && depth <= 4 && (ev + 3500) <= alpha)
-    //return ev;
+  //if (pvNode == 0 && inCheck === 0 && alpha > -MINMATE && depth <= 4 && (ev + 900 * depth) <= alpha) {
+    //const qs = qSearch(node, -1, turn, alpha, alpha + 1);
+    //if (qs <= alpha) {
+      //return qs;
+    //}
+  //}
   
   //}}}
 
@@ -1488,9 +1492,11 @@ function search (node, depth, turn, alpha, beta) {
 
   //{{{  NMP
   
+  const isPawnEG = (wCount == wCounts[PAWN]+1 && bCount == bCounts[PAWN]+1) | 0;
+  
   R = 3 + improving;
   
-  if (doBeta !== 0 && depth > 2 && ev > beta) {
+  if (doBeta !== 0 && depth > 2 && ev > beta && isPawnEG === 0) {
   
     loHash ^= loEP[bdEp];
     hiHash ^= hiEP[bdEp];
@@ -1511,7 +1517,7 @@ function search (node, depth, turn, alpha, beta) {
     uncacheB(node);
   
     if (score >= beta) {
-      if (betaMate(score) !== 0)
+      if (score > MINMATE)
         score = beta;
       return score;
     }
@@ -1560,7 +1566,7 @@ function search (node, depth, turn, alpha, beta) {
 
     //{{{  prune
     
-    const prune = (numLegalMoves > 0 && node.base < BASE_LMR && (move & KEEPER_MASK) === 0 && alphaMate(alpha) === 0) | 0;
+    const prune = (numLegalMoves > 0 && node.base < BASE_LMR && (move & KEEPER_MASK) === 0 && alpha > -MINMATE) | 0;
     
     if (doLMP !== 0 && prune !== 0 && numSlides > Math.imul(depth,5))
       continue;
@@ -1644,7 +1650,7 @@ function search (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
-          if ((move & MOVE_NOISY_MASK) === 0)
+          if ((move & MOVE_NOISY_MASK) === 0)  // thanks @arandomnoob
             addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
           return bestScore;
         }
@@ -1778,9 +1784,6 @@ function qSearch (node, depth, turn, alpha, beta) {
     uncacheB(node);
     
     //}}}
-
-    //if (statsTimeOut !== 0)
-      //return 0;
 
     if (score > alpha) {
       if (score >= beta) {
@@ -4415,24 +4418,6 @@ function addHistory (x, move) {
     (((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) << 8) +
     ((move & MOVE_TO_MASK) >>> MOVE_TO_BITS)
   ] += x;
-
-}
-
-//}}}
-//{{{  betaMate
-
-function betaMate (score) {
-
-  return (score >= MINMATE && score <= MATE) | 0;
-
-}
-
-//}}}
-//{{{  alphaMate
-
-function alphaMate (score) {
-
-  return (score <= -MINMATE && score >= -MATE) | 0;
 
 }
 
