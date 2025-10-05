@@ -11,8 +11,8 @@ const BUILD = "9";
 //
 
 const NET_LOCAL        = 0;
-const NET_NAME         = 'farm1';
-const NET_SB           = '500';
+const NET_NAME         = 'fujia';
+const NET_SB           = '750';
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
 const TTSIZE           = 1 << 23;
 const BENCH_DEPTH      = 10;
@@ -30,7 +30,7 @@ const NET_QB      = 64;
 const NET_QAB     = NET_QA * NET_QB;
 const NET_SCALE   = 400;
 const NET_I_SIZE  = 768;
-const NET_H1_SIZE = 256;
+const NET_H1_SIZE = 384;
 
 const IMAP = new Uint32Array(15 * 256);
 
