@@ -1159,7 +1159,7 @@ function go (maxPly) {
       
         report('mate',mateScore,depth);
       
-        break;
+        //break;
       }
       
       //}}}
