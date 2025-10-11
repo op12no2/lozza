@@ -1053,23 +1053,12 @@ function addKiller (node, score, move) {
     return;
   }
 
-  if (node.killer1 === move || node.killer2 === move) {
+  if (node.killer1 === move) {
     return;
   }
 
-  if (node.killer1 === 0) {
-    node.killer1 = move;
-    return;
-  }
-
-  if (node.killer2 === 0) {
-    node.killer2 = move;
-    return;
-  }
-
-  const tmp    = node.killer1;
+  node.killer2 = node.killer1;
   node.killer1 = move;
-  node.killer2 = tmp;
 
 }
 
