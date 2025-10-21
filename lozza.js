@@ -36,13 +36,13 @@ const IMAP = new Uint32Array(15 * 256);
 const MATERIAL = new Int32Array([0,100,394,388,588,1207,10000]);
 const ADJACENT = new Uint8Array(144);
 
-const MAX_PLY         = 128;                // limited by ttDepth bits
+const MAX_PLY         = 128;
 const MAX_MOVES       = 256;
 const LMR_LOOKUP      = new Uint8Array(MAX_PLY * MAX_MOVES);
-const INFINITY        = 30000;              // limited by ttScore bits
-const MATE            = 20000;
-const MINMATE         = (MATE - 2*MAX_PLY) | 0;
-const TTSCORE_UNKNOWN = MATE + 1;
+const INF             = 32000;
+const MATE            = 31000;
+const MINMATE         = 30000;
+const TTSCORE_UNKNOWN = INF + 1;
 const EMPTY           = 0;
 
 const WHITE = 0x0;
@@ -635,7 +635,7 @@ function getNextMove (node) {
         const next  = node.next;
         const num   = node.numMoves;
       
-        let maxR = -INFINITY;
+        let maxR = -INF;
         let maxI = 0;
       
         for (let i=next; i < num; i++) {
@@ -682,7 +682,7 @@ function getNextMove (node) {
         const next  = node.next;
         const num   = node.numMoves2;
       
-        let maxR = -INFINITY;
+        let maxR = -INF;
         let maxI = 0;
       
         for (let i=next; i < num; i++) {
@@ -1082,105 +1082,107 @@ function report (units, value, depth) {
 
 function go (maxPly) {
 
-  var lastScore   = 0;
-  var lastDepth   = 0;
-  var bestMoveStr = '';
-
-  var alpha = 0;
-  var beta  = 0;
-  var score = 0;
-  var delta = 0;
-  var depth = 0;
+  let bestMoveStr = '';
+  let alpha       = 0;
+  let beta        = 0;
+  let score       = 0;
+  let delta       = 0;
+  let depth       = 0;
+  let uciMove     = 0;
 
   for (let ply=1; ply <= maxPly; ply++) {
-
-    alpha = -INFINITY;
-    beta  = INFINITY;
+    //{{{  id
+    
+    alpha = -INF;
+    beta  = INF;
     delta = 10;
-
-    if (ply >= 4) {
-      alpha = Math.max(-INFINITY, score - delta);
-      beta  = Math.min(INFINITY,  score + delta);
-    }
-
     depth = ply;
-
+    
+    if (ply >= 4) {
+      alpha = Math.max(-INF, score - delta);
+      beta  = Math.min(INF,  score + delta);
+    }
+    
     while (1) {
-
+      //{{{  asp
+      
       score = rootSearch(rootNode, depth, bdTurn, alpha, beta);
-
-      if (statsTimeOut !== 0)
+      
+      if (statsTimeOut)
         break;
-
-      lastScore = score;
-      lastDepth = depth;
-
-      //{{{  better?
       
-      if (score > alpha && score < beta) {
-      
-        report('cp',score,depth);
-      
-        if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes)
-          statsTimeOut = 1;
-      
-        break;
-      }
-      
-      //}}}
-      //{{{  mate?
-      
-      if (Math.abs(score) >= MINMATE && Math.abs(score) <= MATE) {
-      
-        var mateScore = (MATE - Math.abs(score)) / 2 | 0;
-        if (score < 0)
-          mateScore = -mateScore;
-      
-        report('mate',mateScore,depth);
-      
-        //break;
-      }
-      
-      //}}}
-
       delta += delta/2 | 0;
-
-      //{{{  upper bound?
       
       if (score <= alpha) {
-      
-        beta  = Math.min(INFINITY, ((alpha + beta) / 2) | 0);
-        alpha = Math.max(-INFINITY, alpha - delta);
-      
-        report('upperbound',score,depth);
-      
+        //{{{  upper bound
+        
+        beta  = Math.min(INF, ((alpha + beta) / 2) | 0);
+        alpha = Math.max(-INF, alpha - delta);
+        
+        report('upperbound', score, depth);
+        
         if (!statsMaxNodes)
           statsBestMove = 0;
+        
+        //}}}
       }
       
-      //}}}
-      //{{{  lower bound?
-      
       else if (score >= beta) {
+        //{{{  lower bound
+        
+        beta = Math.min(INF, beta + delta);
+        
+        report('lowerbound', score, depth);
+        
+        depth = Math.max(1, depth-1);
+        
+        //}}}
+      }
       
-        beta = Math.min(INFINITY, beta + delta);
-      
-        report('lowerbound',score,depth);
-      
-        depth = Math.max(1,depth-1);
+      else {
+        //{{{  exact
+        
+        if (Math.abs(score) > MINMATE) {
+        
+          let mateScore = (MATE - Math.abs(score)) / 2 | 0;
+          if (score < 0)
+            mateScore = -mateScore;
+        
+          report('mate', mateScore, depth);
+        
+        }
+        
+        else {
+        
+          report('cp', score, depth);
+        
+        }
+        
+        if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes)
+          statsTimeOut = 1;
+        
+        break;
+        
+        //}}}
       }
       
       //}}}
     }
-
-    if (statsTimeOut !== 0)
+    
+    if (statsTimeOut)
       break;
+    else
+      uciMove = statsBestMove;
+    
+    //}}}
   }
 
-  bestMoveStr = formatMove(statsBestMove);
+  // hack if (!uciMove)
+    uciMove = statsBestMove;
 
-  //uciSend('info score cp', statsBestScore);
-  uciSend('bestmove',bestMoveStr);
+  bestMoveStr = formatMove(uciMove);
+
+  uciSend('bestmove', bestMoveStr);
 
 }
 
@@ -1207,19 +1209,19 @@ function rootSearch (node, depth, turn, alpha, beta) {
   const inCheck  = isKingAttacked(nextTurn);
   const doLMR    = (depth >= 3) | 0;
 
-  var numLegalMoves = 0;
-  var numPrunes     = 0;
-  var move          = 0;
-  var bestMove      = 0;
-  var score         = 0;
-  var bestScore     = -INFINITY;
-  var R             = 0;
-  var E             = 0;
+  let numLegalMoves = 0;
+  let numPrunes     = 0;
+  let move          = 0;
+  let bestMove      = 0;
+  let score         = 0;
+  let bestScore     = -INF;
+  let R             = 0;
+  let E             = 0;
 
   score = ttGet(node, depth, alpha, beta);  // load hash move and hash eval
 
   node.inCheck = inCheck;
-  node.ev      = node.hashEval !== INFINITY ? node.hashEval : evaluate(turn);
+  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(turn);
 
   ttUpdateEval(node.ev);
   cache(node);
@@ -1255,7 +1257,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
       uciSend('info currmove ' + formatMove(move) + ' currmovenumber ' + numLegalMoves);
     
     //}}}
-
     //{{{  extend/reduce
     
     E = 0;
@@ -1311,7 +1312,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
             addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
-          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
+          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INF);
           return bestScore;
         }
 
@@ -1328,15 +1329,17 @@ function rootSearch (node, depth, turn, alpha, beta) {
     }
   }
 
+  //{{{  update tt etc
+  
   if (numLegalMoves === 1)
     statsTimeOut = 1;  // only one legal move so don't waste any more time
-
+  
   if (numLegalMoves === 0) {
     statsTimeOut = 1;  // silly position
     statsBestMove = 0;
     statsBestScore = 0;
   }
-
+  
   if (bestScore > oAlpha) {
     ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
     return bestScore;
@@ -1345,6 +1348,8 @@ function rootSearch (node, depth, turn, alpha, beta) {
     ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
     return bestScore;
   }
+  
+  //}}}
 
 }
 
@@ -1411,7 +1416,7 @@ function search (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  var score = 0;
+  let score = 0;
 
   //{{{  try tt
   
@@ -1424,10 +1429,10 @@ function search (node, depth, turn, alpha, beta) {
 
   const doBeta = ((pvNode === 0 && inCheck === 0 && beta < MINMATE)) | 0;
 
-  var R = 0;
-  var E = 0;
+  let R = 0;
+  let E = 0;
 
-  const ev = node.hashEval !== INFINITY ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
 
   //{{{  improving
   
@@ -1455,7 +1460,7 @@ function search (node, depth, turn, alpha, beta) {
   //}}}
   //{{{  alpha prune
   
-  //if (pvNode == 0 && inCheck === 0 && alpha > -MINMATE && depth <= 4 && (ev + 900 * depth) <= alpha) {
+  // hack if (pvNode == 0 && inCheck === 0 && alpha > -MINMATE && depth <= 4 && (ev + 900 * depth) <= alpha) {
     //const qs = qSearch(node, -1, turn, alpha, alpha + 1);
     //if (qs <= alpha) {
       //return qs;
@@ -1517,11 +1522,11 @@ function search (node, depth, turn, alpha, beta) {
   const doLMP  = (pvNode === 0 && inCheck === 0 && depth <= 2) | 0;
   const doIIR  = (node.hashMove === 0 && pvNode !== 0 && depth > 3) | 0;
 
-  var bestScore     = -INFINITY;
-  var move          = 0;
-  var bestMove      = 0;
-  var numLegalMoves = 0;
-  var numPrunes     = 0;
+  let bestScore     = -INF;
+  let move          = 0;
+  let bestMove      = 0;
+  let numLegalMoves = 0;
+  let numPrunes     = 0;
 
   //{{{  IIR
   //
@@ -1698,12 +1703,12 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (isDraw() !== 0)
     return 0;
 
-  var score = ttGet(node, 0, alpha, beta);  // sets/clears node.hashMove and node.hashEval
+  let score = ttGet(node, 0, alpha, beta);  // sets/clears node.hashMove and node.hashEval
 
   if (score !== TTSCORE_UNKNOWN)
     return score;
 
-  const ev = node.hashEval !== INFINITY ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
 
   if (ev >= beta)
     return ev;
@@ -1718,8 +1723,8 @@ function qSearch (node, depth, turn, alpha, beta) {
 
   statsNodes++;
 
-  var numLegalMoves = 0;
-  var move          = 0;
+  let numLegalMoves = 0;
+  let move          = 0;
 
   while ((move = getNextMove(node)) !== 0) {
 
@@ -1790,8 +1795,8 @@ function perft (node, depth, turn) {
   const nextTurn = turn ^ COLOR_MASK;
   const inCheck  = isKingAttacked(nextTurn);
 
-  var totalNodes = 0;
-  var move       = 0;
+  let totalNodes = 0;
+  let move       = 0;
 
   node.inCheck = inCheck;
 
@@ -2545,7 +2550,7 @@ function ttGet (node, depth, alpha, beta) {
   const type  = ttType[idx];
 
   node.hashMove = 0;
-  node.hashEval = INFINITY;
+  node.hashEval = INF;
 
   if (type === TT_EMPTY)
     return TTSCORE_UNKNOWN;
