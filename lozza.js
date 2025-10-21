@@ -14,8 +14,7 @@ const NET_LOCAL        = 0;
 const NET_NAME         = 'fujia';
 const NET_SB           = '750';
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
-const TTSIZE           = 1 << 23;
-const BENCH_DEPTH      = 10;
+const BENCH_DEPTH      = 11;
 
 //}}}
 //{{{  constants
@@ -37,11 +36,6 @@ const IMAP = new Uint32Array(15 * 256);
 const MATERIAL = new Int32Array([0,100,394,388,588,1207,10000]);
 const ADJACENT = new Uint8Array(144);
 
-ADJACENT[1]  = 1;
-ADJACENT[11] = 1;
-ADJACENT[12] = 1;
-ADJACENT[13] = 1;
-
 const MAX_PLY         = 128;                // limited by ttDepth bits
 const MAX_MOVES       = 256;
 const LMR_LOOKUP      = new Uint8Array(MAX_PLY * MAX_MOVES);
@@ -58,27 +52,24 @@ const PIECE_MASK  = 0x7;
 const COLOR_MASK  = 0x8;
 const COLOUR_MASK = 0x8;
 
-const TTMASK = TTSIZE - 1;
-
 const TT_EMPTY = 0;
 const TT_EXACT = 1;
 const TT_BETA  = 2;
 const TT_ALPHA = 3;
 
 const BASE_HASH       = UINT32_MAX;
-const BASE_PROMOTES   = BASE_HASH       - 100;
+const BASE_PROMOTES   = BASE_HASH       - 1000;
 const BASE_GOODTAKES  = BASE_PROMOTES   - 1000;
 const BASE_EVENTAKES  = BASE_GOODTAKES  - 1000;
-const BASE_EPTAKES    = BASE_EVENTAKES  - 100;
-const BASE_MATEKILLER = BASE_EPTAKES    - 100;
-const BASE_MYKILLERS  = BASE_MATEKILLER - 100;
-const BASE_GPKILLERS  = BASE_MYKILLERS  - 100;
-const BASE_CASTLING   = BASE_GPKILLERS  - 100;
+const BASE_EPTAKES    = BASE_EVENTAKES  - 1000;
+const BASE_MATEKILLER = BASE_EPTAKES    - 1000;
+const BASE_MYKILLERS  = BASE_MATEKILLER - 1000;
+const BASE_GPKILLERS  = BASE_MYKILLERS  - 1000;
+const BASE_CASTLING   = BASE_GPKILLERS  - 1000;
 const BASE_BADTAKES   = BASE_CASTLING   - 1000;
-const BASE_HISSLIDE   = UINT32_MAX >>> 1;
+const BASE_HISSLIDE   = (UINT32_MAX >>> 1) - 10000;
 const BASE_SLIDE      = 100;
-
-const BASE_LMR = BASE_BADTAKES;
+const BASE_PRUNABLE   = BASE_BADTAKES;
 
 const MOVE_TO_BITS     = 0;
 const MOVE_FR_BITS     = 8;
@@ -99,7 +90,6 @@ const MOVE_PROMAS_MASK  = 0x60000000;  // NBRQ
 
 const MOVE_CLEAN_MASK   = (~MOVE_LEGAL_MASK & 0xFFFFFFFF) | 0;
 const MOVE_SPECIAL_MASK = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK; // need extra work in make move
-const KEEPER_MASK       = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility etc
 const MOVE_NOISY_MASK   = MOVE_TOOBJ_MASK | MOVE_EPTAKE_MASK;
 
 const PAWN   = 1;
@@ -538,7 +528,7 @@ function nodeStruct () {
   this.stage       = 0;
   this.numMoves    = 0;
   this.numMoves2   = 0;
-  this.sortedIndex = 0;
+  this.next        = 0;
   this.hashMove    = 0;
   this.hashEval    = 0;
   this.base        = 0;
@@ -570,14 +560,14 @@ function nodeStruct () {
 
 function initNode (node) {
 
-  node.killer1     = 0;
-  node.killer2     = 0;
-  node.mateKiller  = 0;
-  node.numMoves    = 0;
-  node.sortedIndex = 0;
-  node.hashMove    = 0;
-  node.base        = 0;
-  node.inCheck     = 0;
+  node.killer1    = 0;
+  node.killer2    = 0;
+  node.mateKiller = 0;
+  node.numMoves   = 0;
+  node.next       = 0;
+  node.hashMove   = 0;
+  node.base       = 0;
+  node.inCheck    = 0;
 
   node.toZ = 0;
   node.frZ = 0;
@@ -636,13 +626,13 @@ function getNextMove (node) {
     case 0: {
       //{{{  node.moves
       
-      if (node.sortedIndex !== node.numMoves) {
+      if (node.next !== node.numMoves) {
       
         let maxM = 0;
       
         const moves = node.moves;
         const ranks = node.ranks;
-        const next  = node.sortedIndex;
+        const next  = node.next;
         const num   = node.numMoves;
       
         let maxR = -INFINITY;
@@ -662,7 +652,7 @@ function getNextMove (node) {
       
         node.base = maxR;
       
-        node.sortedIndex++;
+        node.next++;
       
         return maxM;
       
@@ -671,7 +661,7 @@ function getNextMove (node) {
       else {
       
         node.stage++;
-        node.sortedIndex = 0;
+        node.next = 0;
       
         rankSlides(node);
       
@@ -683,13 +673,13 @@ function getNextMove (node) {
     case 1: {
       //{{{  node.moves2
       
-      if (node.sortedIndex !== node.numMoves2) {
+      if (node.next !== node.numMoves2) {
       
         let maxM = 0;
       
         const moves = node.moves2;
         const ranks = node.ranks2;
-        const next  = node.sortedIndex;
+        const next  = node.next;
         const num   = node.numMoves2;
       
         let maxR = -INFINITY;
@@ -709,7 +699,7 @@ function getNextMove (node) {
       
         node.base = maxR;
       
-        node.sortedIndex++;
+        node.next++;
       
         return maxM;
       
@@ -1081,7 +1071,7 @@ function report (units, value, depth) {
 
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
   const scoreStr = 'score ' + units + ' ' + value;
-  const hashStr  = 'hashfull ' + (1000 * ttHashUsed / TTSIZE | 0);
+  const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 
@@ -1218,7 +1208,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
   const doLMR    = (depth >= 3) | 0;
 
   var numLegalMoves = 0;
-  var numSlides     = 0;
+  var numPrunes     = 0;
   var move          = 0;
   var bestMove      = 0;
   var score         = 0;
@@ -1256,8 +1246,8 @@ function rootSearch (node, depth, turn, alpha, beta) {
     makeMoveB();
 
     numLegalMoves++;
-    if (node.base < BASE_LMR)
-      numSlides++;
+    if (node.base <= BASE_PRUNABLE)
+      numPrunes++;
 
     //{{{  send current move to UCI?
     
@@ -1276,7 +1266,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     }
     
     else if (doLMR !== 0 && numLegalMoves > 4) {
-      R = LMR_LOOKUP[(depth << 7) + numSlides];
+      R = LMR_LOOKUP[(depth << 7) + numPrunes];
     }
     
     //}}}
@@ -1319,21 +1309,21 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
-          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
-          if ((move & MOVE_NOISY_MASK) === 0 || (move & MOVE_PROMOTE_MASK) !== 0)
+          if ((move & MOVE_NOISY_MASK) === 0)
             addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
+          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
           return bestScore;
         }
 
         else {
-          if ((move & MOVE_NOISY_MASK) === 0 || (move & MOVE_PROMOTE_MASK) !== 0)
+          if ((move & MOVE_NOISY_MASK) === 0)
             addHistory(Math.imul(depth,depth), bestMove);
         }
       }
     }
 
     else {
-      if ((move & MOVE_NOISY_MASK) === 0 || (move & MOVE_PROMOTE_MASK) !== 0)
+      if ((move & MOVE_NOISY_MASK) === 0)
         addHistory(-depth, move);
     }
   }
@@ -1531,7 +1521,7 @@ function search (node, depth, turn, alpha, beta) {
   var move          = 0;
   var bestMove      = 0;
   var numLegalMoves = 0;
-  var numSlides     = 0;
+  var numPrunes     = 0;
 
   //{{{  IIR
   //
@@ -1555,9 +1545,9 @@ function search (node, depth, turn, alpha, beta) {
 
     //{{{  prune
     
-    const prune = (numLegalMoves > 0 && node.base < BASE_LMR && (move & KEEPER_MASK) === 0 && alpha > -MINMATE) | 0;
+    const prune = (numLegalMoves > 0 && node.base <= BASE_PRUNABLE && alpha > -MINMATE) | 0;
     
-    if (doLMP !== 0 && prune !== 0 && numSlides > Math.imul(depth,5))
+    if (doLMP !== 0 && prune !== 0 && numPrunes > Math.imul(depth,5))
       continue;
     
     if (doFP !== 0 && prune !== 0 && (ev + Math.imul(depth,120)) < alpha)
@@ -1584,8 +1574,8 @@ function search (node, depth, turn, alpha, beta) {
     makeMoveB();
 
     numLegalMoves++;
-    if (node.base < BASE_LMR)
-      numSlides++;
+    if (node.base <= BASE_PRUNABLE)
+      numPrunes++;
 
     //{{{  extend/reduce
     
@@ -1597,7 +1587,7 @@ function search (node, depth, turn, alpha, beta) {
     }
     
     else if (doLMR !== 0 && numLegalMoves > 4) {
-      R = LMR_LOOKUP[(depth << 7) + numSlides];
+      R = LMR_LOOKUP[(depth << 7) + numPrunes];
     }
     
     //}}}
@@ -1638,9 +1628,9 @@ function search (node, depth, turn, alpha, beta) {
 
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
-          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
-          if ((move & MOVE_NOISY_MASK) === 0)  // thanks @arandomnoob
+          if ((move & MOVE_NOISY_MASK) === 0)
             addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
+          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
           return bestScore;
         }
 
@@ -2469,21 +2459,58 @@ for (let i=0; i < 144; i++) {
 //}}}
 //{{{  tt
 
-const ttLo    = new Int32Array(TTSIZE);
-const ttHi    = new Int32Array(TTSIZE);
-const ttType  = new Uint8Array(TTSIZE);
-const ttDepth = new Int8Array(TTSIZE);
-const ttMove  = new Uint32Array(TTSIZE);
-const ttEval  = new Int16Array(TTSIZE);
-const ttScore = new Int16Array(TTSIZE);
+let ttDefault = 16;  // mb
+let ttSize    = 1;
+let ttMask    = 0;
+
+let ttLo    = new Int32Array(ttSize);
+let ttHi    = new Int32Array(ttSize);
+let ttType  = new Uint8Array(ttSize);
+let ttDepth = new Int8Array(ttSize);
+let ttMove  = new Uint32Array(ttSize);
+let ttEval  = new Int16Array(ttSize);
+let ttScore = new Int16Array(ttSize);
+//                   ===
+const ttWidth =      18;
+//                   ===
 
 let ttHashUsed = 0;
 
+//{{{  ttResize
+
+function ttResize(N_MB) {
+
+  const bytesPerEntry  = ttWidth;
+  const requestedBytes = N_MB * 1024 * 1024;
+  const entriesNeeded  = requestedBytes / bytesPerEntry;
+  const pow2           = Math.ceil(Math.log2(entriesNeeded));
+
+  ttSize = 1 << pow2;
+  ttMask = ttSize - 1;
+
+  ttLo    = new Int32Array(ttSize);
+  ttHi    = new Int32Array(ttSize);
+  ttType  = new Uint8Array(ttSize);
+  ttDepth = new Int8Array(ttSize);
+  ttMove  = new Uint32Array(ttSize);
+  ttEval  = new Int16Array(ttSize);
+  ttScore = new Int16Array(ttSize);
+
+  const sm   = silentMode;
+  silentMode = 0;
+
+  uciSend('info tt bits', pow2, 'entries', ttSize, '(0x' + ttSize.toString(16) + ')', 'mb', ttWidth * ttSize);
+
+  silentMode = sm;
+
+}
+
+//}}}
 //{{{  ttPut
 
 function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
 
-  const idx = loHash & TTMASK;
+  const idx = loHash & ttMask;
 
   if (depth === 0 && ttType[idx] !== TT_EMPTY && ttDepth[idx] > 0)
     return;
@@ -2514,7 +2541,7 @@ function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
 
 function ttGet (node, depth, alpha, beta) {
 
-  const idx   = loHash & TTMASK;
+  const idx   = loHash & ttMask;
   const type  = ttType[idx];
 
   node.hashMove = 0;
@@ -2568,7 +2595,7 @@ function ttGet (node, depth, alpha, beta) {
 
 function ttUpdateEval (ev) {
 
-  const idx = loHash & TTMASK;
+  const idx = loHash & ttMask;
 
   if (ttType[idx] !== TT_EMPTY && ttLo[idx] === loHash && ttHi[idx] === hiHash)
     ttEval[idx] = ev;
@@ -2626,6 +2653,18 @@ const repHiHash = new Int32Array(1024);
 
 //}}}
 
+//{{{  newGame
+
+function newGame() {
+
+  if (ttSize == 1)
+    ttResize(ttDefault);
+
+  ttInit();
+
+}
+
+//}}}
 //{{{  position
 
 function position (bd, turn, rights, ep, moves) {
@@ -2854,10 +2893,10 @@ function position (bd, turn, rights, ep, moves) {
 
 function genMoves (node, turn) {
 
-  node.stage       = 0;
-  node.numMoves    = 0;
-  node.numMoves2   = 0;
-  node.sortedIndex = 0;
+  node.stage     = 0;
+  node.numMoves  = 0;
+  node.numMoves2 = 0;
+  node.next      = 0;
 
   const b = bdB;
   const inCheck = node.inCheck;
@@ -3272,10 +3311,10 @@ function genMoves (node, turn) {
 
 function genQMoves (node, turn) {
 
-  node.stage       = 0;
-  node.numMoves    = 0;
-  node.numMoves2   = 0;
-  node.sortedIndex = 0;
+  node.stage     = 0;
+  node.numMoves  = 0;
+  node.numMoves2 = 0;
+  node.next      = 0;
 
   const b = bdB;
 
@@ -4401,12 +4440,12 @@ function quickSee (turn, move) {
 //}}}
 //{{{  addHistory
 
-function addHistory (x, move) {
+function addHistory (bonus, move) {
 
-  objHistory[
-    (((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) << 8) +
-    ((move & MOVE_TO_MASK) >>> MOVE_TO_BITS)
-  ] += x;
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+
+  objHistory[(frObj << 8) + to] += bonus;
 
 }
 
@@ -4603,8 +4642,10 @@ function uciGetInt (tokens, key, def) {
 
 function uciGetStr (tokens, key, def) {
 
+  const lkey = key.toLowerCase();
+
   for (let i=0; i < tokens.length; i++)
-    if (tokens[i] == key)
+    if (tokens[i].toLowerCase() == key)
       if (i < tokens.length - 1)
         return tokens[i+1];
 
@@ -4673,6 +4714,11 @@ function uciExec (commands) {
       case 'p': {
         //{{{  position
         
+        if (ttSize == 1) {
+          uciSend('info do a ucinewgame or setoption name hash command first');
+          break;
+        }
+        
         let bd     = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
         let turn   = 'w';
         let rights = 'KQkq';
@@ -4706,6 +4752,17 @@ function uciExec (commands) {
       case 'go':
       case 'g': {
         //{{{  go
+        
+        if (ttSize == 1) {
+          uciSend('info do a ucinewgame or setoption name hash command first');
+          break;
+        }
+        
+        if (bdB[0] !== EDGE) {
+          uciSend('info do a position command first');
+          break;
+        }
+        
         
         initStats();
         
@@ -4768,7 +4825,28 @@ function uciExec (commands) {
       case 'u': {
         //{{{  ucinewgame
         
-        ttInit();
+        newGame();
+        
+        break;
+        
+        //}}}
+      }
+
+      case 'setoption':
+      case 'o': {
+        //{{{  setoption
+        
+        const opt = uciGetStr(tokens, 'name', '');
+        
+        if (opt == 'hash') {
+        
+          const mb = Math.max(uciGetInt(tokens, 'value', ttDefault), 1);
+        
+          console.log(mb);
+        
+          ttResize(mb);
+        
+        }
         
         break;
         
@@ -4799,6 +4877,7 @@ function uciExec (commands) {
         
         uciSend('id name Lozza', BUILD);
         uciSend('id author Colin Jenkins');
+        uciSend('option name Hash type spin default', ttDefault, 'min 1 max 1024');
         uciSend('uciok');
         
         break;
@@ -4874,7 +4953,7 @@ function uciExec (commands) {
         
             const fen = BENCHFENS[i];
         
-            uciExec('ucinewgame');
+            newGame();
             uciExec('position fen ' + fen);
             uciExec('id bench' + i);
             uciExec('go depth ' + depth);
@@ -4894,7 +4973,7 @@ function uciExec (commands) {
         
           process.stdout.write(i.toString() + '\r');
         
-          uciExec('ucinewgame');
+          newGame();
           uciExec('position fen ' + fen);
           uciExec('id bench' + i);
           uciExec('go depth ' + depth);
@@ -4925,7 +5004,6 @@ function uciExec (commands) {
         //}}}
       }
 
-
       case 'pt': {
         //{{{  perft tests
         
@@ -4947,7 +5025,7 @@ function uciExec (commands) {
           const moves = p[2];
           const id    = p[3];
         
-          uciExec('ucinewgame');
+          newGame();
           uciExec('position ' + fen);
         
           const nodes = perft(rootNode, depth, bdTurn);
@@ -4991,14 +5069,14 @@ function uciExec (commands) {
         
           const fen = BENCHFENS[i];
         
-          uciExec('ucinewgame');
+          newGame();
           uciExec('position fen ' + fen);
           uciSend(fen, 'fen')
           uciExec('e');
         
           const flippedFen = flipFen(fen);
         
-          uciExec('ucinewgame');
+          newGame();
           uciExec('position fen ' + flippedFen);
           uciSend(flippedFen, 'flipped fen')
           uciExec('e');
@@ -5099,6 +5177,14 @@ let randomEval = 0;
 
 function initOnce () {
 
+  //{{{  init ADJACENT
+  
+  ADJACENT[1]  = 1;
+  ADJACENT[11] = 1;
+  ADJACENT[12] = 1;
+  ADJACENT[13] = 1;
+  
+  //}}}
   //{{{  init net
   //
   // IMAP is used to map a piece+colour to an offset in the flat weights array.
