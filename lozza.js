@@ -11,10 +11,10 @@ const BUILD = "9";
 //
 
 const NET_LOCAL        = 0;
-const NET_NAME         = 'fujia';
-const NET_SB           = '750';
+const NET_NAME         = 'farm1';
+const NET_SB           = '500';
 const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
-const BENCH_DEPTH      = 11;
+const BENCH_DEPTH      = 12;
 
 //}}}
 //{{{  constants
@@ -29,7 +29,7 @@ const NET_QB      = 64;
 const NET_QAB     = NET_QA * NET_QB;
 const NET_SCALE   = 400;
 const NET_I_SIZE  = 768;
-const NET_H1_SIZE = 384;
+const NET_H1_SIZE = 256;
 
 const IMAP = new Uint32Array(15 * 256);
 
@@ -950,12 +950,12 @@ function addEPTake (node, move) {
   const m = move & MOVE_CLEAN_MASK;
 
   if ((m | MOVE_EPTAKE_MASK) === node.hashMove) {
-    node.moves[node.numMoves]   = move | MOVE_EPTAKE_MASK;
+    node.moves[node.numMoves]   = move;
     node.ranks[node.numMoves++] = BASE_HASH;
   }
 
   else {
-    node.moves[node.numMoves]   = move | MOVE_EPTAKE_MASK;
+    node.moves[node.numMoves]   = move;
     node.ranks[node.numMoves++] = BASE_EPTAKES;
   }
 
@@ -1043,12 +1043,23 @@ function addKiller (node, score, move) {
     return;
   }
 
-  if (node.killer1 === move) {
+  if (node.killer1 === move || node.killer2 === move) {
     return;
   }
 
-  node.killer2 = node.killer1;
+  if (node.killer1 === 0) {
+    node.killer1 = move;
+    return;
+  }
+
+  if (node.killer2 === 0) {
+    node.killer2 = move;
+    return;
+  }
+
+  const tmp    = node.killer1;
   node.killer1 = move;
+  node.killer2 = tmp;
 
 }
 
@@ -1088,7 +1099,6 @@ function go (maxPly) {
   let score       = 0;
   let delta       = 0;
   let depth       = 0;
-  let uciMove     = 0;
 
   for (let ply=1; ply <= maxPly; ply++) {
     //{{{  id
@@ -1171,16 +1181,11 @@ function go (maxPly) {
     
     if (statsTimeOut)
       break;
-    else
-      uciMove = statsBestMove;
     
     //}}}
   }
 
-  // hack if (!uciMove)
-    uciMove = statsBestMove;
-
-  bestMoveStr = formatMove(uciMove);
+  bestMoveStr = formatMove(statsBestMove);
 
   uciSend('bestmove', bestMoveStr);
 
@@ -1311,14 +1316,14 @@ function rootSearch (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
-            addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
+            addHistory(Math.imul(Math.imul(depth, depth), depth), bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INF);
           return bestScore;
         }
 
         else {
           if ((move & MOVE_NOISY_MASK) === 0)
-            addHistory(Math.imul(depth,depth), bestMove);
+            addHistory(Math.imul(depth, depth), bestMove);
         }
       }
     }
@@ -1454,7 +1459,7 @@ function search (node, depth, turn, alpha, beta) {
   //}}}
   //{{{  beta prune
   
-  if (doBeta !== 0 && depth <= 8 && (ev - Math.imul(depth,100)) >= (beta - improving * 50))
+  if (doBeta !== 0 && depth <= 8 && (ev - Math.imul(depth, 100)) >= (beta - Math.imul(improving, 50)))
     return ev;
   
   //}}}
@@ -1476,11 +1481,11 @@ function search (node, depth, turn, alpha, beta) {
 
   //{{{  NMP
   
-  const isPawnEG = (wCount == wCounts[PAWN]+1 && bCount == bCounts[PAWN]+1) | 0;
+  //const isPawnEG = (wCount == wCounts[PAWN]+1 && bCount == bCounts[PAWN]+1) | 0;
   
-  R = 3 + improving;
+  if (doBeta !== 0 && depth > 2 && ev > beta) {
   
-  if (doBeta !== 0 && depth > 2 && ev > beta && isPawnEG === 0) {
+    R = 3 + improving;
   
     loHash ^= loEP[bdEp];
     hiHash ^= hiEP[bdEp];
@@ -1498,7 +1503,7 @@ function search (node, depth, turn, alpha, beta) {
     score = -search(node.childNode, depth-R-1, nextTurn, -beta, -beta+1);
   
     uncacheA(node);
-    uncacheB(node);
+    //uncacheB(node);
   
     if (score >= beta) {
       if (score > MINMATE)
@@ -1509,10 +1514,6 @@ function search (node, depth, turn, alpha, beta) {
     if (statsTimeOut !== 0)
       return 0;
   }
-  
-  R = 0;
-  
-  node.pvLen = 0;
   
   //}}}
 
@@ -1552,10 +1553,10 @@ function search (node, depth, turn, alpha, beta) {
     
     const prune = (numLegalMoves > 0 && node.base <= BASE_PRUNABLE && alpha > -MINMATE) | 0;
     
-    if (doLMP !== 0 && prune !== 0 && numPrunes > Math.imul(depth,5))
+    if (doLMP !== 0 && prune !== 0 && numPrunes > Math.imul(depth, 5))
       continue;
     
-    if (doFP !== 0 && prune !== 0 && (ev + Math.imul(depth,120)) < alpha)
+    if (doFP !== 0 && prune !== 0 && (ev + Math.imul(depth, 120)) < alpha)
       continue;
     
     //}}}
@@ -1634,14 +1635,14 @@ function search (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
-            addHistory(Math.imul(Math.imul(depth,depth),depth), bestMove);
+            addHistory(Math.imul(Math.imul(depth, depth), depth), bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
           return bestScore;
         }
 
         else {
           if ((move & MOVE_NOISY_MASK) === 0)
-            addHistory(Math.imul(depth,depth), bestMove);
+            addHistory(Math.imul(depth, depth), bestMove);
         }
       }
     }
@@ -2013,7 +2014,8 @@ function collectPV(node, move) {
   const cNode = node.childNode;
 
   node.pv.set(cNode.pv.subarray(0, cNode.pvLen), 0);
-  node.pvLen = cNode.pvLen;
+
+  node.pvLen            = cNode.pvLen;
   node.pv[node.pvLen++] = move;
 
 }
@@ -2051,9 +2053,9 @@ function netEval(turn) {
   const a  = net_a[turn >>> 3];
   const a1 = a[0];
   const a2 = a[1];
-  const N = NET_H1_SIZE | 0;
+  const N  = NET_H1_SIZE | 0;
 
-  let e = 0 | 0;
+  let e  = 0 | 0;
   let p1 = 0 | 0;
   let p2 = N | 0;
 
@@ -2171,7 +2173,7 @@ function netMove () {
 
   const N = NET_H1_SIZE | 0;
 
-  let h = 0;
+  let h  = 0;
   let p1 = map[frObj + from] | 0;
   let p2 = map[frObj + to]   | 0;
 
@@ -2199,7 +2201,7 @@ function netCapture () {
 
   const N = NET_H1_SIZE | 0;
 
-  let h = 0;
+  let h  = 0;
   let p1 = map[frObj + fr] | 0;
   let p2 = map[toObj + to] | 0;
   let p3 = map[frObj + to] | 0;
@@ -2229,7 +2231,7 @@ function netPromote () {
 
   const N = NET_H1_SIZE | 0;
 
-  let h = 0;
+  let h  = 0;
   let p1 = map[pawnObj    + pawnFr] | 0;
   let p2 = map[promoteObj + pawnTo] | 0;
 
@@ -2268,7 +2270,7 @@ function netEpCapture () {
 
   const N = NET_H1_SIZE | 0;
 
-  let h = 0;
+  let h  = 0;
   let p1 = map[pawnObj        + pawnFr] | 0;
   let p2 = map[pawnObj        + pawnTo] | 0;
   let p3 = map[pawnCaptureObj + ep] | 0;
@@ -2299,7 +2301,7 @@ function netCastle () {
 
   const N = NET_H1_SIZE | 0;
 
-  let h = 0;
+  let h  = 0;
   let p1 = map[kingObj + kingFr] | 0;
   let p2 = map[kingObj + kingTo] | 0;
   let p3 = map[rookObj + rookFr] | 0;
@@ -3022,7 +3024,7 @@ function genMoves (node, turn) {
         }
         
         else if (toObj === 0 && to === bdEp)
-          addEPTake(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+          addEPTake(node, frMove | (toObj << MOVE_TOOBJ_BITS) | to | MOVE_EPTAKE_MASK);
         
         //}}}
         //{{{  diag2
@@ -3039,7 +3041,7 @@ function genMoves (node, turn) {
         }
         
         else if (toObj === 0 && to === bdEp)
-          addEPTake(node, frMove | to);
+          addEPTake(node, frMove | to | MOVE_EPTAKE_MASK);
         
         //}}}
         
@@ -4299,48 +4301,6 @@ function evaluate (turn) {
 }
 
 //}}}
-//{{{  hashCheck
-
-function hashCheck (turn) {
-
-  var loH = 0;
-  var hiH = 0;
-
-  if (turn) {
-    loH ^= loTurn;
-    hiH ^= hiTurn;
-  }
-
-  loH ^= loRights[bdRights];
-  hiH ^= hiRights[bdRights];
-
-  loH ^= loEP[bdEp];
-  hiH ^= hiEP[bdEp];
-
-  for (var sq=0; sq<144; sq++) {
-
-    var obj = bdB[sq];
-
-    if (obj === 0 || obj === EDGE)
-      continue;
-
-    var piece = obj & PIECE_MASK;
-    var col   = obj & COLOR_MASK;
-
-    loH ^= loObjPieces[(obj << 8) + sq];
-    hiH ^= hiObjPieces[(obj << 8) + sq];
-
-  }
-
-  if (loH !== loHash)
-    console.log('*************** LO',loH,loHash);
-
-  if (hiH !== hiHash)
-    console.log('*************** HI',hiH,hiHash);
-
-}
-
-//}}}
 //{{{  formatFen
 
 function formatFen (turn) {
@@ -4557,6 +4517,86 @@ function flipFen (fen) {
 
   return newFen;
 };
+
+//}}}
+//{{{  boardCheck
+
+function boardCheck (turn) {
+
+  const a1 = new Int32Array(NET_H1_SIZE);
+  const a2 = new Int32Array(NET_H1_SIZE);
+
+  //{{{  hash
+  
+  var loH = 0;
+  var hiH = 0;
+  
+  if (turn) {
+    loH ^= loTurn;
+    hiH ^= hiTurn;
+  }
+  
+  loH ^= loRights[bdRights];
+  hiH ^= hiRights[bdRights];
+  
+  loH ^= loEP[bdEp];
+  hiH ^= hiEP[bdEp];
+  
+  for (var sq=0; sq<144; sq++) {
+  
+    var obj = bdB[sq];
+  
+    if (obj === 0 || obj === EDGE)
+      continue;
+  
+    var piece = obj & PIECE_MASK;
+    var col   = obj & COLOR_MASK;
+  
+    loH ^= loObjPieces[(obj << 8) + sq];
+    hiH ^= hiObjPieces[(obj << 8) + sq];
+  
+  }
+  
+  if (loH !== loHash)
+    console.log('*************** LO',loH,loHash);
+  
+  if (hiH !== hiHash)
+    console.log('*************** HI',hiH,hiHash);
+  
+  //}}}
+  //{{{  accumulators
+  
+  a1.set(net_h1_b);
+  a2.set(net_h1_b);
+  
+  for (let sq=0; sq < 64; sq++) {
+  
+    const fr    = B88[sq];
+    const frObj = bdB[fr];
+  
+    if (frObj === 0)
+      continue;
+  
+    const off1 = IMAP[(frObj << 8) + fr];
+  
+    for (let h=0; h < NET_H1_SIZE; h++) {
+      const idx1 = off1 + h;
+      a1[h] += net_h1_w_flat[idx1];
+      a2[h] += net_h2_w_flat[idx1];
+    }
+  
+  }
+  
+  for (let i=0; i < NET_H1_SIZE; i++) {
+    if (a1[i] !== net_h1_a[i])
+      console.log('****** A1', i, a1[i], net_h1_a[i]);
+    if (a2[i] !== net_h2_a[i])
+      console.log('****** A2', i, a2[i], net_h2_a[i]);
+  }
+  
+  //}}}
+
+}
 
 //}}}
 
