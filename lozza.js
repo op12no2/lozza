@@ -4881,7 +4881,7 @@ function uciExec (commands) {
       case 'o': {
         //{{{  setoption
         
-        const opt = uciGetStr(tokens, 'name', '');
+        const opt = uciGetStr(tokens, 'name', '').toLowerCase();
         
         if (opt == 'hash') {
         
