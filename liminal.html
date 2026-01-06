@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liminal</title>
+  <link rel="stylesheet" href="liminal.css?next=9">
+</head>
+<body>
+  <div class="top-bar"><span id="status-text"></span>
+    <div style="margin-left: auto; display: flex; align-items: center;">
+      <div id="btn-play"> </div>
+      <div id="btn-stop"> </div>
+      <div id="btn-open"> </div>
+      <div id="btn-save"> </div>
+      <div id="btn-settings"> </div>
+      <div id="btn-help"> </div>
+      <div id="btn-midi"> </div>
+    </div>
+  </div>
+  <div class="main-content">
+    <div class="canvas-area">
+      <canvas id="seq-canvas"></canvas>
+    </div> 
+    <div class="inspector-panel">
+      <div class="inspector-section">
+        <div class="inspector-title" id="inspector-title">Liminal</div>
+      </div>
+      <div class="inspector-section">
+        <div id="row1-container" class="knob-row">Ctrl/Cmd + click<br>to drop notes.</div>
+        <div id="row2-container" class="knob-row">Double-click a note<br>to make it a lead-in<br>note (grey).</div>
+        <div id="row3-container" class="knob-row">Ctrl/Cmd + click note<br>and drag to another<br>note to link.</div>
+        <div id="row4-container" class="knob-row">UNRELEASED PREVIEW</div>
+      </div>
+    </div>
+  </div>
+  <script src="theme.js?next=9"></script>
+  <script src="globals.js?next=9"></script>
+  <script src="ui.js?next=9"></script>
+  <script src="note.js?next=9"></script>
+  <script src="node.js?next=9"></script>
+  <script src="canvas.js?next=9"></script>
+  <script src="button.js?next=9"></script>
+  <script src="knob.js?next=9"></script>
+  <script src="midi.js?next=9"></script>
+  <script src="inspector.js?next=9"></script>
+  <script src="io.js?next=9"></script>
+  <script src="liminal.js?next=9"></script>
+  <script src="init.js?next=9"></script>
+</body>
+</html>
+
