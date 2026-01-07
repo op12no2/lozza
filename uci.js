@@ -1,19 +1,4 @@
-function execString (cmd) {
-  const tokens = cmd.trim().split(/\s+/).filter(t => t.length > 0);
-  if (tokens.length > 0) {
-    execTokens(tokens);
-  }
-}
-
-function execTokens(tokens) {
-  switch (tokens[0]) {
-    case 'uci':
-      uci.write('id name Lozza 8');
-      uci.write('id author Colin Jenkins');
-      uci.write('uciok');
-      break;
-  }
-}// 60-uci.js
+// 60-uci.js
 
 const uci = {};
 
