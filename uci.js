@@ -95,12 +95,3 @@ function uciRead(callback) {
   }
 }
 
-uciRead(function(data) {
-  const cmd = data.trim().toLowerCase();
-  if (cmd === 'quit' || cmd === 'q') {
-    uciQuit();
-  }
-  else {
-    execString(data);
-  }
-});

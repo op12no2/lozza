@@ -14,33 +14,46 @@ function makeMove(move, pos) {
   pos.board[to] = pos.board[from];
   pos.board[from] = 0;
 
-  const piece = pos.board[to];
-  if ((piece & 7) === KING) {
-    pos.kings[(piece & BLACK) >> 3] = to;
-    // castling - king moved 2 squares
-    const delta = to - from;
-    if (delta === 2) {  // kingside
-      pos.board[to - 1] = pos.board[to + 1];
-      pos.board[to + 1] = 0;
-    }
-    else if (delta === -2) {  // queenside
-      pos.board[to + 1] = pos.board[to - 2];
-      pos.board[to - 2] = 0;
-    }
-  }
+  let piece = pos.board[to];
+  const type = piece & 7;
 
-  // ep capture - remove the captured pawn
-  if (move & MOVE_FLAG_EPCAPTURE) {
-    const capSq = pos.stm === WHITE ? to - 16 : to + 16;
-    pos.board[capSq] = 0;
-  }
-
-  // set ep square for double pawn push
-  if (move & MOVE_FLAG_EPMAKE) {
-    pos.ep = pos.stm === WHITE ? to - 16 : to + 16;
+  if (type === PAWN) {
+    if (move & MOVE_FLAG_EPMAKE) {
+      // double push - set ep square
+      pos.ep = pos.stm === WHITE ? to - 16 : to + 16;
+    }
+    else if (move & MOVE_FLAG_EPCAPTURE) {
+      // ep capture - remove the captured pawn
+      const capSq = pos.stm === WHITE ? to - 16 : to + 16;
+      pos.board[capSq] = 0;
+      pos.ep = 0;
+    }
+    else {
+      // promotion or regular move
+      const toRank = to >> 4;
+      if (toRank === 0 || toRank === 7) {
+        const promo = (move & MOVE_PROMO_MASK) >> MOVE_PROMO_SHIFT;
+        piece = PROMO_PIECES[promo] | pos.stm;
+        pos.board[to] = piece;
+      }
+      pos.ep = 0;
+    }
   }
   else {
     pos.ep = 0;
+    if (type === KING) {
+      pos.kings[(piece & BLACK) >> 3] = to;
+      // castling - king moved 2 squares
+      const delta = to - from;
+      if (delta === 2) {  // kingside
+        pos.board[to - 1] = pos.board[to + 1];
+        pos.board[to + 1] = 0;
+      }
+      else if (delta === -2) {  // queenside
+        pos.board[to + 1] = pos.board[to - 2];
+        pos.board[to - 2] = 0;
+      }
+    }
   }
 
   pos.rights &= RIGHTS_MASK[from] & RIGHTS_MASK[to];

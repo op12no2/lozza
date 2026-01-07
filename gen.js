@@ -2,6 +2,14 @@ const MOVE_FLAG_CAPTURE    = 0x10000;
 const MOVE_FLAG_EPMAKE     = 0x20000;
 const MOVE_FLAG_EPCAPTURE  = 0x40000;
 
+const MOVE_PROMO_SHIFT = 19;
+const MOVE_PROMO_MASK  = 0x3 << MOVE_PROMO_SHIFT;
+const MOVE_PROMO_Q     = 0 << MOVE_PROMO_SHIFT;
+const MOVE_PROMO_R     = 1 << MOVE_PROMO_SHIFT;
+const MOVE_PROMO_B     = 2 << MOVE_PROMO_SHIFT;
+const MOVE_PROMO_N     = 3 << MOVE_PROMO_SHIFT;
+const PROMO_PIECES     = [QUEEN, ROOK, BISHOP, KNIGHT];
+
 const KNIGHT_OFFSETS = [-33, -31, -18, -14, 14, 18, 31, 33];
 const BISHOP_OFFSETS = [-17, -15, 15, 17];
 const ROOK_OFFSETS   = [-16, -1, 1, 16];
@@ -31,17 +39,27 @@ function genMoves(node) {
       case PAWN: {
         const dir = stm === WHITE ? 16 : -16;
         const startRank = stm === WHITE ? 1 : 6;
+        const promoRank = stm === WHITE ? 6 : 1;
         const rank = sq >> 4;
+        const isPromo = rank === promoRank;
 
         // single push
         const to1 = sq + dir;
         if (!(to1 & 0x88) && !board[to1]) {
-          node.moves[node.numMoves++] = to1 | (sq << 8);
-          // double push
-          if (rank === startRank) {
-            const to2 = sq + dir + dir;
-            if (!(to2 & 0x88) && !board[to2]) {
-              node.moves[node.numMoves++] = to2 | (sq << 8) | MOVE_FLAG_EPMAKE;
+          if (isPromo) {
+            node.moves[node.numMoves++] = to1 | (sq << 8) | MOVE_PROMO_Q;
+            node.moves[node.numMoves++] = to1 | (sq << 8) | MOVE_PROMO_R;
+            node.moves[node.numMoves++] = to1 | (sq << 8) | MOVE_PROMO_B;
+            node.moves[node.numMoves++] = to1 | (sq << 8) | MOVE_PROMO_N;
+          }
+          else {
+            node.moves[node.numMoves++] = to1 | (sq << 8);
+            // double push
+            if (rank === startRank) {
+              const to2 = sq + dir + dir;
+              if (!(to2 & 0x88) && !board[to2]) {
+                node.moves[node.numMoves++] = to2 | (sq << 8) | MOVE_FLAG_EPMAKE;
+              }
             }
           }
         }
@@ -53,7 +71,15 @@ function genMoves(node) {
           if (to & 0x88) continue;
           const target = board[to];
           if (target && (target & BLACK) === enemy) {
-            node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE;
+            if (isPromo) {
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE | MOVE_PROMO_Q;
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE | MOVE_PROMO_R;
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE | MOVE_PROMO_B;
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE | MOVE_PROMO_N;
+            }
+            else {
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE;
+            }
           }
           else if (to === pos.ep) {
             node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_EPCAPTURE;

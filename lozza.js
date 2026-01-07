@@ -148,6 +148,14 @@ const MOVE_FLAG_CAPTURE    = 0x10000;
 const MOVE_FLAG_EPMAKE     = 0x20000;
 const MOVE_FLAG_EPCAPTURE  = 0x40000;
 
+const MOVE_PROMO_SHIFT = 19;
+const MOVE_PROMO_MASK  = 0x3 << MOVE_PROMO_SHIFT;
+const MOVE_PROMO_Q     = 0 << MOVE_PROMO_SHIFT;
+const MOVE_PROMO_R     = 1 << MOVE_PROMO_SHIFT;
+const MOVE_PROMO_B     = 2 << MOVE_PROMO_SHIFT;
+const MOVE_PROMO_N     = 3 << MOVE_PROMO_SHIFT;
+const PROMO_PIECES     = [QUEEN, ROOK, BISHOP, KNIGHT];
+
 const KNIGHT_OFFSETS = [-33, -31, -18, -14, 14, 18, 31, 33];
 const BISHOP_OFFSETS = [-17, -15, 15, 17];
 const ROOK_OFFSETS   = [-16, -1, 1, 16];
@@ -177,17 +185,27 @@ function genMoves(node) {
       case PAWN: {
         const dir = stm === WHITE ? 16 : -16;
         const startRank = stm === WHITE ? 1 : 6;
+        const promoRank = stm === WHITE ? 6 : 1;
         const rank = sq >> 4;
+        const isPromo = rank === promoRank;
 
         // single push
         const to1 = sq + dir;
         if (!(to1 & 0x88) && !board[to1]) {
-          node.moves[node.numMoves++] = to1 | (sq << 8);
-          // double push
-          if (rank === startRank) {
-            const to2 = sq + dir + dir;
-            if (!(to2 & 0x88) && !board[to2]) {
-              node.moves[node.numMoves++] = to2 | (sq << 8) | MOVE_FLAG_EPMAKE;
+          if (isPromo) {
+            node.moves[node.numMoves++] = to1 | (sq << 8) | MOVE_PROMO_Q;
+            node.moves[node.numMoves++] = to1 | (sq << 8) | MOVE_PROMO_R;
+            node.moves[node.numMoves++] = to1 | (sq << 8) | MOVE_PROMO_B;
+            node.moves[node.numMoves++] = to1 | (sq << 8) | MOVE_PROMO_N;
+          }
+          else {
+            node.moves[node.numMoves++] = to1 | (sq << 8);
+            // double push
+            if (rank === startRank) {
+              const to2 = sq + dir + dir;
+              if (!(to2 & 0x88) && !board[to2]) {
+                node.moves[node.numMoves++] = to2 | (sq << 8) | MOVE_FLAG_EPMAKE;
+              }
             }
           }
         }
@@ -199,7 +217,15 @@ function genMoves(node) {
           if (to & 0x88) continue;
           const target = board[to];
           if (target && (target & BLACK) === enemy) {
-            node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE;
+            if (isPromo) {
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE | MOVE_PROMO_Q;
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE | MOVE_PROMO_R;
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE | MOVE_PROMO_B;
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE | MOVE_PROMO_N;
+            }
+            else {
+              node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_CAPTURE;
+            }
           }
           else if (to === pos.ep) {
             node.moves[node.numMoves++] = to | (sq << 8) | MOVE_FLAG_EPCAPTURE;
@@ -340,33 +366,46 @@ function makeMove(move, pos) {
   pos.board[to] = pos.board[from];
   pos.board[from] = 0;
 
-  const piece = pos.board[to];
-  if ((piece & 7) === KING) {
-    pos.kings[(piece & BLACK) >> 3] = to;
-    // castling - king moved 2 squares
-    const delta = to - from;
-    if (delta === 2) {  // kingside
-      pos.board[to - 1] = pos.board[to + 1];
-      pos.board[to + 1] = 0;
-    }
-    else if (delta === -2) {  // queenside
-      pos.board[to + 1] = pos.board[to - 2];
-      pos.board[to - 2] = 0;
-    }
-  }
+  let piece = pos.board[to];
+  const type = piece & 7;
 
-  // ep capture - remove the captured pawn
-  if (move & MOVE_FLAG_EPCAPTURE) {
-    const capSq = pos.stm === WHITE ? to - 16 : to + 16;
-    pos.board[capSq] = 0;
-  }
-
-  // set ep square for double pawn push
-  if (move & MOVE_FLAG_EPMAKE) {
-    pos.ep = pos.stm === WHITE ? to - 16 : to + 16;
+  if (type === PAWN) {
+    if (move & MOVE_FLAG_EPMAKE) {
+      // double push - set ep square
+      pos.ep = pos.stm === WHITE ? to - 16 : to + 16;
+    }
+    else if (move & MOVE_FLAG_EPCAPTURE) {
+      // ep capture - remove the captured pawn
+      const capSq = pos.stm === WHITE ? to - 16 : to + 16;
+      pos.board[capSq] = 0;
+      pos.ep = 0;
+    }
+    else {
+      // promotion or regular move
+      const toRank = to >> 4;
+      if (toRank === 0 || toRank === 7) {
+        const promo = (move & MOVE_PROMO_MASK) >> MOVE_PROMO_SHIFT;
+        piece = PROMO_PIECES[promo] | pos.stm;
+        pos.board[to] = piece;
+      }
+      pos.ep = 0;
+    }
   }
   else {
     pos.ep = 0;
+    if (type === KING) {
+      pos.kings[(piece & BLACK) >> 3] = to;
+      // castling - king moved 2 squares
+      const delta = to - from;
+      if (delta === 2) {  // kingside
+        pos.board[to - 1] = pos.board[to + 1];
+        pos.board[to + 1] = 0;
+      }
+      else if (delta === -2) {  // queenside
+        pos.board[to + 1] = pos.board[to - 2];
+        pos.board[to - 2] = 0;
+      }
+    }
   }
 
   pos.rights &= RIGHTS_MASK[from] & RIGHTS_MASK[to];
@@ -591,15 +630,19 @@ function uciRead(callback) {
   }
 }
 
-uciRead(function(data) {
-  const cmd = data.trim().toLowerCase();
-  if (cmd === 'quit' || cmd === 'q') {
-    uciQuit();
-  }
-  else {
-    execString(data);
-  }
-});
 nodeInitOnce();
 
-
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { perft, position, nodes, genMoves, makeMove, posSet };
+}
+else {
+  uciRead(function(data) {
+    const cmd = data.trim().toLowerCase();
+    if (cmd === 'quit' || cmd === 'q') {
+      uciQuit();
+    }
+    else {
+      execString(data);
+    }
+  });
+}
