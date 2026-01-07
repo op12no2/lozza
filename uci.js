@@ -1,8 +1,4 @@
-// 60-uci.js
-
-const uci = {};
-
-uci.context = (function() {
+const uciContext = (function() {
   if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
     return 'worker';
   }
@@ -21,8 +17,8 @@ uci.context = (function() {
   return 'unknown';
 })();
 
-uci.write = function(data) {
-  switch (uci.context) {
+function uciWrite(data) {
+  switch (uciContext) {
     case 'worker':
       self.postMessage(data);
       break;
@@ -36,10 +32,10 @@ uci.write = function(data) {
     default:
       console.log(data);
   }
-};
+}
 
-uci.quit = function() {
-  switch (uci.context) {
+function uciQuit() {
+  switch (uciContext) {
     case 'worker':
       self.close();
       break;
@@ -53,10 +49,10 @@ uci.quit = function() {
     default:
       break;
   }
-};
+}
 
-uci.read = function(callback) {
-  switch (uci.context) {
+function uciRead(callback) {
+  switch (uciContext) {
     case 'worker':
       self.onmessage = function(e) {
         callback(e.data);
@@ -97,13 +93,12 @@ uci.read = function(callback) {
     default:
       break;
   }
-};
+}
 
-// initialise - echo until quit
-uci.read(function(data) {
+uciRead(function(data) {
   const cmd = data.trim().toLowerCase();
   if (cmd === 'quit' || cmd === 'q') {
-    uci.quit();
+    uciQuit();
   }
   else {
     execString(data);
