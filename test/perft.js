@@ -47,4 +47,5 @@ const nps = Number(totalNodes * 1000n / BigInt(Math.round(elapsed)));
 
 console.log(`\nPassed: ${passed}, Failed: ${failed}`);
 console.log(`Total nodes: ${totalNodes}, Elapsed: ${(elapsed / 1000).toFixed(1)}s, NPS: ${nps.toLocaleString()}`);
+
 process.exit(failed > 0 ? 1 : 0);

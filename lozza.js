@@ -161,6 +161,7 @@ const MOVE_PROMO_B     = 3 << MOVE_PROMO_SHIFT;
 const MOVE_PROMO_N     = 2 << MOVE_PROMO_SHIFT;
 
 const MOVE_EXTRA_MASK = MOVE_FLAG_QCASTLE | MOVE_FLAG_KCASTLE | MOVE_FLAG_EPCAPTURE | MOVE_FLAG_EPMAKE | MOVE_FLAG_KING | MOVE_PROMO_MASK;
+const MOVE_QS_MASK = MOVE_FLAG_CAPTURE | MOVE_FLAG_EPCAPTURE;
 
 const KNIGHT_OFFSETS = [-33, -31, -18, -14, 14, 18, 31, 33];
 const BISHOP_OFFSETS = [-17, -15, 15, 17];
@@ -495,7 +496,7 @@ function evaluate(node) {
       continue;
 
     const type = piece & 7;
-    const col = piece >> 3;
+    const col = piece & BLACK;
 
     phase += PHASE[type];
 
@@ -509,9 +510,8 @@ function evaluate(node) {
     }
   }
 
-  const stmi = pos.stm >> 3;
-  const mgScore = stmi ? mgB - mgW : mgW - mgB;
-  const egScore = stmi ? egB - egW : egW - egB;
+  const mgScore = pos.stm ? mgB - mgW : mgW - mgB;
+  const egScore = pos.stm ? egB - egW : egW - egB;
 
   if (phase > 24)
     phase = 24;
@@ -675,6 +675,129 @@ function evalInitOnce() {
       EGB[piece][sq] = MAT_EG[piece] + PST_EG[piece][flipped];
     }
   }
+}
+class TimeControl {
+
+  constructor() {
+    this.bestMove = 0;
+    this.nodes = 0;
+  }
+}
+
+const timeControl = new TimeControl();
+
+function tcClear() {
+  const tc = timeControl;
+  tc.bestMove = 0;
+  tc.nodes = 0;
+}
+function qsearch(ply, alpha, beta) {
+
+  timeControl.nodes++;
+  
+  const node = nodes[ply];
+  const pos = node.pos;
+
+  const standPat = evaluate(node);
+
+  if (standPat >= beta)
+    return standPat;
+
+  if (standPat > alpha)
+    alpha = standPat;
+
+  const nextNode = nodes[ply + 1];
+  const nextPos = nextNode.pos;
+  const stmi = pos.stm >> 3;
+
+  genMoves(node);
+
+  for (let i = 0; i < node.numMoves; i++) {
+
+    const move = node.moves[i];
+
+    if (!(move & MOVE_QS_MASK))
+      continue;
+
+    posSet(nextPos, pos);
+    makeMove(move, nextPos);
+
+    if (isAttacked(nextPos, nextPos.kings[stmi], nextPos.stm))
+      continue;
+
+    const score = -qsearch(ply + 1, -beta, -alpha);
+
+    if (score >= beta)
+      return score;
+
+    if (score > alpha)
+      alpha = score;
+  }
+
+  return alpha;
+
+}
+
+const MATE = 10000;
+
+function search(depth, ply, alpha, beta) {
+
+  if (depth <= 0)
+    return qsearch(ply, alpha, beta);
+  
+  timeControl.nodes++;
+  
+  const node = nodes[ply];
+  const nextNode = nodes[ply + 1];
+  const pos = node.pos;
+  const nextPos = nextNode.pos;
+  const stmi = pos.stm >> 3;
+  const nstm = pos.stm ^ BLACK;
+  const inCheck = isAttacked(pos, pos.kings[stmi], nstm);
+
+  genMoves(node);
+
+  let bestScore = -Infinity;
+  let bestMove = 0;
+
+  let numMoves = 0;
+
+  for (let i = 0; i < node.numMoves; i++) {
+
+    const move = node.moves[i];
+
+    posSet(nextPos, pos);
+    makeMove(move, nextPos);
+
+    if (isAttacked(nextPos, nextPos.kings[stmi], nstm))
+      continue;
+
+    numMoves++;
+
+    const score = -search(depth - 1, ply + 1, -beta, -alpha);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = move;
+    }
+    
+    if (bestScore > alpha) {
+      if (ply === 0) {
+        timeControl.bestMove = bestMove;
+      }
+      alpha = bestScore;
+    }
+
+    if (alpha >= beta) {
+      return bestScore;
+    }
+  }
+
+  if (numMoves === 0)
+    return inCheck ? -MATE + ply : 0;
+
+  return bestScore;
+
 }
 function perft (depth, ply) {
 
@@ -854,7 +977,7 @@ nodeInitOnce();
 evalInitOnce();
 
 if (typeof module !== 'undefined') {
-  module.exports = { perft, position, nodes, genMoves, makeMove, posSet };
+  module.exports = { perft, position, nodes, genMoves, makeMove, posSet, search, tcClear, timeControl };
 }
 
 if (typeof require === 'undefined' || require.main === module) {

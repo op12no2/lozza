@@ -24,7 +24,7 @@ function evaluate(node) {
       continue;
 
     const type = piece & 7;
-    const col = piece >> 3;
+    const col = piece & BLACK;
 
     phase += PHASE[type];
 
@@ -38,9 +38,8 @@ function evaluate(node) {
     }
   }
 
-  const stmi = pos.stm >> 3;
-  const mgScore = stmi ? mgB - mgW : mgW - mgB;
-  const egScore = stmi ? egB - egW : egW - egB;
+  const mgScore = pos.stm ? mgB - mgW : mgW - mgB;
+  const egScore = pos.stm ? egB - egW : egW - egB;
 
   if (phase > 24)
     phase = 24;

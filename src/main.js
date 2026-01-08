@@ -3,7 +3,7 @@ nodeInitOnce();
 evalInitOnce();
 
 if (typeof module !== 'undefined') {
-  module.exports = { perft, position, nodes, genMoves, makeMove, posSet };
+  module.exports = { perft, position, nodes, genMoves, makeMove, posSet, search, tcClear, timeControl };
 }
 
 if (typeof require === 'undefined' || require.main === module) {
