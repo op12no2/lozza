@@ -57,6 +57,6 @@ function makeMove(move, pos) {
   }
 
   pos.rights &= RIGHTS_MASK[from] & RIGHTS_MASK[to];
-
   pos.stm ^= BLACK;
+
 }

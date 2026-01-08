@@ -1,1 +1,1 @@
-cat pos.js node.js gen.js make.js attack.js perft.js exec.js uci.js main.js > lozza.js
+cat pos.js node.js gen.js make.js attack.js eval.js perft.js exec.js uci.js main.js > lozza.js

@@ -46,6 +46,7 @@ function posSet(pos, other) {
 }
 
 function position(pos, fen) {
+  
   posClear(pos);
 
   const parts = fen.split(' ');
@@ -86,7 +87,8 @@ function position(pos, fen) {
   }
 }
 
-function posPrintBoard(pos) {
+function printBoard(pos) {
+  
   const pieces = '.PNBRQK..pnbrqk';
   const files = 'abcdefgh';
 

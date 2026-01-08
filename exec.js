@@ -7,11 +7,13 @@ function execString (cmd) {
 
 function execTokens(tokens) {
   switch (tokens[0]) {
+
     case 'uci':
       uciWrite('id name Lozza 9');
       uciWrite('id author Colin Jenkins');
       uciWrite('uciok');
       break;
+
     case 'position':
     case 'p':
       if (tokens[1] === 'startpos' || tokens[1] === 's') {
@@ -22,19 +24,28 @@ function execTokens(tokens) {
         position(nodes[0].pos, fen);
       }
       break;
+    
     case 'board':
     case 'b':
-      posPrintBoard(nodes[0].pos);
+      printBoard(nodes[0].pos);
       break;
+   
     case 'perft':
-    case 'f':  
-      const depth = parseInt(tokens[1]);
-      const t1 = performance.now();
-      const n = perft(depth, 0);
-      let elapsed = performance.now() - t1;
-      const nps = (n/elapsed * 1000) | 0;
-      elapsed |= elapsed;
-      uciWrite(`nodes ${n} elapsed ${elapsed} nps ${nps}`);
-      break;  
+    case 'f': {  
+        const depth = parseInt(tokens[1]);
+        const t1 = performance.now();
+        const n = perft(depth, 0);
+        let elapsed = performance.now() - t1;
+        const nps = (n/elapsed * 1000) | 0;
+        elapsed |= elapsed;
+        uciWrite(`nodes ${n} elapsed ${elapsed} nps ${nps}`);
+        break;  
+      }
+
+    case 'eval':  
+    case 'e':
+      uciWrite(evaluate(nodes[0]));
+      break;
+
   }
 }

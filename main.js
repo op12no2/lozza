@@ -1,9 +1,12 @@
-nodeInitOnce();
 
-if (typeof module !== 'undefined' && module.exports) {
+nodeInitOnce();
+evalInitOnce();
+
+if (typeof module !== 'undefined') {
   module.exports = { perft, position, nodes, genMoves, makeMove, posSet };
 }
-else {
+
+if (typeof require === 'undefined' || require.main === module) {
   uciRead(function(data) {
     const cmd = data.trim().toLowerCase();
     if (cmd === 'quit' || cmd === 'q') {
