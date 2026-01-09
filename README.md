@@ -1,6 +1,6 @@
 # Lozza
 
-A UCI Javascript chess engine with [NNUE evaluation](https://github.com/op12no2/lozza/wiki/Lozza's-net). Try her here:-
+A UCI Javascript chess engine. Try her here:-
 
 https://op12no2.github.io/lozza-ui/play.htm
 
@@ -46,12 +46,53 @@ https://op12no2.github.io/lozza-ui/play.htm
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Winboard, Arena and CuteChess via Node. Download the latest ```LozzaN.zip``` release and then follow the instructions in the wiki.   
+Lozza needs Node to run in chess user interfaces (CUI). Node is available for pretty much any platform and is quick and easy to install.
 
-https://github.com/op12no2/lozza/releases
+- https://nodejs.org 
 
-https://github.com/op12no2/lozza/wiki/Loading-Lozza-into-chess-user-interfaces
+Adding Lozza to your CUI is a little bit different to other engines. Edit the .bat file contained in the release to point at the Node executable (node.exe) with Lozza as a parameter. Full paths are recommended. For example:-
+```
+"c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
+```
+The " characters are needed for Windows if there are spaces in the pathnames; your platform may be different.
 
+Now use the .bat file as the engine target in the CUI (where you would normally point to an executable).
+
+If your CUI allows parameters to engine executables, or if your CUI does not allow the selection of batch files, you can use node.exe as the engine executable and lozza.js as a parameter and again full paths are recommended. Linux supports shebangs for javascript files and that is another option.
+
+## UCI options
+
+```
+option name Hash type spin default 16 min 1 max 1024 
+option name MultiPV type spin default 1 min 1 max 500 
+```
+
+## Running Lozza from a command line interface
+
+Again Node is needed:-
+
+```
+node lozza.js
+```
+
+Commands can be given as arguments:-
+
+```
+node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
+```
+
+## Custom commands
+
+- quit, q - close Lozza.
+- board, b - display the board for the current position.
+- moves, m - display the moves for the current position.
+- eval, e - display the evaluation for the current position.
+- net, n - display network attributes.
+- bench - run a sequence of searches returning the toal node count and nps.
+- perft n - run a perft search from the current position using depth n.
+- pt - run a sequence of perft searches.
+- et - run a sequence of evaluations.
+ 
 ## References
 
 https://nodejs.org - Node
@@ -67,4 +108,3 @@ https://talkchess.com - Talkchess forums
 ## Acknowledgements
 
 https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
-
