@@ -86,6 +86,10 @@ There is also an online console:-
 - perft depth <d> - run a perft search from the current position using depth <d>.
 - pt - run a sequence of perft searches.
 - et - run a sequence of evaluations.
+
+## Development notes
+
+If you clone the repo with the intention of tweaking Lozza you need to be aware of the build process in ```build.sh```. This is a script that creates ```lozza.js``` from ```src/*.js``` (contingent on ```quantised.bin```) and ```./releases/lozza.js``` which has the weights from ```quantised.bin``` inlined. It also creates binaries in ```./releases``` but you can remove that section. The version that reads ```quantised.bin``` is what I use for development and is in the root of the repo. The version in ```./releases``` is what I ship. ```build.sh``` will run natively on Linux and macOS but will need to run in WSL (or equivalent) on Windows.  
  
 ## References
 
