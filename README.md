@@ -44,7 +44,7 @@ You can try them here:-
 
 The most straightfoward way is to use one of the binaries from the latest release. 
 
-Alternatively install (Node)[https://nodejs.org/en] or (Bun)[https://bun.com/] and use ```lozza.js``` via a batch file; for example:
+Alternatively install [Node](https://nodejs.org/en) or [Bun](https://bun.com) and use ```lozza.js``` via a batch file; for example:
 
 ```
 "c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
