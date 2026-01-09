@@ -5,19 +5,11 @@
 
 const BUILD = "9";
 
-//{{{  dev/release
-//
-// See https://github.com/op12no2/lozza/wiki/Making-a-release.
-//
+//{{{  constants
 
 const NET_LOCAL        = 0;
-const NET_NAME         = 'farm1';
-const NET_SB           = '500';
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/' + NET_NAME + '/lozza-' + NET_SB + '/quantised.bin';
+const NET_WEIGHTS_FILE = './quantised.bin';
 const BENCH_DEPTH      = 12;
-
-//}}}
-//{{{  constants
 
 const INT32_MAX =  2147483647;
 const INT32_MIN = -2147483648;
@@ -1089,6 +1081,43 @@ function report (units, value, depth) {
 }
 
 //}}}
+//{{{  reportMultiPV
+
+function reportMultiPV (depth) {
+
+  const tim     = now() - statsStartTime;
+  const nps     = (statsNodes * 1000) / tim | 0;
+  const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
+
+  const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
+  const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
+
+  const n = Math.min(multiPV, multiPVMoves.length);
+
+  for (let i = 0; i < n; i++) {
+
+    const entry = multiPVMoves[i];
+
+    let pvStr = 'pv';
+    for (let j = entry.pvLen - 1; j >= 0; j--)
+      pvStr += ' ' + formatMove(entry.pv[j]);
+
+    let scoreStr;
+    if (Math.abs(entry.score) > MINMATE) {
+      let mateScore = (MATE - Math.abs(entry.score)) / 2 | 0;
+      if (entry.score < 0)
+        mateScore = -mateScore;
+      scoreStr = 'score mate ' + mateScore;
+    }
+    else {
+      scoreStr = 'score cp ' + entry.score;
+    }
+
+    uciSend('info', depthStr, 'multipv', (i + 1), scoreStr, nodeStr, hashStr, pvStr);
+  }
+}
+
+//}}}
 //{{{  go
 
 function go (maxPly) {
@@ -1099,6 +1128,8 @@ function go (maxPly) {
   let score       = 0;
   let delta       = 0;
   let depth       = 0;
+
+  multiPVMoves = [];
 
   for (let ply=1; ply <= maxPly; ply++) {
     //{{{  id
@@ -1151,28 +1182,48 @@ function go (maxPly) {
       
       else {
         //{{{  exact
-        
-        if (Math.abs(score) > MINMATE) {
-        
+
+        //{{{  track for MultiPV
+
+        if (statsBestMove) {
+          multiPVMoves = multiPVMoves.filter(m => m.move !== statsBestMove);
+          multiPVMoves.unshift({
+            move:  statsBestMove,
+            score: score,
+            pv:    rootNode.pv.slice(0, rootNode.pvLen),
+            pvLen: rootNode.pvLen
+          });
+        }
+
+        //}}}
+
+        if (multiPV > 1) {
+
+          reportMultiPV(depth);
+
+        }
+
+        else if (Math.abs(score) > MINMATE) {
+
           let mateScore = (MATE - Math.abs(score)) / 2 | 0;
           if (score < 0)
             mateScore = -mateScore;
-        
+
           report('mate', mateScore, depth);
-        
+
         }
-        
+
         else {
-        
+
           report('cp', score, depth);
-        
+
         }
-        
+
         if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes)
           statsTimeOut = 1;
-        
+
         break;
-        
+
         //}}}
       }
       
@@ -1839,170 +1890,6 @@ function perft (node, depth, turn) {
   }
 
   return totalNodes;
-
-}
-
-//}}}
-//{{{  datagen
-//
-// Generate FENs in bullet text format.
-// Assumes existence of ./data.
-//
-
-function datagen() {
-
-  uciExec("bench warm 0");
-
-  silentMode = 1;
-
-  const nodesLimit     = 5000;  // hard limit is x100
-  const gamesLimit     = 100000;
-  const bufferSize     = 100000 + Math.random() * 100000;  // randomise writes
-  const reportInterval = 10;
-
-  const fileName = 'data/dg_' + BUILD + '_' + NET_NAME + '_' + NET_SB + '_' + Math.trunc(Math.random()*100000000000) + '.txt';
-
-  let result = '';
-  let o = '';
-  let t = now();
-  let totalFens = 0;
-
-  fs.writeFileSync(fileName, o);
-
-  for (let g=0; g < gamesLimit; g++) {
-    //{{{  log
-    
-    if ((g % reportInterval) === 0) {
-      console.log(fileName,g,'games',(totalFens/((now()-t)/1000)),'fens/sec');
-      t = now();
-      totalFens = 0;
-    }
-    
-    //}}}
-    //{{{  play game
-    
-    let randLimit   = 9;
-    let reportLimit = 11;
-    
-    if (Math.random() >= 0.5) {
-      randLimit--;
-      reportLimit--;
-    }
-    
-    uciExec('u');
-    uciExec('p s');
-    
-    let moves = '';
-    let hmc = 0;
-    let ply = 0;
-    let fens = [];
-    let scores = [];
-    
-    while (true) {
-    
-      ply++;
-    
-      const turn     = bdTurn;
-      const nextTurn = turn ^ BLACK;
-    
-      //{{{  get a move
-      
-      if (ply <= randLimit)
-        randomEval = 1;
-      else
-        randomEval = 0;
-      
-      uciExec('go nodes ' + nodesLimit);
-      
-      if (ply <= randLimit)
-        uciExec('u');
-      
-      if (statsBestMove === 0) {
-        result = '0.5';
-        break;
-      }
-      
-      //}}}
-    
-      const move    = statsBestMove;
-      const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-      const frPiece = frObj & PIECE_MASK;
-      const moveStr = formatMove(move);
-      const inCheck = isKingAttacked(nextTurn);
-      const noisy   = move & MOVE_NOISY_MASK;
-      const fen     = formatFen(turn);
-      const score   = (turn === BLACK ? -statsBestScore : statsBestScore);
-    
-      if (ply > reportLimit && inCheck === 0 && noisy === 0) {
-        fens.push(fen);
-        scores.push(score);
-      }
-    
-      //{{{  end of game?
-      
-      let rep = 0;
-      for (let i=0; i < fens.length; i++) {
-        if (fen == fens[i])
-          rep++;
-      }
-      
-      if (rep > 2) {
-        result = '0.5';
-        break;
-      }
-      
-      if (score >= MINMATE) {
-        result = '1.0';
-        break;
-      }
-      else if (score <= -MINMATE) {
-        result = '0.0';
-        break;
-      }
-      
-      if (noisy === 0 && (frPiece !== PAWN))
-        hmc++;
-      else
-        hmc = 0;
-      
-      if (hmc > 60) {
-        result = '0.5';
-        break;
-      }
-      
-      //}}}
-    
-      moves += ' ' + moveStr;
-    
-      uciExec('position fen ' + 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' + ' moves ' + moves)
-    }
-    
-    //}}}
-    //{{{  save it
-    
-    for (let i=0; i < fens.length; i++) {
-    
-      totalFens++;
-    
-      o += fens[i] + ' | ' + scores[i] + ' ' + ' | ' + result + '\r\n';
-    
-      if (o.length > bufferSize) {
-        const flushStart = performance.now();
-        fs.appendFileSync(fileName,o);
-        console.log('flush',performance.now()-flushStart);
-        o = '';
-      }
-    
-    }
-    
-    //}}}
-  }
-
-  if (o.length) {
-    fs.appendFileSync(fileName, o);
-  }
-
-  console.log('done');
 
 }
 
@@ -4473,7 +4360,7 @@ function formatMove (move) {
 //}}}
 //{{{  flipFen
 //
-// flipFen is slow. Only use for init/test/datagen.
+// flipFen is slow. Only use for init/test.
 //
 
 function flipFen (fen) {
@@ -4611,6 +4498,9 @@ let statsTimeOut   = 0;
 let statsSelDepth  = 0;
 let statsBestMove  = 0;
 let statsBestScore = 0;
+
+let multiPV      = 1;
+let multiPVMoves = [];
 
 //{{{  initStats
 
@@ -4884,15 +4774,21 @@ function uciExec (commands) {
         const opt = uciGetStr(tokens, 'name', '').toLowerCase();
         
         if (opt == 'hash') {
-        
+
           const mb = Math.max(uciGetInt(tokens, 'value', ttDefault), 1);
-        
+
           console.log(mb);
-        
+
           ttResize(mb);
-        
+
         }
-        
+
+        else if (opt == 'multipv') {
+
+          multiPV = Math.max(uciGetInt(tokens, 'value', 1), 1);
+
+        }
+
         break;
         
         //}}}
@@ -4923,6 +4819,7 @@ function uciExec (commands) {
         uciSend('id name Lozza', BUILD);
         uciSend('id author Colin Jenkins');
         uciSend('option name Hash type spin default', ttDefault, 'min 1 max 1024');
+        uciSend('option name MultiPV type spin default 1 min 1 max 500');
         uciSend('uciok');
         
         break;
@@ -5168,16 +5065,6 @@ function uciExec (commands) {
           console.log(formatMove(move));
         
         initNode(rootNode);
-        
-        break;
-        
-        //}}}
-      }
-
-      case 'datagen': {
-        //{{{  datagen
-        
-        datagen();
         
         break;
         
