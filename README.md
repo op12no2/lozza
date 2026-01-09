@@ -1,18 +1,14 @@
 # Lozza
 
-A UCI Javascript chess engine. Try her here:-
+A UCI Javascript chess engine.
 
-https://op12no2.github.io/lozza-ui/play.htm
-
-Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node - and because of that, on pretty-much any platform. 
-
-The code is best read using a folding editor. Start/end fold markers are ```/*{{{  fold name*/``` and ```/*}}}*/```.
+Lozza was primarily created for use in browsers, but can also be used with traditional chess user interfaces via Node - and because of that - on pretty-much any platform. 
 
 ## Basic use in a browser
 
 All you need is ```lozza.js``` from the latest release.  
 
-https://github.com/op12no2/lozza/releases
+- https://github.com/op12no2/lozza/releases
 
 Here is a little example to do a 10 ply search:-
 
@@ -32,7 +28,7 @@ lozza.postMessage('go depth 10');        // 10 ply search
 
 Try this example here:-
 
-https://op12no2.github.io/lozza-ui/ex.htm
+- https://op12no2.github.io/lozza-ui/ex.htm
 
 Note that Lozza must be fired up in a web worker.
 
@@ -40,15 +36,15 @@ Note that Lozza must be fired up in a web worker.
 
 A sister repo has more browser-based examples for playing and analysing etc. with Lozza.
 
-https://github.com/op12no2/lozza-ui
+- https://github.com/op12no2/lozza-ui
 
 You can try them here:-
 
-https://op12no2.github.io/lozza-ui
+- https://op12no2.github.io/lozza-ui
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza needs Node to run in chess user interfaces (CUI). Node is available for pretty much any platform and is quick and easy to install.
+Lozza needs Node to run in chess user interfaces (CUI). Node is available for pretty much any platform and is quick and easy to install (and small).
 
 - https://nodejs.org 
 
@@ -97,16 +93,12 @@ node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
  
 ## References
 
-https://nodejs.org - Node
-
-https://www.chessprogramming.org/Main_Page - Chess programming wiki
-
-https://computerchess.org.uk/ccrl/4040 - CCRL rating list
-
-https://backscattering.de/chess/uci - UCI protocol
-
-https://talkchess.com - Talkchess forums
+- https://nodejs.org - Node
+- https://www.chessprogramming.org/Main_Page - Chess programming wiki
+- https://computerchess.org.uk/ccrl/4040 - CCRL rating list
+- https://backscattering.de/chess/uci - UCI protocol
+- https://talkchess.com - Talkchess forums
 
 ## Acknowledgements
 
-https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
+- https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
