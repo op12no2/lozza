@@ -10,7 +10,7 @@ The code is best read using a folding editor. Start/end fold markers are ```/*{{
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from the latest ```lozzaN.zip``` release.  
+All you need is ```lozza.js``` from the latest release.  
 
 https://github.com/op12no2/lozza/releases
 
@@ -34,6 +34,8 @@ Try this example here:-
 
 https://op12no2.github.io/lozza-ui/ex.htm
 
+Note that Lozza must be fired up in a web worker.
+
 ## More examples
 
 A sister repo has more browser-based examples for playing and analysing etc. with Lozza.
@@ -42,7 +44,7 @@ https://github.com/op12no2/lozza-ui
 
 You can try them here:-
 
-https://op12no2.github.io/lozza-ui/play.htm
+https://op12no2.github.io/lozza-ui
 
 ## Play Lozza offline in chess user interfaces
 
