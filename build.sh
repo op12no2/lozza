@@ -48,21 +48,19 @@ node lozza.js q
 
 echo "Built lozza.js (dev)"
 
-# Release build (inline base64 weights, minified)
+# Release build (inline base64 weights, unminified for browser compatibility)
 {
   printf '\nconst WEIGHTS_B64 = "'
   base64 -i quantised.bin | tr -d '\n'
   printf '";\n'
   cat tmp.js
-} > releases/lozza-unmin.js
-
-bun build releases/lozza-unmin.js --minify --target=node --outfile=releases/lozza.js
+} > releases/lozza.js
 
 node releases/lozza.js q
 
-echo "Built releases/lozza.js (release, minified)"
+echo "Built releases/lozza.js (release)"
 
-rm tmp.js releases/lozza-unmin.js
+rm tmp.js
 
 # Executables (stripped)
 echo "Building executables..."

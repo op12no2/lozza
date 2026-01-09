@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Lozza is a UCI-compliant JavaScript chess engine with NNUE (Efficiently Updatable Neural Network) evaluation. It runs both in browsers (as a Web Worker) and via Node.js for use with traditional chess UIs like Winboard, Arena, and CuteChess.
+Lozza is a UCI-compliant JavaScript chess engine with NNUE (Efficiently Updatable Neural Network) evaluation. It runs both in browsers (as a Web Worker) and via Node.js (or the released binaries) for use with traditional chess UIs like Winboard, Arena, and CuteChess.
 
 ## Building
 
