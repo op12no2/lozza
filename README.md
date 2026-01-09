@@ -73,13 +73,13 @@ node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
 
 ## Custom commands
 
-- quit, q - close Lozza.
-- board, b - display the board for the current position.
-- moves, m - display the moves for the current position.
-- eval, e - display the evaluation for the current position.
-- net, n - display network attributes.
+- quit - close Lozza.
+- board - display the board for the current position.
+- moves - display the moves for the current position.
+- eval - display the evaluation for the current position.
+- net - display network attributes.
 - bench - run a sequence of searches returning the toal node count and nps.
-- perft n - run a perft search from the current position using depth n.
+- perft depth <d> - run a perft search from the current position using depth <d>.
 - pt - run a sequence of perft searches.
 - et - run a sequence of evaluations.
  
