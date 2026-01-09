@@ -2,13 +2,11 @@
 
 A UCI Javascript chess engine.
 
-Lozza was primarily created for use in browsers, but can also be used with traditional chess user interfaces via Node - and because of that - on pretty-much any platform. 
+Lozza was primarily created for use in browsers, but can also be used with traditional chess user interfaces (see below). 
 
 ## Basic use in a browser
 
 All you need is ```lozza.js``` from the latest release.  
-
-- https://github.com/op12no2/lozza/releases
 
 Here is a little example to do a 10 ply search:-
 
@@ -34,7 +32,7 @@ Note that Lozza must be fired up in a web worker.
 
 ## More examples
 
-A sister repo has more browser-based examples for playing and analysing etc. with Lozza.
+A sister repo has more browser-based examples for playing and analysing with Lozza.
 
 - https://github.com/op12no2/lozza-ui
 
@@ -44,19 +42,13 @@ You can try them here:-
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza needs Node to run in chess user interfaces (CUI). Node is available for pretty much any platform and is quick and easy to install (and small).
+The most straightfoward way is to use one of the binaries from the latest release. 
 
-- https://nodejs.org 
+Alternatively install (Node)[https://nodejs.org/en] or (Bun)[https://bun.com/] and use ```lozza.js``` via a batch file; for example:
 
-Adding Lozza to your CUI is a little bit different to other engines. Edit the .bat file contained in the release to point at the Node executable (node.exe) with Lozza as a parameter. Full paths are recommended. For example:-
 ```
 "c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
 ```
-The " characters are needed for Windows if there are spaces in the pathnames; your platform may be different.
-
-Now use the .bat file as the engine target in the CUI (where you would normally point to an executable).
-
-If your CUI allows parameters to engine executables, or if your CUI does not allow the selection of batch files, you can use node.exe as the engine executable and lozza.js as a parameter and again full paths are recommended. Linux supports shebangs for javascript files and that is another option.
 
 ## UCI options
 
@@ -67,7 +59,7 @@ option name MultiPV type spin default 1 min 1 max 500
 
 ## Running Lozza from a command line interface
 
-Again Node is needed:-
+Again, use one of the binaries from the latest release or for example:-
 
 ```
 node lozza.js
