@@ -36,7 +36,7 @@ A sister repo has more browser-based examples for playing and analysing with Loz
 
 - https://github.com/op12no2/lozza-ui
 
-You can try them here:-
+## Play Lozza online
 
 - https://op12no2.github.io/lozza-ui
 
@@ -70,6 +70,10 @@ Commands can be given as arguments:-
 ```
 node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
 ```
+
+There is also an online console:-
+
+- https://op12no2.github.io/lozza-ui/console.htm
 
 ## Custom commands
 
