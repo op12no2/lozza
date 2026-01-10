@@ -57,7 +57,7 @@ option name Hash type spin default 16 min 1 max 1024
 option name MultiPV type spin default 1 min 1 max 500 
 ```
 
-## Running Lozza from a command line interface
+## Running Lozza from the command line
 
 Again, use one of the binaries from the latest release or for example:-
 
@@ -69,6 +69,7 @@ Commands can be given as arguments:-
 
 ```
 node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
+./lozza-win-x64.exe ucinewgame "position startpos" board quit
 ```
 
 There is also an online console:-
