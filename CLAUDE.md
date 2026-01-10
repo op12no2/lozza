@@ -12,13 +12,15 @@ Lozza is a UCI-compliant JavaScript chess engine with NNUE (Efficiently Updatabl
 ./build.sh
 ```
 
+**Windows users:** The build script works in Git Bash (ships with Git for Windows). If you don't have Git Bash, you can also run the build commands manually in PowerShell or CMD.
+
 This produces:
 - `lozza.js` - Dev build (loads weights from `quantised.bin` file)
-- `releases/lozza.js` - Release build (inline base64 weights, minified with bun)
-- `releases/lozza-win-x64.exe` - Windows executable
-- `releases/lozza-linux-x64` - Linux executable
-- `releases/lozza-mac-x64` - macOS Intel executable
-- `releases/lozza-mac-arm64` - macOS Apple Silicon executable
+- `releases/lozza.js` - Release build (inline base64 weights, unminified for browser compatibility)
+- `releases/lozza-win-x64.exe` - Windows executable (requires bun installed)
+- `releases/lozza-linux-x64` - Linux executable (requires bun installed)
+- `releases/lozza-mac-x64` - macOS Intel executable (requires bun installed)
+- `releases/lozza-mac-arm64` - macOS Apple Silicon executable (requires bun installed)
 
 The build script runs `node lozza.js q` after each JS build to verify no syntax errors.
 

@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Ensure bun is in PATH
-export PATH="$HOME/.bun/bin:$PATH"
-
 mkdir -p releases
 
 cat \
@@ -62,20 +59,13 @@ echo "Built releases/lozza.js (release)"
 
 rm tmp.js
 
-# Executables (stripped)
+# Executables
 echo "Building executables..."
 
 bun build releases/lozza.js --compile --minify --target=bun-windows-x64   --outfile=releases/lozza-win-x64
 bun build releases/lozza.js --compile --minify --target=bun-linux-x64    --outfile=releases/lozza-linux-x64
 bun build releases/lozza.js --compile --minify --target=bun-darwin-x64   --outfile=releases/lozza-mac-x64
 bun build releases/lozza.js --compile --minify --target=bun-darwin-arm64 --outfile=releases/lozza-mac-arm64
-
-# Strip symbols where possible (makes executables smaller)
-if command -v strip &> /dev/null; then
-  strip releases/lozza-linux-x64 2>/dev/null || true
-  strip releases/lozza-mac-x64 2>/dev/null || true
-  strip releases/lozza-mac-arm64 2>/dev/null || true
-fi
 
 echo "Built executables in releases/"
 ls -lh releases/
