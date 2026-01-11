@@ -1,20 +1,12 @@
 # Lozza
 
-A UCI Javascript chess engine with [NNUE evaluation](https://github.com/op12no2/lozza/wiki/Lozza's-net). Try her here:-
+A UCI Javascript chess engine.
 
-https://op12no2.github.io/lozza-ui/play.htm
-
-Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node - and because of that, on pretty-much any platform. 
-
-There is also a C version of Lozza available here: https://github.com/op12no2/cwtch
-
-The code is best read using a folding editor. Start/end fold markers are ```/*{{{  fold name*/``` and ```/*}}}*/```.
+Lozza was primarily created for use in browsers, but more recent versioins can be used from the command line via Node. 
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from the latest ```lozzaN.zip``` release.  
-
-https://github.com/op12no2/lozza/releases
+All you need is ```lozza.js``` from the latest release.  
 
 Here is a little example to do a 10 ply search:-
 
@@ -32,49 +24,34 @@ lozza.postMessage('position startpos');
 lozza.postMessage('go depth 10');        // 10 ply search
 ```
 
-Try this example here:-
-
-https://op12no2.github.io/lozza-ui/ex.htm
+Note that Lozza must be fired up in a web worker.
 
 ## More examples
 
-A sister repo has more browser-based examples for playing and analysing etc. with Lozza.
+- https://github.com/op12no2/lozza-ui
 
-https://github.com/op12no2/lozza-ui
+## UCI options
 
-You can try them here:-
+```
+option name Hash type spin default 16 min 1 max 1024 
+option name MultiPV type spin default 1 min 1 max 500 
+```
 
-https://op12no2.github.io/lozza-ui/play.htm
+## Running Lozza from the command line
 
-## Play Lozza offline in chess user interfaces
+```
+node lozza.js
+node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
+```
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest ```LozzaN.zip``` release and then follow the instructions in the wiki.   
+## References
 
-https://github.com/op12no2/lozza/releases
-
-https://github.com/op12no2/lozza/wiki/Loading-Lozza-into-chess-user-interfaces
+- https://nodejs.org - Node
+- https://www.chessprogramming.org/Main_Page - Chess programming wiki
+- https://computerchess.org.uk/ccrl/4040 - CCRL rating list
+- https://backscattering.de/chess/uci - UCI protocol
+- https://talkchess.com - Talkchess forums
 
 ## Acknowledgements
 
-https://nodejs.org - Node
-
-https://github.com/jw1912/bullet - bullet network trainer
-
-https://www.chessprogramming.org/Main_Page - Chess programming wiki
-
-https://computerchess.org.uk/ccrl/4040 - CCRL rating list
-
-https://backscattering.de/chess/uci - UCI protocol
-
-https://discord.gg/uM8J3x46 - Engine Programming Discord
-
-https://talkchess.com - Talkchess forums
-
-https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
-
-
-
-
-
-
-
+- https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
