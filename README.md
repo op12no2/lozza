@@ -1,20 +1,12 @@
 # Lozza
 
-A UCI Javascript chess engine with [NNUE evaluation](https://github.com/op12no2/lozza/wiki/Lozza's-net). Try her here:-
+A UCI Javascript chess engine.
 
-https://op12no2.github.io/lozza-ui/play.htm
-
-Lozza was primarily created for use in browsers, but can also be used with traditional chess UIs via Node - and because of that, on pretty-much any platform. 
-
-There is also a C version of Lozza available here: https://github.com/op12no2/cwtch
-
-The code is best read using a folding editor. Start/end fold markers are ```/*{{{  fold name*/``` and ```/*}}}*/```.
+Lozza was primarily created for use in browsers, but can also be used with traditional chess user interfaces (see below). 
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from the latest ```lozzaN.zip``` release.  
-
-https://github.com/op12no2/lozza/releases
+All you need is ```lozza.js``` from the latest release (not the repo).  
 
 Here is a little example to do a 10 ply search:-
 
@@ -34,47 +26,80 @@ lozza.postMessage('go depth 10');        // 10 ply search
 
 Try this example here:-
 
-https://op12no2.github.io/lozza-ui/ex.htm
+- https://op12no2.github.io/lozza-ui/ex.htm
+
+Note that Lozza must be fired up in a web worker.
 
 ## More examples
 
-A sister repo has more browser-based examples for playing and analysing etc. with Lozza.
+A sister repo has more browser-based examples for playing and analysing with Lozza.
 
-https://github.com/op12no2/lozza-ui
+- https://github.com/op12no2/lozza-ui
 
-You can try them here:-
+## Play Lozza online
 
-https://op12no2.github.io/lozza-ui/play.htm
+- https://op12no2.github.io/lozza-ui
 
 ## Play Lozza offline in chess user interfaces
 
-Lozza can be used in popular chesss user interfaces like Banksia, Winboard, Arena and CuteChess via Node. Download the latest ```LozzaN.zip``` release and then follow the instructions in the wiki.   
+The most straightfoward way is to use one of the binaries from the latest release. 
 
-https://github.com/op12no2/lozza/releases
+Alternatively install [Node](https://nodejs.org/en) or [Bun](https://bun.com) and use ```lozza.js``` via a batch file; for example:
 
-https://github.com/op12no2/lozza/wiki/Loading-Lozza-into-chess-user-interfaces
+```
+"c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
+```
+
+## UCI options
+
+```
+option name Hash type spin default 16 min 1 max 1024 
+option name MultiPV type spin default 1 min 1 max 500 
+```
+
+## Running Lozza from the command line
+
+Again, use one of the binaries from the latest release or for example:-
+
+```
+node lozza.js
+```
+
+Commands can be given as arguments:-
+
+```
+node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
+./lozza-win-x64.exe ucinewgame "position startpos" board quit
+```
+
+There is also an online console:-
+
+- https://op12no2.github.io/lozza-ui/console.htm
+
+## Custom commands
+
+- quit - close Lozza.
+- board - display the board for the current position.
+- moves - display the moves for the current position.
+- eval - display the evaluation for the current position.
+- net - display network attributes.
+- bench - run a sequence of searches returning the toal node count and nps.
+- perft depth <d> - run a perft search from the current position using depth <d>.
+- pt - run a sequence of perft searches.
+- et - run a sequence of evaluations.
+
+## Development notes
+
+If you clone the repo with the intention of tweaking Lozza or you want to load the weights from ```quantised.bin```, you need to be aware of the build process in ```build.sh```. This is a script that creates ```./lozza.js``` from ```src/*.js``` (contingent on ```quantised.bin```) and ```./releases/lozza.js``` which has the weights from ```quantised.bin``` inlined into it. It also creates binaries in ```./releases``` but you can remove that section. The version that reads ```quantised.bin``` (```./lozza.js```) is what I use for development and is what is in the root of the repo. The version in ```./releases``` is what I ship. ```build.sh``` will run natively on Linux and macOS but will need to run in WSL or git bash etc on Windows.  
+ 
+## References
+
+- https://nodejs.org - Node
+- https://www.chessprogramming.org/Main_Page - Chess programming wiki
+- https://computerchess.org.uk/ccrl/4040 - CCRL rating list
+- https://backscattering.de/chess/uci - UCI protocol
+- https://talkchess.com - Talkchess forums
 
 ## Acknowledgements
 
-https://nodejs.org - Node
-
-https://github.com/jw1912/bullet - bullet network trainer
-
-https://www.chessprogramming.org/Main_Page - Chess programming wiki
-
-https://computerchess.org.uk/ccrl/4040 - CCRL rating list
-
-https://backscattering.de/chess/uci - UCI protocol
-
-https://discord.gg/uM8J3x46 - Engine Programming Discord
-
-https://talkchess.com - Talkchess forums
-
-https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
-
-
-
-
-
-
-
+- https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
