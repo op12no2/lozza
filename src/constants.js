@@ -335,5 +335,5 @@ const FILE = new Uint8Array([
   
   const ALIGNED = Array(144);
   
-  const NET_WEIGHTS_FILE = './quantised.bin';  // ignore - only relevant for dev version
+  const NET_WEIGHTS_FILE = './nets/quantised.bin';  // ignore - only relevant for dev version
   

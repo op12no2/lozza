@@ -41,31 +41,20 @@ echo "Built tmp.js"
   cat tmp.js
 } > lozza.js
 
-node lozza.js q
+node lozza.js uci q
 
 echo "Built lozza.js (dev)"
 
 # Release build (inline base64 weights, unminified for browser compatibility)
 {
   printf '\nconst WEIGHTS_B64 = "'
-  base64 -i quantised.bin | tr -d '\n'
+  base64 -i nets/quantised.bin | tr -d '\n'
   printf '";\n'
   cat tmp.js
 } > releases/lozza.js
 
-node releases/lozza.js q
+node releases/lozza.js uci q
 
 echo "Built releases/lozza.js (release)"
 
 rm tmp.js
-
-# Executables
-echo "Building executables..."
-
-bun build releases/lozza.js --compile --minify --target=bun-windows-x64   --outfile=releases/lozza-win-x64
-bun build releases/lozza.js --compile --minify --target=bun-linux-x64    --outfile=releases/lozza-linux-x64
-bun build releases/lozza.js --compile --minify --target=bun-darwin-x64   --outfile=releases/lozza-mac-x64
-bun build releases/lozza.js --compile --minify --target=bun-darwin-arm64 --outfile=releases/lozza-mac-arm64
-
-echo "Built executables in releases/"
-ls -lh releases/
