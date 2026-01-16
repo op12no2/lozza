@@ -57,4 +57,10 @@ node releases/lozza.js uci q
 
 echo "Built releases/lozza.js (release)"
 
+clang -O3 -flto -DNDEBUG -march=native -static -o lozza src/lozza.c -lm
+
+./lozza uci q
+
+echo "Built native lozza binary (dev)"
+
 rm tmp.js
