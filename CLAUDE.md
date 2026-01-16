@@ -1,33 +1,33 @@
 ## overview
 
-Lozza is a UCI chess engine.
-There are 2 versions: Javascript and C.
+- Lozza is a UCI chess engine.
+- There are 2 versions: Javascript and C.
 
 ## source
 
-`src/*.js` - Javascript engine.
-`src/lozza.c` - C engine.
+- `src/*.js` - Javascript engine.
+- `src/lozza.c` - C engine.
 
 ## nets
 
-`nets/quantised.bin` - net for Javascript version.
-`src/weights.h` - net for C version
+- `nets/quantised.bin` - net for Javascript version.
+- `src/weights.h` - net for C version
 
 ## build
 
-`./build.sh` - creates `./lozza.js` and `./lozza` for dev testing as well as release-friendlies in `./releases`
+- `./build.sh` - creates `./lozza.js` and `./lozza` for dev testing as well as release-friendlies in `./releases`
 
 ## testing
 
-`node lozza.js "bench warm 0" q` - runs bench command for Javascript version
-`./lozza bench q` - ditto for C version.
+- `node lozza.js "bench warm 0" q` - runs bench command for Javascript version
+- `./lozza bench q` - ditto for C version.
 
-Note that the bench command will not report the same number of nodes for Javascript and C - the code is different between versions.
+- Note that the bench command will not report the same number of nodes for Javascript and C - the code is different between versions.
 
 ## notes
 
 - The Javascript verison uses a 12x12 board and mailbox movegen.
-- The C version uses a 8x8 + bitboards bitboards and magic movegen.
+- The C version uses a 8x8 + bitboards and magic movegen.
 - Other then that both engines are very similar, the C version being essentially a port from Javascript to C.
 
 

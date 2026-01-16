@@ -53,6 +53,8 @@ echo "Built lozza.js (dev)"
   cat tmp.js
 } > releases/lozza.js
 
+rm tmp.js
+
 node releases/lozza.js uci q
 
 echo "Built releases/lozza.js (release)"
@@ -63,4 +65,9 @@ clang -O3 -flto -DNDEBUG -march=native -static -o lozza src/lozza.c -lm
 
 echo "Built native lozza binary (dev)"
 
-rm tmp.js
+clang -O3 -flto -DNDEBUG -march=x86-64-v3 -static -o releases/lozza-linux src/lozza.c -lm
+zig cc -O3 -DNDEBUG -target x86_64-windows -mcpu=x86_64_v3 -o releases/lozza-win.exe src/lozza.c
+zig cc -O3 -DNDEBUG -target aarch64-macos -o releases/lozza-mac-arm src/lozza.c
+zig cc -O3 -DNDEBUG -target x86_64-macos -mcpu=x86_64_v3 -o releases/lozza-mac-x86 src/lozza.c
+
+rm -f releases/*.pdb
