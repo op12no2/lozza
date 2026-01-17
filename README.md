@@ -2,7 +2,7 @@
 
 A UCI chess engine written in Javascript and C.
 
-Lozza can be used in browsers as a web solution and in traditional chess user interfaces like Arena and Winboard etc. 
+Lozza can be used in browsers (Javascript) and in traditional chess user interfaces like Arena and Winboard etc (C). 
 
 ## Basic use in a browser
 
