@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+MODE="${1:-release}"
+
 set -euo pipefail
 
 mkdir -p releases
@@ -43,7 +46,8 @@ node lozza.js uci q
 echo "Built lozza.js (dev)"
 echo "**********"
 
-# Release build (inline base64 weights, unminified for browser compatibility)
+if [[ "$MODE" != "dev" ]]; then
+
 {
   printf '\nconst WEIGHTS_B64 = "'
   base64 -i nets/quantised.bin | tr -d '\n'
@@ -52,16 +56,21 @@ echo "**********"
 } > releases/lozza.js
 
 sed -i "s/const nodeHost = (typeof process) != 'undefined';/const nodeHost = false;/" releases/lozza.js
-rm tmp.js
 
 echo "Built releases/lozza.js (release)"
 echo "**********"
+
+fi 
+
+rm tmp.js
 
 clang -O3 -flto -DNDEBUG -march=native -static -o lozza c/lozza.c -lm
 
 ./lozza uci q
 echo "Built native binary (dev)"
 echo "**********"
+
+if [[ "$MODE" != "dev" ]]; then
 
 clang -O3 -flto -DNDEBUG -march=x86-64-v3 -static -o releases/lozza-linux c/lozza.c -lm
 zig cc -O3 -DNDEBUG -target x86_64-windows -mcpu=x86_64_v3 -o releases/lozza-win.exe c/lozza.c
@@ -76,3 +85,5 @@ echo "**********"
 rm -f releases/*.pdb
 
 ls -la releases/l*
+
+fi

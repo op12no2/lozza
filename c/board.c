@@ -1,7 +1,3 @@
-/*}}}*/
-/*{{{  board*/
-
-/*{{{  ucinewgame*/
 
 static void ucinewgame(void) {
 
@@ -13,9 +9,6 @@ static void ucinewgame(void) {
   tt_reset();
 
 }
-
-/*}}}*/
-/*{{{  init_zob*/
 
 static void init_zob(void) {
 
@@ -35,9 +28,6 @@ static void init_zob(void) {
 
 }
 
-/*}}}*/
-/*{{{  mat_draw*/
-
 static int mat_draw(const Position *const pos) {
 
   const uint64_t *const a = pos->all;
@@ -53,9 +43,6 @@ static int mat_draw(const Position *const pos) {
 
 }
 
-/*}}}*/
-/*{{{  eval*/
-
 static inline int eval(Node *const node) {
 
   if (mat_draw(&node->pos))
@@ -64,9 +51,6 @@ static inline int eval(Node *const node) {
   return net_eval(node);
 
 }
-
-/*}}}*/
-/*{{{  play_move*/
 
 static void play_move(Node *const node, char *uci_move) {
 
@@ -96,9 +80,6 @@ static void play_move(Node *const node, char *uci_move) {
 
 }
 
-/*}}}*/
-/*{{{  position*/
-
 static void position(Node *const node, const char *board_fen, const char *stm_str, const char *rights_str, const char *ep_str, int num_uci_moves, char **uci_moves) {
 
   Position *const pos = &node->pos;
@@ -109,7 +90,7 @@ static void position(Node *const node, const char *board_fen, const char *stm_st
 
   memset(pos, 0, sizeof(Position));
 
-  /*{{{  board*/
+  // board
   
   for (int i=0; i < 64; i++)
     pos->board[i] = EMPTY;
@@ -147,16 +128,14 @@ static void position(Node *const node, const char *board_fen, const char *stm_st
     }
   }
   
-  /*}}}*/
-  /*{{{  stm*/
+  // stm
   
   pos->stm = (stm_str[0] == 'w') ? WHITE : BLACK;
   
   if (pos->stm == BLACK)
     pos->hash ^= zob_stm;
   
-  /*}}}*/
-  /*{{{  rights*/
+  // rights
   
   pos->rights = 0;
   
@@ -171,8 +150,7 @@ static void position(Node *const node, const char *board_fen, const char *stm_st
   
   pos->hash ^= zob_rights[pos->rights];
   
-  /*}}}*/
-  /*{{{  ep*/
+  // ep
   
   if (ep_str[0] == '-') {
     pos->ep = 0;  // 0 is not a legal ep square so this is ok
@@ -189,11 +167,9 @@ static void position(Node *const node, const char *board_fen, const char *stm_st
   
   pos->hash ^= zob_ep[pos->ep];
   
-  /*}}}*/
-
   net_slow_rebuild_accs(node);
 
-  /*{{{  play the uci moves*/
+  // play the uci moves
   
   reset_hash_history(0);
   update_hash_history(pos, 0);
@@ -203,17 +179,13 @@ static void position(Node *const node, const char *board_fen, const char *stm_st
     update_hash_history(pos, m);
   }
   
-  reset_hash_history(num_uci_moves);
-  
-  /*}}}*/
+  // prepare 
 
+  reset_hash_history(num_uci_moves);
   reset_piece_to_history();
   reset_killers();
 
 }
-
-/*}}}*/
-/*{{{  et*/
 
 static void et (void) {
 
@@ -228,9 +200,6 @@ static void et (void) {
 
   }
 }
-
-/*}}}*/
-/*{{{  probably_legal*/
 
 static move_t probably_legal(const Position *const pos, move_t move) {
 
@@ -259,9 +228,6 @@ static move_t probably_legal(const Position *const pos, move_t move) {
   return move;
 
 }
-
-/*}}}*/
-/*{{{  is_draw*/
 
 static int is_draw(const Position *const pos, const int ply) {
 
@@ -293,7 +259,6 @@ static int is_draw(const Position *const pos, const int ply) {
     assert(idx < 1024);
 
     if (h0 == h[idx]) {
-      /*{{{  rep*/
       
       if (idx > n_uci) {
         return 1;
@@ -304,8 +269,6 @@ static int is_draw(const Position *const pos, const int ply) {
       if (reps == 2) {
         return 1;
       }
-      
-      /*}}}*/
     }
 
     idx -= 2;
@@ -316,19 +279,11 @@ static int is_draw(const Position *const pos, const int ply) {
 
 }
 
-/*}}}*/
-/*{{{  pos_copy*/
-
 static inline void pos_copy(const Position *const from_pos, Position *const to_pos) {
 
   *to_pos = *from_pos;
 
 }
-
-/*}}}*/
-/*{{{  see*/
-
-/*{{{  get_least_valuable_piece*/
 
 static uint64_t get_least_valuable_piece(const Position *const pos, const uint64_t attadef, const int by_side, int *piece) {
 
@@ -349,9 +304,6 @@ static uint64_t get_least_valuable_piece(const Position *const pos, const uint64
 
 }
 
-/*}}}*/
-/*{{{  rook_attackers_to*/
-
 static uint64_t rook_attackers_to(const Position *const pos, const uint64_t occ, const int to_sq) {
 
   const Attack *const RESTRICT a = &rook_attacks[to_sq];
@@ -361,9 +313,6 @@ static uint64_t rook_attackers_to(const Position *const pos, const uint64_t occ,
 
 }
 
-/*}}}*/
-/*{{{  bishop_attackers_to*/
-
 static uint64_t bishop_attackers_to(const Position *const pos, const uint64_t occ, const int to_sq) {
 
   const Attack *const RESTRICT a = &bishop_attacks[to_sq];
@@ -372,9 +321,6 @@ static uint64_t bishop_attackers_to(const Position *const pos, const uint64_t oc
   return rays & (pos->all[BISHOP] | pos->all[6+BISHOP] | pos->all[QUEEN] | pos->all[6+QUEEN]);
 
 }
-
-/*}}}*/
-/*{{{  static_attackers_to*/
 
 static uint64_t static_attackers_to(const Position *const pos, const int to_sq) {
 
@@ -396,9 +342,6 @@ static uint64_t static_attackers_to(const Position *const pos, const int to_sq) 
   return attackers;
 
 }
-
-/*}}}*/
-/*{{{  see_ge*/
 
 static int see_ge(const Position *const pos, const move_t move, int threshold) {
 
@@ -462,11 +405,6 @@ static int see_ge(const Position *const pos, const move_t move, int threshold) {
 
 }
 
-/*}}}*/
-
-/*}}}*/
-/*{{{  is_pawn_endgame*/
-
 static inline int is_pawn_endgame(const Position *const pos) {
 
   const uint64_t *const a = pos->all;
@@ -475,4 +413,3 @@ static inline int is_pawn_endgame(const Position *const pos) {
 
 }
 
-/*}}}*/
