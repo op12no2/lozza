@@ -5,21 +5,21 @@
 
 ## source
 
-- `src/*.js` - Javascript engine.
-- `src/lozza.c` - C engine.
+- `js/*.js` - Javascript engine.
+- `c/lozza.c` - C engine.
 
 ## nets
 
 - `nets/quantised.bin` - net for Javascript version.
-- `src/weights.h` - net for C version
+- `nets/weights.h` - net for C version.
 
 ## build
 
-- `./build.sh` - creates `./lozza.js` and `./lozza` for dev testing as well as release-friendlies in `./releases`
+- `./build.sh` - creates `./lozza.js` and `./lozza` for dev testing as well as release-friendlies in `./releases` via zig.
 
 ## testing
 
-- `node lozza.js "bench warm 0" q` - runs bench command for Javascript version
+- `node lozza.js "bench warm 0" q` - runs bench command for Javascript version.
 - `./lozza bench q` - ditto for C version.
 
 - Note that the bench command will not report the same number of nodes for Javascript and C - the code is different between versions.

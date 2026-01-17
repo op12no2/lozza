@@ -1,6 +1,6 @@
 
 #define VERSION "10"
-#define BUILD "43"
+#define BUILD "1"
 
 /*{{{  includes*/
 
@@ -22,7 +22,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
-#include "weights.h"
+#include "../nets/weights.h"
 
 /*}}}*/
 /*{{{  macros*/

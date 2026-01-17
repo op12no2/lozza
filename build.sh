@@ -4,36 +4,34 @@ set -euo pipefail
 mkdir -p releases
 
 cat \
-  src/constants.js \
-  src/utils.js \
-  src/nodes.js \
-  src/report.js \
-  src/search.js \
-  src/qsearch.js \
-  src/perft.js \
-  src/pv.js \
-  src/net.js \
-  src/board.js \
-  src/zobrist.js \
-  src/tt.js \
-  src/hash.js \
-  src/position.js \
-  src/movegen.js \
-  src/makemove.js \
-  src/attack.js \
-  src/evaluate.js \
-  src/see.js \
-  src/history.js \
-  src/draw.js \
-  src/format.js \
-  src/boardcheck.js \
-  src/stats.js \
-  src/fens.js \
-  src/uci.js \
-  src/init.js \
+  js/constants.js \
+  js/utils.js \
+  js/nodes.js \
+  js/report.js \
+  js/search.js \
+  js/qsearch.js \
+  js/perft.js \
+  js/pv.js \
+  js/net.js \
+  js/board.js \
+  js/zobrist.js \
+  js/tt.js \
+  js/hash.js \
+  js/position.js \
+  js/movegen.js \
+  js/makemove.js \
+  js/attack.js \
+  js/evaluate.js \
+  js/see.js \
+  js/history.js \
+  js/draw.js \
+  js/format.js \
+  js/boardcheck.js \
+  js/stats.js \
+  js/fens.js \
+  js/uci.js \
+  js/init.js \
   > tmp.js
-
-echo "Built tmp.js"
 
 # Dev build (no weights, loads from file)
 {
@@ -42,8 +40,8 @@ echo "Built tmp.js"
 } > lozza.js
 
 node lozza.js uci q
-
 echo "Built lozza.js (dev)"
+echo
 
 # Release build (inline base64 weights, unminified for browser compatibility)
 {
@@ -56,25 +54,24 @@ echo "Built lozza.js (dev)"
 rm tmp.js
 
 node releases/lozza.js uci q
-
 echo "Built releases/lozza.js (release)"
+echo
 
-clang -O3 -flto -DNDEBUG -march=native -static -o lozza src/lozza.c -lm
+clang -O3 -flto -DNDEBUG -march=native -static -o lozza c/lozza.c -lm
 
 ./lozza uci q
-
 echo "Built native lozza binary (dev)"
+echo
 
-clang -O3 -flto -DNDEBUG -march=x86-64-v3 -static -o releases/lozza-linux src/lozza.c -lm
-zig cc -O3 -DNDEBUG -target x86_64-windows -mcpu=x86_64_v3 -o releases/lozza-win.exe src/lozza.c
-zig cc -O3 -DNDEBUG -target aarch64-macos -o releases/lozza-mac-arm src/lozza.c
-zig cc -O3 -DNDEBUG -target x86_64-macos -mcpu=x86_64_v3 -o releases/lozza-mac-x86 src/lozza.c
+clang -O3 -flto -DNDEBUG -march=x86-64-v3 -static -o releases/lozza-linux c/lozza.c -lm
+zig cc -O3 -DNDEBUG -target x86_64-windows -mcpu=x86_64_v3 -o releases/lozza-win.exe c/lozza.c
+zig cc -O3 -DNDEBUG -target aarch64-macos -o releases/lozza-mac-arm c/lozza.c
+zig cc -O3 -DNDEBUG -target x86_64-macos -mcpu=x86_64_v3 -o releases/lozza-mac-x86 c/lozza.c
 
 ./releases/lozza-linux uci q
 ./releases/lozza-win.exe uci q
-
 echo "Built releases"
 
 rm -f releases/*.pdb
 
-ls -la releases
+ls -la releases/l*
