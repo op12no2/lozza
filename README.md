@@ -1,12 +1,12 @@
 # Lozza
 
-A UCI Javascript chess engine.
+A UCI chess engine written in Javascript and C.
 
-Lozza was primarily created for use in browsers, but can also be used with traditional chess user interfaces (see below). 
+Lozza can be used in browsers as a web solution and in traditional chess user interfaces like Arena and Winboard etc. 
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from the latest release (not the repo).  
+All you need is ```lozza.js``` from the latest release.  
 
 Here is a little example to do a 10 ply search:-
 
@@ -40,61 +40,12 @@ A sister repo has more browser-based examples for playing and analysing with Loz
 
 - https://op12no2.github.io/lozza-ui
 
-## Play Lozza offline in chess user interfaces
+## Play Lozza in chess user interfaces
 
-The most straightfoward way is to use one of the binaries from the latest release. 
+Use the appropriate binary from the latest release. 
 
-Alternatively install [Node](https://nodejs.org/en) or [Bun](https://bun.com) and use ```lozza.js``` via a batch file; for example:
-
-```
-"c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
-```
-
-## UCI options
-
-```
-option name Hash type spin default 16 min 1 max 1024 
-option name MultiPV type spin default 1 min 1 max 500 
-```
-
-## Running Lozza from the command line
-
-Again, use one of the binaries from the latest release or for example:-
-
-```
-node lozza.js
-```
-
-Commands can be given as arguments:-
-
-```
-node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
-./lozza-win-x64.exe ucinewgame "position startpos" board quit
-```
-
-There is also an online console:-
-
-- https://op12no2.github.io/lozza-ui/console.htm
-
-## Custom commands
-
-- quit - close Lozza.
-- board - display the board for the current position.
-- moves - display the moves for the current position.
-- eval - display the evaluation for the current position.
-- net - display network attributes.
-- bench - run a sequence of searches returning the toal node count and nps.
-- perft depth <d> - run a perft search from the current position using depth <d>.
-- pt - run a sequence of perft searches.
-- et - run a sequence of evaluations.
-
-## Development notes
-
-If you clone the repo with the intention of tweaking Lozza or you want to load the weights from ```quantised.bin```, you need to be aware of the build process in ```build.sh```. This is a script that creates ```./lozza.js``` from ```src/*.js``` (contingent on ```quantised.bin```) and ```./releases/lozza.js``` which has the weights from ```quantised.bin``` inlined into it. It also creates binaries in ```./releases``` but you can remove that section. The version that reads ```quantised.bin``` (```./lozza.js```) is what I use for development and is what is in the root of the repo. The version in ```./releases``` is what I ship. ```build.sh``` will run natively on Linux and macOS but will need to run in WSL or git bash etc on Windows.  
- 
 ## References
 
-- https://nodejs.org - Node
 - https://www.chessprogramming.org/Main_Page - Chess programming wiki
 - https://computerchess.org.uk/ccrl/4040 - CCRL rating list
 - https://backscattering.de/chess/uci - UCI protocol
