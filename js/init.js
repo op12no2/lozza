@@ -8,7 +8,7 @@ if (!nodeHost) {
   }
 }
 
-const fs = (nodeHost) ? require('fs') : 0;
+const fs = (nodeHost) ? require('fs') : 0; 
 
 const nodes = Array(MAX_PLY);
 
