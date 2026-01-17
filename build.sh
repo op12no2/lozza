@@ -70,4 +70,11 @@ zig cc -O3 -DNDEBUG -target x86_64-windows -mcpu=x86_64_v3 -o releases/lozza-win
 zig cc -O3 -DNDEBUG -target aarch64-macos -o releases/lozza-mac-arm src/lozza.c
 zig cc -O3 -DNDEBUG -target x86_64-macos -mcpu=x86_64_v3 -o releases/lozza-mac-x86 src/lozza.c
 
+./releases/lozza-linux uci q
+./releases/lozza-win.exe uci q
+
+echo "Built releases"
+
 rm -f releases/*.pdb
+
+ls -la releases
