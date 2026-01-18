@@ -1,32 +1,44 @@
 ## overview
 
 - Lozza is a UCI chess engine.
-- There are 2 versions: Javascript and C.
+- The C codebase is compiled to both native binaries and WASM (via Emscripten).
 
 ## source
 
-- `js/*.js` - Javascript engine.
-- `c/lozza.c` - C engine.
+- `src/*.c` - C engine source (unity build).
 
 ## nets
 
-- `nets/quantised.bin` - net for Javascript version.
-- `nets/weights.h` - net for C version.
+- `nets/weights.h` - neural network weights.
 
 ## build
 
-- `./build.sh` - creates `./lozza.js` and `./lozza` for dev testing as well as release-friendlies in `./releases` via zig.
-- use `./build.sh dev` to just quickly build the 2 dev files.
+- `./build.sh` - full build (dev + release)
+- `./build.sh -dev` - dev build only
+
+Requires Emscripten (emcc) for WASM builds.
+
+## output
+
+**Dev (`./test/`):**
+- `test/lozza` - native binary (arch-native)
+- `test/lozza-node.js` - WASM for Node.js testing
+- `test/node-wrapper.js` - stdin/stdout wrapper
+
+**Release (`./releases/`):**
+- `releases/lozza.js` - browser WASM (runs in web worker)
+- `releases/lozza-linux` - Linux x86-64-v3
+- `releases/lozza-win.exe` - Windows x86-64-v3
+- `releases/lozza-mac-arm` - macOS ARM
+- `releases/lozza-mac-x86` - macOS x86-64-v3
 
 ## testing
 
-- `node lozza.js "bench warm 0" q` - runs bench command for Javascript version.
-- `./lozza bench q` - runs bench command for C version.
-
-- Note that the bench command will not report the same number of nodes for Javascript and C - the code is different between versions.
+- `./bench.sh` - bench both native and Node WASM
+- `./test/lozza bench q` - bench native only
+- `node test/node-wrapper.js` - interactive Node WASM
 
 ## notes
 
-- The Javascript verison uses a 12x12 board and mailbox movegen.
-- The C version uses a 8x8 + bitboards and magics movegen.
-- Other then that both engines are very similar, the C version being essentially a port from Javascript to C.
+- Browser WASM uses pthreads (requires SharedArrayBuffer / COOP+COEP headers).
+- Node WASM is single-threaded (no `stop` during search).

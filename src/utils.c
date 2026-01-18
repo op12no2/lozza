@@ -247,3 +247,24 @@ static inline uint8_t lut(const uint8_t *const this_lut, const move_t move) {
 }
 
 /*}}}*/
+/*{{{  uci_send*/
+
+#ifdef __EMSCRIPTEN__
+static void uci_send(const char *fmt, ...) {
+  char buf[4096];
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(buf, sizeof(buf), fmt, args);
+  va_end(args);
+  EM_ASM({ postMessage(UTF8ToString($0)); }, buf);
+}
+#else
+static void uci_send(const char *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  vprintf(fmt, args);
+  va_end(args);
+}
+#endif
+
+/*}}}*/

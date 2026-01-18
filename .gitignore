@@ -1,6 +1,6 @@
 # Claude Code session data
 .claude/
-lozza.js
-lozza
+test/lozza-node.js
+test/lozza
 # Build artifacts
 releases/

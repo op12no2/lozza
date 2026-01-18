@@ -529,11 +529,13 @@ static void go(void) {
     uint64_t elapsed_ms = end_ms - tc.start_time;
     uint64_t nps        = (tc.nodes * 1000ULL) / (elapsed_ms ? elapsed_ms : 1);
     
-    if (abs(tc.bs) < MATE_LIMIT)
-      printf("info depth %d score cp %d time %" PRIu64 " nodes %" PRIu64 " nps %" PRIu64 " pv %s\n", depth, tc.bs, elapsed_ms, tc.nodes, nps, pv_str);
-    else {
-      const int mate_score = max(1, (tc.bs < 0) ? (tc.bs - MATE) / 2 : (MATE - tc.bs) / 2);
-      printf("info depth %d score mate %d time %" PRIu64 " nodes %" PRIu64 " nps %" PRIu64 " pv %s\n", depth, mate_score, elapsed_ms, tc.nodes, nps, pv_str);
+    if (!uci_quiet) {
+      if (abs(tc.bs) < MATE_LIMIT)
+        uci_send("info depth %d score cp %d time %" PRIu64 " nodes %" PRIu64 " nps %" PRIu64 " pv %s\n", depth, tc.bs, elapsed_ms, tc.nodes, nps, pv_str);
+      else {
+        const int mate_score = max(1, (tc.bs < 0) ? (tc.bs - MATE) / 2 : (MATE - tc.bs) / 2);
+        uci_send("info depth %d score mate %d time %" PRIu64 " nodes %" PRIu64 " nps %" PRIu64 " pv %s\n", depth, mate_score, elapsed_ms, tc.nodes, nps, pv_str);
+      }
     }
     
     /*}}}*/
@@ -546,7 +548,8 @@ static void go(void) {
   }
 
   format_move(tc.bm, bm_str);
-  printf("bestmove %s\n", bm_str);
+  if (!uci_quiet)
+    uci_send("bestmove %s\n", bm_str);
 
 }
 
@@ -561,15 +564,16 @@ static void bench (void) {
   uint64_t start_ms    = now_ms();
   uint64_t total_nodes = 0;
 
+  uci_quiet = true;
+
   for (int i=0; i < num_fens; i++) {
 
     const Bench *b = &bench_data[i];
 
-    printf("%s %s %s %s\n", b->fen, b->stm, b->rights, b->ep);
     position(&ss[0], b->fen, b->stm, b->rights, b->ep, 0, NULL);
 
     tc           = (TimeControl){0};
-    tc.max_depth = 12;
+    tc.max_depth = 11;
 
     go();
 
@@ -577,11 +581,13 @@ static void bench (void) {
 
   }
 
+  uci_quiet = false;
+
   uint64_t end_ms     = now_ms();
   uint64_t elapsed_ms = end_ms - start_ms;
   uint64_t nps        = (total_nodes * 1000ULL) / (elapsed_ms ? elapsed_ms : 1);
 
-  printf("time %" PRIu64 " nodes %" PRIu64 " nps %" PRIu64 "\n", elapsed_ms, total_nodes, nps);
+  uci_send("time %" PRIu64 " nodes %" PRIu64 " nps %" PRIu64 "\n", elapsed_ms, total_nodes, nps);
 
 }
 

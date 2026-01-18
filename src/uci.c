@@ -16,7 +16,7 @@ static int uci_tokens(int num_tokens, char **tokens) {
   if (!strcmp(cmd, "isready")) {
     /*{{{  isready*/
     
-    printf("readyok\n");
+    uci_send("readyok\n");
     
     /*}}}*/
   }
@@ -24,7 +24,7 @@ static int uci_tokens(int num_tokens, char **tokens) {
     /*{{{  position*/
     
     if (!tt) {
-      printf("info run a ucinewgame command or setoption name Hash value 16 (etc) command first\n");
+      uci_send("info run a ucinewgame command or setoption name Hash value 16 (etc) command first\n");
       return 0;
     }
     
@@ -59,12 +59,12 @@ static int uci_tokens(int num_tokens, char **tokens) {
     /*{{{  go*/
     
     if (!tt) {
-      printf("info run a ucinewgame command or setoption name Hash value 16 (etc) command first\n");
+      uci_send("info run a ucinewgame command or setoption name Hash value 16 (etc) command first\n");
       return 0;
     }
     
     if (ss[0].pos.hash == 0) {
-      printf("info run a position startpos (etc) command first\n");
+      uci_send("info run a position startpos (etc) command first\n");
       return 0;
     }
     
@@ -162,10 +162,10 @@ static int uci_tokens(int num_tokens, char **tokens) {
   else if (!strcmp(cmd, "uci")) {
     /*{{{  uci*/
     
-    printf("id name Lozza %s\n", VERSION);
-    printf("id author Colin Jenkins\n");
-    printf("option name Hash type spin default %d min 1 max 1024\n", TT_DEFAULT);
-    printf("uciok\n");
+    uci_send("id name Lozza %s\n", VERSION);
+    uci_send("id author Colin Jenkins\n");
+    uci_send("option name Hash type spin default %d min 1 max 1024\n", TT_DEFAULT);
+    uci_send("uciok\n");
     
     /*}}}*/
   }
@@ -192,7 +192,7 @@ static int uci_tokens(int num_tokens, char **tokens) {
     
     const size_t mb = (tt_entries * sizeof(TT)) / (1024 * 2024);
     
-    printf("%zu mb %zu slots %zu bytes/slot\n", mb, tt_entries, sizeof(TT));
+    uci_send("%zu mb %zu slots %zu bytes/slot\n", mb, tt_entries, sizeof(TT));
     
     /*}}}*/
   }
@@ -200,29 +200,29 @@ static int uci_tokens(int num_tokens, char **tokens) {
     /*{{{  eval*/
     
     const int e = eval(&ss[0]);
-    
-    printf("%d\n", e);
+
+    uci_send("%d\n", e);
     
     /*}}}*/
   }
   else if (!strcmp(cmd, "net") || !strcmp(cmd, "n")) {
     /*{{{  net*/
     
-    printf("(%d -> %d)x2 -> 1\n", NET_I_SIZE, NET_H1_SIZE);
+    uci_send("(%d -> %d)x2 -> 1\n", NET_I_SIZE, NET_H1_SIZE);
     
     /*}}}*/
   }
   else if (!strcmp(cmd, "build")) {
     /*{{{  build*/
     
-    printf("%s\n", BUILD);
+    uci_send("%s\n", BUILD);
     
     /*}}}*/
   }
   else if (!strcmp(cmd, "draw") || !strcmp(cmd, "d")) {
     /*{{{  draw*/
     
-    printf("hmc %d num uci moves %d is draw %d\n", ss[0].pos.hmc, hh.num_uci_moves, is_draw(&ss[0].pos, 0));
+    uci_send("hmc %d num uci moves %d is draw %d\n", ss[0].pos.hmc, hh.num_uci_moves, is_draw(&ss[0].pos, 0));
     
     /*}}}*/
   }
@@ -240,7 +240,7 @@ static int uci_tokens(int num_tokens, char **tokens) {
     uint64_t elapsed_ms = end_ms - start_ms;
     uint64_t nps        = (total_nodes * 1000ULL) / (elapsed_ms ? elapsed_ms : 1);
     
-    printf("time %" PRIu64 " nodes %" PRIu64 " nps %" PRIu64 "\n", elapsed_ms, total_nodes, nps);
+    uci_send("time %" PRIu64 " nodes %" PRIu64 " nps %" PRIu64 "\n", elapsed_ms, total_nodes, nps);
     
     /*}}}*/
   }
@@ -276,7 +276,7 @@ static int uci_tokens(int num_tokens, char **tokens) {
     /*}}}*/
   }
   else {
-    printf("%s ?\n", cmd);
+    uci_send("%s ?\n", cmd);
   }
 
   return 0;
@@ -307,23 +307,40 @@ static int uci_exec(char *line) {
 }
 
 /*}}}*/
+/*{{{  uci_input (Emscripten)*/
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+void uci_input(const char *cmd) {
+  char buf[UCI_LINE_LENGTH];
+  strncpy(buf, cmd, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = '\0';
+  uci_exec(buf);
+}
+#endif
+
+/*}}}*/
 /*{{{  uci_loop*/
 
 static void uci_loop(int argc, char **argv) {
 
+#ifndef __EMSCRIPTEN__
   setvbuf(stdout, NULL, _IONBF, 0);
-
-  char chunk[UCI_LINE_LENGTH];
+#endif
 
   for (int i=1; i < argc; i++) {
     if (uci_exec(argv[i]))
       return;
   }
 
+#ifndef __EMSCRIPTEN__
+  char chunk[UCI_LINE_LENGTH];
+
   while (fgets(chunk, sizeof(chunk), stdin) != NULL) {
     if (uci_exec(chunk))
       return;
   }
+#endif
 
 }
 

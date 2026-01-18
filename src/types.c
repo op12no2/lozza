@@ -20,6 +20,11 @@
 #include <libgen.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdarg.h>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #include "../nets/weights.h"
 
@@ -314,6 +319,8 @@ static ALIGN64 HashHistory hh;
 static ALIGN64 TT *tt    = NULL;
 static size_t tt_entries = 0;
 static size_t tt_mask    = 0;
+
+static bool uci_quiet = false;
 
 static const uint8_t lut_see[16]     = {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0};
 static const uint8_t lut_prune[16]   = {1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};

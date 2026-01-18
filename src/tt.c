@@ -27,7 +27,7 @@ static int init_tt(size_t megabytes) {
     return 1;
   }
 
-  printf("info tt entries %zu (%zu MB)\n", tt_entries, (tt_entries * sizeof(TT)) / 1024 / 1024);
+  uci_send("info tt entries %zu (%zu MB)\n", tt_entries, (tt_entries * sizeof(TT)) / 1024 / 1024);
 
   return 0;
 

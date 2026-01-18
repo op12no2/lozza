@@ -4,86 +4,85 @@ MODE="${1:-release}"
 
 set -euo pipefail
 
+# =============================================================================
+# DEV BUILD (./test/)
+# =============================================================================
+
+mkdir -p test
+rm -f test/lozza-node.js 
+
+# Native binary (arch-native, for local dev/testing)
+clang -O3 -flto -DNDEBUG -march=native -static -o test/lozza src/lozza.c -lm
+./test/lozza uci q
+echo "Built test/lozza (native dev binary)"
+
+# Node.js WASM (single-threaded, for testing via stdin/stdout)
+emcc -O3 -DNDEBUG \
+  -s SINGLE_FILE=1 \
+  -s ENVIRONMENT='node' \
+  -s EXPORTED_FUNCTIONS='["_main","_uci_input"]' \
+  -s EXPORTED_RUNTIME_METHODS='["ccall"]' \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s INITIAL_MEMORY=67108864 \
+  -s STACK_SIZE=1048576 \
+  -o test/lozza-node.js \
+  src/lozza.c
+node test/node-wrapper.js uci q
+echo "Built test/lozza-node.js (node test build)"
+
+echo "**********"
+echo "Dev build complete"
+echo "**********"
+
+if [[ "$MODE" == "-dev" ]]; then
+  exit 0
+fi
+
+# =============================================================================
+# RELEASE BUILD (./releases/)
+# =============================================================================
+
 mkdir -p releases
+rm -f releases/lozza*
 
-cat \
-  js/constants.js \
-  js/utils.js \
-  js/nodes.js \
-  js/report.js \
-  js/search.js \
-  js/qsearch.js \
-  js/perft.js \
-  js/pv.js \
-  js/net.js \
-  js/board.js \
-  js/zobrist.js \
-  js/tt.js \
-  js/hash.js \
-  js/position.js \
-  js/movegen.js \
-  js/makemove.js \
-  js/attack.js \
-  js/evaluate.js \
-  js/see.js \
-  js/history.js \
-  js/draw.js \
-  js/format.js \
-  js/boardcheck.js \
-  js/stats.js \
-  js/fens.js \
-  js/uci.js \
-  js/init.js \
-  > tmp.js
+# Browser WASM (pthreads for worker environment)
+emcc -O3 -DNDEBUG \
+  -pthread \
+  -s USE_PTHREADS=1 \
+  -s PTHREAD_POOL_SIZE=1 \
+  -s SINGLE_FILE=1 \
+  -s ENVIRONMENT='worker' \
+  -s EXPORTED_FUNCTIONS='["_main","_uci_input"]' \
+  -s EXPORTED_RUNTIME_METHODS='["ccall"]' \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s INITIAL_MEMORY=67108864 \
+  -s STACK_SIZE=1048576 \
+  -o releases/lozza_raw.js \
+  src/lozza.c
 
-# Dev build (no weights, loads from file)
-{
-  printf '\nconst WEIGHTS_B64 = "";\n'
-  cat tmp.js
-} > lozza.js
+cat >> releases/lozza_raw.js << 'WORKER_SETUP'
+onmessage = function(e) {
+  Module.ccall('uci_input', null, ['string'], [e.data]);
+};
+WORKER_SETUP
 
-node lozza.js uci q
-echo "Built lozza.js (dev)"
-echo "**********"
+mv releases/lozza_raw.js releases/lozza.js
+echo "Built releases/lozza.js (browser WASM)"
 
-if [[ "$MODE" != "dev" ]]; then
-
-{
-  printf '\nconst WEIGHTS_B64 = "'
-  base64 -i nets/quantised.bin | tr -d '\n'
-  printf '";\n'
-  cat tmp.js
-} > releases/lozza.js
-
-sed -i "s/const nodeHost = (typeof process) != 'undefined';/const nodeHost = false;/" releases/lozza.js
-
-echo "Built releases/lozza.js (release)"
-echo "**********"
-
-fi 
-
-rm tmp.js
-
-clang -O3 -flto -DNDEBUG -march=native -static -o lozza c/lozza.c -lm
-
-./lozza uci q
-echo "Built native binary (dev)"
-echo "**********"
-
-if [[ "$MODE" != "dev" ]]; then
-
-clang -O3 -flto -DNDEBUG -march=x86-64-v3 -static -o releases/lozza-linux c/lozza.c -lm
-zig cc -O3 -DNDEBUG -target x86_64-windows -mcpu=x86_64_v3 -o releases/lozza-win.exe c/lozza.c
-zig cc -O3 -DNDEBUG -target aarch64-macos -o releases/lozza-mac-arm c/lozza.c
-zig cc -O3 -DNDEBUG -target x86_64-macos -mcpu=x86_64_v3 -o releases/lozza-mac-x86 c/lozza.c
+# Cross-compiled native binaries
+clang -O3 -flto -DNDEBUG -march=x86-64-v3 -static -o releases/lozza-linux src/lozza.c -lm
+zig cc -O3 -DNDEBUG -target x86_64-windows -mcpu=x86_64_v3 -o releases/lozza-win.exe src/lozza.c
+zig cc -O3 -DNDEBUG -target aarch64-macos -o releases/lozza-mac-arm src/lozza.c
+zig cc -O3 -DNDEBUG -target x86_64-macos -mcpu=x86_64_v3 -o releases/lozza-mac-x86 src/lozza.c
 
 ./releases/lozza-linux uci q
 ./releases/lozza-win.exe uci q
 echo "Built release binaries"
-echo "**********"
 
 rm -f releases/*.pdb
 
-ls -la releases/l*
+echo "**********"
+echo "Release build complete"
+echo "**********"
 
-fi
+ls -la releases/

@@ -1,8 +1,14 @@
 # Lozza
 
-A UCI chess engine written in Javascript and C.
+Lozza is a UCI chess engine that is available for Windows, Linux, Mac ARM, Mac x86 and the browser via a web worker.
 
-Lozza can be used in browsers (Javascript) and in traditional chess user interfaces like Arena and Winboard etc (C). 
+## Play Lozza online
+
+- https://op12no2.github.io/lozza-ui
+
+## Play Lozza in chess user interfaces
+
+Use the appropriate binary from the latest release. Note that the binaries do not have a UI and need to use Fritz, Arena or Cutechess etc. 
 
 ## Basic use in a browser
 
@@ -28,21 +34,13 @@ Try this example here:-
 
 - https://op12no2.github.io/lozza-ui/ex.htm
 
-Note that Lozza must be fired up in a web worker.
+Note that ```lozza.js``` must be fired up in a web worker.
 
 ## More examples
 
 A sister repo has more browser-based examples for playing and analysing with Lozza.
 
 - https://github.com/op12no2/lozza-ui
-
-## Play Lozza online
-
-- https://op12no2.github.io/lozza-ui
-
-## Play Lozza in chess user interfaces
-
-Use the appropriate binary from the latest release. 
 
 ## References
 
