@@ -1,6 +1,8 @@
 /*}}}*/
 /*{{{  threads*/
 
+#ifndef __EMSCRIPTEN__
+
 static pthread_t search_thread;
 static _Atomic int search_running = 0;
 
@@ -18,5 +20,7 @@ static void join_search_if_running(void) {
     atomic_store(&search_running, 0);
   }
 }
+
+#endif
 
 /*}}}*/

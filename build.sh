@@ -45,15 +45,12 @@ fi
 mkdir -p releases
 rm -f releases/lozza*
 
-# Browser WASM (pthreads for worker environment)
+# Browser WASM (single-threaded for worker environment)
 emcc -O3 -DNDEBUG \
-  -pthread \
-  -s USE_PTHREADS=1 \
-  -s PTHREAD_POOL_SIZE=1 \
   -s SINGLE_FILE=1 \
   -s ENVIRONMENT='worker' \
-  -s EXPORTED_FUNCTIONS='["_main","_uci_input"]' \
-  -s EXPORTED_RUNTIME_METHODS='["ccall"]' \
+  -s EXPORTED_FUNCTIONS='["_main","_uci_input","_malloc","_free"]' \
+  -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","stringToUTF8","lengthBytesUTF8"]' \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s INITIAL_MEMORY=67108864 \
   -s STACK_SIZE=1048576 \
@@ -61,8 +58,23 @@ emcc -O3 -DNDEBUG \
   src/lozza.c
 
 cat >> releases/lozza_raw.js << 'WORKER_SETUP'
+var moduleReady = false;
+var pendingMessages = [];
+
+Module.onRuntimeInitialized = function() {
+  moduleReady = true;
+  pendingMessages.forEach(function(msg) {
+    Module.ccall('uci_input', null, ['string'], [msg]);
+  });
+  pendingMessages = [];
+};
+
 onmessage = function(e) {
-  Module.ccall('uci_input', null, ['string'], [e.data]);
+  if (moduleReady) {
+    Module.ccall('uci_input', null, ['string'], [e.data]);
+  } else {
+    pendingMessages.push(e.data);
+  }
 };
 WORKER_SETUP
 

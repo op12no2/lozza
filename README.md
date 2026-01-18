@@ -8,7 +8,7 @@ Lozza is a UCI chess engine that is available for Windows, Linux, Mac ARM, Mac x
 
 ## Play Lozza in chess user interfaces
 
-Use the appropriate binary from the latest release. Note that the binaries do not have a UI and need to use Fritz, Arena or Cutechess etc. 
+Use the appropriate binary from the latest release. Note that the binaries do not have a UI and you need to use Fritz, Arena or Cutechess etc. 
 
 ## Basic use in a browser
 

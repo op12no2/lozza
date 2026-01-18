@@ -19,16 +19,12 @@ const Module = require('./lozza-node.js');
 
 // Wait for WASM to initialize
 Module.onRuntimeInitialized = function() {
-  // Process command line args first (if any)
-  const args = process.argv.slice(2);
-  if (args.length > 0) {
-    for (const arg of args) {
-      Module.ccall('uci_input', null, ['string'], [arg]);
-    }
-    return; // Exit after processing args
+  // Command line args are handled by C main(argc, argv)
+  // Only set up interactive stdin if no args were passed
+  if (process.argv.length > 2) {
+    return;
   }
 
-  // Otherwise, set up interactive stdin
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -36,10 +32,7 @@ Module.onRuntimeInitialized = function() {
   });
 
   rl.on('line', (line) => {
-    Module.ccall('uci_input', null, ['string'], [line]);
-  });
-
-  rl.on('close', () => {
-    // Keep process alive for async operations
+    const quit = Module.ccall('uci_input', 'number', ['string'], [line]);
+    if (quit) rl.close();
   });
 };

@@ -22,8 +22,7 @@ Requires Emscripten (emcc) for WASM builds.
 
 **Dev (`./test/`):**
 - `test/lozza` - native binary (arch-native)
-- `test/lozza-node.js` - WASM for Node.js testing
-- `test/node-wrapper.js` - stdin/stdout wrapper
+- `test/lozza-node.js` - Node WASM for testing via `test/node-wrapper.js`
 
 **Release (`./releases/`):**
 - `releases/lozza.js` - browser WASM (runs in web worker)
@@ -35,10 +34,9 @@ Requires Emscripten (emcc) for WASM builds.
 ## testing
 
 - `./bench.sh` - bench both native and Node WASM
-- `./test/lozza bench q` - bench native only
-- `node test/node-wrapper.js` - interactive Node WASM
+- `./test/lozza bench q` - native bench
+- `node test/node-wrapper.js bench q` - Node WASM bench
 
 ## notes
 
-- Browser WASM uses pthreads (requires SharedArrayBuffer / COOP+COEP headers).
-- Node WASM is single-threaded (no `stop` during search).
+- WASM is single-threaded (no `stop` during search) (test and release).

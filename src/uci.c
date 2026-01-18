@@ -129,27 +129,33 @@ static int uci_tokens(int num_tokens, char **tokens) {
     /*}}}*/
     
     tc_init(wtime, winc, btime, binc, max_nodes, move_time, max_depth, moves_to_go);
-    
+
     atomic_store(&tc.finished, 0);
+
+#ifdef __EMSCRIPTEN__
+    go();
+#else
     join_search_if_running();
-    
+
     if (pthread_create(&search_thread, NULL, go_thread_fn, NULL) == 0) {
       atomic_store(&search_running, 1);
     }
     else {
       go();
     }
-    
+#endif
+
     /*}}}*/
   }
   else if (!strcmp(cmd, "stop")) {
     /*{{{  stop*/
-    
+
+#ifndef __EMSCRIPTEN__
     atomic_store(&tc.finished, 1);
     join_search_if_running();
-    
     tc.finished = 1;
-    
+#endif
+
     /*}}}*/
   }
   else if (!strcmp(cmd, "ucinewgame") || !strcmp(cmd, "u")) {
@@ -267,12 +273,14 @@ static int uci_tokens(int num_tokens, char **tokens) {
   }
   else if (!strcmp(cmd, "quit") || !strcmp(cmd, "q")) {
     /*{{{  quit*/
-    
+
+#ifndef __EMSCRIPTEN__
     atomic_store(&tc.finished, 1);
     join_search_if_running();
-    
+#endif
+
     return 1;
-    
+
     /*}}}*/
   }
   else {
@@ -311,11 +319,11 @@ static int uci_exec(char *line) {
 
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
-void uci_input(const char *cmd) {
+int uci_input(const char *cmd) {
   char buf[UCI_LINE_LENGTH];
   strncpy(buf, cmd, sizeof(buf) - 1);
   buf[sizeof(buf) - 1] = '\0';
-  uci_exec(buf);
+  return uci_exec(buf);
 }
 #endif
 
@@ -328,11 +336,16 @@ static void uci_loop(int argc, char **argv) {
   setvbuf(stdout, NULL, _IONBF, 0);
 #endif
 
-  for (int i=1; i < argc; i++) {
-    if (uci_exec(argv[i]))
-      return;
+  // Process command line args and exit
+  if (argc > 1) {
+    for (int i=1; i < argc; i++) {
+      if (uci_exec(argv[i]))
+        return;
+    }
+    return;
   }
 
+  // Interactive mode: read from stdin
 #ifndef __EMSCRIPTEN__
   char chunk[UCI_LINE_LENGTH];
 
