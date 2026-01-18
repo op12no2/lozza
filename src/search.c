@@ -573,7 +573,7 @@ static void bench (void) {
     position(&ss[0], b->fen, b->stm, b->rights, b->ep, 0, NULL);
 
     tc           = (TimeControl){0};
-    tc.max_depth = 11;
+    tc.max_depth = 9;
 
     go();
 
