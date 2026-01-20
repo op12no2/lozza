@@ -4,6 +4,6 @@
 #include <stdint.h>
 
 uint64_t perft(const int depth, const int ply);
-void perft_tests(void);
+void perft_tests(int max_depth);
 
 #endif

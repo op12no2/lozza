@@ -7,6 +7,7 @@
 #include "movegen.h"
 #include "makemove.h"
 #include "position.h"
+#include "iterate.h"
 
 typedef struct {
   const char *board;
@@ -34,21 +35,18 @@ uint64_t perft(const int depth, const int ply) {
   const int in_check = is_attacked(pos, stm_king_sq, opp);
   const uint64_t *const next_stm_king_ptr = &next_pos->all[stm_king_idx];
   uint64_t tot_nodes = 0;
+  move_t move;
 
-  node->num_moves = 0;
-  gen_quiets(node, in_check);
-  gen_captures(node, in_check);
+  init_next_search_move(node, in_check, 0);
 
-  for (int i=0; i < node->num_moves; i++) {
-
-    const move_t move = node->moves[i];
+  while ((move = get_next_search_move(node))) {
 
     pos_copy(pos, next_pos);
     make_move(next_pos, move);
-    
+
     if (is_attacked(next_pos, bsf(*next_stm_king_ptr), opp))
       continue;
-    
+
     tot_nodes += perft(depth-1, ply+1);
 
   }
@@ -127,17 +125,26 @@ static const PerftTest perft_tests_data[] = {
 
 #define NUM_PERFT_TESTS (sizeof(perft_tests_data) / sizeof(perft_tests_data[0]))
 
-void perft_tests(void) {
+void perft_tests(int max_depth) {
 
   uint64_t total_nodes = 0;
   int errors = 0;
+  int tests_run = 0;
   clock_t start = clock();
 
-  printf("Running %lu perft tests...\n\n", (unsigned long)NUM_PERFT_TESTS);
+  if (max_depth > 0)
+    printf("Running perft tests with depth <= %d...\n\n", max_depth);
+  else
+    printf("Running %lu perft tests...\n\n", (unsigned long)NUM_PERFT_TESTS);
 
   for (size_t i = 0; i < NUM_PERFT_TESTS; i++) {
 
     const PerftTest *test = &perft_tests_data[i];
+
+    if (max_depth > 0 && test->depth > max_depth)
+      continue;
+
+    tests_run++;
 
     position(&nodes[0].pos, test->board, test->stm, test->rights, test->ep, 0, NULL);
 
@@ -163,6 +170,6 @@ void perft_tests(void) {
   printf("\n");
   printf("Total: %lu nodes in %.3fs\n", total_nodes, secs);
   printf("NPS: %lu\n", nps);
-  printf("Errors: %d/%lu\n", errors, (unsigned long)NUM_PERFT_TESTS);
+  printf("Errors: %d/%d\n", errors, tests_run);
 
 }

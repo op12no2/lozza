@@ -6,18 +6,29 @@
 
 #define INPUT_BUFFER_SIZE 8192
 
-int main(void) {
+int main(int argc, char *argv[]) {
 
   setbuf(stdin, NULL);
   setbuf(stdout, NULL);
 
-  char input[INPUT_BUFFER_SIZE];
-
-  clock_t start = clock();
+  //clock_t start = clock();
   init_attacks();
-  clock_t end = clock();
-  double ms = (double)(end - start) / CLOCKS_PER_SEC * 1000.0;
-  printf("init_attacks: %.2f ms\n", ms);
+  //clock_t end = clock();
+  //double ms = (double)(end - start) / CLOCKS_PER_SEC * 1000.0;
+  //printf("init_attacks: %.2f ms\n", ms);
+
+  // If command-line arguments provided, execute them and exit
+  if (argc > 1) {
+    for (int i = 1; i < argc; i++) {
+      if (!uci_exec(argv[i])) {
+        break;
+      }
+    }
+    return 0;
+  }
+
+  // Otherwise run interactive loop
+  char input[INPUT_BUFFER_SIZE];
 
   while (fgets(input, sizeof(input), stdin)) {
 

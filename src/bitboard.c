@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-#include <inttypes.h> // PRIu64 PRId64 PRIx64
 #include "types.h"
 #include "builtins.h"
 #include "bitboard.h"
@@ -49,7 +48,7 @@ static void find_magics(Attack attacks[64], const char *label) {
   uint32_t used[MAGIC_MAX_SLOTS];
 
   static uint32_t stamp = 1;
-  const int verbose = 1;
+  const int verbose = 0;
   int total_tries = 0;
   int total_slots = 0;
 
@@ -106,8 +105,8 @@ static void find_magics(Attack attacks[64], const char *label) {
         }
 
         if (verbose) {
-          printf("%s sq %2d tries %d %8d magic %" PRIx64 "\n",
-                 label, sq, tries, N, a->magic);
+          printf("%s sq %2d tries %d %8d magic %llx\n",
+                 label, sq, tries, N, (unsigned long long)a->magic);
         }
 
         total_tries += tries;

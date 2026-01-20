@@ -13,6 +13,11 @@ typedef struct {
   Position pos;
   move_t moves[MAX_MOVES];
   int num_moves;
+  int16_t ranks[MAX_MOVES];
+  int next_move;
+  int in_check;
+  move_t tt_move;
+  int stage;
 
 } Node;
 

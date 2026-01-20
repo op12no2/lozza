@@ -16,8 +16,8 @@ int format_move(const move_t move, char *const buf) {
   buf[4] = '\0';
   buf[5] = '\0';
 
-  if ((move >> 14) & 1) { // hack
-    buf[4] = promo[(move >> 12) & 3];
+  if (move & MOVE_FLAG_PROMOTE) {
+    buf[4] = promo[((move >> 12) & 3)-1]; // actual piece value encoded in move hence -1
     return 5;
   }
 

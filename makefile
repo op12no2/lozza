@@ -10,8 +10,8 @@ TARGET := $(BIN_DIR)/lozza
 
 # Compiler settings
 CC := clang
-CFLAGS := -Wall -Wextra -O3 -MMD -MP
-LDFLAGS :=
+CFLAGS := -Wall -Wextra -O3 -flto -march=native -MMD -MP
+LDFLAGS := -flto
 
 # Find all .c files in source directory
 SRCS := $(wildcard $(SRC_DIR)/*.c)

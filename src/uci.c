@@ -82,7 +82,8 @@ bool uci_exec(char *input) {
   }
 
   else if (str_eq(cmd, "pt")) {
-    perft_tests();
+    int max_depth = (ntokens > 1) ? atoi(tokens[1]) : 0;
+    perft_tests(max_depth);
   }
 
   else {

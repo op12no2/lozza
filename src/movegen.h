@@ -9,7 +9,7 @@
 #define RANK_8 0xFF00000000000000ULL
 #define RANK_PROMO (RANK_1 | RANK_8)
 
-void gen_quiets(Node *node, const int in_check);
-void gen_captures(Node *node, const int in_check);
+void gen_quiets(Node *node);
+void gen_captures(Node *node);
 
 #endif

@@ -7,7 +7,7 @@
 #include "movegen.h"
 #include "bitboard.h"
 
-static void gen_pawns_white_quiets(Node *node) {
+static void gen_pawns_white_quiets(Node *node, const uint64_t targets) {
 
   const Position *pos = &node->pos;
   const uint64_t pawns = pos->all[WPAWN];
@@ -16,31 +16,31 @@ static void gen_pawns_white_quiets(Node *node) {
   int n = 0;
 
   // push 1
-  
+
   const uint64_t one = (pawns << 8) & ~occupied;
-  uint64_t quiet = one & ~RANK_8;
-  uint64_t promo = one & RANK_8;
-  
+  uint64_t quiet = one & ~RANK_8 & targets;
+  uint64_t promo = one & RANK_8 & targets;
+
   while (quiet) {
     const int to = bsf(quiet); quiet &= quiet - 1;
     m[n++] = encode_move(to - 8, to, 0);
   }
-  
+
   while (promo) {
-  
+
     const int to = bsf(promo); promo &= promo - 1;
     const int from = to - 8;
-  
+
     m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q);
     m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R);
     m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B);
     m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N);
-  
+
   }
-  
+
   // push 2
 
-  uint64_t two = ((one & RANK_3) << 8) & ~occupied;
+  uint64_t two = ((one & RANK_3) << 8) & ~occupied & targets;
   
   while (two) {
     int to = bsf(two); two &= two - 1;
@@ -51,16 +51,15 @@ static void gen_pawns_white_quiets(Node *node) {
 
 }
 
-static void gen_pawns_white_captures(Node *node) {
+static void gen_pawns_white_captures(Node *node, const uint64_t targets) {
 
   const Position *pos = &node->pos;
   const uint64_t pawns = pos->all[WPAWN];
-  const uint64_t enemies = pos->colour[BLACK];
   move_t *m = node->moves + node->num_moves;
   int n = 0;
 
-  const uint64_t left = ((pawns << 7) & NOT_H_FILE) & enemies;
-  const uint64_t right = ((pawns << 9) & NOT_A_FILE) & enemies;
+  const uint64_t left = ((pawns << 7) & NOT_H_FILE) & targets;
+  const uint64_t right = ((pawns << 9) & NOT_A_FILE) & targets;
   
   uint64_t cap = left & ~RANK_8;
   uint64_t promo = left &  RANK_8;
@@ -117,7 +116,7 @@ static void gen_pawns_white_captures(Node *node) {
 
 }
 
-static void gen_pawns_black_quiets(Node *node) {
+static void gen_pawns_black_quiets(Node *node, const uint64_t targets) {
 
   const Position *pos = &node->pos;
   const uint64_t pawns = pos->all[BPAWN];
@@ -126,27 +125,27 @@ static void gen_pawns_black_quiets(Node *node) {
   int n = 0;
 
   const uint64_t one = (pawns >> 8) & ~occupied;
-  uint64_t quiet = one & ~RANK_1;
-  uint64_t promo = one & RANK_1;
-  
+  uint64_t quiet = one & ~RANK_1 & targets;
+  uint64_t promo = one & RANK_1 & targets;
+
   while (quiet) {
     const int to = bsf(quiet); quiet &= quiet - 1;
     m[n++]  = encode_move(to + 8, to, 0);
   }
-  
+
   while (promo) {
-  
+
     const int to = bsf(promo); promo &= promo - 1;
     const int from = to + 8;
-  
+
     m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q);
     m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R);
     m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B);
     m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N);
-  
+
   }
-  
-  uint64_t two = ((one & RANK_6) >> 8) & ~occupied;
+
+  uint64_t two = ((one & RANK_6) >> 8) & ~occupied & targets;
   
   while (two) {
     int to = bsf(two); two &= two - 1;
@@ -157,16 +156,15 @@ static void gen_pawns_black_quiets(Node *node) {
 
 }
 
-static void gen_pawns_black_captures(Node *node) {
+static void gen_pawns_black_captures(Node *node, const uint64_t targets) {
 
   const Position *pos = &node->pos;
   const uint64_t pawns = pos->all[BPAWN];
-  const uint64_t enemies = pos->colour[WHITE];
   move_t *m = node->moves + node->num_moves;
   int n = 0;
 
-  const uint64_t left = ((pawns >> 9) & NOT_H_FILE) & enemies;
-  const uint64_t right = ((pawns >> 7) & NOT_A_FILE) & enemies;
+  const uint64_t left = ((pawns >> 9) & NOT_H_FILE) & targets;
+  const uint64_t right = ((pawns >> 7) & NOT_A_FILE) & targets;
   
   uint64_t cap = left & ~RANK_1;
   uint64_t promo = left &  RANK_1;
@@ -223,18 +221,18 @@ static void gen_pawns_black_captures(Node *node) {
 
 }
 
-static inline void gen_pawns_quiets(Node *const node) {
+static inline void gen_pawns_quiets(Node *const node, const uint64_t targets) {
   if (node->pos.stm == WHITE)
-    gen_pawns_white_quiets(node);
+    gen_pawns_white_quiets(node, targets);
   else
-    gen_pawns_black_quiets(node);
+    gen_pawns_black_quiets(node, targets);
 }
 
-static inline void gen_pawns_captures(Node *const node) {
+static inline void gen_pawns_captures(Node *const node, const uint64_t targets) {
   if (node->pos.stm == WHITE)
-    gen_pawns_white_captures(node);
+    gen_pawns_white_captures(node, targets);
   else
-    gen_pawns_black_captures(node);
+    gen_pawns_black_captures(node, targets);
 }
 
 static void gen_jumpers(Node *node, const uint64_t *attack_table, const int piece, const uint64_t targets, const uint32_t flags) {
@@ -339,7 +337,7 @@ static void gen_castling(Node *node) {
 
 }
 
-void gen_captures(Node *node, const int in_check) {
+void gen_captures(Node *node) {
 
   const Position *pos = &node->pos;
   const int stm = pos->stm;
@@ -349,12 +347,12 @@ void gen_captures(Node *node, const int in_check) {
   const uint64_t enemies = pos->colour[opp] & ~opp_king_bb;
   uint64_t targets = enemies;
 
-  if (in_check) {
+  if (node->in_check) {
     const int our_king_sq = bsf(pos->all[piece_index(KING, stm)]);
     targets &= all_attacks_inc_edge[our_king_sq];
   }
 
-  gen_pawns_captures(node);
+  gen_pawns_captures(node, targets);
   gen_jumpers(node, knight_attacks, KNIGHT, targets, MOVE_FLAG_CAPTURE);
   gen_sliders(node, bishop_attacks, BISHOP, targets, MOVE_FLAG_CAPTURE);
   gen_sliders(node, rook_attacks, ROOK, targets, MOVE_FLAG_CAPTURE);
@@ -364,7 +362,7 @@ void gen_captures(Node *node, const int in_check) {
 
 }
 
-void gen_quiets(Node *node, const int in_check) {
+void gen_quiets(Node *node) {
 
   const Position *pos = &node->pos;
   const int stm = pos->stm;
@@ -374,12 +372,12 @@ void gen_quiets(Node *node, const int in_check) {
   const uint64_t opp_king_near = king_attacks[bsf(opp_king_bb)];
   uint64_t targets = ~occ;
 
-  if (in_check) {
+  if (node->in_check) {
     const int our_king_sq = bsf(pos->all[piece_index(KING, stm)]);
     targets &= all_attacks[our_king_sq];
   }
 
-  gen_pawns_quiets(node);
+  gen_pawns_quiets(node, targets);
   gen_jumpers(node, knight_attacks, KNIGHT, targets, 0);
   gen_sliders(node, bishop_attacks, BISHOP, targets, 0);
   gen_sliders(node, rook_attacks, ROOK, targets, 0);
@@ -387,7 +385,7 @@ void gen_quiets(Node *node, const int in_check) {
   gen_sliders(node, rook_attacks, QUEEN, targets, 0);
   gen_jumpers(node, king_attacks, KING, ~occ & ~opp_king_near, 0);
 
-  if (node->pos.rights && !in_check)
+  if (pos->rights && !node->in_check)
     gen_castling(node);
 
 }
