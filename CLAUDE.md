@@ -67,7 +67,7 @@ Command-line arguments are executed as UCI commands then lozza exits. Without ar
 
 ## code style
 
-- Clear straightforward code with performance in mind
+- Clear straightforward code but with performance in mind
 - 2 space indentation
 - else, return, continue and break on next line
 

@@ -25,108 +25,81 @@ static const uint8_t rights_mask[64] = {
    7, 15, 15, 15,  3, 15, 15, 11,  // A8=7, E8=3, H8=11
 };
 
-static inline void remove_piece(Position *pos, int sq, int piece) {
-
-  uint64_t bb = 1ULL << sq;
-
-  pos->board[sq] = EMPTY;
-  pos->all[piece] ^= bb;
-  pos->colour[piece_colour(piece)] ^= bb;
-  pos->occupied ^= bb;
-
-}
-
-static inline void place_piece(Position *pos, int sq, int piece) {
-
-  uint64_t bb = 1ULL << sq;
-
-  pos->board[sq] = piece;
-  pos->all[piece] |= bb;
-  pos->colour[piece_colour(piece)] |= bb;
-  pos->occupied |= bb;
-
-}
 
 void make_move(Position *pos, const move_t move) {
 
+  uint8_t *board = pos->board;
+  uint64_t *all = pos->all;
+  uint64_t *colour = pos->colour;
   const int stm = pos->stm;
   const int opp = stm ^ 1;
-  const int from = (move >> 6) & 0x3F;
-  const int to = move & 0x3F;
   const int flags = move & 0xFFF000;
-  const int piece = pos->board[from];
+  const int from = (move >> 6) & 0x3F;
+  const int from_piece = board[from];
+  const uint64_t from_bb = 1ULL << from;
+  const int to = move & 0x3F;
+  const uint64_t to_bb = 1ULL << to;
+  
+  board[from] = EMPTY;
+  all[from_piece] ^= from_bb;
+  colour[stm] ^= from_bb;
+  
+  pos->ep = 0;
+  
+  if (flags & MOVE_FLAG_EXTRA) {
+    
+    if (flags & MOVE_FLAG_CAPTURE) {
+      if (flags & MOVE_FLAG_EPCAPTURE) {
+        const int ep = to + (stm ? 8 : -8);
+        const uint64_t cap_bb = 1ULL << ep;
+        const int cap_piece = board[ep];
+        board[ep] = EMPTY;
+        all[cap_piece] ^= cap_bb;
+        colour[opp] ^= cap_bb;
+      }
+      else {
+        const int to_piece = board[to];
+        all[to_piece] ^= to_bb;
+        colour[opp] ^= to_bb;
+      }
+    }
 
-  // remove piece from source
-  remove_piece(pos, from, piece);
+    if (flags & MOVE_FLAG_PROMOTE) {
+      const int promo_piece = ((flags >> 12) & 7) + stm * 6;
+      board[to] = promo_piece;
+      all[promo_piece] ^= to_bb;
+      colour[stm] ^= to_bb;
+    }
+    else {
+      board[to] = from_piece;
+      all[from_piece] ^= to_bb;
+      colour[stm] ^= to_bb;
 
-  // handle capture (check EP first since EP moves have both flags set)
-  if (flags & MOVE_FLAG_EPCAPTURE) {
-
-    // captured pawn is behind the to square
-    int ep_sq = to + (stm == WHITE ? -8 : 8);
-    int opp_pawn = piece_index(PAWN, opp);
-    remove_piece(pos, ep_sq, opp_pawn);
-    pos->hmc = 0;
-
-  }
-  else if (flags & MOVE_FLAG_CAPTURE) {
-
-    int captured = pos->board[to];
-    remove_piece(pos, to, captured);
-    pos->hmc = 0;
+      if (flags & MOVE_FLAG_CASTLE) {
+        const int rf = rook_from[to];
+        const int rt = rook_to[to];
+        const uint64_t rf_bb = 1ULL << rf;
+        const uint64_t rt_bb = 1ULL << rt;
+        const int rook_piece = board[rf];
+        board[rf] = EMPTY;
+        board[rt] = rook_piece;
+        all[rook_piece] ^= rf_bb ^ rt_bb;
+        colour[stm] ^= rf_bb ^ rt_bb;
+      }
+      else if (flags & MOVE_FLAG_PAWN2) {
+        pos->ep = (from + to) >> 1;
+      }
+    }
 
   }
   else {
-
-    pos->hmc++;
-
+    board[to] = from_piece;
+    all[from_piece] ^= to_bb;
+    colour[stm] ^= to_bb;
   }
 
-  // handle promotion or place the piece
-  if (flags & MOVE_FLAG_PROMOTE) {
-
-    int promo_piece = piece_index((move >> 12) & 0x7, stm);  // N=1,B=2,R=3,Q=4
-    place_piece(pos, to, promo_piece);
-    pos->hmc = 0;
-
-  }
-  else {
-
-    place_piece(pos, to, piece);
-
-  }
-
-  // handle castling rook
-  if (flags & MOVE_FLAG_CASTLE) {
-
-    int rook = piece_index(ROOK, stm);
-    int rf = rook_from[to];
-    int rt = rook_to[to];
-    remove_piece(pos, rf, rook);
-    place_piece(pos, rt, rook);
-
-  }
-
-  // update EP square
-  if (flags & MOVE_FLAG_PAWN2) {
-
-    pos->ep = from + (stm == WHITE ? 8 : -8);
-
-  }
-  else {
-
-    pos->ep = 0;
-
-  }
-
-  // update castling rights
   pos->rights &= rights_mask[from] & rights_mask[to];
-
-  // pawn moves reset HMC
-  if (piece_type(piece) == PAWN)
-    pos->hmc = 0;
-
-  // toggle side to move
-  pos->stm ^= 1;
+  pos->occupied = colour[WHITE] | colour[BLACK];
+  pos->stm = opp;
 
 }
