@@ -1,6 +1,9 @@
-#include "position.h"
+#include <string.h>
+#include "builtins.h"
+#include "nodes.h"
 #include "move.h"
 #include "types.h"
+#include "iterate.h"
 
 // rook squares for castling indexed by king destination
 static const int rook_from[64] = {
@@ -65,7 +68,7 @@ void make_move(Position *pos, const move_t move) {
     }
 
     if (flags & MOVE_FLAG_PROMOTE) {
-      const int promo_piece = ((flags >> 12) & 7) + stm * 6;
+      const int promo_piece = piece_index((flags >> 12) & 7, stm);
       board[to] = promo_piece;
       all[promo_piece] ^= to_bb;
       colour[stm] ^= to_bb;
@@ -101,5 +104,31 @@ void make_move(Position *pos, const move_t move) {
   pos->rights &= rights_mask[from] & rights_mask[to];
   pos->occupied = colour[WHITE] | colour[BLACK];
   pos->stm = opp;
+
+}
+
+void play_move(Node *node, char *uci_move) {
+
+  char buf[6];
+
+  Position *pos = &node->pos;
+  const int stm = pos->stm;
+  const int opp = stm ^ 1;
+  const int stm_king_sq = piece_index(KING, stm);
+  const int in_check = is_attacked(pos, bsf(pos->all[stm_king_sq]), opp);
+  move_t move ;
+
+  init_next_search_move(node, in_check, 0);
+
+  while ((move = get_next_search_move(node))) {
+
+    format_move(move, buf);
+    if (!strcmp(uci_move, buf)) {
+      make_move(pos, move);
+      return;
+    }
+  }
+
+  return;
 
 }

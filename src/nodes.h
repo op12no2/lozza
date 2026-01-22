@@ -23,4 +23,6 @@ typedef struct {
 
 extern Node nodes[MAX_PLY];
 
+void position(Node *node, const char *board_fen, const char *stm_str, const char *rights_str, const char *ep_str, int num_uci_moves, char **uci_moves);
+
 #endif

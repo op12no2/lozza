@@ -18,9 +18,7 @@
 #define MOVE_FLAG_EXTRA (MOVE_FLAG_CAPTURE | MOVE_FLAG_EPCAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PAWN2 | MOVE_FLAG_CASTLE)
 
 inline move_t encode_move(const int from, const int to, const int flags) {
-
   return (from << 6) | to | flags;
-
 }
 
 int format_move(const move_t move, char *const buf);

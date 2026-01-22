@@ -3,6 +3,8 @@
 #include <time.h>
 #include "uci.h"
 #include "bitboard.h"
+#include "nodes.h"
+#include "evaluate.h"
 
 #define INPUT_BUFFER_SIZE 8192
 
@@ -13,6 +15,7 @@ int main(int argc, char *argv[]) {
 
   //clock_t start = clock();
   init_attacks();
+  init_weights();
   //clock_t end = clock();
   //double ms = (double)(end - start) / CLOCKS_PER_SEC * 1000.0;
   //printf("init_attacks: %.2f ms\n", ms);

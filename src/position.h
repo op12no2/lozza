@@ -27,13 +27,9 @@ typedef struct {
 } Position;
 
 static inline void pos_copy(const Position *const from_pos, Position *const to_pos) {
-
   *to_pos = *from_pos;
-
 }
 
-void position(Position *pos, const char *board_fen, const char *stm_str, const char *rights_str, const char *ep_str, int num_uci_moves, char **uci_moves);
-void position_fen(Position *pos, const char *fen);
 void print_board(const Position *pos);
 int is_attacked(const Position *pos, const int sq, const int opp);
 

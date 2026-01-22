@@ -1,6 +1,9 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <stdint.h>
+#include <time.h>
+
 #define VERSION "11"
 
 #define NOT_A_FILE 0xfefefefefefefefeULL
@@ -21,28 +24,38 @@ enum {
   A8, B8, C8, D8, E8, F8, G8, H8
 };
 
+#define MATE 32000
+#define MATISH 31000
+#define INF 32001
+
 inline int piece_index(const int piece, const int colour) {
-
   return piece + colour * 6;
-
 }
 
 inline int colour_index(const int colour) {
-
   return colour * 6;
-
 }
 
 inline int piece_colour(const int index) {
-
   return index / 6;
-
 }
 
 inline int piece_type(const int index) {
-
   return index % 6;
-
 }
+
+
+#ifdef _WIN32
+  #include <windows.h>
+  static inline uint64_t time_ms(void) {
+    return (uint64_t)GetTickCount64();
+  }
+#else
+  static inline uint64_t time_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+  }
+#endif
 
 #endif
