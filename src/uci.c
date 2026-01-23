@@ -165,6 +165,10 @@ bool uci_exec(char *input) {
     eval_tests();
   }
 
+  else if (str_eq(cmd, "bench", "h")) {
+    bench();
+  }
+
   else {
     printf("unknown command: %s\n", cmd);
   }

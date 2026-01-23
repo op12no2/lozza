@@ -2,6 +2,8 @@
 #include "bench.h"
 #include "nodes.h"
 #include "net.h"
+#include "timecontrol.h"
+#include "go.h"
 
 typedef struct {
 
@@ -66,6 +68,38 @@ static const BenchTest bench_data[] = {
   {"2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R", "w", "-", "-"}
 
 };
+
+void bench (void) {
+
+  const int num_fens = 50;
+  uint64_t start_ms = time_ms();
+  uint64_t total_nodes = 0;
+
+  for (int i=0; i < num_fens; i++) {
+
+    const BenchTest *b = &bench_data[i];
+
+    printf("%s %s %s %s\n", b->fen, b->stm, b->rights, b->ep);
+    position(&nodes[0], b->fen, b->stm, b->rights, b->ep, 0, NULL);
+
+    init_tc(0, 0, 0, 0, 0, 0, 4, 0);
+
+    go();
+
+    total_nodes += time_control.nodes;
+
+  }
+
+  uint64_t end_ms = time_ms();
+  uint64_t elapsed_ms = end_ms - start_ms;
+  uint64_t nps = (total_nodes * 1000ULL) / (elapsed_ms ? elapsed_ms : 1);
+
+  printf("time %llu nodes %llu nps %llu\n",
+       (unsigned long long)elapsed_ms,
+       (unsigned long long)total_nodes,
+       (unsigned long long)nps);
+
+}
 
 void eval_tests (void) {
 
