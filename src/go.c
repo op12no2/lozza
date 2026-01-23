@@ -5,25 +5,27 @@
 
 void go(void) {
 
-  TimeControl *tc = &time_control;
-
   char bm_str[6];
-
+  TimeControl *tc = &time_control;
   int alpha = 0;
   int beta = 0;
-  int score = 0;
 
   for (int depth=1; depth <= tc->max_depth; depth++) {
+
+    const move_t bm = tc->best_move;
 
     alpha = -INF;
     beta  = INF;
     
-    score = search(0, depth, alpha, beta);
+    const int score = search(0, depth, alpha, beta);
     
     printf("info depth %d score %d\n", depth, score);
 
-    if (tc->finished)
+    if (tc->finished) {
+      if (bm)
+        tc->best_move = bm; // use bm from last com,pleted depth
       break;
+    }
 
   }
 

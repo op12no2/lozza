@@ -4,7 +4,7 @@ rm -f sprt.pgn
 
 e1=./lozza
 e2=./releases/lozza
-tc=60+2
+tc=60+1
 elo0=0
 elo1=10
 threads=1
