@@ -9,8 +9,9 @@
 #include "perft.h"
 #include "timecontrol.h"
 #include "go.h"
-#include "tuner.h"
 #include "evaluate.h"
+#include "net.h"
+#include "bench.h"
 
 #define MAX_TOKENS 1024
 
@@ -141,7 +142,7 @@ bool uci_exec(char *input) {
   }
   
   else if (str_eq(cmd, "eval", "e")) {
-    int16_t score = evaluate(&nodes[0].pos);
+    int16_t score = net_eval(&nodes[0]);
     printf("eval: %d cp (white POV)\n", score);
   }
   
@@ -160,19 +161,8 @@ bool uci_exec(char *input) {
     perft_tests(max_depth);
   }
 
-  else if (str_eq(cmd, "tune", "t")) {
-    // tune <filename> [epochs] [learning_rate]
-    if (ntokens < 2) {
-      printf("usage: tune <filename> [epochs] [learning_rate]\n");
-      printf("  epochs default: 100\n");
-      printf("  learning_rate default: 10000\n");
-    }
-    else {
-      const char *filename = tokens[1];
-      int epochs = (ntokens > 2) ? atoi(tokens[2]) : 100;
-      double lr = (ntokens > 3) ? atof(tokens[3]) : 10000.0;
-      tune(filename, epochs, lr);
-    }
+  else if (str_eq(cmd, "et", "")) {
+    eval_tests();
   }
 
   else {

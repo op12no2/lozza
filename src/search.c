@@ -9,6 +9,7 @@
 #include "iterate.h"
 #include "move.h"
 #include "qsearch.h"
+#include "net.h"
 
 int search(const int ply, int depth, int alpha, const int beta) {
 
@@ -16,7 +17,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
   const Position *pos = &node->pos;
 
   if (ply >= MAX_PLY-1) {
-    return evaluate_stm(pos);
+    return net_eval(node);
   }
   
   const int stm = pos->stm;

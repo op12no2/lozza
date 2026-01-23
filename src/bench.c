@@ -1,4 +1,7 @@
+#include <stdio.h>
 #include "bench.h"
+#include "nodes.h"
+#include "net.h"
 
 typedef struct {
 
@@ -63,3 +66,17 @@ static const BenchTest bench_data[] = {
   {"2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R", "w", "-", "-"}
 
 };
+
+void eval_tests (void) {
+
+  const int num_fens = 50;
+
+  for (int i=0; i < num_fens; i++) {
+
+    const BenchTest *b = &bench_data[i];
+    position(&nodes[0], b->fen, b->stm, b->rights, b->ep, 0, NULL);
+    int e = net_eval(&nodes[0]);
+    printf("%d %s %s %s %s\n", e, b->fen, b->stm, b->rights, b->ep);
+
+  }
+}

@@ -8,6 +8,7 @@
 #include "timecontrol.h"
 #include "iterate.h"
 #include "move.h"
+#include "net.h"
 
 int qsearch(const int ply, int alpha, const int beta) {
 
@@ -15,7 +16,7 @@ int qsearch(const int ply, int alpha, const int beta) {
   const Position *pos = &node->pos;
 
   if (ply >= MAX_PLY-1) {
-    return evaluate_stm(pos);
+    return net_eval(node);
   }
 
   const int stm = pos->stm;
@@ -23,7 +24,7 @@ int qsearch(const int ply, int alpha, const int beta) {
   const int stm_king_idx = piece_index(KING, stm);
   const int in_check = is_attacked(pos, bsf(pos->all[stm_king_idx]), opp);
 
-  int stand_pat = evaluate_stm(pos);
+  int stand_pat = net_eval(node);
 
   if (in_check == 0) {
     if (stand_pat >= beta) {

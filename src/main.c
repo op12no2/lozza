@@ -4,7 +4,7 @@
 #include "uci.h"
 #include "bitboard.h"
 #include "nodes.h"
-#include "evaluate.h"
+#include "net.h"
 
 #define INPUT_BUFFER_SIZE 8192
 
