@@ -3,10 +3,10 @@
 rm -f sprt.pgn
 
 e1=./lozza
-e2=./lozza
-tc=20+0.2
+e2=./releases/lozza
+tc=60+2
 elo0=0
-elo1=5
+elo1=10
 threads=1
 book=4moves_noob
 

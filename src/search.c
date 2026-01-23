@@ -8,6 +8,7 @@
 #include "timecontrol.h"
 #include "iterate.h"
 #include "move.h"
+#include "qsearch.h"
 
 int search(const int ply, int depth, int alpha, const int beta) {
 
@@ -26,7 +27,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
   const int is_pv = is_root || (beta - alpha != 1);
 
   if (depth <= 0 && in_check == 0) {
-    return evaluate_stm(pos);
+    return qsearch(ply, alpha, beta);
   }
   if (depth < 0)
     depth = 0;
