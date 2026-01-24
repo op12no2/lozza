@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define VERSION "11zob"
+#define VERSION "11etsum"
 
 #define NOT_A_FILE 0xfefefefefefefefeULL
 #define NOT_H_FILE 0x7f7f7f7f7f7f7f7fULL

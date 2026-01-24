@@ -103,14 +103,18 @@ void bench (void) {
 
 void eval_tests (void) {
 
-  const int num_fens = 50;
+  const int num_fens = sizeof(bench_data) / sizeof(bench_data[0]);
+  int64_t sum = 0;
 
   for (int i=0; i < num_fens; i++) {
 
     const BenchTest *b = &bench_data[i];
     position(&nodes[0], b->fen, b->stm, b->rights, b->ep, 0, NULL);
     int e = net_eval(&nodes[0]);
+    sum += e;
     printf("%d %s %s %s %s\n", e, b->fen, b->stm, b->rights, b->ep);
 
   }
+
+  printf("sum %lld\n", (long long)sum);
 }
