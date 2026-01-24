@@ -10,8 +10,6 @@ static int32_t net_h2_w[NET_I_SIZE * NET_H1_SIZE];  // flipped
 static int32_t net_h1_b[NET_H1_SIZE];
 static int32_t net_o_w [NET_H1_SIZE * 2];
 static int32_t net_o_b;
-static int32_t acc1[NET_H1_SIZE];  // us acc
-static int32_t acc2[NET_H1_SIZE];  // them acc
 
 static inline int32_t sqrelu(const int32_t x) {
   const int32_t y = x & ~(x >> 31);
@@ -90,8 +88,8 @@ int init_weights(void) {
 
 static void net_slow_rebuild_accs(Node *node) {
 
-  memcpy(acc1, net_h1_b, sizeof net_h1_b);
-  memcpy(acc2, net_h1_b, sizeof net_h1_b);
+  memcpy(node->accs[0], net_h1_b, sizeof net_h1_b);
+  memcpy(node->accs[1], net_h1_b, sizeof net_h1_b);
 
   for (int sq=0; sq < 64; sq++) {
 
@@ -102,8 +100,8 @@ static void net_slow_rebuild_accs(Node *node) {
 
     for (int h=0; h < NET_H1_SIZE; h++) {
       const int idx1 = (piece * 64 + sq) * NET_H1_SIZE + h;
-      acc1[h] += net_h1_w[idx1];
-      acc2[h] += net_h2_w[idx1];
+      node->accs[0][h] += net_h1_w[idx1];
+      node->accs[1][h] += net_h2_w[idx1];
     }
   }
 
@@ -115,8 +113,8 @@ int net_eval(Node *node) {
 
   const int stm = node->pos.stm;
 
-  const int32_t *a1 = (stm == 0 ? acc1 : acc2);
-  const int32_t *a2 = (stm == 0 ? acc2 : acc1);
+  const int32_t *a1 = (stm == 0 ? node->accs[0] : node->accs[1]);
+  const int32_t *a2 = (stm == 0 ? node->accs[1] : node->accs[0]);
 
   const int32_t *w1 = &net_o_w[0];
   const int32_t *w2 = &net_o_w[NET_H1_SIZE];
