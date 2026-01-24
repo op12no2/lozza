@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if command -v cpupower >/dev/null; then
+  sudo cpupower frequency-set -g performance || true
+fi
+
 rm -f sprt.pgn
 
 e1=./lozza
@@ -7,10 +11,13 @@ e2=./releases/lozza
 tc=60+2
 elo0=0
 elo1=5
-threads=6
+concurrency=32
 book=4moves_noob
 
-../chess_data/cutechess-ob -concurrency $threads -each tc=0/$tc \
+CPUS=0-31   # physical cores only (no SMT) EPYC 7502P
+
+taskset -c $CPUS \
+../chess_data/cutechess-ob -concurrency $concurrency -each tc=0/$tc \
 -sprt elo0=$elo0 elo1=$elo1 alpha=0.05 beta=0.1 \
 -engine name=$e1 proto=uci cmd=$e1 timemargin=250 \
 -engine name=$e2 proto=uci cmd=$e2 timemargin=250 \

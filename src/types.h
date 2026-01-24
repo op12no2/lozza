@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define VERSION "11movesaccsintonodes"
+#define VERSION "11nnue"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768
@@ -12,6 +12,7 @@
 #define NET_QB 64
 #define NET_QAB (NET_QA * NET_QB)
 #define NET_SCALE 400
+
 #define NOT_A_FILE 0xfefefefefefefefeULL
 #define NOT_H_FILE 0x7f7f7f7f7f7f7f7fULL
 
@@ -30,9 +31,9 @@ enum {
   A8, B8, C8, D8, E8, F8, G8, H8
 };
 
+#define INF 32001
 #define MATE 32000
 #define MATISH 31000
-#define INF 32001
 
 inline int piece_index(const int piece, const int colour) {
   return piece + colour * 6;
@@ -49,7 +50,6 @@ inline int piece_colour(const int index) {
 inline int piece_type(const int index) {
   return index % 6;
 }
-
 
 #ifdef _WIN32
   #include <windows.h>

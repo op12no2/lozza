@@ -1,3 +1,4 @@
+#include <string.h>
 #include "types.h"
 #include "builtins.h"
 #include "nodes.h"
@@ -54,7 +55,8 @@ int search(const int ply, int depth, int alpha, const int beta) {
   while ((move = get_next_search_move(node))) {
 
     pos_copy(pos, next_pos);
-    make_move(next_pos, move);
+    memcpy(next_node->accs, node->accs, sizeof(node->accs));
+    make_move(next_node, move);
     if (is_attacked(next_pos, bsf(*next_stm_king_ptr), opp))
       continue;
 

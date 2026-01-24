@@ -74,10 +74,10 @@ static void gen_pawns_white_captures(Node *node, const uint64_t targets) {
     int to = bsf(promo); promo &= promo - 1;
     const int from = to - 7;
   
-    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q | MOVE_FLAG_CAPTURE);
-    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R | MOVE_FLAG_CAPTURE);
-    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B | MOVE_FLAG_CAPTURE);
-    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N | MOVE_FLAG_CAPTURE);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q | MOVE_FLAG_CAPTURE);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R | MOVE_FLAG_CAPTURE);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B | MOVE_FLAG_CAPTURE);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N | MOVE_FLAG_CAPTURE);
 
   }
 
@@ -94,13 +94,13 @@ static void gen_pawns_white_captures(Node *node, const uint64_t targets) {
     const int to = bsf(promo); promo &= promo - 1;
     const int from = to - 9;
   
-    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q | MOVE_FLAG_CAPTURE);
-    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R | MOVE_FLAG_CAPTURE);
-    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B | MOVE_FLAG_CAPTURE);
-    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N | MOVE_FLAG_CAPTURE);
-  
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q | MOVE_FLAG_CAPTURE);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R | MOVE_FLAG_CAPTURE);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B | MOVE_FLAG_CAPTURE);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N | MOVE_FLAG_CAPTURE);
+
   }
-  
+
   if (pos->ep) {
   
     uint64_t ep_from = pawn_attacks[WHITE][pos->ep] & pawns;
@@ -179,13 +179,13 @@ static void gen_pawns_black_captures(Node *node, const uint64_t targets) {
     const int to = bsf(promo); promo &= promo - 1;
     const int from = to + 9;
   
-    m[n++] = encode_move(from, to, MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q);
-    m[n++] = encode_move(from, to, MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R);
-    m[n++] = encode_move(from, to, MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B);
-    m[n++] = encode_move(from, to, MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N);
-  
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N);
+
   }
-  
+
   cap = right & ~RANK_1;
   promo = right &  RANK_1;
   
@@ -199,13 +199,13 @@ static void gen_pawns_black_captures(Node *node, const uint64_t targets) {
     const int to = bsf(promo); promo &= promo - 1;
     const int from = to + 7;
   
-    m[n++] = encode_move(from, to, MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q);
-    m[n++] = encode_move(from, to, MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R);
-    m[n++] = encode_move(from, to, MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B);
-    m[n++] = encode_move(from, to, MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N);
-  
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_Q);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_R);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_B);
+    m[n++] = encode_move(from, to, MOVE_FLAG_PROMOCAP | MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PROMOTE_N);
+
   }
-  
+
   if (pos->ep) {
   
     uint64_t ep_from = pawn_attacks[BLACK][pos->ep] & pawns;

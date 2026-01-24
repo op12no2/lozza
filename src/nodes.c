@@ -3,6 +3,7 @@
 #include "nodes.h"
 #include "makemove.h"
 #include "zobrist.h"
+#include "net.h"
 
 Node nodes[MAX_PLY];
 
@@ -81,6 +82,7 @@ void position(Node *node, const char *board_fen, const char *stm_str, const char
   }
 
   pos->hash = rebuild_hash(pos);
+  net_slow_rebuild_accs(node);
 
   // play uci moves
 

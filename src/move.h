@@ -15,6 +15,7 @@
 #define MOVE_FLAG_EPCAPTURE (0x20 << 12)
 #define MOVE_FLAG_PAWN2 (0x40 << 12)
 #define MOVE_FLAG_CASTLE (0x80 << 12)
+#define MOVE_FLAG_PROMOCAP (0x100 << 12)
 #define MOVE_FLAG_EXTRA (MOVE_FLAG_CAPTURE | MOVE_FLAG_EPCAPTURE | MOVE_FLAG_PROMOTE | MOVE_FLAG_PAWN2 | MOVE_FLAG_CASTLE)
 
 inline move_t encode_move(const int from, const int to, const int flags) {
