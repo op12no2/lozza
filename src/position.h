@@ -23,6 +23,7 @@ typedef struct {
   uint8_t rights;
   uint8_t ep;
   uint8_t hmc;
+  uint64_t hash;
 
 } Position;
 

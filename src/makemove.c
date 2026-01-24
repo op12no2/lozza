@@ -4,6 +4,7 @@
 #include "move.h"
 #include "types.h"
 #include "iterate.h"
+#include "zobrist.h"
 
 // rook squares for castling indexed by king destination
 static const int rook_from[64] = {
@@ -42,28 +43,33 @@ void make_move(Position *pos, const move_t move) {
   const uint64_t from_bb = 1ULL << from;
   const int to = move & 0x3F;
   const uint64_t to_bb = 1ULL << to;
-  
+  const uint8_t old_rights = pos->rights;
+
+  uint64_t hash = pos->hash ^ zob_pieces[from_piece][from] ^ zob_ep[pos->ep] ^ zob_rights[old_rights];
+
   board[from] = EMPTY;
   all[from_piece] ^= from_bb;
   colour[stm] ^= from_bb;
-  
+
   pos->ep = 0;
-  
+
   if (flags & MOVE_FLAG_EXTRA) {
-    
+
     if (flags & MOVE_FLAG_CAPTURE) {
       if (flags & MOVE_FLAG_EPCAPTURE) {
-        const int ep = to + (stm ? 8 : -8);
-        const uint64_t cap_bb = 1ULL << ep;
-        const int cap_piece = board[ep];
-        board[ep] = EMPTY;
+        const int cap_sq = to + (stm ? 8 : -8);
+        const uint64_t cap_bb = 1ULL << cap_sq;
+        const int cap_piece = board[cap_sq];
+        board[cap_sq] = EMPTY;
         all[cap_piece] ^= cap_bb;
         colour[opp] ^= cap_bb;
+        hash ^= zob_pieces[cap_piece][cap_sq];
       }
       else {
         const int to_piece = board[to];
         all[to_piece] ^= to_bb;
         colour[opp] ^= to_bb;
+        hash ^= zob_pieces[to_piece][to];
       }
     }
 
@@ -72,11 +78,13 @@ void make_move(Position *pos, const move_t move) {
       board[to] = promo_piece;
       all[promo_piece] ^= to_bb;
       colour[stm] ^= to_bb;
+      hash ^= zob_pieces[promo_piece][to];
     }
     else {
       board[to] = from_piece;
       all[from_piece] ^= to_bb;
       colour[stm] ^= to_bb;
+      hash ^= zob_pieces[from_piece][to];
 
       if (flags & MOVE_FLAG_CASTLE) {
         const int rf = rook_from[to];
@@ -88,6 +96,7 @@ void make_move(Position *pos, const move_t move) {
         board[rt] = rook_piece;
         all[rook_piece] ^= rf_bb ^ rt_bb;
         colour[stm] ^= rf_bb ^ rt_bb;
+        hash ^= zob_pieces[rook_piece][rf] ^ zob_pieces[rook_piece][rt];
       }
       else if (flags & MOVE_FLAG_PAWN2) {
         pos->ep = (from + to) >> 1;
@@ -99,11 +108,13 @@ void make_move(Position *pos, const move_t move) {
     board[to] = from_piece;
     all[from_piece] ^= to_bb;
     colour[stm] ^= to_bb;
+    hash ^= zob_pieces[from_piece][to];
   }
 
   pos->rights &= rights_mask[from] & rights_mask[to];
   pos->occupied = colour[WHITE] | colour[BLACK];
   pos->stm = opp;
+  pos->hash = hash ^ zob_rights[pos->rights] ^ zob_ep[pos->ep] ^ zob_stm[1];
 
 }
 

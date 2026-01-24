@@ -5,6 +5,7 @@
 #include "bitboard.h"
 #include "nodes.h"
 #include "net.h"
+#include "zobrist.h"
 
 #define INPUT_BUFFER_SIZE 8192
 
@@ -13,12 +14,9 @@ int main(int argc, char *argv[]) {
   setbuf(stdin, NULL);
   setbuf(stdout, NULL);
 
-  //clock_t start = clock();
   init_attacks();
   init_weights();
-  //clock_t end = clock();
-  //double ms = (double)(end - start) / CLOCKS_PER_SEC * 1000.0;
-  //printf("init_attacks: %.2f ms\n", ms);
+  init_zob();
 
   // If command-line arguments provided, execute them and exit
   if (argc > 1) {

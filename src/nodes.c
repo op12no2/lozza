@@ -2,6 +2,7 @@
 #include <string.h>
 #include "nodes.h"
 #include "makemove.h"
+#include "zobrist.h"
 
 Node nodes[MAX_PLY];
 
@@ -78,6 +79,8 @@ void position(Node *node, const char *board_fen, const char *stm_str, const char
     pos->ep = rank * 8 + file;
   
   }
+
+  pos->hash = rebuild_hash(pos);
 
   // play uci moves
 

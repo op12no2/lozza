@@ -8,6 +8,7 @@
 #include "makemove.h"
 #include "position.h"
 #include "iterate.h"
+#include "zobrist.h"
 
 typedef struct {
   const char *board;
@@ -36,6 +37,9 @@ uint64_t perft(const int depth, const int ply) {
   const uint64_t *const next_stm_king_ptr = &next_pos->all[stm_king_idx];
   uint64_t tot_nodes = 0;
   move_t move;
+
+  //if (pos->hash != rebuild_hash(pos))
+    //printf("*****************\n");
 
   init_next_search_move(node, in_check, 0);
 
