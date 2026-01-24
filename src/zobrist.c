@@ -1,5 +1,9 @@
 #include "zobrist.h"
 
+static ALIGN64 uint64_t zob_pieces[12 * 64];
+static ALIGN64 uint64_t zob_stm;
+static ALIGN64 uint64_t zob_rights[16];
+static ALIGN64 uint64_t zob_ep[64];
 static uint64_t rand64_seed = 0xDEADBEEFCAFEBABEULL;
 
 uint64_t rand64(void) {

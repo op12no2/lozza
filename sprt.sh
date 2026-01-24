@@ -4,10 +4,10 @@ rm -f sprt.pgn
 
 e1=./lozza
 e2=./releases/lozza
-tc=60+1
+tc=60+2
 elo0=0
-elo1=10
-threads=1
+elo1=5
+threads=6
 book=4moves_noob
 
 ../chess_data/cutechess-ob -concurrency $threads -each tc=0/$tc \

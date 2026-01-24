@@ -23,7 +23,7 @@ void go(void) {
 
     if (tc->finished) {
       if (bm)
-        tc->best_move = bm; // use bm from last com,pleted depth
+        tc->best_move = bm; // use bm from last completed depth
       break;
     }
 
