@@ -8,7 +8,8 @@ rm -f sprt.pgn
 
 e1=./lozza
 e2=./releases/lozza
-tc=60+2
+tc=10+0.1
+#tc=100+1
 elo0=0
 elo1=5
 concurrency=32

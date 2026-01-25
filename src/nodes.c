@@ -4,10 +4,11 @@
 #include "makemove.h"
 #include "zobrist.h"
 #include "net.h"
+#include "history.h"
 
 Node nodes[MAX_PLY];
 
-void position(Node *node, const char *board_fen, const char *stm_str, const char *rights_str, const char *ep_str, int num_uci_moves, char **uci_moves) {
+void position(Node *node, const char *board_fen, const char *stm_str, const char *rights_str, const char *ep_str, int hmc, int num_uci_moves, char **uci_moves) {
 
   Position *pos = &node->pos;
 
@@ -71,23 +72,30 @@ void position(Node *node, const char *board_fen, const char *stm_str, const char
   }
   
   // ep
-  
+
   if (ep_str[0] != '-') {
-  
+
     int file = ep_str[0] - 'a';
     int rank = ep_str[1] - '1';
-  
+
     pos->ep = rank * 8 + file;
-  
+
   }
+
+  // hmc
+  pos->hmc = hmc;
 
   pos->hash = rebuild_hash(pos);
   net_slow_rebuild_accs(node);
 
-  // play uci moves
+  // initialize history with starting position
+  history_reset();
+  history_push(pos->hash);
 
-  for (int m=1; m <= num_uci_moves; m++) {
-    play_move(node, uci_moves[m-1]);
+  // play uci moves
+  for (int m = 0; m < num_uci_moves; m++) {
+    play_move(node, uci_moves[m]);
+    history_push(pos->hash);
   }
 
 }

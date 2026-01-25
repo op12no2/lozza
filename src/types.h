@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define VERSION "1116bitnnueaccs"
+#define VERSION "11_rep"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768
@@ -33,7 +33,7 @@ enum {
 
 #define INF 32001
 #define MATE 32000
-#define MATISH 31000
+#define MATEISH 31000
 
 inline int piece_index(const int piece, const int colour) {
   return piece + colour * 6;

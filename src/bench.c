@@ -4,6 +4,7 @@
 #include "net.h"
 #include "timecontrol.h"
 #include "go.h"
+#include "tt.h"
 
 typedef struct {
 
@@ -80,10 +81,10 @@ void bench (void) {
     const BenchTest *b = &bench_data[i];
 
     printf("%s %s %s %s\n", b->fen, b->stm, b->rights, b->ep);
-    position(&nodes[0], b->fen, b->stm, b->rights, b->ep, 0, NULL);
-
+    
+    new_game();
+    position(&nodes[0], b->fen, b->stm, b->rights, b->ep, 0, 0, NULL);
     init_tc(0, 0, 0, 0, 0, 0, 4, 0);
-
     go();
 
     total_nodes += time_control.nodes;
@@ -109,7 +110,7 @@ void eval_tests (void) {
   for (int i=0; i < num_fens; i++) {
 
     const BenchTest *b = &bench_data[i];
-    position(&nodes[0], b->fen, b->stm, b->rights, b->ep, 0, NULL);
+    position(&nodes[0], b->fen, b->stm, b->rights, b->ep, 0, 0, NULL);
     int e = net_eval(&nodes[0]);
     sum += e;
     printf("%d %s %s %s %s\n", e, b->fen, b->stm, b->rights, b->ep);

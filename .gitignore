@@ -3,5 +3,6 @@ releases/
 build/
 lozza
 sprt.pgn
-sprt.txt
+cwtch.c
+commit.txt
 

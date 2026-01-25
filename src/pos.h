@@ -33,5 +33,6 @@ static inline void pos_copy(const Position *const from_pos, Position *const to_p
 
 void print_board(const Position *pos);
 int is_attacked(const Position *pos, const int sq, const int opp);
+int is_mat_draw(const Position *pos);
 
 #endif

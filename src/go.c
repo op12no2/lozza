@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include "timecontrol.h"
-#include"search.h"
+#include "search.h"
 #include "go.h"
+#include "history.h"
 
 void go(void) {
 
@@ -9,6 +10,8 @@ void go(void) {
   TimeControl *tc = &time_control;
   int alpha = 0;
   int beta = 0;
+
+  history_set_root();
 
   for (int depth=1; depth <= tc->max_depth; depth++) {
 

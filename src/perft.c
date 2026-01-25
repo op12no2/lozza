@@ -180,7 +180,7 @@ void perft_tests(int max_depth) {
 
     tests_run++;
 
-    position(&nodes[0], test->board, test->stm, test->rights, test->ep, 0, NULL);
+    position(&nodes[0], test->board, test->stm, test->rights, test->ep, 0, 0, NULL);
 
     uint64_t result = perft(test->depth, 0);
 

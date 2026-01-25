@@ -11,6 +11,8 @@
 #include "move.h"
 #include "qsearch.h"
 #include "net.h"
+#include "tt.h"
+#include "history.h"
 
 int search(const int ply, int depth, int alpha, const int beta) {
 
@@ -20,7 +22,15 @@ int search(const int ply, int depth, int alpha, const int beta) {
   if (ply >= MAX_PLY-1) {
     return net_eval(node);
   }
-  
+
+  // store hash for repetition detection (ply 0 already in history from position())
+  if (ply > 0) {
+    history_store(ply, pos->hash);
+    if (is_draw(ply, pos->hash, pos->hmc)) {
+      return 0;
+    }
+  }
+
   const int stm = pos->stm;
   const int opp = stm ^ 1;
   const int stm_king_idx = piece_index(KING, stm);
@@ -33,7 +43,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
   }
   if (depth < 0)
     depth = 0;
-  
+
   TimeControl *tc = &time_control;
   tc->nodes++;
   if ((tc->nodes & 1023) == 0) {
@@ -41,14 +51,27 @@ int search(const int ply, int depth, int alpha, const int beta) {
     if (tc->finished)
       return 0;
   }
-  
+
+  /* tt disabled until rep detection done
+  const TT *entry = tt_get(pos);
+  if (!is_pv && entry && entry->depth >= depth) {
+    const int tt_flags = entry->flags;
+    const int tt_score = get_adjusted_score(ply, entry->score);
+    if (tt_flags == TT_EXACT || (tt_flags == TT_BETA && tt_score >= beta) || (tt_flags == TT_ALPHA && tt_score <= alpha)) {
+      return tt_score;
+    }
+  }
+  */
+
   Node *next_node = &nodes[ply + 1];
   Position *next_pos = &next_node->pos;
-  move_t move, best_move;
-  int score;
+  move_t move = 0;
+  move_t best_move = 0;
+  int score = 0;
   int best_score = -INF;
   int num_legal_moves = 0;
   const uint64_t *next_stm_king_ptr = &next_pos->all[stm_king_idx];
+  const int orig_alpha = alpha;
 
   init_next_search_move(node, in_check, 0);
 
@@ -85,16 +108,19 @@ int search(const int ply, int depth, int alpha, const int beta) {
           tc->best_score = best_score;
         }
         if (score >= beta) {
+          tt_put(pos, TT_BETA, depth, put_adjusted_score(ply, best_score), best_move);
           return score;
         }
       }
     }
-  }    
-  
+  }
+
   if (num_legal_moves == 0) {
     return in_check ? (-MATE + ply) : 0;
   }
-  
+
+  tt_put(pos, (alpha > orig_alpha) ? TT_EXACT : TT_ALPHA, depth, put_adjusted_score(ply, best_score), best_move);
+
   return best_score;
 
 }

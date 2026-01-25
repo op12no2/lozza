@@ -7,6 +7,8 @@
 #include "zobrist.h"
 #include "net.h"
 
+#define MOVE_FLAGS_PROMOCAP (MOVE_FLAG_PROMOTE | MOVE_FLAG_CAPTURE) 
+
 // rook squares for castling indexed by king destination
 static const int rook_from[64] = {
   [G1] = H1, [C1] = A1,
@@ -51,9 +53,20 @@ void make_move(Node *node, const move_t move) {
 
   pos->ep = 0;
 
-  if (flags & MOVE_FLAG_EXTRA) {
+  if (flags & MOVE_FLAGS_EXTRA) {
 
-    if (flags & MOVE_FLAG_EPCAPTURE) {
+    if ((flags & MOVE_FLAGS_EXTRA) == MOVE_FLAG_CAPTURE) {  // most common
+      board[from] = EMPTY;
+      board[to] = from_piece;
+      all[from_piece] ^= from_bb ^ to_bb;
+      all[to_piece] ^= to_bb;
+      colour[stm] ^= from_bb ^ to_bb;
+      colour[opp] ^= to_bb;
+      hash ^= zob_pieces[from_piece][to] ^ zob_pieces[to_piece][to];
+      net_capture(node, from_piece, from, to_piece, to);
+    }
+    
+    else if (flags & MOVE_FLAG_EPCAPTURE) {
       const int cap_sq = to + (stm ? 8 : -8);
       const uint64_t cap_bb = 1ULL << cap_sq;
       const int cap_piece = board[cap_sq];
@@ -68,7 +81,7 @@ void make_move(Node *node, const move_t move) {
       net_ep_capture(node, from_piece, from, to, cap_piece, cap_sq);
     }
 
-    else if (flags & MOVE_FLAG_PROMOCAP) {
+    else if ((flags & MOVE_FLAGS_PROMOCAP) == MOVE_FLAGS_PROMOCAP) {
       const int promo_piece = piece_index((flags >> 12) & 7, stm);
       board[from] = EMPTY;
       board[to] = promo_piece;
@@ -109,17 +122,6 @@ void make_move(Node *node, const move_t move) {
       net_castle(node, from_piece, from, to, rook_piece, rf, rt);
     }
 
-    else if (flags & MOVE_FLAG_CAPTURE) {
-      board[from] = EMPTY;
-      board[to] = from_piece;
-      all[from_piece] ^= from_bb ^ to_bb;
-      all[to_piece] ^= to_bb;
-      colour[stm] ^= from_bb ^ to_bb;
-      colour[opp] ^= to_bb;
-      hash ^= zob_pieces[from_piece][to] ^ zob_pieces[to_piece][to];
-      net_capture(node, from_piece, from, to_piece, to);
-    }
-
     else {
       // pawn2
       board[from] = EMPTY;
@@ -132,6 +134,7 @@ void make_move(Node *node, const move_t move) {
     }
 
   }
+  
   else {
     // quiet move
     board[from] = EMPTY;
@@ -146,6 +149,11 @@ void make_move(Node *node, const move_t move) {
   pos->occupied = colour[WHITE] | colour[BLACK];
   pos->stm = opp;
   pos->hash = hash ^ zob_rights[pos->rights] ^ zob_ep[pos->ep] ^ zob_stm[1];
+
+  // update half-move clock
+  const int is_pawn = (from_piece == WPAWN) || (from_piece == BPAWN);
+  const int is_capture = flags & MOVE_FLAG_CAPTURE;
+  pos->hmc = (is_pawn || is_capture) ? 0 : pos->hmc + 1;
 
 }
 

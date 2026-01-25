@@ -12,6 +12,7 @@
 #include "evaluate.h"
 #include "net.h"
 #include "bench.h"
+#include "tt.h"
 
 #define MAX_TOKENS 1024
 
@@ -42,6 +43,7 @@ bool uci_exec(char *input) {
   if (str_eq(cmd, "uci", "")) {
     printf("id name Lozza %s\n", VERSION);
     printf("id author Colin Jenkins\n");
+    printf("option name Hash type spin default %d min 1 max 1024\n", 16);
     printf("uciok\n");
   }
   
@@ -50,26 +52,44 @@ bool uci_exec(char *input) {
   }
   
   else if (str_eq(cmd, "ucinewgame", "u")){
+    new_game();
   }
   
   else if (str_eq(cmd, "position", "p")) {
+
+    if (is_tt_null()) {
+      printf("info run a ucinewgame command or setoption name Hash value <n> (MB) command first\n");
+      return true;
+    }
     
     const char *fen_option = tokens[1];
     if (str_eq(fen_option, "startpos", "s")) {
-      position(&nodes[0], "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR", "w", "KQkq", "-", 0, NULL);
+      int num_moves = 0;
+      char **moves_ptr = NULL;
+      if (ntokens > 3) {
+        num_moves = ntokens - 3;
+        moves_ptr = &tokens[3];
+      }
+      position(&nodes[0], "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR", "w", "KQkq", "-", 0, num_moves, moves_ptr);
     }
     else if (str_eq(fen_option, "fen", "f")) {
       int num_moves = 0;
       char **moves_ptr = NULL;
+      int hmc = atoi(tokens[6]);
       if (ntokens > 9) {
         num_moves = ntokens - 9;
         moves_ptr = &tokens[9];
       }
-      position(&nodes[0], tokens[2], tokens[3], tokens[4], tokens[5], num_moves, moves_ptr);
+      position(&nodes[0], tokens[2], tokens[3], tokens[4], tokens[5], hmc, num_moves, moves_ptr);
     }
   }
   
   else if (str_eq(cmd, "go", "g")) {
+    
+    if (is_tt_null()) {
+      printf("info run a ucinewgame command or setoption name Hash value <n> (MB) command first\n");
+      return true;
+    }
     
     int64_t wtime = 0;
     int64_t winc = 0;
