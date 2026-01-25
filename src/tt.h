@@ -3,11 +3,13 @@
 
 #include <stdint.h>
 #include "move.h"
-#include "position.h"
+#include "pos.h"
 
 #define TT_EXACT 1
 #define TT_ALPHA 2
 #define TT_BETA 4
+
+#define TT_DEFAULT_MB 16
 
 typedef struct {
 

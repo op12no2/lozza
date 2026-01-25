@@ -2,7 +2,7 @@
 #define ZOBRIST_H
 
 #include <stdint.h>
-#include "position.h"
+#include "pos.h"
 
 uint64_t rand64(void);
 void init_zob(void);

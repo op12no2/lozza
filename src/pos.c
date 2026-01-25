@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include "types.h"
 #include "bitboard.h"
-#include "position.h"
+#include "pos.h"
 #include "makemove.h"
 #include "builtins.h"
 

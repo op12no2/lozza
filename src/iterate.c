@@ -2,7 +2,7 @@
 #include "iterate.h"
 #include "move.h"
 #include "nodes.h"
-#include "position.h"
+#include "pos.h"
 #include "movegen.h"
 
 static move_t get_next_sorted_move(Node *const node) {

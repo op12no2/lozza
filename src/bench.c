@@ -5,6 +5,7 @@
 #include "timecontrol.h"
 #include "go.h"
 #include "tt.h"
+#include "position.h"
 
 typedef struct {
 

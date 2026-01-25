@@ -5,6 +5,7 @@
 #include "types.h"
 #include "uci.h"
 #include "nodes.h"
+#include "pos.h"
 #include "position.h"
 #include "perft.h"
 #include "timecontrol.h"
@@ -43,7 +44,7 @@ bool uci_exec(char *input) {
   if (str_eq(cmd, "uci", "")) {
     printf("id name Lozza %s\n", VERSION);
     printf("id author Colin Jenkins\n");
-    printf("option name Hash type spin default %d min 1 max 1024\n", 16);
+    printf("option name Hash type spin default %d min 1 max 1024\n", TT_DEFAULT_MB);
     printf("uciok\n");
   }
   

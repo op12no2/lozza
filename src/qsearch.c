@@ -2,7 +2,7 @@
 #include "types.h"
 #include "builtins.h"
 #include "nodes.h"
-#include "position.h"
+#include "pos.h"
 #include "evaluate.h"
 #include "qsearch.h"
 #include "makemove.h"

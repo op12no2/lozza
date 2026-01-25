@@ -106,7 +106,7 @@ TT *tt_get(const Position *pos) {
 void new_game(void) {
 
   if (!tt)
-    new_tt(16);
+    new_tt(TT_DEFAULT_MB);
 
   tt_clear();
 

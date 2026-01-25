@@ -2,7 +2,7 @@
 #include "types.h"
 #include "builtins.h"
 #include "nodes.h"
-#include "position.h"
+#include "pos.h"
 #include "move.h"
 #include "movegen.h"
 #include "bitboard.h"

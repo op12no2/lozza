@@ -43,7 +43,8 @@ WIP - Core engine functional with NNUE evaluation.
 src/
   main.c        - Entry point, UCI loop
   types.h       - Piece/square enums, inline helpers
-  position.h/c  - Position struct, FEN parsing, is_attacked()
+  pos.h/c       - Position struct, FEN parsing, is_attacked()
+  position.h/c  - position() 
   move.h/c      - Move encoding (32-bit), formatting
   nodes.h/c     - Node struct with accumulators, global search stack
   bitboard.h/c  - Attack tables, magic number generation

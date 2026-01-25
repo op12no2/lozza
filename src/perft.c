@@ -7,6 +7,7 @@
 #include "builtins.h"
 #include "movegen.h"
 #include "makemove.h"
+#include "pos.h"
 #include "position.h"
 #include "iterate.h"
 #include "zobrist.h"

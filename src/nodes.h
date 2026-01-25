@@ -2,7 +2,7 @@
 #define NODES_H
 
 #include "types.h"
-#include "position.h"
+#include "pos.h"
 #include "move.h"
 
 #define MAX_PLY 64
@@ -23,7 +23,5 @@ typedef struct {
 } Node;
 
 extern Node nodes[MAX_PLY];
-
-void position(Node *node, const char *board_fen, const char *stm_str, const char *rights_str, const char *ep_str, int hmc, int num_uci_moves, char **uci_moves);
 
 #endif
