@@ -52,7 +52,6 @@ int search(const int ply, int depth, int alpha, const int beta) {
       return 0;
   }
 
-  /* tt disabled until rep detection done
   const TT *entry = tt_get(pos);
   if (!is_pv && entry && entry->depth >= depth) {
     const int tt_flags = entry->flags;
@@ -61,7 +60,6 @@ int search(const int ply, int depth, int alpha, const int beta) {
       return tt_score;
     }
   }
-  */
 
   Node *next_node = &nodes[ply + 1];
   Position *next_pos = &next_node->pos;
