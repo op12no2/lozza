@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define VERSION "11nnue"
+#define VERSION "1116bitnnueaccs"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768

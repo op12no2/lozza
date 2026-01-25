@@ -10,7 +10,7 @@
 
 typedef struct {
 
-  int32_t accs[2][NET_H1_SIZE]; 
+  int16_t accs[2][NET_H1_SIZE]; 
   Position pos;
   move_t moves[MAX_MOVES];
   int num_moves;

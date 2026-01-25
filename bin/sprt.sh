@@ -14,6 +14,7 @@ elo1=5
 concurrency=32
 book=4moves_noob
 
+#CPUS=0,2,4,6,8,10   # physical cores only (no SMT) Ryzen 5000 series
 CPUS=0-31   # physical cores only (no SMT) EPYC 7502P
 
 taskset -c $CPUS \

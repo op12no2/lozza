@@ -5,9 +5,9 @@
 #include "net.h"
 #include "weights.h"
 
-static int32_t net_h1_w[NET_I_SIZE * NET_H1_SIZE];
-static int32_t net_h2_w[NET_I_SIZE * NET_H1_SIZE];  // flipped
-static int32_t net_h1_b[NET_H1_SIZE];
+static int16_t net_h1_w[NET_I_SIZE * NET_H1_SIZE];
+static int16_t net_h2_w[NET_I_SIZE * NET_H1_SIZE];  // flipped
+static int16_t net_h1_b[NET_H1_SIZE];
 static int32_t net_o_w [NET_H1_SIZE * 2];
 static int32_t net_o_b;
 
@@ -63,13 +63,13 @@ int init_weights(void) {
   size_t offset = 0;
 
   for (int i=0; i < NET_I_SIZE * NET_H1_SIZE; i++) {
-    net_h1_w[i]             = (int32_t)weights[i];  // us
-    net_h2_w[flip_index(i)] = (int32_t)weights[i];  // them
+    net_h1_w[i]             = weights[i];  // us
+    net_h2_w[flip_index(i)] = weights[i];  // them
   }
 
   offset += NET_I_SIZE * NET_H1_SIZE;
   for (int i=0; i < NET_H1_SIZE; i++) {
-    net_h1_b[i] = (int32_t)weights[offset+i];
+    net_h1_b[i] = weights[offset+i];
   }
 
   offset += NET_H1_SIZE;
@@ -88,8 +88,8 @@ int init_weights(void) {
 
 void net_slow_rebuild_accs(Node *node) {
 
-  int32_t *const restrict a1 = node->accs[0];
-  int32_t *const restrict a2 = node->accs[1];
+  int16_t *const restrict a1 = node->accs[0];
+  int16_t *const restrict a2 = node->accs[1];
 
   memcpy(a1, net_h1_b, sizeof net_h1_b);
   memcpy(a2, net_h1_b, sizeof net_h1_b);
@@ -102,8 +102,8 @@ void net_slow_rebuild_accs(Node *node) {
       continue;
 
     const int base = net_base(piece, sq);
-    const int32_t *const restrict w1 = &net_h1_w[base];
-    const int32_t *const restrict w2 = &net_h2_w[base];
+    const int16_t *const restrict w1 = &net_h1_w[base];
+    const int16_t *const restrict w2 = &net_h2_w[base];
 
     for (int h=0; h < NET_H1_SIZE; h++) {
       a1[h] += w1[h];
@@ -117,8 +117,8 @@ int net_eval(Node *node) {
 
   const int stm = node->pos.stm;
 
-  const int32_t *a1 = (stm == 0 ? node->accs[0] : node->accs[1]);
-  const int32_t *a2 = (stm == 0 ? node->accs[1] : node->accs[0]);
+  const int16_t *a1 = (stm == 0 ? node->accs[0] : node->accs[1]);
+  const int16_t *a2 = (stm == 0 ? node->accs[1] : node->accs[0]);
 
   const int32_t *w1 = &net_o_w[0];
   const int32_t *w2 = &net_o_w[NET_H1_SIZE];
@@ -140,17 +140,17 @@ int net_eval(Node *node) {
 
 void net_move(Node *node, const int piece, const int from, const int to) {
 
-  int32_t *const restrict a1 = node->accs[0];
-  int32_t *const restrict a2 = node->accs[1];
+  int16_t *const restrict a1 = node->accs[0];
+  int16_t *const restrict a2 = node->accs[1];
 
   const int b1 = net_base(piece, from);
   const int b2 = net_base(piece, to);
 
-  const int32_t *const restrict w1_b1 = &net_h1_w[b1];
-  const int32_t *const restrict w1_b2 = &net_h1_w[b2];
+  const int16_t *const restrict w1_b1 = &net_h1_w[b1];
+  const int16_t *const restrict w1_b2 = &net_h1_w[b2];
 
-  const int32_t *const restrict w2_b1 = &net_h2_w[b1];
-  const int32_t *const restrict w2_b2 = &net_h2_w[b2];
+  const int16_t *const restrict w2_b1 = &net_h2_w[b1];
+  const int16_t *const restrict w2_b2 = &net_h2_w[b2];
 
   for (int i=0; i < NET_H1_SIZE; i++) {
     a1[i] += w1_b2[i] - w1_b1[i];
@@ -161,20 +161,20 @@ void net_move(Node *node, const int piece, const int from, const int to) {
 
 void net_capture(Node *node, const int from_piece, const int from, const int to_piece, const int to) {
 
-  int32_t *const restrict a1 = node->accs[0];
-  int32_t *const restrict a2 = node->accs[1];
+  int16_t *const restrict a1 = node->accs[0];
+  int16_t *const restrict a2 = node->accs[1];
 
   const int b1 = net_base(from_piece, from);
   const int b2 = net_base(to_piece, to);
   const int b3 = net_base(from_piece, to);
 
-  const int32_t *const restrict w1_b1 = &net_h1_w[b1];
-  const int32_t *const restrict w1_b2 = &net_h1_w[b2];
-  const int32_t *const restrict w1_b3 = &net_h1_w[b3];
+  const int16_t *const restrict w1_b1 = &net_h1_w[b1];
+  const int16_t *const restrict w1_b2 = &net_h1_w[b2];
+  const int16_t *const restrict w1_b3 = &net_h1_w[b3];
 
-  const int32_t *const restrict w2_b1 = &net_h2_w[b1];
-  const int32_t *const restrict w2_b2 = &net_h2_w[b2];
-  const int32_t *const restrict w2_b3 = &net_h2_w[b3];
+  const int16_t *const restrict w2_b1 = &net_h2_w[b1];
+  const int16_t *const restrict w2_b2 = &net_h2_w[b2];
+  const int16_t *const restrict w2_b3 = &net_h2_w[b3];
 
   for (int i=0; i < NET_H1_SIZE; i++) {  // autovec cap
     a1[i] += w1_b3[i] - w1_b2[i] - w1_b1[i];
@@ -185,20 +185,20 @@ void net_capture(Node *node, const int from_piece, const int from, const int to_
 
 void net_ep_capture (Node *node, const int from_pawn, const int from, const int to, const int opp_pawn, const int opp_ep) {
 
-  int32_t *const restrict a1 = node->accs[0];
-  int32_t *const restrict a2 = node->accs[1];
+  int16_t *const restrict a1 = node->accs[0];
+  int16_t *const restrict a2 = node->accs[1];
 
   const int b1 = net_base(from_pawn, from);
   const int b2 = net_base(from_pawn, to);
   const int b3 = net_base(opp_pawn, opp_ep);
 
-  const int32_t *const restrict w1_b1 = &net_h1_w[b1];
-  const int32_t *const restrict w1_b2 = &net_h1_w[b2];
-  const int32_t *const restrict w1_b3 = &net_h1_w[b3];
+  const int16_t *const restrict w1_b1 = &net_h1_w[b1];
+  const int16_t *const restrict w1_b2 = &net_h1_w[b2];
+  const int16_t *const restrict w1_b3 = &net_h1_w[b3];
 
-  const int32_t *const restrict w2_b1 = &net_h2_w[b1];
-  const int32_t *const restrict w2_b2 = &net_h2_w[b2];
-  const int32_t *const restrict w2_b3 = &net_h2_w[b3];
+  const int16_t *const restrict w2_b1 = &net_h2_w[b1];
+  const int16_t *const restrict w2_b2 = &net_h2_w[b2];
+  const int16_t *const restrict w2_b3 = &net_h2_w[b3];
 
   for (int i=0; i < NET_H1_SIZE; i++) {  // autovec ep
     a1[i] += w1_b2[i] - w1_b1[i] - w1_b3[i];
@@ -209,23 +209,23 @@ void net_ep_capture (Node *node, const int from_pawn, const int from, const int 
 
 void net_castle (Node *node, const int king_piece, const int king_fr_sq, const int king_to_sq, const int rook_piece, const int rook_fr_sq, const int rook_to_sq) {
 
-  int32_t *const restrict a1 = node->accs[0];
-  int32_t *const restrict a2 = node->accs[1];
+  int16_t *const restrict a1 = node->accs[0];
+  int16_t *const restrict a2 = node->accs[1];
 
   const int b1 = net_base(king_piece, king_fr_sq);
   const int b2 = net_base(king_piece, king_to_sq);
   const int b3 = net_base(rook_piece, rook_fr_sq);
   const int b4 = net_base(rook_piece, rook_to_sq);
 
-  const int32_t *const restrict w1_b1 = &net_h1_w[b1];
-  const int32_t *const restrict w1_b2 = &net_h1_w[b2];
-  const int32_t *const restrict w1_b3 = &net_h1_w[b3];
-  const int32_t *const restrict w1_b4 = &net_h1_w[b4];
+  const int16_t *const restrict w1_b1 = &net_h1_w[b1];
+  const int16_t *const restrict w1_b2 = &net_h1_w[b2];
+  const int16_t *const restrict w1_b3 = &net_h1_w[b3];
+  const int16_t *const restrict w1_b4 = &net_h1_w[b4];
 
-  const int32_t *const restrict w2_b1 = &net_h2_w[b1];
-  const int32_t *const restrict w2_b2 = &net_h2_w[b2];
-  const int32_t *const restrict w2_b3 = &net_h2_w[b3];
-  const int32_t *const restrict w2_b4 = &net_h2_w[b4];
+  const int16_t *const restrict w2_b1 = &net_h2_w[b1];
+  const int16_t *const restrict w2_b2 = &net_h2_w[b2];
+  const int16_t *const restrict w2_b3 = &net_h2_w[b3];
+  const int16_t *const restrict w2_b4 = &net_h2_w[b4];
 
   for (int i=0; i < NET_H1_SIZE; i++) {  // autovec_castle
     a1[i] += w1_b2[i] - w1_b1[i] + w1_b4[i] - w1_b3[i];
@@ -236,17 +236,17 @@ void net_castle (Node *node, const int king_piece, const int king_fr_sq, const i
 
 void net_promo_push (Node *node, const int pawn_piece, const int pawn_fr, const int pawn_to, const int promote_piece) {
 
-  int32_t *const restrict a1 = node->accs[0];
-  int32_t *const restrict a2 = node->accs[1];
+  int16_t *const restrict a1 = node->accs[0];
+  int16_t *const restrict a2 = node->accs[1];
 
   const int b1 = net_base(pawn_piece, pawn_fr);
   const int b2 = net_base(promote_piece, pawn_to);
 
-  const int32_t *const restrict w1_b1 = &net_h1_w[b1];
-  const int32_t *const restrict w1_b2 = &net_h1_w[b2];
+  const int16_t *const restrict w1_b1 = &net_h1_w[b1];
+  const int16_t *const restrict w1_b2 = &net_h1_w[b2];
 
-  const int32_t *const restrict w2_b1 = &net_h2_w[b1];
-  const int32_t *const restrict w2_b2 = &net_h2_w[b2];
+  const int16_t *const restrict w2_b1 = &net_h2_w[b1];
+  const int16_t *const restrict w2_b2 = &net_h2_w[b2];
 
   for (int i=0; i < NET_H1_SIZE; i++) {  // autovec promo push
     a1[i] += w1_b2[i] - w1_b1[i];
@@ -257,20 +257,20 @@ void net_promo_push (Node *node, const int pawn_piece, const int pawn_fr, const 
 
 void net_promo_capture (Node *node, const int pawn_piece, const int pawn_fr, const int pawn_to, const int capture_piece, const int promote_piece) {
 
-  int32_t *const restrict a1 = node->accs[0];
-  int32_t *const restrict a2 = node->accs[1];
+  int16_t *const restrict a1 = node->accs[0];
+  int16_t *const restrict a2 = node->accs[1];
 
   const int b1 = net_base(pawn_piece, pawn_fr);
   const int b2 = net_base(promote_piece, pawn_to);
   const int b3 = net_base(capture_piece, pawn_to);
 
-  const int32_t *const restrict w1_b1 = &net_h1_w[b1];
-  const int32_t *const restrict w1_b2 = &net_h1_w[b2];
-  const int32_t *const restrict w1_b3 = &net_h1_w[b3];
+  const int16_t *const restrict w1_b1 = &net_h1_w[b1];
+  const int16_t *const restrict w1_b2 = &net_h1_w[b2];
+  const int16_t *const restrict w1_b3 = &net_h1_w[b3];
 
-  const int32_t *const restrict w2_b1 = &net_h2_w[b1];
-  const int32_t *const restrict w2_b2 = &net_h2_w[b2];
-  const int32_t *const restrict w2_b3 = &net_h2_w[b3];
+  const int16_t *const restrict w2_b1 = &net_h2_w[b1];
+  const int16_t *const restrict w2_b2 = &net_h2_w[b2];
+  const int16_t *const restrict w2_b3 = &net_h2_w[b3];
 
   for (int i=0; i < NET_H1_SIZE; i++) {  // autovec promo cap
     a1[i] += w1_b2[i] - w1_b1[i] - w1_b3[i];
