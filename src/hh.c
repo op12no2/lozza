@@ -1,23 +1,23 @@
-#include "history.h"
+#include "hh.h"
 
-static uint64_t hashes[MAX_HISTORY];
+static uint64_t hashes[MAX_HH];
 static int game_ply;
 static int root_ply;
 
-void history_reset(void) {
+void hh_reset(void) {
   game_ply = 0;
   root_ply = 0;
 }
 
-void history_push(uint64_t hash) {
+void hh_push(uint64_t hash) {
   hashes[game_ply++] = hash;
 }
 
-void history_set_root(void) {
+void hh_set_root(void) {
   root_ply = game_ply - 1;
 }
 
-void history_store(int search_ply, uint64_t hash) {
+void hh_store(int search_ply, uint64_t hash) {
   hashes[root_ply + search_ply] = hash;
 }
 

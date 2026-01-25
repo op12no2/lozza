@@ -2,7 +2,7 @@
 #include "timecontrol.h"
 #include "search.h"
 #include "go.h"
-#include "history.h"
+#include "hh.h"
 
 void go(void) {
 
@@ -11,7 +11,7 @@ void go(void) {
   int alpha = 0;
   int beta = 0;
 
-  history_set_root();
+  hh_set_root();
 
   for (int depth=1; depth <= tc->max_depth; depth++) {
 

@@ -12,7 +12,7 @@
 #include "qsearch.h"
 #include "net.h"
 #include "tt.h"
-#include "history.h"
+#include "hh.h"
 
 int search(const int ply, int depth, int alpha, const int beta) {
 
@@ -23,9 +23,9 @@ int search(const int ply, int depth, int alpha, const int beta) {
     return net_eval(node);
   }
 
-  // store hash for repetition detection (ply 0 already in history from position())
+  // store hash for repetition detection (ply 0 already in hh from position())
   if (ply > 0) {
-    history_store(ply, pos->hash);
+    hh_store(ply, pos->hash);
     if (is_draw(ply, pos->hash, pos->hmc)) {
       return 0;
     }

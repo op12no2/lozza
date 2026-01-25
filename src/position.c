@@ -5,7 +5,7 @@
 #include "makemove.h"
 #include "zobrist.h"
 #include "net.h"
-#include "history.h"
+#include "hh.h"
 
 void position(Node *node, const char *board_fen, const char *stm_str, const char *rights_str, const char *ep_str, int hmc, int num_uci_moves, char **uci_moves) {
 
@@ -87,14 +87,14 @@ void position(Node *node, const char *board_fen, const char *stm_str, const char
   pos->hash = rebuild_hash(pos);
   net_slow_rebuild_accs(node);
 
-  // initialize history with starting position
-  history_reset();
-  history_push(pos->hash);
+  // initialize hh with starting position
+  hh_reset();
+  hh_push(pos->hash);
 
   // play uci moves
   for (int m = 0; m < num_uci_moves; m++) {
     play_move(node, uci_moves[m]);
-    history_push(pos->hash);
+    hh_push(pos->hash);
   }
 
 }

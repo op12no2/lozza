@@ -55,6 +55,7 @@ src/
   net.h/c       - NNUE evaluation and accumulator functions
   perft.h/c     - PERFT testing (68 positions)
   uci.h/c       - UCI protocol
+  hh.h/c        - Hash history for 3 rep and 50 move rules.
   builtins.h    - popcount, bsf wrappers
   zobrist.h/c   - Zobrist hashing (incremental updates in makemove)
   bench.h/c     - Benchmark positions for search testing
