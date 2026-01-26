@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define VERSION "11_rank_captures"
+#define VERSION "11_bump_bench_depth"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768
