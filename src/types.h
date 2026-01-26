@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define VERSION "11_basic_tt_in_search"
+#define VERSION "11_use_tt_move_in_search"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768

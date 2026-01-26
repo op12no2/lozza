@@ -70,8 +70,9 @@ int search(const int ply, int depth, int alpha, const int beta) {
   int num_legal_moves = 0;
   const uint64_t *next_stm_king_ptr = &next_pos->all[stm_king_idx];
   const int orig_alpha = alpha;
+  const move_t tt_move = entry ? entry->move : 0;
 
-  init_next_search_move(node, in_check, 0);
+  init_next_search_move(node, in_check, tt_move);
 
   while ((move = get_next_search_move(node))) {
 

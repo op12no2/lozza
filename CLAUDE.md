@@ -26,6 +26,8 @@ WIP - Core engine functional with NNUE evaluation.
 - Transposition table
 - Move ordering improvements
 - Search pruning techniques
+- Aspiration window
+- Full PV
 
 ## toolchain
 
@@ -44,7 +46,8 @@ src/
   main.c        - Entry point, UCI loop
   types.h       - Piece/square enums, inline helpers
   pos.h/c       - Position struct, FEN parsing, is_attacked()
-  position.h/c  - position() 
+  position.h/c  - position() (uci command)
+  go.h/c        - go() (uci command)
   move.h/c      - Move encoding (32-bit), formatting
   nodes.h/c     - Node struct with accumulators, global search stack
   bitboard.h/c  - Attack tables, magic number generation
@@ -70,7 +73,7 @@ src/
 ## testing
 
 ### perft (move generation correctness)
-- `./lozza pt` - Run all 68 PERFT tests (~140s)
+- `./lozza pt` - Run all 68 PERFT tests (~190s)
 - `./lozza "pt 4"` - Run only tests with depth <= 4 (~0.1s, 25 tests)
 - `./lozza "pt 5"` - Run only tests with depth <= 5 (~5s, 31 tests)
 - `./lozza "p s" "f 5"` - Set startpos and run PERFT depth 5
@@ -137,3 +140,28 @@ perft.c has optional verification code (toggle `if(1)` to `if(0)`) that checks i
 
 - bitboard.c/init_attacks takes ~100ms at startup. Could write the magics to a file and claw it back by inlining.
 - NNUE incremental updates are ~5x faster than rebuilding accumulators each eval.
+- Consider deferring NNUE updates until after legal move check and/or eval call.
+
+## sprt on hetzner epyc 7502p server
+
+- Make sure ./lozza and ./releases/lozza are different (uci / bench etc)
+
+```
+./bin/sync.sh # copy to server
+ssh root@epyc
+
+tmux new -s sprt
+./bin/sprt.sh | tee sprt.log; bash
+
+# detach (make sure tmux pane is focused)
+Ctrl-b d
+
+# later...
+ssh root@epyc
+tmux ls
+tmux attach -t sprt # works after finish (b/c of `; bash`)
+tail -f sprt.log # or just tail sprt.log if finished
+
+# optional cleanup
+tmux kill-session -t sprt
+```
