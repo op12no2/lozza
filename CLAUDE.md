@@ -6,28 +6,37 @@ Lozza is a UCI chess engine written in C. This is a work-in-progress rewrite.
 
 WIP - Core engine functional with NNUE evaluation.
 
-### completed
-- Magic bitboard attack tables (bishop, rook, queen)
-- Pre-computed attack tables (pawn, knight, king)
-- Position representation (bitboards + board array)
-- FEN parsing
-- Pseudo-legal move generation (quiets and captures separated)
-- Check-aware move filtering
-- Make move with full support (castling, en passant, promotion)
-- PERFT with 68 test positions
-- Basic UCI command loop
-- Alpha-beta search with PVS
-- Quiescence search
-- NNUE evaluation with incremental accumulator updates
-- Zobrist hashing (incremental)
-- Basic time control
+### todo
 
-### not yet implemented
-- Transposition table
-- Move ordering improvements
-- Search pruning techniques
-- Aspiration window
-- Full PV
+- use tt move in qs - fails sprt - why?
+- use tt score in qs - fails sprt - why?
+
+- remove tt move from captures
+- remove tt move from quiets
+- write to tt in qs beta
+- write to tt in qs alpha
+- aspiration window
+- full (uci) pv
+- use mat draw in s
+- use mat draw in qs
+- fix pvs to use is_pv
+- killers
+- id - don't start next depth if not enough time
+- beta prune
+- nmp
+- iir
+- lmr
+- lmp
+- futility
+- defer nnue updates (post m-m and/or eval)
+- h mirroring
+- o/p buckets
+- normalise eval scale 
+- add piece-to history for quiets
+- rank quiets using piece-to history
+- corrhist etc
+- try nodes test nearer top of s and qs
+- try not testing for time up in qs
 
 ## toolchain
 
@@ -135,12 +144,6 @@ Accumulators are updated incrementally in `make_move()` rather than rebuilt each
 
 ### verification
 perft.c has optional verification code (toggle `if(1)` to `if(0)`) that checks incremental hash and accumulators match rebuilt values at every node.
-
-## performance
-
-- bitboard.c/init_attacks takes ~100ms at startup. Could write the magics to a file and claw it back by inlining.
-- NNUE incremental updates are ~5x faster than rebuilding accumulators each eval.
-- Consider deferring NNUE updates until after legal move check and/or eval call.
 
 ## sprt on hetzner epyc 7502p server
 

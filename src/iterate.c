@@ -33,13 +33,28 @@ static move_t get_next_sorted_move(Node *const node) {
 
 }
 
-static void rank_captures(Node *node) {
+void rank_captures(Node *node) {
 
-  const int num_moves = node->num_moves;
-  int16_t *r = node->ranks;
+  const uint8_t *board = node->pos.board;
+  const move_t *moves = node->moves;
+  int16_t *ranks = node->ranks;
+  const int n = node->num_moves;
 
-  for (int i=0; i < num_moves; i++) {
-    r[i] = i; // stub
+  for (int i=0; i < n; i++) {
+
+    const move_t m = moves[i];
+    const int from = (m >> 6) & 0x3F;
+    const int to = m & 0x3F;
+    const int attacker = board[from] % 6;
+    int victim = board[to];
+
+    if (victim == EMPTY)  // ep
+      victim = 0;
+    else
+      victim %= 6;
+
+    ranks[i] = (victim << 3) | (5 - attacker);
+
   }
 }
 

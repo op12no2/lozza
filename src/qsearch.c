@@ -10,6 +10,7 @@
 #include "iterate.h"
 #include "move.h"
 #include "net.h"
+#include "tt.h"
 
 int qsearch(const int ply, int alpha, const int beta) {
 
@@ -51,7 +52,7 @@ int qsearch(const int ply, int alpha, const int beta) {
   int best_score = in_check ? -INF : stand_pat;
   int num_legal_moves = 0;
   const uint64_t *next_stm_king_ptr = &next_pos->all[stm_king_idx];
-
+  
   init_next_qsearch_move(node, in_check, 0);
 
   while ((move = get_next_qsearch_move(node))) {
