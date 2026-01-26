@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include "types.h"
 #include "builtins.h"
@@ -61,6 +62,20 @@ int search(const int ply, int depth, int alpha, const int beta) {
     }
   }
 
+  const move_t tt_move = entry ? entry->move : 0;
+  // iir
+  //if (is_pv && depth >= 5 && tt_move == 0) {
+    //printf("*");
+    //depth--;
+  //}
+
+  const int16_t ev = net_eval(node);
+
+  // beta pruning
+  if (!is_pv && !in_check && depth <= 8 &&  ev >= beta + (100 * depth)) {
+    return ev;
+  }
+
   Node *next_node = &nodes[ply + 1];
   Position *next_pos = &next_node->pos;
   move_t move = 0;
@@ -70,7 +85,6 @@ int search(const int ply, int depth, int alpha, const int beta) {
   int num_legal_moves = 0;
   const uint64_t *next_stm_king_ptr = &next_pos->all[stm_king_idx];
   const int orig_alpha = alpha;
-  const move_t tt_move = entry ? entry->move : 0;
 
   init_next_search_move(node, in_check, tt_move);
 

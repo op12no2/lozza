@@ -22,7 +22,6 @@ WIP - Core engine functional with NNUE evaluation.
 - fix pvs to use is_pv
 - killers
 - id - don't start next depth if not enough time
-- beta prune
 - nmp
 - iir
 - lmr
@@ -37,6 +36,10 @@ WIP - Core engine functional with NNUE evaluation.
 - corrhist etc
 - try nodes test nearer top of s and qs
 - try not testing for time up in qs
+- cutnode
+- caphist
+- eval cache
+- use tt score, not eval
 
 ## toolchain
 
