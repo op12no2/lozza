@@ -14,6 +14,7 @@
 #include "net.h"
 #include "tt.h"
 #include "hh.h"
+#include "history.h"
 
 int search(const int ply, int depth, int alpha, const int beta) {
 
@@ -121,6 +122,9 @@ int search(const int ply, int depth, int alpha, const int beta) {
           tc->best_score = best_score;
         }
         if (score >= beta) {
+          if (!(best_move & MOVE_FLAG_CAPTURE)) {
+            update_piece_to_history(pos, best_move, depth * depth);
+          }
           tt_put(pos, TT_BETA, depth, put_adjusted_score(ply, best_score), best_move);
           return score;
         }

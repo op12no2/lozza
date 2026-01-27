@@ -4,6 +4,7 @@
 #include "nodes.h"
 #include "pos.h"
 #include "movegen.h"
+#include "history.h"
 
 static move_t get_next_sorted_move(Node *const node) {
 
@@ -33,6 +34,25 @@ static move_t get_next_sorted_move(Node *const node) {
 
 }
 
+void rank_quiets(Node *node) {
+
+  const uint8_t *board = node->pos.board;
+  const move_t *moves = node->moves;
+  int16_t *ranks = node->ranks;
+  const int n = node->num_moves;
+
+  for (int i=0; i < n; i++) {
+
+    const move_t m = moves[i];
+    const int from = (m >> 6) & 0x3F;
+    const int to = m & 0x3F;
+    const int piece = board[from];
+
+    ranks[i] = piece_to_history[piece][to];
+
+  }
+}
+
 void rank_captures(Node *node) {
 
   const uint8_t *board = node->pos.board;
@@ -55,16 +75,6 @@ void rank_captures(Node *node) {
 
     ranks[i] = (victim << 3) | (5 - attacker);
 
-  }
-}
-
-static void rank_quiets(Node *node) {
-
-  const int num_moves = node->num_moves;
-  int16_t *r = node->ranks;
-
-  for (int i=0; i < num_moves; i++) {
-    r[i] = i; // stub
   }
 }
 

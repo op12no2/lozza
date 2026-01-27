@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define VERSION "11_beta_pruning"
+#define VERSION "11_piece_to_history"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768

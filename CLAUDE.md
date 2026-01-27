@@ -6,40 +6,44 @@ Lozza is a UCI chess engine written in C. This is a work-in-progress rewrite.
 
 WIP - Core engine functional with NNUE evaluation.
 
-### todo
+### problems
 
 - use tt move in qs - fails sprt - why?
 - use tt score in qs - fails sprt - why?
 
-- remove tt move from captures
-- remove tt move from quiets
+### todo
+
+- remove tt move from captures list
+- remove tt move from quiets list
 - write to tt in qs beta
 - write to tt in qs alpha
 - aspiration window
-- full (uci) pv
+- pv
 - use mat draw in s
 - use mat draw in qs
-- fix pvs to use is_pv
 - killers
-- id - don't start next depth if not enough time
 - nmp
 - iir
 - lmr
 - lmp
 - futility
-- defer nnue updates (post m-m and/or eval)
 - h mirroring
 - o/p buckets
-- normalise eval scale 
-- add piece-to history for quiets
-- rank quiets using piece-to history
-- corrhist etc
-- try nodes test nearer top of s and qs
-- try not testing for time up in qs
+- *hist 
 - cutnode
-- caphist
-- eval cache
+- see
+- se
+- probcut
+
+### things to try 
+
 - use tt score, not eval
+- normalise eval scale 
+- eval cache
+- nodes test nearer top of s and qs
+- don't test for time up in qs
+- id - don't start next depth if not enough time
+- defer nnue updates (post m-m and/or eval)
 
 ## toolchain
 

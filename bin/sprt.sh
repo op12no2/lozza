@@ -8,6 +8,7 @@ rm -f sprt.pgn
 
 e1=./lozza
 e2=./releases/lozza
+#e2=./releases/10/lozza-linux
 tc=10+0.1
 #tc=100+1
 elo0=0
