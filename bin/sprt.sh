@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ "$(hostname)" = "colinj" ]
+then
+  echo "use the epyc!"
+  exit 1
+fi
+
 if command -v cpupower >/dev/null; then
   sudo cpupower frequency-set -g performance || true
 fi

@@ -15,6 +15,7 @@ WIP - Core engine functional with NNUE evaluation.
 
 - remove tt move from captures list
 - remove tt move from quiets list
+- apply -ve values to moves before beta cutoff re: piece-to history
 - write to tt in qs beta
 - write to tt in qs alpha
 - aspiration window
@@ -24,19 +25,20 @@ WIP - Core engine functional with NNUE evaluation.
 - killers
 - nmp
 - iir
-- lmr
 - lmp
 - futility
-- h mirroring
-- o/p buckets
-- *hist 
-- cutnode
+- horizontal mirroring
+- output buckets
+- corrhist
+- conthist
+- caphist 
 - see
-- se
+- singular extensions
 - probcut
 
 ### things to try 
 
+- cutnode
 - use tt score, not eval
 - normalise eval scale 
 - eval cache
@@ -44,6 +46,10 @@ WIP - Core engine functional with NNUE evaluation.
 - don't test for time up in qs
 - id - don't start next depth if not enough time
 - defer nnue updates (post m-m and/or eval)
+- pass incheck to move ierator in qs
+- age pice-to history
+- extensions if in check etc
+- only 2 calls to lmr in pv context
 
 ## toolchain
 
@@ -59,27 +65,29 @@ WIP - Core engine functional with NNUE evaluation.
 
 ```
 src/
-  main.c        - Entry point, UCI loop
-  types.h       - Piece/square enums, inline helpers
-  pos.h/c       - Position struct, FEN parsing, is_attacked()
-  position.h/c  - position() (uci command)
-  go.h/c        - go() (uci command)
-  move.h/c      - Move encoding (32-bit), formatting
-  nodes.h/c     - Node struct with accumulators, global search stack
-  bitboard.h/c  - Attack tables, magic number generation
-  movegen.h/c   - Move generation (quiets/captures)
-  makemove.h/c  - Move execution with incremental accumulator updates
-  search.h/c    - Alpha-beta search with PVS
-  qsearch.h/c   - Quiescence search
-  net.h/c       - NNUE evaluation and accumulator functions
-  perft.h/c     - PERFT testing (68 positions)
-  uci.h/c       - UCI protocol
-  hh.h/c        - Hash history for 3 rep and 50 move rules.
-  builtins.h    - popcount, bsf wrappers
-  zobrist.h/c   - Zobrist hashing (incremental updates in makemove)
-  bench.h/c     - Benchmark positions for search testing
-  iterate.h/c   - Move iteration and sorting
+  main.c          - Entry point, UCI loop
+  types.h         - Piece/square enums, inline helpers
+  pos.h/c         - Position struct, FEN parsing, is_attacked()
+  position.h/c    - position() (uci command)
+  go.h/c          - go() (uci command)
+  move.h/c        - Move encoding (32-bit), formatting
+  nodes.h/c       - Node struct with accumulators, global search stack
+  bitboard.h/c    - Attack tables, magic number generation
+  movegen.h/c     - Move generation (quiets/captures)
+  makemove.h/c    - Move execution with incremental accumulator updates
+  search.h/c      - Alpha-beta search with PVS
+  qsearch.h/c     - Quiescence search
+  net.h/c         - NNUE evaluation and accumulator functions
+  perft.h/c       - PERFT testing (68 positions)
+  uci.h/c         - UCI protocol
+  hh.h/c          - Hash history for 3 rep and 50 move rules.
+  builtins.h      - popcount, bsf wrappers
+  zobrist.h/c     - Zobrist hashing (incremental updates in makemove)
+  bench.h/c       - Benchmark positions for search testing
+  iterate.h/c     - Move iteration and sorting
   timecontrol.h/c - Time management
+  hh.h/c          - Hash history for 2/3 rep and 50 move rule
+  history.h/c     - Piece-to history
 ```
 
 ## nets
@@ -164,7 +172,7 @@ tmux new -s sprt
 ./bin/sprt.sh | tee sprt.log; bash
 
 # detach (make sure tmux pane is focused)
-Ctrl-b d
+ctrl-b d
 
 # later...
 ssh root@epyc

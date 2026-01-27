@@ -6,6 +6,7 @@
 #include "nodes.h"
 #include "net.h"
 #include "zobrist.h"
+#include "search.h"
 
 #define INPUT_BUFFER_SIZE 8192
 
@@ -17,6 +18,7 @@ int main(int argc, char *argv[]) {
   init_attacks();
   init_weights();
   init_zob();
+  init_lmr();
 
   // If command-line arguments provided, execute them and exit
   if (argc > 1) {

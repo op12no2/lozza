@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "types.h"
 #include "builtins.h"
 #include "nodes.h"
@@ -15,6 +16,16 @@
 #include "tt.h"
 #include "hh.h"
 #include "history.h"
+
+static int lmr[MAX_PLY][MAX_PLY];
+
+void init_lmr(void) {
+  for (int d = 1; d < MAX_PLY; d++) {
+    for (int m = 1; m < MAX_PLY; m++) {
+      lmr[d][m] = 0.77 + log(d) * log(m) / 2.36;
+    }
+  }
+}
 
 int search(const int ply, int depth, int alpha, const int beta) {
 
@@ -99,12 +110,48 @@ int search(const int ply, int depth, int alpha, const int beta) {
 
     num_legal_moves++;
 
-    if (num_legal_moves == 1) {
-      score = -search(ply+1, depth-1, -beta, -alpha);
+    const int is_quiet = !(move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE));
+    const int m = num_legal_moves < MAX_PLY ? num_legal_moves : MAX_PLY - 1;
+
+    if (is_pv) {
+      if (num_legal_moves == 1) {
+        score = -search(ply+1, depth-1, -beta, -alpha);
+      }
+      else {
+        int d = depth - 1;
+
+        // lmr for pv quiets
+        if (depth >= 3 && num_legal_moves >= 3 && is_quiet && !in_check) {
+          d -= lmr[depth][m];
+          if (d < 1) d = 1;
+        }
+
+        score = -search(ply+1, d, -alpha-1, -alpha);
+
+        // re-search at full depth if reduced search beats alpha
+        if (!tc->finished && score > alpha && d < depth - 1) {
+          score = -search(ply+1, depth-1, -alpha-1, -alpha);
+        }
+
+        // full window re-search
+        if (!tc->finished && score > alpha) {
+          score = -search(ply+1, depth-1, -beta, -alpha);
+        }
+      }
     }
     else {
-      score = -search(ply+1, depth-1, -alpha-1, -alpha);
-      if (!tc->finished && score > alpha && score < beta) {
+      int d = depth - 1;
+
+      // lmr for non-pv quiets - reduce more aggressively
+      if (depth >= 3 && num_legal_moves >= 2 && is_quiet && !in_check) {
+        d -= lmr[depth][m] + 1;
+        if (d < 1) d = 1;
+      }
+
+      score = -search(ply+1, d, -beta, -alpha);
+
+      // re-search at full depth if reduced search beats alpha
+      if (!tc->finished && score > alpha && d < depth - 1) {
         score = -search(ply+1, depth-1, -beta, -alpha);
       }
     }
