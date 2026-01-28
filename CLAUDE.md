@@ -18,12 +18,10 @@ WIP - Core engine functional with NNUE evaluation.
 - apply -ve values to moves before beta cutoff re: piece-to history
 - write to tt in qs beta
 - write to tt in qs alpha
-- aspiration window
 - pv
 - use mat draw in s
 - use mat draw in qs
 - killers
-- nmp
 - iir
 - lmp
 - futility
@@ -37,6 +35,7 @@ WIP - Core engine functional with NNUE evaluation.
 - probcut
 - tablebases support
 - frc
+- mate distance pruning
 
 ### things to try 
 
@@ -52,6 +51,8 @@ WIP - Core engine functional with NNUE evaluation.
 - age pice-to history
 - extensions if in check etc
 - only 2 calls to lmr in pv context
+- tt protect bigger depths
+- tt buckets
 
 ## toolchain
 

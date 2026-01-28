@@ -18,9 +18,9 @@ e2=./releases/lozza
 tc=10+0.1
 #tc=100+1
 elo0=0
-elo1=5
+elo1=3
 concurrency=32
-book=4moves_noob
+book=UHO_Lichess_4852_v1
 
 #CPUS=0,2,4,6,8,10   # physical cores only (no SMT) Ryzen 5000 series
 CPUS=0-31   # physical cores only (no SMT) EPYC 7502P

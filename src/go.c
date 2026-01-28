@@ -10,6 +10,8 @@ void go(void) {
   TimeControl *tc = &time_control;
   int alpha = 0;
   int beta = 0;
+  int delta = 0;
+  int score = 0;
 
   hh_set_root();
 
@@ -19,17 +21,38 @@ void go(void) {
 
     alpha = -INF;
     beta  = INF;
+    delta = 10;
     
-    const int score = search(0, depth, alpha, beta);
-    
-    printf("info depth %d score %d\n", depth, score);
-
-    if (tc->finished) {
-      if (bm)
-        tc->best_move = bm; // use bm from last completed depth
-      break;
+    if (depth >= 4) {
+      alpha = score - delta;
+      beta  = score + delta;
     }
 
+    while (1) {
+
+      score = search(0, depth, alpha, beta);
+    
+      printf("info depth %d score %d\n", depth, score);
+
+      if (tc->finished) {
+        if (bm)
+          tc->best_move = bm; // use bm from last completed depth
+        break;
+      }
+
+      if (score <= alpha) {
+        alpha = score - delta;
+      }
+      else if (score >= beta) {
+        beta = score + delta;
+      }
+      else {
+        break;
+      }
+    
+      delta += delta;
+    
+    }
   }
 
   format_move(tc->best_move, bm_str);

@@ -4,5 +4,5 @@ then
   exit 1
 fi
 
-#rsync -avz ~/lozza/ xyzzy:~/lozza/
+rsync -avz ~/chess_data/ root@135.181.131.186:~/chess_data/
 rsync -avz ~/lozza/ root@135.181.131.186:~/lozza/
