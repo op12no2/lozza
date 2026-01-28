@@ -182,3 +182,21 @@ void play_move(Node *node, char *uci_move) {
   return;
 
 }
+
+void make_null_move(Position *pos) {
+
+  int ep        = pos->ep;
+  uint64_t hash = pos->hash;
+
+  hash ^= zob_ep[ep];
+  ep   = 0;
+  hash ^= zob_ep[ep];
+
+  hash ^= zob_stm[1];
+
+  pos->hash = hash;
+  pos->stm  ^= 1;
+  pos->ep   = (uint8_t)ep;
+  pos->hmc  = 0;
+
+}

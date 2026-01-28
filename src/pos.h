@@ -2,6 +2,7 @@
 #define POS_H
 
 #include <stdint.h>
+#include "types.h"
 
 #define EMPTY 255
 
@@ -27,8 +28,13 @@ typedef struct {
 
 } Position;
 
-static inline void pos_copy(const Position *const from_pos, Position *const to_pos) {
+inline void pos_copy(const Position *from_pos, Position *to_pos) {
   *to_pos = *from_pos;
+}
+
+inline int is_pawn_endgame(const Position *pos) {
+  const uint64_t *const a = pos->all;
+  return pos->occupied == (a[WKING] | a[WPAWN] | a[BKING] | a[BPAWN]);
 }
 
 void print_board(const Position *pos);

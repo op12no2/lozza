@@ -11,11 +11,14 @@
 #include "move.h"
 #include "net.h"
 #include "tt.h"
+#include "debug.h"
 
 int qsearch(const int ply, int alpha, const int beta) {
 
   Node *node = &nodes[ply];
   const Position *pos = &node->pos;
+
+  //debug_verify(1, node, ply);
 
   if (ply >= MAX_PLY-1) {
     return net_eval(node);

@@ -35,6 +35,8 @@ WIP - Core engine functional with NNUE evaluation.
 - see
 - singular extensions
 - probcut
+- tablebases support
+- frc
 
 ### things to try 
 

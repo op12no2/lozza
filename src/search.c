@@ -16,6 +16,7 @@
 #include "tt.h"
 #include "hh.h"
 #include "history.h"
+#include "debug.h"
 
 static int lmr[MAX_PLY][MAX_PLY];
 
@@ -31,6 +32,8 @@ int search(const int ply, int depth, int alpha, const int beta) {
 
   Node *node = &nodes[ply];
   const Position *pos = &node->pos;
+
+  //debug_verify(1, node, ply);
 
   if (ply >= MAX_PLY-1) {
     return net_eval(node);
@@ -90,6 +93,26 @@ int search(const int ply, int depth, int alpha, const int beta) {
 
   Node *next_node = &nodes[ply + 1];
   Position *next_pos = &next_node->pos;
+
+  // null move pruning
+  if (!is_pv && !in_check && depth > 2 && ev > beta && !is_pawn_endgame(pos)) {
+  
+    const int nmp_depth = depth - 4;
+  
+    pos_copy(pos, next_pos);
+    make_null_move(next_pos);
+    memcpy(next_node->accs, node->accs, sizeof(node->accs));
+  
+    const int score = -search(ply+1, nmp_depth, -beta, -beta+1);
+  
+    if (score >= beta)
+      return score > MATEISH ? beta : score;
+  
+    if (tc->finished)
+      return 0;
+  
+  }
+
   move_t move = 0;
   move_t best_move = 0;
   int score = 0;
