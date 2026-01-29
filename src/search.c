@@ -128,8 +128,8 @@ int search(const int ply, int depth, int alpha, const int beta) {
     const int is_quiet = !(move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE));
 
     // lmp
-    //if (is_quiet && !is_pv && !in_check && alpha > -MATEISH && depth <= 3 && played > (3 + depth * depth))
-      //continue;
+    if (is_quiet && !is_pv && !in_check && alpha > -MATEISH && depth <= 2 && played > (5 * depth))
+      continue;
 
     pos_copy(pos, next_pos);
     memcpy(next_node->accs, node->accs, sizeof(node->accs));

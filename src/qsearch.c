@@ -11,6 +11,7 @@
 #include "move.h"
 #include "net.h"
 #include "tt.h"
+#include "see.h"
 #include "debug.h"
 
 int qsearch(const int ply, int alpha, const int beta) {
@@ -53,12 +54,16 @@ int qsearch(const int ply, int alpha, const int beta) {
   move_t move;
   int score;
   int best_score = in_check ? -INF : stand_pat;
-  int num_legal_moves = 0;
+  int played = 0;
   const uint64_t *next_stm_king_ptr = &next_pos->all[stm_king_idx];
   
   init_next_qsearch_move(node, in_check, 0);
 
   while ((move = get_next_qsearch_move(node))) {
+
+    //if (!see_ge(this_pos, move, -50)) {
+      //continue;
+    //}
 
     pos_copy(pos, next_pos);
     memcpy(next_node->accs, node->accs, sizeof(node->accs));
@@ -66,7 +71,7 @@ int qsearch(const int ply, int alpha, const int beta) {
     if (is_attacked(next_pos, bsf(*next_stm_king_ptr), opp))
       continue;
 
-    num_legal_moves++;
+    played++;
 
     score = -qsearch(ply+1, -beta, -alpha);
 
@@ -84,7 +89,7 @@ int qsearch(const int ply, int alpha, const int beta) {
     }
   }
 
-  if (in_check && num_legal_moves == 0) {
+  if (in_check && played == 0) {
     return -MATE + ply;
   }
 

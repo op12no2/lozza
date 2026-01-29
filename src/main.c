@@ -7,6 +7,7 @@
 #include "net.h"
 #include "zobrist.h"
 #include "search.h"
+#include "see.h"
 
 #define INPUT_BUFFER_SIZE 8192
 
@@ -19,6 +20,7 @@ int main(int argc, char *argv[]) {
   init_weights();
   init_zob();
   init_lmr();
+  init_line_masks();
 
   // If command-line arguments provided, execute them and exit
   if (argc > 1) {

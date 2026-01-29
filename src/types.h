@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define VERSION "11_penalise_quiets_before_beta_cutoff"
+#define VERSION "11_untuned_lmp"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768
