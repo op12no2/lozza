@@ -117,7 +117,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
   move_t best_move = 0;
   int score = 0;
   int best_score = -INF;
-  int num_legal_moves = 0;
+  int played = 0;
   const uint64_t *next_stm_king_ptr = &next_pos->all[stm_king_idx];
   const int orig_alpha = alpha;
 
@@ -128,7 +128,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
     const int is_quiet = !(move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE));
 
     // lmp
-    //if (is_quiet && !is_pv && !in_check && alpha > -MATEISH && depth <= 3 && num_legal_moves > (3 + depth * depth))
+    //if (is_quiet && !is_pv && !in_check && alpha > -MATEISH && depth <= 3 && played > (3 + depth * depth))
       //continue;
 
     pos_copy(pos, next_pos);
@@ -137,20 +137,19 @@ int search(const int ply, int depth, int alpha, const int beta) {
     if (is_attacked(next_pos, bsf(*next_stm_king_ptr), opp))
       continue;
 
-    num_legal_moves++;
-    if (num_legal_moves >= MAX_PLY)
-      num_legal_moves = MAX_PLY - 1;
+    node->played[played++] = move;
 
     if (is_pv) {
-      if (num_legal_moves == 1) {
+      if (played == 1) {
         score = -search(ply+1, depth-1, -beta, -alpha);
       }
       else {
         int d = depth - 1;
+        const int lmr_m = played >= MAX_PLY ? MAX_PLY - 1 : played;
 
         // lmr for pv quiets
-        if (depth >= 3 && num_legal_moves >= 3 && is_quiet && !in_check) {
-          d -= lmr[depth][num_legal_moves];
+        if (depth >= 3 && played >= 3 && is_quiet && !in_check) {
+          d -= lmr[depth][lmr_m];
           if (d < 1) d = 1;
         }
 
@@ -169,10 +168,11 @@ int search(const int ply, int depth, int alpha, const int beta) {
     }
     else {
       int d = depth - 1;
+      const int lmr_m = played >= MAX_PLY ? MAX_PLY - 1 : played;
 
       // lmr for non-pv quiets - reduce more aggressively
-      if (depth >= 3 && num_legal_moves >= 2 && is_quiet && !in_check) {
-        d -= lmr[depth][num_legal_moves] + 1;
+      if (depth >= 3 && played >= 2 && is_quiet && !in_check) {
+        d -= lmr[depth][lmr_m] + 1;
         if (d < 1) d = 1;
       }
 
@@ -198,7 +198,14 @@ int search(const int ply, int depth, int alpha, const int beta) {
         }
         if (score >= beta) {
           if (!(best_move & MOVE_FLAG_CAPTURE)) {
-            update_piece_to_history(pos, best_move, depth * depth);
+            const int bonus = depth * depth;
+            update_piece_to_history(pos, best_move, bonus);
+            for (int i=0; i < played-1; i++) {
+              const move_t pm = node->played[i];
+              if (!(pm & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE))) {
+                update_piece_to_history(pos, pm, -bonus);
+              }  
+            }  
           }
           tt_put(pos, TT_BETA, depth, put_adjusted_score(ply, best_score), best_move);
           return score;
@@ -207,7 +214,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
     }
   }
 
-  if (num_legal_moves == 0) {
+  if (played == 0) {
     return in_check ? (-MATE + ply) : 0;
   }
 

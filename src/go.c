@@ -53,8 +53,11 @@ void go(void) {
       }
     
       delta += delta;
-    
+
     }
+
+    if (tc->finished)
+      break;
   }
 
   format_move(tc->best_move, bm_str);

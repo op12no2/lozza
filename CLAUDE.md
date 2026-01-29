@@ -6,13 +6,13 @@ Lozza is a UCI chess engine written in C. This is a work-in-progress rewrite.
 
 WIP - Core engine functional with NNUE evaluation.
 
-### problems
-
-- use tt move in qs - fails sprt - why?
-- use tt score in qs - fails sprt - why?
-
 ### todo
 
+- see - done - sprt
+- iir - done - sprt
+- lmp - done - sprt
+- use tt move in qs - fails sprt - why?
+- use tt score in qs - fails sprt - why?
 - remove tt move from captures list
 - remove tt move from quiets list
 - write to tt in qs beta
@@ -21,33 +21,30 @@ WIP - Core engine functional with NNUE evaluation.
 - use mat draw in s
 - use mat draw in qs
 - killers
-- iir
-- lmp
 - futility
-- horizontal mirroring
 - output buckets
 - corrhist
 - conthist
 - caphist 
-- see
 - singular extensions
 - probcut
 - tablebases support
-- frc
+- dfrc support
 - mate distance pruning
-- penalise pre beta cutoff moves
-- improving (and use of)
+- improving heuristic (and use of)
 
 ### things to try 
 
+- simplify - zob_stm can be scaler.
 - don't rank moves when in check
-- cutnode
+- track probable cut nodes
 - use tt score, not eval
 - normalise eval scale 
 - eval cache
 - nodes test nearer top of s and qs
 - don't test for time up in qs
 - id - don't start next depth if not enough time
+- id - remove the bm paranoia now there is a tt
 - defer nnue updates (post m-m and/or eval)
 - pass incheck to move ierator in qs (only for move gen)
 - extensions if in check etc
@@ -55,6 +52,7 @@ WIP - Core engine functional with NNUE evaluation.
 - tt protect bigger depths
 - tt buckets
 - spsa tune
+- lmp - tell move iterator rather then cycle.
 
 ## toolchain
 
@@ -95,6 +93,7 @@ src/
   timecontrol.h/c - Time management
   history.h/c     - Piece-to history
   debug.h/c       - Debug verification for incremental updates
+  see.h/c         - see_ge()
   weights.h       - Embedded NNUE weights
 ```
 

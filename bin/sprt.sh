@@ -11,14 +11,22 @@ if command -v cpupower >/dev/null; then
 fi
 
 rm -f sprt.pgn
+rm -f sprt.log
 
 e1=./lozza
 e2=./releases/lozza
 #e2=./releases/10/lozza-linux
-tc=10+0.1
-#tc=100+1
-elo0=-3
-elo1=0
+
+if [ "$1" = "ltc" ]; then
+  tc=100+1
+  shift
+else
+  tc=10+0.1
+  [ "$1" = "stc" ] && shift
+fi
+
+elo0=0
+elo1=3
 concurrency=32
 book=UHO_Lichess_4852_v1
 
