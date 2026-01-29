@@ -3,6 +3,7 @@
 #include "search.h"
 #include "go.h"
 #include "hh.h"
+#include "history.h"
 
 void go(void) {
 
@@ -14,6 +15,7 @@ void go(void) {
   int score = 0;
 
   hh_set_root();
+  clear_piece_to_history();
 
   for (int depth=1; depth <= tc->max_depth; depth++) {
 

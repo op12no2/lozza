@@ -124,6 +124,12 @@ int search(const int ply, int depth, int alpha, const int beta) {
   init_next_search_move(node, in_check, tt_move);
 
   while ((move = get_next_search_move(node))) {
+    
+    const int is_quiet = !(move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE));
+
+    // lmp
+    //if (is_quiet && !is_pv && !in_check && alpha > -MATEISH && depth <= 3 && num_legal_moves > (3 + depth * depth))
+      //continue;
 
     pos_copy(pos, next_pos);
     memcpy(next_node->accs, node->accs, sizeof(node->accs));
@@ -132,9 +138,8 @@ int search(const int ply, int depth, int alpha, const int beta) {
       continue;
 
     num_legal_moves++;
-
-    const int is_quiet = !(move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE));
-    const int m = num_legal_moves < MAX_PLY ? num_legal_moves : MAX_PLY - 1;
+    if (num_legal_moves >= MAX_PLY)
+      num_legal_moves = MAX_PLY - 1;
 
     if (is_pv) {
       if (num_legal_moves == 1) {
@@ -145,7 +150,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
 
         // lmr for pv quiets
         if (depth >= 3 && num_legal_moves >= 3 && is_quiet && !in_check) {
-          d -= lmr[depth][m];
+          d -= lmr[depth][num_legal_moves];
           if (d < 1) d = 1;
         }
 
@@ -167,7 +172,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
 
       // lmr for non-pv quiets - reduce more aggressively
       if (depth >= 3 && num_legal_moves >= 2 && is_quiet && !in_check) {
-        d -= lmr[depth][m] + 1;
+        d -= lmr[depth][num_legal_moves] + 1;
         if (d < 1) d = 1;
       }
 

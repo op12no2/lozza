@@ -15,7 +15,6 @@ WIP - Core engine functional with NNUE evaluation.
 
 - remove tt move from captures list
 - remove tt move from quiets list
-- apply -ve values to moves before beta cutoff re: piece-to history
 - write to tt in qs beta
 - write to tt in qs alpha
 - pv
@@ -36,9 +35,12 @@ WIP - Core engine functional with NNUE evaluation.
 - tablebases support
 - frc
 - mate distance pruning
+- penalise pre beta cutoff moves
+- improving (and use of)
 
 ### things to try 
 
+- don't rank moves when in check
 - cutnode
 - use tt score, not eval
 - normalise eval scale 
@@ -47,12 +49,12 @@ WIP - Core engine functional with NNUE evaluation.
 - don't test for time up in qs
 - id - don't start next depth if not enough time
 - defer nnue updates (post m-m and/or eval)
-- pass incheck to move ierator in qs
-- age pice-to history
+- pass incheck to move ierator in qs (only for move gen)
 - extensions if in check etc
 - only 2 calls to lmr in pv context
 - tt protect bigger depths
 - tt buckets
+- spsa tune
 
 ## toolchain
 
@@ -60,6 +62,7 @@ WIP - Core engine functional with NNUE evaluation.
 
 ## build
 
+- makefile does not need tweaking when new files are added to the repo; it's auto
 - `make` - Creates ./lozza
 - `make clean` - Remove build artifacts
 - `make rebuild` - Clean and rebuild
@@ -83,19 +86,22 @@ src/
   net.h/c         - NNUE evaluation and accumulator functions
   perft.h/c       - PERFT testing (68 positions)
   uci.h/c         - UCI protocol
-  hh.h/c          - Hash history for 3 rep and 50 move rules.
+  hh.h/c          - Hash history for 2/3 rep and 50 move rule
+  tt.h/c          - Transposition table
   builtins.h      - popcount, bsf wrappers
   zobrist.h/c     - Zobrist hashing (incremental updates in makemove)
   bench.h/c       - Benchmark positions for search testing
   iterate.h/c     - Move iteration and sorting
   timecontrol.h/c - Time management
-  hh.h/c          - Hash history for 2/3 rep and 50 move rule
   history.h/c     - Piece-to history
+  debug.h/c       - Debug verification for incremental updates
+  weights.h       - Embedded NNUE weights
 ```
 
 ## nets
 
-- `nets/weights.h` - Embedded NNUE weights (384 hidden layer, perspective net)
+- `src/weights.h` - Embedded NNUE weights (384 hidden layer, perspective net)
+- `nets/` - Alternative/experimental weight files
 
 ## testing
 
@@ -138,7 +144,7 @@ else {
 
 ## NNUE architecture
 
-The net is a perspective network with two accumulators (one per side). The weights are pre-flipped so both accumulators can use the same indexing.
+The net is a perspective network with two accumulators (one per side). The weights are pre-flipped so both accumulators can use the same indexing. No king input buckets - basic 768 inputs.
 
 ### key files
 - `net.h/c` - Weight loading, eval, and incremental update functions
@@ -146,6 +152,7 @@ The net is a perspective network with two accumulators (one per side). The weigh
 - `makemove.c` - Calls net update functions for each move type
 
 ### accumulator updates
+
 Accumulators are updated incrementally in `make_move()` rather than rebuilt each eval. Each move type has a dedicated function that fuses all weight updates into a single loop for vectorization:
 - `net_move()` - quiet moves and pawn double push
 - `net_capture()` - regular captures
@@ -159,9 +166,6 @@ Accumulators are updated incrementally in `make_move()` rather than rebuilt each
 - Search copies accumulators when copying position: `memcpy(next_node->accs, node->accs, sizeof(node->accs))`
 - `make_move()` updates the copied accumulators incrementally
 - `net_eval()` reads directly from `node->accs`
-
-### verification
-perft.c has optional verification code (toggle `if(1)` to `if(0)`) that checks incremental hash and accumulators match rebuilt values at every node.
 
 ## sprt on hetzner epyc 7502p server
 

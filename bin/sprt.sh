@@ -17,8 +17,8 @@ e2=./releases/lozza
 #e2=./releases/10/lozza-linux
 tc=10+0.1
 #tc=100+1
-elo0=0
-elo1=3
+elo0=-3
+elo1=0
 concurrency=32
 book=UHO_Lichess_4852_v1
 
