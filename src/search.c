@@ -131,6 +131,10 @@ int search(const int ply, int depth, int alpha, const int beta) {
     if (is_quiet && !is_pv && !in_check && alpha > -MATEISH && depth <= 2 && played > (5 * depth))
       continue;
 
+    // futility
+    //if (is_quiet && !is_pv && !in_check && alpha > -MATEISH && depth <= 4 && played && (ev + depth * 120) < alpha)
+      //continue;
+  
     pos_copy(pos, next_pos);
     memcpy(next_node->accs, node->accs, sizeof(node->accs));
     make_move(next_node, move);

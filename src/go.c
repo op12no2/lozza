@@ -19,8 +19,6 @@ void go(void) {
 
   for (int depth=1; depth <= tc->max_depth; depth++) {
 
-    const move_t bm = tc->best_move;
-
     alpha = -INF;
     beta  = INF;
     delta = 10;
@@ -37,8 +35,6 @@ void go(void) {
       printf("info depth %d score %d\n", depth, score);
 
       if (tc->finished) {
-        if (bm)
-          tc->best_move = bm; // use bm from last completed depth
         break;
       }
 

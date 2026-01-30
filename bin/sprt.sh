@@ -25,8 +25,8 @@ else
   [ "$1" = "stc" ] && shift
 fi
 
-elo0=0
-elo1=3
+elo0=-3
+elo1=0
 concurrency=32
 book=UHO_Lichess_4852_v1
 

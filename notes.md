@@ -1,7 +1,6 @@
 ### todo
 
 - iir - done - sprt
-- lmp - done - sprt
 - use tt move in qs - fails sprt - why?
 - use tt score in qs - fails sprt - why?
 - remove tt move from captures list
@@ -23,6 +22,7 @@
 - dfrc support
 - mate distance pruning
 - improving heuristic (and use of)
+- see pruning in search
 
 ### things to try 
 
