@@ -99,8 +99,9 @@ static uint64_t static_attackers_to(const Position *const pos, const int to_sq) 
 
 int see_ge(const Position *const pos, const move_t move, int threshold) {
 
-  //if (!lut(lut_see, move))
-    //return 1;
+  // EP and promotions: don't filter (return "passes threshold")
+  if (move & ((MOVE_FLAG_EPCAPTURE | MOVE_FLAG_PROMOTE)))
+    return 1;
 
   const int stm     = pos->stm;
   const int from_sq = (move >> 6) & 0x3F;

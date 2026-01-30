@@ -61,9 +61,9 @@ int qsearch(const int ply, int alpha, const int beta) {
 
   while ((move = get_next_qsearch_move(node))) {
 
-    //if (!see_ge(this_pos, move, -50)) {
-      //continue;
-    //}
+    if (!see_ge(pos, move, -50)) {
+      continue;
+    }
 
     pos_copy(pos, next_pos);
     memcpy(next_node->accs, node->accs, sizeof(node->accs));

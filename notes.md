@@ -9,7 +9,6 @@
 - write to tt in qs beta
 - write to tt in qs alpha
 - pv
-- see
 - use mat draw in s
 - use mat draw in qs
 - killers
