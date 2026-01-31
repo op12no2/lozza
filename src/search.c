@@ -125,6 +125,9 @@ int search(const int ply, int depth, int alpha, const int beta) {
 
   while ((move = get_next_search_move(node))) {
     
+    if (played && move == tt_move)
+      continue;
+    
     const int is_quiet = !(move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE));
 
     // lmp

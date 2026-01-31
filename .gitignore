@@ -2,7 +2,6 @@
 releases/
 build/
 lozza
-sprt.pgn
+*.pgn
 cwtch.c
-commit.txt
 

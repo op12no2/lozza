@@ -1,0 +1,23 @@
+fix playing tt move dispatched twice in search
+
+bench 2586851
+UHO_Lichess_4852_v1
+[-3,0]
+
+10+0.1
+Score of ./lozza vs ./releases/lozza: 177 - 99 - 803  [0.536] 1079
+...      ./lozza playing White: 103 - 39 - 398  [0.559] 540
+...      ./lozza playing Black: 74 - 60 - 405  [0.513] 539
+...      White vs Black: 163 - 113 - 803  [0.523] 1079
+Elo difference: 25.2 +/- 10.4, LOS: 100.0 %, DrawRatio: 74.4 %
+SPRT: llr 2.89 (100.0%), lbound -2.25, ubound 2.89 - H1 was accepted
+
+100+1
+Score of ./lozza vs ./releases/lozza: 302 - 237 - 1852  [0.514] 2391
+...      ./lozza playing White: 175 - 100 - 919  [0.531] 1194
+...      ./lozza playing Black: 127 - 137 - 933  [0.496] 1197
+...      White vs Black: 312 - 227 - 1852  [0.518] 2391
+Elo difference: 9.4 +/- 6.6, LOS: 99.7 %, DrawRatio: 77.5 %
+SPRT: llr 2.9 (100.4%), lbound -2.25, ubound 2.89 - H1 was accepted
+
+# AND DON'T FORGET TO COPY LOZZA TO RELEASES!!!!
