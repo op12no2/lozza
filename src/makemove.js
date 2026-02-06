@@ -12,16 +12,37 @@ function make(node, move) {
 
   node.undoRights = g_rights;
   node.undoEp = g_ep;
+  node.undoLoHash = g_loHash;
+  node.undoHiHash = g_hiHash;
 
+  // hash: update rights
+
+  g_loHash ^= loRights[g_rights];
+  g_hiHash ^= hiRights[g_rights];
   g_rights &= RIGHTS_TABLE[fr] & RIGHTS_TABLE[to];
+  g_loHash ^= loRights[g_rights];
+  g_hiHash ^= hiRights[g_rights];
 
+  // hash: remove old ep
+
+  if (g_ep) {
+    g_loHash ^= loEP[g_ep];
+    g_hiHash ^= hiEP[g_ep];
+  }
   g_ep = 0;
+
+  // hash: toggle stm
+
+  g_loHash ^= loStm;
+  g_hiHash ^= hiStm;
 
   if (move & MOVE_FLAG_SPECIAL) {
 
     if (move & MOVE_FLAG_PROMOTE) {
 
       if (move & MOVE_FLAG_CAPTURE) {
+        g_loHash ^= loPieces[b[to]][to];
+        g_hiHash ^= hiPieces[b[to]][to];
         const capIdx = px[to];
         const lastIdx = pl[oppBase];
         const lastSq = pl[oppBase + lastIdx];
@@ -32,11 +53,18 @@ function make(node, move) {
         node.undoCapIdx = capIdx;
       }
 
+      g_loHash ^= loPieces[b[fr]][fr];
+      g_hiHash ^= hiPieces[b[fr]][fr];
+
       const idx = px[fr];
       pl[stmBase + idx] = to;
       px[to] = idx;
 
-      b[to] = (move >> PROMOTE_SHIFT) | stm;
+      const promPiece = (move >> PROMOTE_SHIFT) | stm;
+      g_loHash ^= loPieces[promPiece][to];
+      g_hiHash ^= hiPieces[promPiece][to];
+
+      b[to] = promPiece;
       b[fr] = 0;
       g_stm = stm ^ BLACK;
       return;
@@ -46,6 +74,9 @@ function make(node, move) {
 
       const capSq = to - 16 + (stm << 2);
 
+      g_loHash ^= loPieces[b[capSq]][capSq];
+      g_hiHash ^= hiPieces[b[capSq]][capSq];
+
       const capIdx = px[capSq];
       const lastIdx = pl[oppBase];
       const lastSq = pl[oppBase + lastIdx];
@@ -53,6 +84,11 @@ function make(node, move) {
       px[lastSq] = capIdx;
       pl[oppBase]--;
       node.undoCapIdx = capIdx;
+
+      g_loHash ^= loPieces[b[fr]][fr];
+      g_hiHash ^= hiPieces[b[fr]][fr];
+      g_loHash ^= loPieces[b[fr]][to];
+      g_hiHash ^= hiPieces[b[fr]][to];
 
       const idx = px[fr];
       pl[stmBase + idx] = to;
@@ -66,6 +102,11 @@ function make(node, move) {
     }
 
     // castle
+
+    g_loHash ^= loPieces[b[fr]][fr];
+    g_hiHash ^= hiPieces[b[fr]][fr];
+    g_loHash ^= loPieces[b[fr]][to];
+    g_hiHash ^= hiPieces[b[fr]][to];
 
     pl[stmBase + 1] = to;
     px[to] = 1;
@@ -82,6 +123,12 @@ function make(node, move) {
       rookFr = to - 2; rookTo = to + 1;
     }
 
+    const rookPiece = ROOK | stm;
+    g_loHash ^= loPieces[rookPiece][rookFr];
+    g_hiHash ^= hiPieces[rookPiece][rookFr];
+    g_loHash ^= loPieces[rookPiece][rookTo];
+    g_hiHash ^= hiPieces[rookPiece][rookTo];
+
     const rookIdx = px[rookFr];
     pl[stmBase + rookIdx] = rookTo;
     px[rookTo] = rookIdx;
@@ -95,10 +142,15 @@ function make(node, move) {
 
   // quiet move or normal capture
 
-  if ((b[fr] & 7) === PAWN && (to - fr === 32 || to - fr === -32))
+  if ((b[fr] & 7) === PAWN && (to - fr === 32 || to - fr === -32)) {
     g_ep = (fr + to) >> 1;
+    g_loHash ^= loEP[g_ep];
+    g_hiHash ^= hiEP[g_ep];
+  }
 
   if (move & MOVE_FLAG_CAPTURE) {
+    g_loHash ^= loPieces[b[to]][to];
+    g_hiHash ^= hiPieces[b[to]][to];
     const capIdx = px[to];
     const lastIdx = pl[oppBase];
     const lastSq = pl[oppBase + lastIdx];
@@ -108,6 +160,11 @@ function make(node, move) {
     node.undoCaptured = b[to];
     node.undoCapIdx = capIdx;
   }
+
+  g_loHash ^= loPieces[b[fr]][fr];
+  g_hiHash ^= hiPieces[b[fr]][fr];
+  g_loHash ^= loPieces[b[fr]][to];
+  g_hiHash ^= hiPieces[b[fr]][to];
 
   const idx = px[fr];
   pl[stmBase + idx] = to;
@@ -160,6 +217,8 @@ function unmake (node, move) {
 
       g_rights = node.undoRights;
       g_ep = node.undoEp;
+      g_loHash = node.undoLoHash;
+      g_hiHash = node.undoHiHash;
       g_stm = stm;
       return;
     }
@@ -187,6 +246,8 @@ function unmake (node, move) {
 
       g_rights = node.undoRights;
       g_ep = node.undoEp;
+      g_loHash = node.undoLoHash;
+      g_hiHash = node.undoHiHash;
       g_stm = stm;
       return;
     }
@@ -215,6 +276,8 @@ function unmake (node, move) {
 
     g_rights = node.undoRights;
     g_ep = node.undoEp;
+    g_loHash = node.undoLoHash;
+    g_hiHash = node.undoHiHash;
     g_stm = stm;
     return;
   }
@@ -244,5 +307,7 @@ function unmake (node, move) {
 
   g_rights = node.undoRights;
   g_ep = node.undoEp;
+  g_loHash = node.undoLoHash;
+  g_hiHash = node.undoHiHash;
   g_stm = stm;
 }

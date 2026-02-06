@@ -33,8 +33,10 @@ function search(ply, depth, alpha, beta) {
     const move = moves[i];
 
     make(node, move);
+    //checkHash();
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
+      //checkHash();
       continue;
     }
 
@@ -58,6 +60,7 @@ function search(ply, depth, alpha, beta) {
       return 0;
 
     unmake(node, move);
+    //checkHash();
 
     if (score > bestScore) {
       bestScore = score;

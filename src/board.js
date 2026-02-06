@@ -110,6 +110,36 @@ function position(boardStr, stmStr, rightsStr, epStr, moves) {
   pl[0]  = wCount;
   pl[17] = bCount;
 
+  // init hash
+
+  g_loHash = 0;
+  g_hiHash = 0;
+
+  for (let sq = 0; sq < 128; sq++) {
+    if (sq & 0x88) {
+      sq += 7;
+      continue;
+    }
+    const piece = b[sq];
+    if (piece) {
+      g_loHash ^= loPieces[piece][sq];
+      g_hiHash ^= hiPieces[piece][sq];
+    }
+  }
+
+  g_loHash ^= loRights[g_rights];
+  g_hiHash ^= hiRights[g_rights];
+
+  if (g_ep) {
+    g_loHash ^= loEP[g_ep];
+    g_hiHash ^= hiEP[g_ep];
+  }
+
+  if (g_stm === BLACK) {
+    g_loHash ^= loStm;
+    g_hiHash ^= hiStm;
+  }
+
   if (moves) {
     for (let m = 0; m < moves.length; m++) {
       const n = genMoves(rootNode);

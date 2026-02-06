@@ -18,9 +18,11 @@ function perft(ply, depth) {
     const move = moves[i];
 
     make(node, move);
+    //checkHash();
     if (!isAttacked(g_pieces[kix], nstm))
       total += perft(ply + 1, depth - 1);
     unmake(node, move);
+    //checkHash();
   }
 
   return total;

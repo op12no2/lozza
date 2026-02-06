@@ -58,12 +58,14 @@ const KING_OFFSETS = new Int8Array([-17, -16, -15, -1, 1, 15, 16, 17]);
 
 // board globals - maintained throughout search via make and unmake funcs
 
-const g_board = new Uint8Array(128);
+const g_board = new Uint8Array(128); 
 const g_plix = new Uint8Array(128);  // piece list index per square
-const g_pieces = new Uint8Array(34);
+const g_pieces = new Uint8Array(34); // piece lists
 let g_stm = 0;
 let g_rights = 0;
 let g_ep = 0;
+let g_loHash = 0;
+let g_hiHash = 0;
 
 // time control globals
 
@@ -71,6 +73,6 @@ let g_nodes = 0; // node counter (init to 0)
 let g_maxNodes = 0; // node target if given (else 0)
 let g_maxDepth = 0; // target depth if given (set to MAX_PLY otherwise)
 let g_startTime = 0; // always set via performance.now()
-let g_finishTime = 0; // finish tiem if appropriate (else 0)
+let g_finishTime = 0; // finish time if appropriate (else 0)
 let g_finished = 0; // 1 when time/nodes reached (else 0)
 let g_bestMove = 0;

@@ -6,6 +6,8 @@ function nodeStruct() {
   this.undoEp = 0;
   this.undoCaptured = 0;
   this.undoCapIdx = 0;
+  this.undoLoHash = 0;
+  this.undoHiHash = 0;
 
 }
 

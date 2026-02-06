@@ -1,5 +1,6 @@
 initNodes();
 initPST();
+initZobrist();
 
 const nodeHost = typeof process !== 'undefined' && process.versions?.node;
 

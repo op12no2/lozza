@@ -58,12 +58,14 @@ const KING_OFFSETS = new Int8Array([-17, -16, -15, -1, 1, 15, 16, 17]);
 
 // board globals - maintained throughout search via make and unmake funcs
 
-const g_board = new Uint8Array(128);
+const g_board = new Uint8Array(128); 
 const g_plix = new Uint8Array(128);  // piece list index per square
-const g_pieces = new Uint8Array(34);
+const g_pieces = new Uint8Array(34); // piece lists
 let g_stm = 0;
 let g_rights = 0;
 let g_ep = 0;
+let g_loHash = 0;
+let g_hiHash = 0;
 
 // time control globals
 
@@ -71,7 +73,7 @@ let g_nodes = 0; // node counter (init to 0)
 let g_maxNodes = 0; // node target if given (else 0)
 let g_maxDepth = 0; // target depth if given (set to MAX_PLY otherwise)
 let g_startTime = 0; // always set via performance.now()
-let g_finishTime = 0; // finish tiem if appropriate (else 0)
+let g_finishTime = 0; // finish time if appropriate (else 0)
 let g_finished = 0; // 1 when time/nodes reached (else 0)
 let g_bestMove = 0;
 const PERFTFENS = [
@@ -196,6 +198,52 @@ const BENCHFENS = [
 "3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
 "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93"
 ];
+let g_seed = 1;
+
+let loStm = 0;
+let hiStm = 0;
+
+const loPieces = Array(15);
+const hiPieces = Array(15);
+
+const loRights = new Int32Array(16);
+const hiRights = new Int32Array(16);
+
+const loEP = new Int32Array(128);
+const hiEP = new Int32Array(128);
+
+function rand32(seed) { // Mulberry32
+  seed = seed + 0x6D2B79F5 | 0;
+  var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0);
+}
+
+function initZobrist() {
+
+  loStm = rand32(g_seed++);
+  hiStm = rand32(g_seed++);
+
+  for (let i=0; i < 15; i++) {
+    loPieces[i] = new Int32Array(128);
+    hiPieces[i] = new Int32Array(128);
+    for (let j=0; j < 128; j++){
+      loPieces[i][j] = rand32(g_seed++);
+      hiPieces[i][j] = rand32(g_seed++);
+    }
+  }
+
+  for (let i=0; i < 16; i++) {
+    loRights[i] = rand32(g_seed++);
+    hiRights[i] = rand32(g_seed++);
+  }
+
+  for (let i=0; i < 128; i++) {
+    loEP[i] = rand32(g_seed++);
+    hiEP[i] = rand32(g_seed++);
+  }
+
+}
 function nodeStruct() {
 
   this.moves = new Uint32Array(MAX_MOVES);
@@ -204,6 +252,8 @@ function nodeStruct() {
   this.undoEp = 0;
   this.undoCaptured = 0;
   this.undoCapIdx = 0;
+  this.undoLoHash = 0;
+  this.undoHiHash = 0;
 
 }
 
@@ -344,6 +394,36 @@ function position(boardStr, stmStr, rightsStr, epStr, moves) {
 
   pl[0]  = wCount;
   pl[17] = bCount;
+
+  // init hash
+
+  g_loHash = 0;
+  g_hiHash = 0;
+
+  for (let sq = 0; sq < 128; sq++) {
+    if (sq & 0x88) {
+      sq += 7;
+      continue;
+    }
+    const piece = b[sq];
+    if (piece) {
+      g_loHash ^= loPieces[piece][sq];
+      g_hiHash ^= hiPieces[piece][sq];
+    }
+  }
+
+  g_loHash ^= loRights[g_rights];
+  g_hiHash ^= hiRights[g_rights];
+
+  if (g_ep) {
+    g_loHash ^= loEP[g_ep];
+    g_hiHash ^= hiEP[g_ep];
+  }
+
+  if (g_stm === BLACK) {
+    g_loHash ^= loStm;
+    g_hiHash ^= hiStm;
+  }
 
   if (moves) {
     for (let m = 0; m < moves.length; m++) {
@@ -491,16 +571,37 @@ function make(node, move) {
 
   node.undoRights = g_rights;
   node.undoEp = g_ep;
+  node.undoLoHash = g_loHash;
+  node.undoHiHash = g_hiHash;
 
+  // hash: update rights
+
+  g_loHash ^= loRights[g_rights];
+  g_hiHash ^= hiRights[g_rights];
   g_rights &= RIGHTS_TABLE[fr] & RIGHTS_TABLE[to];
+  g_loHash ^= loRights[g_rights];
+  g_hiHash ^= hiRights[g_rights];
 
+  // hash: remove old ep
+
+  if (g_ep) {
+    g_loHash ^= loEP[g_ep];
+    g_hiHash ^= hiEP[g_ep];
+  }
   g_ep = 0;
+
+  // hash: toggle stm
+
+  g_loHash ^= loStm;
+  g_hiHash ^= hiStm;
 
   if (move & MOVE_FLAG_SPECIAL) {
 
     if (move & MOVE_FLAG_PROMOTE) {
 
       if (move & MOVE_FLAG_CAPTURE) {
+        g_loHash ^= loPieces[b[to]][to];
+        g_hiHash ^= hiPieces[b[to]][to];
         const capIdx = px[to];
         const lastIdx = pl[oppBase];
         const lastSq = pl[oppBase + lastIdx];
@@ -511,11 +612,18 @@ function make(node, move) {
         node.undoCapIdx = capIdx;
       }
 
+      g_loHash ^= loPieces[b[fr]][fr];
+      g_hiHash ^= hiPieces[b[fr]][fr];
+
       const idx = px[fr];
       pl[stmBase + idx] = to;
       px[to] = idx;
 
-      b[to] = (move >> PROMOTE_SHIFT) | stm;
+      const promPiece = (move >> PROMOTE_SHIFT) | stm;
+      g_loHash ^= loPieces[promPiece][to];
+      g_hiHash ^= hiPieces[promPiece][to];
+
+      b[to] = promPiece;
       b[fr] = 0;
       g_stm = stm ^ BLACK;
       return;
@@ -525,6 +633,9 @@ function make(node, move) {
 
       const capSq = to - 16 + (stm << 2);
 
+      g_loHash ^= loPieces[b[capSq]][capSq];
+      g_hiHash ^= hiPieces[b[capSq]][capSq];
+
       const capIdx = px[capSq];
       const lastIdx = pl[oppBase];
       const lastSq = pl[oppBase + lastIdx];
@@ -532,6 +643,11 @@ function make(node, move) {
       px[lastSq] = capIdx;
       pl[oppBase]--;
       node.undoCapIdx = capIdx;
+
+      g_loHash ^= loPieces[b[fr]][fr];
+      g_hiHash ^= hiPieces[b[fr]][fr];
+      g_loHash ^= loPieces[b[fr]][to];
+      g_hiHash ^= hiPieces[b[fr]][to];
 
       const idx = px[fr];
       pl[stmBase + idx] = to;
@@ -545,6 +661,11 @@ function make(node, move) {
     }
 
     // castle
+
+    g_loHash ^= loPieces[b[fr]][fr];
+    g_hiHash ^= hiPieces[b[fr]][fr];
+    g_loHash ^= loPieces[b[fr]][to];
+    g_hiHash ^= hiPieces[b[fr]][to];
 
     pl[stmBase + 1] = to;
     px[to] = 1;
@@ -561,6 +682,12 @@ function make(node, move) {
       rookFr = to - 2; rookTo = to + 1;
     }
 
+    const rookPiece = ROOK | stm;
+    g_loHash ^= loPieces[rookPiece][rookFr];
+    g_hiHash ^= hiPieces[rookPiece][rookFr];
+    g_loHash ^= loPieces[rookPiece][rookTo];
+    g_hiHash ^= hiPieces[rookPiece][rookTo];
+
     const rookIdx = px[rookFr];
     pl[stmBase + rookIdx] = rookTo;
     px[rookTo] = rookIdx;
@@ -574,10 +701,15 @@ function make(node, move) {
 
   // quiet move or normal capture
 
-  if ((b[fr] & 7) === PAWN && (to - fr === 32 || to - fr === -32))
+  if ((b[fr] & 7) === PAWN && (to - fr === 32 || to - fr === -32)) {
     g_ep = (fr + to) >> 1;
+    g_loHash ^= loEP[g_ep];
+    g_hiHash ^= hiEP[g_ep];
+  }
 
   if (move & MOVE_FLAG_CAPTURE) {
+    g_loHash ^= loPieces[b[to]][to];
+    g_hiHash ^= hiPieces[b[to]][to];
     const capIdx = px[to];
     const lastIdx = pl[oppBase];
     const lastSq = pl[oppBase + lastIdx];
@@ -587,6 +719,11 @@ function make(node, move) {
     node.undoCaptured = b[to];
     node.undoCapIdx = capIdx;
   }
+
+  g_loHash ^= loPieces[b[fr]][fr];
+  g_hiHash ^= hiPieces[b[fr]][fr];
+  g_loHash ^= loPieces[b[fr]][to];
+  g_hiHash ^= hiPieces[b[fr]][to];
 
   const idx = px[fr];
   pl[stmBase + idx] = to;
@@ -639,6 +776,8 @@ function unmake (node, move) {
 
       g_rights = node.undoRights;
       g_ep = node.undoEp;
+      g_loHash = node.undoLoHash;
+      g_hiHash = node.undoHiHash;
       g_stm = stm;
       return;
     }
@@ -666,6 +805,8 @@ function unmake (node, move) {
 
       g_rights = node.undoRights;
       g_ep = node.undoEp;
+      g_loHash = node.undoLoHash;
+      g_hiHash = node.undoHiHash;
       g_stm = stm;
       return;
     }
@@ -694,6 +835,8 @@ function unmake (node, move) {
 
     g_rights = node.undoRights;
     g_ep = node.undoEp;
+    g_loHash = node.undoLoHash;
+    g_hiHash = node.undoHiHash;
     g_stm = stm;
     return;
   }
@@ -723,7 +866,46 @@ function unmake (node, move) {
 
   g_rights = node.undoRights;
   g_ep = node.undoEp;
+  g_loHash = node.undoLoHash;
+  g_hiHash = node.undoHiHash;
   g_stm = stm;
+}
+function checkHash() {
+
+  const b = g_board;
+
+  let lo = 0;
+  let hi = 0;
+
+  for (let sq = 0; sq < 128; sq++) {
+    if (sq & 0x88) {
+      sq += 7;
+      continue;
+    }
+    const piece = b[sq];
+    if (piece) {
+      lo ^= loPieces[piece][sq];
+      hi ^= hiPieces[piece][sq];
+    }
+  }
+
+  lo ^= loRights[g_rights];
+  hi ^= hiRights[g_rights];
+
+  if (g_ep) {
+    lo ^= loEP[g_ep];
+    hi ^= hiEP[g_ep];
+  }
+
+  if (g_stm === BLACK) {
+    lo ^= loStm;
+    hi ^= hiStm;
+  }
+
+  if (lo !== g_loHash || hi !== g_hiHash) {
+    uciSend('info string HASH MISMATCH lo ' + g_loHash + ' expected ' + lo + ' hi ' + g_hiHash + ' expected ' + hi);
+  }
+
 }
 function genMoves(node) {
 
@@ -957,9 +1139,11 @@ function perft(ply, depth) {
     const move = moves[i];
 
     make(node, move);
+    //checkHash();
     if (!isAttacked(g_pieces[kix], nstm))
       total += perft(ply + 1, depth - 1);
     unmake(node, move);
+    //checkHash();
   }
 
   return total;
@@ -1334,8 +1518,10 @@ function search(ply, depth, alpha, beta) {
     const move = moves[i];
 
     make(node, move);
+    //checkHash();
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
+      //checkHash();
       continue;
     }
 
@@ -1359,6 +1545,7 @@ function search(ply, depth, alpha, beta) {
       return 0;
 
     unmake(node, move);
+    //checkHash();
 
     if (score > bestScore) {
       bestScore = score;
@@ -1426,8 +1613,10 @@ function qsearch(ply, depth, alpha, beta) {
     }
 
     make(node, move);
+    //checkHash();
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
+      //checkHash();
       continue;
     }
 
@@ -1439,6 +1628,7 @@ function qsearch(ply, depth, alpha, beta) {
       return 0;
 
     unmake(node, move);
+    //checkHash();
 
     if (score > bestScore) {
       bestScore = score;
@@ -1632,6 +1822,7 @@ function uciExecLine(line) {
 }
 initNodes();
 initPST();
+initZobrist();
 
 const nodeHost = typeof process !== 'undefined' && process.versions?.node;
 
