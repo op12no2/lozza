@@ -207,5 +207,6 @@ function genMoves(node) {
     }
   }
 
-  node.numMoves = numMoves;
+  return numMoves;
+
 }

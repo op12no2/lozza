@@ -65,6 +65,12 @@ function uciExecLine(line) {
       perftTests(parseInt(tokens[1]) || 0);
       break;
 
+    case 'go':
+    case 'g':
+      initTimeControl(tokens);
+      go();
+      break;
+
     case 'quit':
     case 'q':
       if (nodeHost) {

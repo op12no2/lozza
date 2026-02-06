@@ -1,7 +1,5 @@
 function nodeStruct() {
 
-  //this.ply = 0;
-  this.numMoves = 0;
   this.moves = new Uint32Array(MAX_MOVES);
   this.ranks = new Int32Array(MAX_MOVES);
   this.undoRights = 0;

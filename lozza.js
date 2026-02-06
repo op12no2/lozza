@@ -3,7 +3,6 @@ const MATE = 30000;
 const MATEISH = 29000;
 const MAX_MOVES = 256;
 const MAX_PLY = 64;
-//const MAX_LINE = 8192;
 
 const WHITE = 0;
 const BLACK = 8;
@@ -35,10 +34,11 @@ const BLACK_RIGHTS_KING = 4;
 const BLACK_RIGHTS_QUEEN = 8;
 
 const MOVE_FLAG_CAPTURE = 1 << 14;
-const MOVE_FLAG_EPCAPTURE = 2 << 14;  // may also have MOVE_FLAG_CAPTURE set 
+const MOVE_FLAG_EPCAPTURE = 2 << 14;  // will also have MOVE_FLAG_CAPTURE set 
 const MOVE_FLAG_CASTLE = 4 << 14;   
 const MOVE_FLAG_PROMOTE = 8 << 14; // may also have MOVE_FLAG_CAPTURE set
 const MOVE_FLAG_SPECIAL = MOVE_FLAG_PROMOTE | MOVE_FLAG_EPCAPTURE | MOVE_FLAG_CASTLE;
+const MOVE_FLAG_NOISY = MOVE_FLAG_PROMOTE | MOVE_FLAG_CAPTURE;
 const PROMOTE_SHIFT = 20; // KNIGHT, BISHOP, ROOK, QUEEN
 
 const RIGHTS_TABLE = new Uint8Array(128);
@@ -64,6 +64,16 @@ const g_pieces = new Uint8Array(34);
 let g_stm = 0;
 let g_rights = 0;
 let g_ep = 0;
+
+// time control globals
+
+let g_nodes = 0; // node counter (init to 0)
+let g_maxNodes = 0; // node target if given (else 0)
+let g_maxDepth = 0; // target depth if given (set to MAX_PLY otherwise)
+let g_startTime = 0; // always set via performance.now()
+let g_finishTime = 0; // finish tiem if appropriate (else 0)
+let g_finished = 0; // 1 when time/nodes reached (else 0)
+let g_bestMove = 0;
 const PERFTFENS = [
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 0, 1,         'startpos-0'],
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 1, 20,        'startpos-1'],
@@ -188,8 +198,6 @@ const BENCHFENS = [
 ];
 function nodeStruct() {
 
-  //this.ply = 0;
-  this.numMoves = 0;
   this.moves = new Uint32Array(MAX_MOVES);
   this.ranks = new Int32Array(MAX_MOVES);
   this.undoRights = 0;
@@ -339,8 +347,7 @@ function position(boardStr, stmStr, rightsStr, epStr, moves) {
 
   if (moves) {
     for (let m = 0; m < moves.length; m++) {
-      genMoves(rootNode);
-      const n = rootNode.numMoves;
+      const n = genMoves(rootNode);
       let found = 0;
       for (let i = 0; i < n; i++) {
         if (formatMove(rootNode.moves[i]) === moves[m]) {
@@ -927,7 +934,8 @@ function genMoves(node) {
     }
   }
 
-  node.numMoves = numMoves;
+  return numMoves;
+
 }
 function perft(ply, depth) {
 
@@ -937,25 +945,20 @@ function perft(ply, depth) {
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
-  const stmBase = (stm >>> 3) * 17;
-
-  genMoves(node);
-
+  const kix = (stm >>> 3) * 17 + 1; // our king square index in piece list
   const moves = node.moves;
-  const numMoves = node.numMoves;
+  
   let total = 0;
+
+  const numMoves = genMoves(node);
 
   for (let i = 0; i < numMoves; i++) {
 
     const move = moves[i];
 
     make(node, move);
-
-    const kingSq = g_pieces[stmBase + 1];
-
-    if (!isAttacked(kingSq, nstm))
+    if (!isAttacked(g_pieces[kix], nstm))
       total += perft(ply + 1, depth - 1);
-
     unmake(node, move);
   }
 
@@ -1002,67 +1005,320 @@ function perftTests(maxDepth) {
   uciSend(count + ' tests, ' + fails + ' fails, ' + totalNodes + ' nodes in ' + ms + ' ms ' + nps + ' nps');
 }
 
+function checkTime() {
+
+    if (g_bestMove == 0)
+      return;
+
+    if (g_finishTime && performance.now() >= g_finishTime)
+      g_finished = 1;
+    
+    if (g_maxNodes && g_nodes >= g_maxNodes)
+      g_finished = 1;
+      
+}
+
+function initTimeControl(tokens) {
+
+  // defaults
+
+  g_nodes = 0;
+  g_maxNodes = 0;
+  g_maxDepth = MAX_PLY;
+  g_startTime = performance.now();
+  g_finishTime = 0;
+  g_finished = 0;
+  g_bestMove = 0;
+
+  // parse go params into a map
+
+  const params = {};
+
+  for (let i = 1; i < tokens.length; i++) {
+    const key = tokens[i];
+    if (key === 'infinite') {
+      params.infinite = true;
+    }
+    else if (key === 'ponder') {
+      params.ponder = true;
+    }
+    else if (i + 1 < tokens.length) {
+      params[key] = parseInt(tokens[i + 1]);
+      i++;
+    }
+  }
+
+  // fixed depth
+
+  if (params.depth) {
+    g_maxDepth = params.depth;
+    return;
+  }
+  if (params.d) {
+    g_maxDepth = params.d;
+    return;
+  }
+
+  // fixed nodes
+
+  if (params.nodes) {
+    g_maxNodes = params.nodes;
+    return;
+  }
+
+  // fixed move time
+
+  if (params.movetime) {
+    g_finishTime = g_startTime + params.movetime;
+    return;
+  }
+
+  // infinite or ponder - no limits
+
+  if (params.infinite || params.ponder) {
+    return;
+  }
+
+  // time + inc based
+
+  const wtime = params.wtime || 0;
+  const btime = params.btime || 0;
+  const winc = params.winc || 0;
+  const binc = params.binc || 0;
+  const movestogo = Math.max(params.movestogo || 20, 2);
+
+  const myTime = g_stm === WHITE ? wtime : btime;
+  const myInc = g_stm === WHITE ? winc : binc;
+
+  const alloc = myTime / movestogo + myInc;
+
+  // don't use more than half the remaining time
+
+  const limit = myTime / 2;
+
+  const ms = Math.max(Math.min(alloc, limit), 1);
+
+  g_finishTime = g_startTime + ms;
+
+}
+function evaluate() {
+
+  return 0;
+
+}
 function search(ply, depth, alpha, beta) {
 
   if (depth <= 0)
-    return evaluate();
+    return qsearch(ply, 0, alpha, beta);
+
+  g_nodes++;
+  if ((g_nodes & 1023) == 0) {
+    checkTime();
+    if (g_finished)
+      return 0;
+  }
 
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
-  const stmBase = (stm >>> 3) * 17;
-
-  genMoves(node);
-
+  const isPV = beta !== (alpha + 1);
+  const isRoot = ply === 0;
   const moves = node.moves;
-  const numMoves = node.numMoves;
-  let legalMoves = 0;
+  const kix = (stm >>> 3) * 17 + 1;
+  const inCheck = isAttacked(g_pieces[kix], nstm);
+  
+  let played = 0;
   let bestMove = 0;
-
+  let bestScore = -INF;
+  let score = 0;
+  let reductions = 0;
+  let extensions = 0;
+  
+  const numMoves = genMoves(node);
+  
   for (let i = 0; i < numMoves; i++) {
 
     const move = moves[i];
 
     make(node, move);
-
-    const kingSq = g_pieces[stmBase + 1];
-
-    if (isAttacked(kingSq, nstm)) {
+    if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
       continue;
     }
 
-    legalMoves++;
+    played++;
 
-    let score;
-
-    if (legalMoves === 1) {
-      score = -search(ply + 1, depth - 1, -beta, -alpha);
+    if (isPV) {
+      if (played === 1) {
+        score = -search(ply + 1, depth - 1, -beta, -alpha);
+      }
+      else {
+        score = -search(ply + 1, depth - 1, -alpha - 1, -alpha);
+        if (!g_finished && score > alpha)
+          score = -search(ply + 1, depth - 1, -beta, -alpha);
+      }  
     }
     else {
-      score = -search(ply + 1, depth - 1, -alpha - 1, -alpha);
-      if (score > alpha && score < beta)
-        score = -search(ply + 1, depth - 1, -beta, -alpha);
+      score = -search(ply + 1, depth - 1, -beta, -alpha);
     }
+
+    if (g_finished)
+      return 0;
 
     unmake(node, move);
 
-    if (score > alpha) {
-      alpha = score;
+    if (score > bestScore) {
+      bestScore = score;
       bestMove = move;
-      if (alpha >= beta)
-        return alpha;
+      if (isRoot) {
+        g_bestMove = bestMove;
+      }  
+      if (bestScore > alpha) {
+        alpha = bestScore;
+        if (bestScore >= beta) {
+          return bestScore;
+        }  
+      }
     }
   }
 
-  if (legalMoves === 0) {
-    const kingSq = g_pieces[stmBase + 1];
-    if (isAttacked(kingSq, nstm))
+  if (played === 0) {
+    if (inCheck)
       return -MATE + ply;
-    return 0;
+    else
+      return 0;
   }
 
-  return alpha;
+  return bestScore;
+
+}
+function qsearch(ply, depth, alpha, beta) {
+
+  g_nodes++;
+  if ((g_nodes & 1023) == 0) {
+    checkTime();
+    if (g_finished)
+      return 0;
+  }
+
+  const node = g_ss[ply];
+  const stm = g_stm;
+  const nstm = stm ^ BLACK;
+  const moves = node.moves;
+  const kix = (stm >>> 3) * 17 + 1;
+  const inCheck = isAttacked(g_pieces[kix], nstm);
+  const ev = evaluate();
+
+  let played = 0;
+  let bestMove = 0;
+  let bestScore = -INF;
+  let score = 0;
+  
+  if (!inCheck) {
+    if (ev >= beta)
+      return ev;
+    if (ev >= alpha)
+      alpha = ev;
+  }
+
+  const numMoves = genMoves(node);
+  
+  for (let i = 0; i < numMoves; i++) {
+
+    const move = moves[i];
+
+    if (!inCheck && !(move & MOVE_FLAG_NOISY)) {
+      continue;
+    }
+
+    make(node, move);
+    if (isAttacked(g_pieces[kix], nstm)) {
+      unmake(node, move);
+      continue;
+    }
+
+    played++;
+
+    score = -qsearch(ply + 1, depth - 1, -beta, -alpha);
+
+    if (g_finished)
+      return 0;
+
+    unmake(node, move);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = move;
+      if (bestScore > alpha) {
+        alpha = bestScore;
+        if (bestScore >= beta) {
+          return bestScore;
+        }  
+      }
+    }
+  }
+
+  if (played === 0) {
+    if (inCheck)
+      return -MATE + ply;
+    else
+      return 0;
+  }
+
+  return bestScore;
+
+}
+function go() {
+
+  let alpha = 0;
+  let beta = 0;
+  let score = 0;
+  let delta = 0;
+  let depth = 0;
+
+  for (let d=1; d <= g_maxDepth; d++) {
+    
+    alpha = -INF;
+    beta  = INF;
+    delta = 10;
+    depth = d;
+    
+    if (depth >= 4) {
+      alpha = Math.max(-INF, score - delta);
+      beta  = Math.min(INF,  score + delta);
+    }
+    
+    while (1) {
+      
+      score = search(0, depth, alpha, beta);
+      
+      if (g_finished)
+        break;
+      
+      delta += delta/2 | 0;
+      
+      if (score <= alpha) {
+        alpha = Math.max(-INF, alpha - delta);
+      }
+      
+      else if (score >= beta) {
+        beta = Math.min(INF, beta + delta);
+      }
+      
+      else {
+        uciSend(depth);
+        break;
+      }
+      
+    }
+    
+    if (g_finished)
+      break;
+    
+  }
+
+  uciSend('bestmove ' + formatMove(g_bestMove));
+
 }
 function uciSend(s) {
   if (nodeHost) {
@@ -1129,6 +1385,12 @@ function uciExecLine(line) {
 
     case 'pt':
       perftTests(parseInt(tokens[1]) || 0);
+      break;
+
+    case 'go':
+    case 'g':
+      initTimeControl(tokens);
+      go();
       break;
 
     case 'quit':

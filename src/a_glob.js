@@ -3,7 +3,6 @@ const MATE = 30000;
 const MATEISH = 29000;
 const MAX_MOVES = 256;
 const MAX_PLY = 64;
-//const MAX_LINE = 8192;
 
 const WHITE = 0;
 const BLACK = 8;
@@ -35,10 +34,11 @@ const BLACK_RIGHTS_KING = 4;
 const BLACK_RIGHTS_QUEEN = 8;
 
 const MOVE_FLAG_CAPTURE = 1 << 14;
-const MOVE_FLAG_EPCAPTURE = 2 << 14;  // may also have MOVE_FLAG_CAPTURE set 
+const MOVE_FLAG_EPCAPTURE = 2 << 14;  // will also have MOVE_FLAG_CAPTURE set 
 const MOVE_FLAG_CASTLE = 4 << 14;   
 const MOVE_FLAG_PROMOTE = 8 << 14; // may also have MOVE_FLAG_CAPTURE set
 const MOVE_FLAG_SPECIAL = MOVE_FLAG_PROMOTE | MOVE_FLAG_EPCAPTURE | MOVE_FLAG_CASTLE;
+const MOVE_FLAG_NOISY = MOVE_FLAG_PROMOTE | MOVE_FLAG_CAPTURE;
 const PROMOTE_SHIFT = 20; // KNIGHT, BISHOP, ROOK, QUEEN
 
 const RIGHTS_TABLE = new Uint8Array(128);
@@ -64,3 +64,13 @@ const g_pieces = new Uint8Array(34);
 let g_stm = 0;
 let g_rights = 0;
 let g_ep = 0;
+
+// time control globals
+
+let g_nodes = 0; // node counter (init to 0)
+let g_maxNodes = 0; // node target if given (else 0)
+let g_maxDepth = 0; // target depth if given (set to MAX_PLY otherwise)
+let g_startTime = 0; // always set via performance.now()
+let g_finishTime = 0; // finish tiem if appropriate (else 0)
+let g_finished = 0; // 1 when time/nodes reached (else 0)
+let g_bestMove = 0;

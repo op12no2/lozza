@@ -6,25 +6,20 @@ function perft(ply, depth) {
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
-  const stmBase = (stm >>> 3) * 17;
-
-  genMoves(node);
-
+  const kix = (stm >>> 3) * 17 + 1; // our king square index in piece list
   const moves = node.moves;
-  const numMoves = node.numMoves;
+  
   let total = 0;
+
+  const numMoves = genMoves(node);
 
   for (let i = 0; i < numMoves; i++) {
 
     const move = moves[i];
 
     make(node, move);
-
-    const kingSq = g_pieces[stmBase + 1];
-
-    if (!isAttacked(kingSq, nstm))
+    if (!isAttacked(g_pieces[kix], nstm))
       total += perft(ply + 1, depth - 1);
-
     unmake(node, move);
   }
 
