@@ -6,6 +6,7 @@ A UCI Javascript chess engine.
 
 ### Goals
 
+- Interesting playing style.
 - Single file. Hand-coded Javascript so that it can be easily tweaked/deployed.
 - Binaries for Windows, Linux and Mac Arm/x86 for use with chess user interfaces.
 - Binaries must embed a Javascript run-time (not be a result of a port to C for example).
