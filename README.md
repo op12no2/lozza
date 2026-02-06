@@ -1,4 +1,4 @@
-WIP rewrite with new goals.
+WIP rewrite with new goals (going back to its roots).
 
 ### Lozza
 

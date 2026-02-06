@@ -1,7 +1,9 @@
+const INF = 31000;
+const MATE = 30000;
+const MATEISH = 29000;
 const MAX_MOVES = 256;
 const MAX_PLY = 64;
-const MAX_LINE = 8192;
-const MAX_TOKENS = 1024;
+//const MAX_LINE = 8192;
 
 const WHITE = 0;
 const BLACK = 8;
@@ -54,13 +56,14 @@ const ROOK_OFFSETS = new Int8Array([-16, -1, 1, 16]);
 const QUEEN_OFFSETS = new Int8Array([-17, -16, -15, -1, 1, 15, 16, 17]);
 const KING_OFFSETS = new Int8Array([-17, -16, -15, -1, 1, 15, 16, 17]);
 
-// board globals
+// board globals - maintained throughout search via make and unmake funcs
 
-const board = new Uint8Array(128);
-const pieceList = new Uint8Array(34);
-let stm = 0;
-let rights = 0;
-let ep = 0;
+const g_board = new Uint8Array(128);
+const g_plix = new Uint8Array(128);  // piece list index per square
+const g_pieces = new Uint8Array(34);
+let g_stm = 0;
+let g_rights = 0;
+let g_ep = 0;
 const PERFTFENS = [
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 0, 1,         'startpos-0'],
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 1, 20,        'startpos-1'],
@@ -128,9 +131,64 @@ const PERFTFENS = [
   ['fen r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1   w kq   -  0 1', 6, 706045033, 'jvm-2     '],
   ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
 ];
+
+const BENCHFENS = [
+
+"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkQ - 0 1",
+"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq a6 0 14",
+"4rrk1/2p1b1p1/p1p3q1/4p3/2P2n1p/1P1NR2P/PB3PP1/3R1QK1 b - - 2 24",
+"r3qbrk/6p1/2b2pPp/p3pP1Q/PpPpP2P/3P1B2/2PB3K/R5R1 w - - 16 42",
+"6k1/1R3p2/6p1/2Bp3p/3P2q1/P7/1P2rQ1K/5R2 b - - 4 44",
+"8/8/1p2k1p1/3p3p/1p1P1P1P/1P2PK2/8/8 w - - 3 54",
+"7r/2p3k1/1p1p1qp1/1P1Bp3/p1P2r1P/P7/4R3/Q4RK1 w - - 0 36",
+"r1bq1rk1/pp2b1pp/n1pp1n2/3P1p2/2P1p3/2N1P2N/PP2BPPP/R1BQ1RK1 b - - 2 10",
+"3r3k/2r4p/1p1b3q/p4P2/P2Pp3/1B2P3/3BQ1RP/6K1 w - - 3 87",
+"2r4r/1p4k1/1Pnp4/3Qb1pq/8/4BpPp/5P2/2RR1BK1 w - - 0 42",
+"4q1bk/6b1/7p/p1p4p/PNPpP2P/KN4P1/3Q4/4R3 b - - 0 37",
+"2q3r1/1r2pk2/pp3pp1/2pP3p/P1Pb1BbP/1P4Q1/R3NPP1/4R1K1 w - - 2 34",
+"1r2r2k/1b4q1/pp5p/2pPp1p1/P3Pn2/1P1B1Q1P/2R3P1/4BR1K b - - 1 37",
+"r3kbbr/pp1n1p1P/3ppnp1/q5N1/1P1pP3/P1N1B3/2P1QP2/R3KB1R b KQkq b3 0 17",
+"8/6pk/2b1Rp2/3r4/1R1B2PP/P5K1/8/2r5 b - - 16 42",
+"1r4k1/4ppb1/2n1b1qp/pB4p1/1n1BP1P1/7P/2PNQPK1/3RN3 w - - 8 29",
+"8/p2B4/PkP5/4p1pK/4Pb1p/5P2/8/8 w - - 29 68",
+"3r4/ppq1ppkp/4bnp1/2pN4/2P1P3/1P4P1/PQ3PBP/R4K2 b - - 2 20",
+"5rr1/4n2k/4q2P/P1P2n2/3B1p2/4pP2/2N1P3/1RR1K2Q w - - 1 49",
+"1r5k/2pq2p1/3p3p/p1pP4/4QP2/PP1R3P/6PK/8 w - - 1 51",
+"q5k1/5ppp/1r3bn1/1B6/P1N2P2/BQ2P1P1/5K1P/8 b - - 2 34",
+"r1b2k1r/5n2/p4q2/1ppn1Pp1/3pp1p1/NP2P3/P1PPBK2/1RQN2R1 w - - 0 22",
+"r1bqk2r/pppp1ppp/5n2/4b3/4P3/P1N5/1PP2PPP/R1BQKB1R w KQkq - 0 5",
+"r1bqr1k1/pp1p1ppp/2p5/8/3N1Q2/P2BB3/1PP2PPP/R3K2n b Q - 1 12",
+"r1bq2k1/p4r1p/1pp2pp1/3p4/1P1B3Q/P2B1N2/2P3PP/4R1K1 b - - 2 19",
+"r4qk1/6r1/1p4p1/2ppBbN1/1p5Q/P7/2P3PP/5RK1 w - - 2 25",
+"r7/6k1/1p6/2pp1p2/7Q/8/p1P2K1P/8 w - - 0 32",
+"r3k2r/ppp1pp1p/2nqb1pn/3p4/4P3/2PP4/PP1NBPPP/R2QK1NR w KQkq - 1 5",
+"3r1rk1/1pp1pn1p/p1n1q1p1/3p4/Q3P3/2P5/PP1NBPPP/4RRK1 w - - 0 12",
+"5rk1/1pp1pn1p/p3Brp1/8/1n6/5N2/PP3PPP/2R2RK1 w - - 2 20",
+"8/1p2pk1p/p1p1r1p1/3n4/8/5R2/PP3PPP/4R1K1 b - - 3 27",
+"8/4pk2/1p1r2p1/p1p4p/Pn5P/3R4/1P3PP1/4RK2 w - - 1 33",
+"8/5k2/1pnrp1p1/p1p4p/P6P/4R1PK/1P3P2/4R3 b - - 1 38",
+"8/8/1p1kp1p1/p1pr1n1p/P6P/1R4P1/1P3PK1/1R6 b - - 15 45",
+"8/8/1p1k2p1/p1prp2p/P2n3P/6P1/1P1R1PK1/4R3 b - - 5 49",
+"8/8/1p4p1/p1p2k1p/P2npP1P/4K1P1/1P6/3R4 w - - 6 54",
+"8/8/1p4p1/p1p2k1p/P2n1P1P/4K1P1/1P6/6R1 b - - 6 59",
+"8/5k2/1p4p1/p1pK3p/P2n1P1P/6P1/1P6/4R3 b - - 14 63",
+"8/1R6/1p1K1kp1/p6p/P1p2P1P/6P1/1Pn5/8 w - - 0 67",
+"1rb1rn1k/p3q1bp/2p3p1/2p1p3/2P1P2N/PP1RQNP1/1B3P2/4R1K1 b - - 4 23",
+"4rrk1/pp1n1pp1/q5p1/P1pP4/2n3P1/7P/1P3PB1/R1BQ1RK1 w - - 3 22",
+"r2qr1k1/pb1nbppp/1pn1p3/2ppP3/3P4/2PB1NN1/PP3PPP/R1BQR1K1 w - - 4 12",
+"2r2k2/8/4P1R1/1p6/8/P4K1N/7b/2B5 b - - 0 55",
+"6k1/5pp1/8/2bKP2P/2P5/p4PNb/B7/8 b - - 1 44",
+"2rqr1k1/1p3p1p/p2p2p1/P1nPb3/2B1P3/5P2/1PQ2NPP/R1R4K w - - 3 25",
+"r1b2rk1/p1q1ppbp/6p1/2Q5/8/4BP2/PPP3PP/2KR1B1R b - - 2 14",
+"6r1/5k2/p1b1r2p/1pB1p1p1/1Pp3PP/2P1R1K1/2P2P2/3R4 w - - 1 36",
+"rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2",
+"2rr2k1/1p4bp/p1q1p1p1/4Pp1n/2PB4/1PN3P1/P3Q2P/2RR2K1 w - f6 0 20",
+"3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
+"2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93"
+];
 function nodeStruct() {
 
-  this.ply = 0;
+  //this.ply = 0;
   this.numMoves = 0;
   this.moves = new Uint32Array(MAX_MOVES);
   this.ranks = new Int32Array(MAX_MOVES);
@@ -141,15 +199,31 @@ function nodeStruct() {
 
 }
 
-const nodes = Array(MAX_PLY);
+const g_ss = Array(MAX_PLY);
 
 let rootNode = null;
 
 function initNodes () {
   for (let i=0; i < MAX_PLY; i++) {
-    nodes[i] = new nodeStruct;
+    g_ss[i] = new nodeStruct;
   }
-  rootNode = nodes[0];
+  rootNode = g_ss[0];
+}
+
+function formatMove(move) {
+
+  const fr = (move >> 7) & 0x7F;
+  const to = move & 0x7F;
+
+  let s = String.fromCharCode(97 + (fr & 7))
+        + String.fromCharCode(49 + (fr >> 4))
+        + String.fromCharCode(97 + (to & 7))
+        + String.fromCharCode(49 + (to >> 4));
+
+  if (move & MOVE_FLAG_PROMOTE)
+    s += 'nbrq'[(move >> PROMOTE_SHIFT) - 2];
+
+  return s;
 }
 
 const pieceChar = [' ', 'P', 'N', 'B', 'R', 'Q', 'K', ' ', ' ', 'p', 'n', 'b', 'r', 'q', 'k'];
@@ -168,9 +242,9 @@ charPiece[114] = BROOK;   // r
 charPiece[113] = BQUEEN;  // q
 charPiece[107] = BKING;   // k
 
-function position(boardStr, stmStr, rightsStr, epStr) {
+function position(boardStr, stmStr, rightsStr, epStr, moves) {
 
-  board.fill(0);
+  g_board.fill(0);
 
   let rank = 7;
   let file = 0;
@@ -184,40 +258,42 @@ function position(boardStr, stmStr, rightsStr, epStr) {
     else if (cc >= 49 && cc <= 56)
       file += cc - 48;
     else {
-      board[rank * 16 + file] = charPiece[cc];
+      g_board[rank * 16 + file] = charPiece[cc];
       file++;
     }
   }
 
   if (stmStr === 'w')
-    stm = WHITE;
+    g_stm = WHITE;
   else
-    stm = BLACK;
+    g_stm = BLACK;
 
-  rights = 0;
+  g_rights = 0;
   for (let i = 0; i < rightsStr.length; i++) {
     const cc = rightsStr.charCodeAt(i);
     if (cc === 75)       // K
-      rights |= WHITE_RIGHTS_KING;
+      g_rights |= WHITE_RIGHTS_KING;
     else if (cc === 81)  // Q
-      rights |= WHITE_RIGHTS_QUEEN;
+      g_rights |= WHITE_RIGHTS_QUEEN;
     else if (cc === 107) // k
-      rights |= BLACK_RIGHTS_KING;
+      g_rights |= BLACK_RIGHTS_KING;
     else if (cc === 113) // q
-      rights |= BLACK_RIGHTS_QUEEN;
+      g_rights |= BLACK_RIGHTS_QUEEN;
   }
 
   if (epStr === '-')
-    ep = 0;
+    g_ep = 0;
   else
-    ep = (epStr.charCodeAt(1) - 49) * 16 + (epStr.charCodeAt(0) - 97);
+    g_ep = (epStr.charCodeAt(1) - 49) * 16 + (epStr.charCodeAt(0) - 97);
 
   // build piece list
 
-  const pl = pieceList;
-  const b = board;
+  const pl = g_pieces;
+  const b = g_board;
+  const px = g_plix;
 
   pl.fill(0);
+  px.fill(0);
 
   let wCount = 1;
   let bCount = 1;
@@ -237,29 +313,48 @@ function position(boardStr, stmStr, rightsStr, epStr) {
     if (piece & BLACK) {
       if ((piece & 7) === KING) {
         pl[17 + 1] = sq;
-        b[sq | 8]  = 1;
+        px[sq] = 1;
       }
       else {
         bCount++;
         pl[17 + bCount] = sq;
-        b[sq | 8] = bCount;
+        px[sq] = bCount;
       }
     }
     else {
       if ((piece & 7) === KING) {
         pl[0 + 1] = sq;
-        b[sq | 8] = 1;
+        px[sq] = 1;
       }
       else {
         wCount++;
         pl[0 + wCount] = sq;
-        b[sq | 8] = wCount;
+        px[sq] = wCount;
       }
     }
   }
 
   pl[0]  = wCount;
   pl[17] = bCount;
+
+  if (moves) {
+    for (let m = 0; m < moves.length; m++) {
+      genMoves(rootNode);
+      const n = rootNode.numMoves;
+      let found = 0;
+      for (let i = 0; i < n; i++) {
+        if (formatMove(rootNode.moves[i]) === moves[m]) {
+          make(rootNode, rootNode.moves[i]);
+          found = 1;
+          break;
+        }
+      }
+      if (!found) {
+        uciSend('info string illegal move ' + moves[m]);
+        return;
+      }
+    }
+  }
 }
 
 function printBoard() {
@@ -271,7 +366,7 @@ function printBoard() {
   for (let rank = 7; rank >= 0; rank--) {
     let line = (rank + 1) + ' |';
     for (let file = 0; file < 8; file++) {
-      const piece = board[rank * 16 + file];
+      const piece = g_board[rank * 16 + file];
       const ch = piece ? pieceChar[piece] : ' ';
       line += ' ' + ch + ' |';
     }
@@ -282,31 +377,31 @@ function printBoard() {
   uciSend('    a   b   c   d   e   f   g   h');
 
   let rightsStr = '';
-  if (rights & WHITE_RIGHTS_KING)
+  if (g_rights & WHITE_RIGHTS_KING)
     rightsStr += 'K';
-  if (rights & WHITE_RIGHTS_QUEEN)
+  if (g_rights & WHITE_RIGHTS_QUEEN)
     rightsStr += 'Q';
-  if (rights & BLACK_RIGHTS_KING)
+  if (g_rights & BLACK_RIGHTS_KING)
     rightsStr += 'k';
-  if (rights & BLACK_RIGHTS_QUEEN)
+  if (g_rights & BLACK_RIGHTS_QUEEN)
     rightsStr += 'q';
   if (!rightsStr)
     rightsStr = '-';
 
   let epStr = '-';
-  if (ep) {
-    const file = ep & 0x0F;
-    const rank = ep >> 4;
+  if (g_ep) {
+    const file = g_ep & 0x0F;
+    const rank = g_ep >> 4;
     epStr = String.fromCharCode(97 + file) + String.fromCharCode(49 + rank);
   }
 
   uciSend('');
-  uciSend('  stm: ' + (stm === WHITE ? 'w' : 'b') + ' rights: ' + rightsStr + ' ep: ' + epStr);
+  uciSend('  stm: ' + (g_stm === WHITE ? 'w' : 'b') + ' rights: ' + rightsStr + ' ep: ' + epStr);
 }
 
 function isAttacked(sq, byColour) {
 
-  const b = board;
+  const b = g_board;
 
   // pawn
 
@@ -375,92 +470,77 @@ function isAttacked(sq, byColour) {
 
   return 0;
 }
-
-function moveStr(move) {
-
-  const fr = (move >> 7) & 0x7F;
-  const to = move & 0x7F;
-
-  let s = String.fromCharCode(97 + (fr & 7))
-        + String.fromCharCode(49 + (fr >> 4))
-        + String.fromCharCode(97 + (to & 7))
-        + String.fromCharCode(49 + (to >> 4));
-
-  if (move & MOVE_FLAG_PROMOTE)
-    s += 'nbrq'[(move >> PROMOTE_SHIFT) - 2];
-
-  return s;
-}
 function make(node, move) {
 
-  const b = board;
-  const pl = pieceList;
+  const b = g_board;
+  const pl = g_pieces;
+  const px = g_plix;
   const fr = (move >> 7) & 0x7F;
   const to = move & 0x7F;
 
-  const curStm = stm;
-  const stmBase = (curStm >>> 3) * 17;
+  const stm = g_stm;
+  const stmBase = (stm >>> 3) * 17;
   const oppBase = stmBase ^ 17;
 
-  node.undoRights = rights;
-  node.undoEp = ep;
+  node.undoRights = g_rights;
+  node.undoEp = g_ep;
 
-  rights &= RIGHTS_TABLE[fr] & RIGHTS_TABLE[to];
+  g_rights &= RIGHTS_TABLE[fr] & RIGHTS_TABLE[to];
 
-  ep = 0;
+  g_ep = 0;
 
   if (move & MOVE_FLAG_SPECIAL) {
 
     if (move & MOVE_FLAG_PROMOTE) {
 
       if (move & MOVE_FLAG_CAPTURE) {
-        const capIdx = b[to | 8];
+        const capIdx = px[to];
         const lastIdx = pl[oppBase];
         const lastSq = pl[oppBase + lastIdx];
         pl[oppBase + capIdx] = lastSq;
-        b[lastSq | 8] = capIdx;
+        px[lastSq] = capIdx;
         pl[oppBase]--;
         node.undoCaptured = b[to];
         node.undoCapIdx = capIdx;
       }
 
-      const idx = b[fr | 8];
+      const idx = px[fr];
       pl[stmBase + idx] = to;
-      b[to | 8] = idx;
+      px[to] = idx;
 
-      b[to] = (move >> PROMOTE_SHIFT) | curStm;
+      b[to] = (move >> PROMOTE_SHIFT) | stm;
       b[fr] = 0;
-      stm = curStm ^ BLACK;
+      g_stm = stm ^ BLACK;
       return;
     }
 
     if (move & MOVE_FLAG_EPCAPTURE) {
 
-      const capSq = to - 16 + (curStm << 2);
+      const capSq = to - 16 + (stm << 2);
 
-      const capIdx = b[capSq | 8];
+      const capIdx = px[capSq];
       const lastIdx = pl[oppBase];
       const lastSq = pl[oppBase + lastIdx];
       pl[oppBase + capIdx] = lastSq;
-      b[lastSq | 8] = capIdx;
+      px[lastSq] = capIdx;
       pl[oppBase]--;
       node.undoCapIdx = capIdx;
 
-      const idx = b[fr | 8];
+      const idx = px[fr];
       pl[stmBase + idx] = to;
-      b[to | 8] = idx;
+      px[to] = idx;
 
       b[to] = b[fr];
       b[fr] = 0;
       b[capSq] = 0;
-      stm = curStm ^ BLACK;
+      g_stm = stm ^ BLACK;
       return;
     }
 
     // castle
 
     pl[stmBase + 1] = to;
-    b[to | 8] = 1;
+    px[to] = 1;
 
     b[to] = b[fr];
     b[fr] = 0;
@@ -474,54 +554,55 @@ function make(node, move) {
       rookFr = to - 2; rookTo = to + 1;
     }
 
-    const rookIdx = b[rookFr | 8];
+    const rookIdx = px[rookFr];
     pl[stmBase + rookIdx] = rookTo;
-    b[rookTo | 8] = rookIdx;
+    px[rookTo] = rookIdx;
 
     b[rookTo] = b[rookFr];
     b[rookFr] = 0;
 
-    stm = curStm ^ BLACK;
+    g_stm = stm ^ BLACK;
     return;
   }
 
   // quiet move or normal capture
 
   if ((b[fr] & 7) === PAWN && (to - fr === 32 || to - fr === -32))
-    ep = (fr + to) >> 1;
+    g_ep = (fr + to) >> 1;
 
   if (move & MOVE_FLAG_CAPTURE) {
-    const capIdx = b[to | 8];
+    const capIdx = px[to];
     const lastIdx = pl[oppBase];
     const lastSq = pl[oppBase + lastIdx];
     pl[oppBase + capIdx] = lastSq;
-    b[lastSq | 8] = capIdx;
+    px[lastSq] = capIdx;
     pl[oppBase]--;
     node.undoCaptured = b[to];
     node.undoCapIdx = capIdx;
   }
 
-  const idx = b[fr | 8];
+  const idx = px[fr];
   pl[stmBase + idx] = to;
-  b[to | 8] = idx;
+  px[to] = idx;
 
   b[to] = b[fr];
   b[fr] = 0;
 
-  stm = curStm ^ BLACK;
+  g_stm = stm ^ BLACK;
 }
 
 function unmake (node, move) {
 
-  const b = board;
-  const pl = pieceList;
+  const b = g_board;
+  const pl = g_pieces;
+  const px = g_plix;
   const fr = (move >> 7) & 0x7F;
   const to = move & 0x7F;
 
   // stm was flipped by make, so current stm is the opponent of the mover
   // the mover's colour is stm ^ BLACK
-  const mover = stm ^ BLACK;
-  const stmBase = (mover >>> 3) * 17;
+  const stm = g_stm ^ BLACK;
+  const stmBase = (stm >>> 3) * 17;
   const oppBase = stmBase ^ 17;
 
   if (move & MOVE_FLAG_SPECIAL) {
@@ -529,9 +610,9 @@ function unmake (node, move) {
     if (move & MOVE_FLAG_PROMOTE) {
 
       // move piece back as a pawn
-      b[fr] = PAWN | mover;
-      b[fr | 8] = b[to | 8];
-      const idx = b[fr | 8];
+      b[fr] = PAWN | stm;
+      px[fr] = px[to];
+      const idx = px[fr];
       pl[stmBase + idx] = fr;
 
       if (move & MOVE_FLAG_CAPTURE) {
@@ -540,29 +621,29 @@ function unmake (node, move) {
         pl[oppBase]++;
         const lastSq = pl[oppBase + capIdx];
         pl[oppBase + pl[oppBase]] = lastSq;
-        b[lastSq | 8] = pl[oppBase];
+        px[lastSq] = pl[oppBase];
         pl[oppBase + capIdx] = to;
-        b[to | 8] = capIdx;
+        px[to] = capIdx;
         b[to] = node.undoCaptured;
       }
       else {
         b[to] = 0;
       }
 
-      rights = node.undoRights;
-      ep = node.undoEp;
-      stm = mover;
+      g_rights = node.undoRights;
+      g_ep = node.undoEp;
+      g_stm = stm;
       return;
     }
 
     if (move & MOVE_FLAG_EPCAPTURE) {
 
-      const capSq = to - 16 + (mover << 2);
+      const capSq = to - 16 + (stm << 2);
 
       // move pawn back
-      const idx = b[to | 8];
+      const idx = px[to];
       pl[stmBase + idx] = fr;
-      b[fr | 8] = idx;
+      px[fr] = idx;
       b[fr] = b[to];
       b[to] = 0;
 
@@ -571,21 +652,21 @@ function unmake (node, move) {
       pl[oppBase]++;
       const lastSq = pl[oppBase + capIdx];
       pl[oppBase + pl[oppBase]] = lastSq;
-      b[lastSq | 8] = pl[oppBase];
+      px[lastSq] = pl[oppBase];
       pl[oppBase + capIdx] = capSq;
-      b[capSq | 8] = capIdx;
-      b[capSq] = PAWN | (mover ^ BLACK);
+      px[capSq] = capIdx;
+      b[capSq] = PAWN | (stm ^ BLACK);
 
-      rights = node.undoRights;
-      ep = node.undoEp;
-      stm = mover;
+      g_rights = node.undoRights;
+      g_ep = node.undoEp;
+      g_stm = stm;
       return;
     }
 
     // castle - move king back, move rook back
 
     pl[stmBase + 1] = fr;
-    b[fr | 8] = 1;
+    px[fr] = 1;
     b[fr] = b[to];
     b[to] = 0;
 
@@ -598,24 +679,24 @@ function unmake (node, move) {
       rookFr = to - 2; rookTo = to + 1;
     }
 
-    const rookIdx = b[rookTo | 8];
+    const rookIdx = px[rookTo];
     pl[stmBase + rookIdx] = rookFr;
-    b[rookFr | 8] = rookIdx;
+    px[rookFr] = rookIdx;
     b[rookFr] = b[rookTo];
     b[rookTo] = 0;
 
-    rights = node.undoRights;
-    ep = node.undoEp;
-    stm = mover;
+    g_rights = node.undoRights;
+    g_ep = node.undoEp;
+    g_stm = stm;
     return;
   }
 
   // quiet move or normal capture
 
   // move piece back
-  const idx = b[to | 8];
+  const idx = px[to];
   pl[stmBase + idx] = fr;
-  b[fr | 8] = idx;
+  px[fr] = idx;
   b[fr] = b[to];
 
   if (move & MOVE_FLAG_CAPTURE) {
@@ -624,37 +705,37 @@ function unmake (node, move) {
     pl[oppBase]++;
     const lastSq = pl[oppBase + capIdx];
     pl[oppBase + pl[oppBase]] = lastSq;
-    b[lastSq | 8] = pl[oppBase];
+    px[lastSq] = pl[oppBase];
     pl[oppBase + capIdx] = to;
-    b[to | 8] = capIdx;
+    px[to] = capIdx;
     b[to] = node.undoCaptured;
   }
   else {
     b[to] = 0;
   }
 
-  rights = node.undoRights;
-  ep = node.undoEp;
-  stm = mover;
+  g_rights = node.undoRights;
+  g_ep = node.undoEp;
+  g_stm = stm;
 }
 function genMoves(node) {
 
-  const b = board;
+  const b = g_board;
   const moves = node.moves;
-  const curStm = stm;
-  const curEp = ep;
-  const curRights = rights;
+  const stm = g_stm;
+  const curEp = g_ep;
+  const curRights = g_rights;
 
   let numMoves = 0;
 
-  const enemy = curStm ^ BLACK;
+  const enemy = stm ^ BLACK;
 
-  const pawnDir = curStm === WHITE ? 16 : -16;
-  const pawnStartR = curStm === WHITE ? 0x10 : 0x60;
-  const promoteR = curStm === WHITE ? 0x70 : 0x00;
+  const pawnDir = stm === WHITE ? 16 : -16;
+  const pawnStartR = stm === WHITE ? 0x10 : 0x60;
+  const promoteR = stm === WHITE ? 0x70 : 0x00;
 
-  const pl = pieceList;
-  const base = (curStm >>> 3) * 17;
+  const pl = g_pieces;
+  const base = (stm >>> 3) * 17;
   const count = pl[base];
 
   for (let i = 1; i <= count; i++) {
@@ -824,7 +905,7 @@ function genMoves(node) {
 
         // castling
 
-        if (curStm === WHITE) {
+        if (stm === WHITE) {
           if ((curRights & WHITE_RIGHTS_KING) && !b[0x05] && !b[0x06]
               && !isAttacked(0x04, enemy) && !isAttacked(0x05, enemy) && !isAttacked(0x06, enemy))
             moves[numMoves++] = from | 0x06 | MOVE_FLAG_CASTLE;
@@ -853,10 +934,10 @@ function perft(ply, depth) {
   if (depth === 0)
     return 1;
 
-  const node = nodes[ply];
-  const curStm = stm;
-  const nstm = curStm ^ BLACK;
-  const stmBase = (curStm >>> 3) * 17;
+  const node = g_ss[ply];
+  const stm = g_stm;
+  const nstm = stm ^ BLACK;
+  const stmBase = (stm >>> 3) * 17;
 
   genMoves(node);
 
@@ -870,7 +951,7 @@ function perft(ply, depth) {
 
     make(node, move);
 
-    const kingSq = pieceList[stmBase + 1];
+    const kingSq = g_pieces[stmBase + 1];
 
     if (!isAttacked(kingSq, nstm))
       total += perft(ply + 1, depth - 1);
@@ -921,6 +1002,68 @@ function perftTests(maxDepth) {
   uciSend(count + ' tests, ' + fails + ' fails, ' + totalNodes + ' nodes in ' + ms + ' ms ' + nps + ' nps');
 }
 
+function search(ply, depth, alpha, beta) {
+
+  if (depth <= 0)
+    return evaluate();
+
+  const node = g_ss[ply];
+  const stm = g_stm;
+  const nstm = stm ^ BLACK;
+  const stmBase = (stm >>> 3) * 17;
+
+  genMoves(node);
+
+  const moves = node.moves;
+  const numMoves = node.numMoves;
+  let legalMoves = 0;
+  let bestMove = 0;
+
+  for (let i = 0; i < numMoves; i++) {
+
+    const move = moves[i];
+
+    make(node, move);
+
+    const kingSq = g_pieces[stmBase + 1];
+
+    if (isAttacked(kingSq, nstm)) {
+      unmake(node, move);
+      continue;
+    }
+
+    legalMoves++;
+
+    let score;
+
+    if (legalMoves === 1) {
+      score = -search(ply + 1, depth - 1, -beta, -alpha);
+    }
+    else {
+      score = -search(ply + 1, depth - 1, -alpha - 1, -alpha);
+      if (score > alpha && score < beta)
+        score = -search(ply + 1, depth - 1, -beta, -alpha);
+    }
+
+    unmake(node, move);
+
+    if (score > alpha) {
+      alpha = score;
+      bestMove = move;
+      if (alpha >= beta)
+        return alpha;
+    }
+  }
+
+  if (legalMoves === 0) {
+    const kingSq = g_pieces[stmBase + 1];
+    if (isAttacked(kingSq, nstm))
+      return -MATE + ply;
+    return 0;
+  }
+
+  return alpha;
+}
 function uciSend(s) {
   if (nodeHost) {
     console.log(s);
@@ -930,94 +1073,74 @@ function uciSend(s) {
   }
 }
 
-// C-ish whitespace test: treats ASCII <= 32 as whitespace (space/tab/CR/LF/etc)
-function isWsCode(c) {
-  return c <= 32;
-}
-
-// Manual tokenizer: like a C loop filling argv[]
-function tokenizeLine(line) {
-  const tokens = [];
-  const n = line.length;
-  let i = 0;
-
-  while (i < n && tokens.length < MAX_TOKENS) {
-    while (i < n && isWsCode(line.charCodeAt(i))) {
-      i++;
-    }
-    if (i >= n) {
-      break;
-    }
-
-    const start = i;
-
-    while (i < n && !isWsCode(line.charCodeAt(i))) {
-      i++;
-    }
-
-    tokens.push(line.slice(start, i));
-  }
-
-  return tokens;
-}
-
 function uciExecLine(line) {
-  if (line === null || line === undefined) {
-    return;
-  }
+  const tokens = line.trim().split(/\s+/);
 
-  line = String(line).trim();
-  if (line.length === 0) {
-    return;
-  }
-
-  const tokens = tokenizeLine(line);
-  if (tokens.length === 0) {
+  if (tokens.length === 0 || tokens[0] === '') {
     return;
   }
 
   const cmd = tokens[0];
 
-  if (cmd === 'isready') {
-    uciSend('readyok');
-  }
-  else if (cmd === 'uci') {
-    uciSend('id name Lozza 11');
-    uciSend('id author xyzzy');
-    //uciSend('option name Hash type spin default ' + ttDefault + ' min 1 max 1024');
-    //uciSend('option name MultiPV type spin default 1 min 1 max 10');
-    uciSend('uciok');
-  }
-  else if (cmd === 'p' || cmd === 'position') {
-    if (tokens[1] === 'startpos' || tokens[1] === 's') {
-      position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', 'w', 'KQkq', '-');
+  switch (cmd) {
+
+    case 'isready':
+      uciSend('readyok');
+      break;
+
+    case 'uci':
+      uciSend('id name Lozza 11');
+      uciSend('id author xyzzy');
+      //uciSend('option name Hash type spin default ' + ttDefault + ' min 1 max 1024');
+      //uciSend('option name MultiPV type spin default 1 min 1 max 10');
+      uciSend('uciok');
+      break;
+
+    case 'p':
+    case 'position': {
+      const mi = tokens.indexOf('moves');
+      const moves = mi >= 0 ? tokens.slice(mi + 1) : null;
+
+      if (tokens[1] === 'startpos' || tokens[1] === 's') {
+        position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', 'w', 'KQkq', '-', moves);
+      }
+      else {
+        position(tokens[2], tokens[3], tokens[4], tokens[5], moves);
+      }
+      break;
     }
-    else {
-      position(tokens[2], tokens[3], tokens[4], tokens[5]);
+
+    case 'b':
+    case 'board':
+      printBoard();
+      break;
+
+    case 'perft':
+    case 'f': {
+      const depth = parseInt(tokens[1]) || 0;
+      const t1 = Date.now();
+      const n = perft(0, depth);
+      const t2 = Date.now();
+      const ms = t2 - t1;
+      const nps = ms ? Math.floor(n / ms * 1000) : 0;
+      uciSend('perft ' + depth + ' = ' + n + ' in ' + ms + ' ms ' + nps + ' nps');
+      break;
     }
-  }
-  else if (cmd === 'b' || cmd === 'board') {
-    printBoard();
-  }
-  else if (cmd === 'perft' || cmd === 'f') {
-    const depth = parseInt(tokens[1]) || 0;
-    const t1 = Date.now();
-    const n = perft(0, depth);
-    const t2 = Date.now();
-    const ms = t2 - t1;
-    const nps = ms ? Math.floor(n / ms * 1000) : 0;
-    uciSend('perft ' + depth + ' = ' + n + ' in ' + ms + ' ms ' + nps + ' nps');
-  }
-  else if (cmd === 'pt') {
-    perftTests(parseInt(tokens[1]) || 0);
-  }
-  else if (cmd === 'quit' || cmd === 'q') {
-    if (nodeHost) {
-      process.exit(0);
-    }
-  }
-  else {
-    uciSend('?');
+
+    case 'pt':
+      perftTests(parseInt(tokens[1]) || 0);
+      break;
+
+    case 'quit':
+    case 'q':
+      if (nodeHost) {
+        process.exit(0);
+      }
+      break;
+
+    default:
+      uciSend('?');
+      break;
   }
 }
 initNodes();
@@ -1027,27 +1150,14 @@ const nodeHost = typeof process !== 'undefined' && process.versions?.node;
 let feedBuf = '';
 
 function feed(chunk) {
-  if (chunk === null || chunk === undefined) {
-    return;
-  }
-
   feedBuf += String(chunk);
 
-  while (true) {
-    const nl = feedBuf.indexOf('\n');
-    if (nl < 0) {
-      break;
-    }
+  const lines = feedBuf.split('\n');
 
-    let line = feedBuf.slice(0, nl);
-    feedBuf = feedBuf.slice(nl + 1);
+  feedBuf = lines.pop();
 
-    // strip optional CR for Windows CRLF
-    if (line.length && line.charCodeAt(line.length - 1) === 13) {
-      line = line.slice(0, -1);
-    }
-
-    uciExecLine(line);
+  for (const raw of lines) {
+    uciExecLine(raw.trimEnd());
   }
 }
 

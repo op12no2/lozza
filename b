@@ -6,6 +6,7 @@ cat \
   src/makemove.js \
   src/movegen.js \
   src/perft.js \
+  src/search.js \
   src/uci.js \
   src/main.js > lozza.js
   

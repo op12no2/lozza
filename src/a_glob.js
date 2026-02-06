@@ -1,7 +1,9 @@
+const INF = 31000;
+const MATE = 30000;
+const MATEISH = 29000;
 const MAX_MOVES = 256;
 const MAX_PLY = 64;
-const MAX_LINE = 8192;
-const MAX_TOKENS = 1024;
+//const MAX_LINE = 8192;
 
 const WHITE = 0;
 const BLACK = 8;
@@ -54,10 +56,11 @@ const ROOK_OFFSETS = new Int8Array([-16, -1, 1, 16]);
 const QUEEN_OFFSETS = new Int8Array([-17, -16, -15, -1, 1, 15, 16, 17]);
 const KING_OFFSETS = new Int8Array([-17, -16, -15, -1, 1, 15, 16, 17]);
 
-// board globals
+// board globals - maintained throughout search via make and unmake funcs
 
-const board = new Uint8Array(128);
-const pieceList = new Uint8Array(34);
-let stm = 0;
-let rights = 0;
-let ep = 0;
+const g_board = new Uint8Array(128);
+const g_plix = new Uint8Array(128);  // piece list index per square
+const g_pieces = new Uint8Array(34);
+let g_stm = 0;
+let g_rights = 0;
+let g_ep = 0;

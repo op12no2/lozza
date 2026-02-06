@@ -5,27 +5,14 @@ const nodeHost = typeof process !== 'undefined' && process.versions?.node;
 let feedBuf = '';
 
 function feed(chunk) {
-  if (chunk === null || chunk === undefined) {
-    return;
-  }
-
   feedBuf += String(chunk);
 
-  while (true) {
-    const nl = feedBuf.indexOf('\n');
-    if (nl < 0) {
-      break;
-    }
+  const lines = feedBuf.split('\n');
 
-    let line = feedBuf.slice(0, nl);
-    feedBuf = feedBuf.slice(nl + 1);
+  feedBuf = lines.pop();
 
-    // strip optional CR for Windows CRLF
-    if (line.length && line.charCodeAt(line.length - 1) === 13) {
-      line = line.slice(0, -1);
-    }
-
-    uciExecLine(line);
+  for (const raw of lines) {
+    uciExecLine(raw.trimEnd());
   }
 }
 

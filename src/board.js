@@ -15,9 +15,9 @@ charPiece[114] = BROOK;   // r
 charPiece[113] = BQUEEN;  // q
 charPiece[107] = BKING;   // k
 
-function position(boardStr, stmStr, rightsStr, epStr) {
+function position(boardStr, stmStr, rightsStr, epStr, moves) {
 
-  board.fill(0);
+  g_board.fill(0);
 
   let rank = 7;
   let file = 0;
@@ -31,40 +31,42 @@ function position(boardStr, stmStr, rightsStr, epStr) {
     else if (cc >= 49 && cc <= 56)
       file += cc - 48;
     else {
-      board[rank * 16 + file] = charPiece[cc];
+      g_board[rank * 16 + file] = charPiece[cc];
       file++;
     }
   }
 
   if (stmStr === 'w')
-    stm = WHITE;
+    g_stm = WHITE;
   else
-    stm = BLACK;
+    g_stm = BLACK;
 
-  rights = 0;
+  g_rights = 0;
   for (let i = 0; i < rightsStr.length; i++) {
     const cc = rightsStr.charCodeAt(i);
     if (cc === 75)       // K
-      rights |= WHITE_RIGHTS_KING;
+      g_rights |= WHITE_RIGHTS_KING;
     else if (cc === 81)  // Q
-      rights |= WHITE_RIGHTS_QUEEN;
+      g_rights |= WHITE_RIGHTS_QUEEN;
     else if (cc === 107) // k
-      rights |= BLACK_RIGHTS_KING;
+      g_rights |= BLACK_RIGHTS_KING;
     else if (cc === 113) // q
-      rights |= BLACK_RIGHTS_QUEEN;
+      g_rights |= BLACK_RIGHTS_QUEEN;
   }
 
   if (epStr === '-')
-    ep = 0;
+    g_ep = 0;
   else
-    ep = (epStr.charCodeAt(1) - 49) * 16 + (epStr.charCodeAt(0) - 97);
+    g_ep = (epStr.charCodeAt(1) - 49) * 16 + (epStr.charCodeAt(0) - 97);
 
   // build piece list
 
-  const pl = pieceList;
-  const b = board;
+  const pl = g_pieces;
+  const b = g_board;
+  const px = g_plix;
 
   pl.fill(0);
+  px.fill(0);
 
   let wCount = 1;
   let bCount = 1;
@@ -84,29 +86,48 @@ function position(boardStr, stmStr, rightsStr, epStr) {
     if (piece & BLACK) {
       if ((piece & 7) === KING) {
         pl[17 + 1] = sq;
-        b[sq | 8]  = 1;
+        px[sq] = 1;
       }
       else {
         bCount++;
         pl[17 + bCount] = sq;
-        b[sq | 8] = bCount;
+        px[sq] = bCount;
       }
     }
     else {
       if ((piece & 7) === KING) {
         pl[0 + 1] = sq;
-        b[sq | 8] = 1;
+        px[sq] = 1;
       }
       else {
         wCount++;
         pl[0 + wCount] = sq;
-        b[sq | 8] = wCount;
+        px[sq] = wCount;
       }
     }
   }
 
   pl[0]  = wCount;
   pl[17] = bCount;
+
+  if (moves) {
+    for (let m = 0; m < moves.length; m++) {
+      genMoves(rootNode);
+      const n = rootNode.numMoves;
+      let found = 0;
+      for (let i = 0; i < n; i++) {
+        if (formatMove(rootNode.moves[i]) === moves[m]) {
+          make(rootNode, rootNode.moves[i]);
+          found = 1;
+          break;
+        }
+      }
+      if (!found) {
+        uciSend('info string illegal move ' + moves[m]);
+        return;
+      }
+    }
+  }
 }
 
 function printBoard() {
@@ -118,7 +139,7 @@ function printBoard() {
   for (let rank = 7; rank >= 0; rank--) {
     let line = (rank + 1) + ' |';
     for (let file = 0; file < 8; file++) {
-      const piece = board[rank * 16 + file];
+      const piece = g_board[rank * 16 + file];
       const ch = piece ? pieceChar[piece] : ' ';
       line += ' ' + ch + ' |';
     }
@@ -129,31 +150,31 @@ function printBoard() {
   uciSend('    a   b   c   d   e   f   g   h');
 
   let rightsStr = '';
-  if (rights & WHITE_RIGHTS_KING)
+  if (g_rights & WHITE_RIGHTS_KING)
     rightsStr += 'K';
-  if (rights & WHITE_RIGHTS_QUEEN)
+  if (g_rights & WHITE_RIGHTS_QUEEN)
     rightsStr += 'Q';
-  if (rights & BLACK_RIGHTS_KING)
+  if (g_rights & BLACK_RIGHTS_KING)
     rightsStr += 'k';
-  if (rights & BLACK_RIGHTS_QUEEN)
+  if (g_rights & BLACK_RIGHTS_QUEEN)
     rightsStr += 'q';
   if (!rightsStr)
     rightsStr = '-';
 
   let epStr = '-';
-  if (ep) {
-    const file = ep & 0x0F;
-    const rank = ep >> 4;
+  if (g_ep) {
+    const file = g_ep & 0x0F;
+    const rank = g_ep >> 4;
     epStr = String.fromCharCode(97 + file) + String.fromCharCode(49 + rank);
   }
 
   uciSend('');
-  uciSend('  stm: ' + (stm === WHITE ? 'w' : 'b') + ' rights: ' + rightsStr + ' ep: ' + epStr);
+  uciSend('  stm: ' + (g_stm === WHITE ? 'w' : 'b') + ' rights: ' + rightsStr + ' ep: ' + epStr);
 }
 
 function isAttacked(sq, byColour) {
 
-  const b = board;
+  const b = g_board;
 
   // pawn
 
@@ -221,20 +242,4 @@ function isAttacked(sq, byColour) {
   }
 
   return 0;
-}
-
-function moveStr(move) {
-
-  const fr = (move >> 7) & 0x7F;
-  const to = move & 0x7F;
-
-  let s = String.fromCharCode(97 + (fr & 7))
-        + String.fromCharCode(49 + (fr >> 4))
-        + String.fromCharCode(97 + (to & 7))
-        + String.fromCharCode(49 + (to >> 4));
-
-  if (move & MOVE_FLAG_PROMOTE)
-    s += 'nbrq'[(move >> PROMOTE_SHIFT) - 2];
-
-  return s;
 }

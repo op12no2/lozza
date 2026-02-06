@@ -1,73 +1,74 @@
 function make(node, move) {
 
-  const b = board;
-  const pl = pieceList;
+  const b = g_board;
+  const pl = g_pieces;
+  const px = g_plix;
   const fr = (move >> 7) & 0x7F;
   const to = move & 0x7F;
 
-  const curStm = stm;
-  const stmBase = (curStm >>> 3) * 17;
+  const stm = g_stm;
+  const stmBase = (stm >>> 3) * 17;
   const oppBase = stmBase ^ 17;
 
-  node.undoRights = rights;
-  node.undoEp = ep;
+  node.undoRights = g_rights;
+  node.undoEp = g_ep;
 
-  rights &= RIGHTS_TABLE[fr] & RIGHTS_TABLE[to];
+  g_rights &= RIGHTS_TABLE[fr] & RIGHTS_TABLE[to];
 
-  ep = 0;
+  g_ep = 0;
 
   if (move & MOVE_FLAG_SPECIAL) {
 
     if (move & MOVE_FLAG_PROMOTE) {
 
       if (move & MOVE_FLAG_CAPTURE) {
-        const capIdx = b[to | 8];
+        const capIdx = px[to];
         const lastIdx = pl[oppBase];
         const lastSq = pl[oppBase + lastIdx];
         pl[oppBase + capIdx] = lastSq;
-        b[lastSq | 8] = capIdx;
+        px[lastSq] = capIdx;
         pl[oppBase]--;
         node.undoCaptured = b[to];
         node.undoCapIdx = capIdx;
       }
 
-      const idx = b[fr | 8];
+      const idx = px[fr];
       pl[stmBase + idx] = to;
-      b[to | 8] = idx;
+      px[to] = idx;
 
-      b[to] = (move >> PROMOTE_SHIFT) | curStm;
+      b[to] = (move >> PROMOTE_SHIFT) | stm;
       b[fr] = 0;
-      stm = curStm ^ BLACK;
+      g_stm = stm ^ BLACK;
       return;
     }
 
     if (move & MOVE_FLAG_EPCAPTURE) {
 
-      const capSq = to - 16 + (curStm << 2);
+      const capSq = to - 16 + (stm << 2);
 
-      const capIdx = b[capSq | 8];
+      const capIdx = px[capSq];
       const lastIdx = pl[oppBase];
       const lastSq = pl[oppBase + lastIdx];
       pl[oppBase + capIdx] = lastSq;
-      b[lastSq | 8] = capIdx;
+      px[lastSq] = capIdx;
       pl[oppBase]--;
       node.undoCapIdx = capIdx;
 
-      const idx = b[fr | 8];
+      const idx = px[fr];
       pl[stmBase + idx] = to;
-      b[to | 8] = idx;
+      px[to] = idx;
 
       b[to] = b[fr];
       b[fr] = 0;
       b[capSq] = 0;
-      stm = curStm ^ BLACK;
+      g_stm = stm ^ BLACK;
       return;
     }
 
     // castle
 
     pl[stmBase + 1] = to;
-    b[to | 8] = 1;
+    px[to] = 1;
 
     b[to] = b[fr];
     b[fr] = 0;
@@ -81,54 +82,55 @@ function make(node, move) {
       rookFr = to - 2; rookTo = to + 1;
     }
 
-    const rookIdx = b[rookFr | 8];
+    const rookIdx = px[rookFr];
     pl[stmBase + rookIdx] = rookTo;
-    b[rookTo | 8] = rookIdx;
+    px[rookTo] = rookIdx;
 
     b[rookTo] = b[rookFr];
     b[rookFr] = 0;
 
-    stm = curStm ^ BLACK;
+    g_stm = stm ^ BLACK;
     return;
   }
 
   // quiet move or normal capture
 
   if ((b[fr] & 7) === PAWN && (to - fr === 32 || to - fr === -32))
-    ep = (fr + to) >> 1;
+    g_ep = (fr + to) >> 1;
 
   if (move & MOVE_FLAG_CAPTURE) {
-    const capIdx = b[to | 8];
+    const capIdx = px[to];
     const lastIdx = pl[oppBase];
     const lastSq = pl[oppBase + lastIdx];
     pl[oppBase + capIdx] = lastSq;
-    b[lastSq | 8] = capIdx;
+    px[lastSq] = capIdx;
     pl[oppBase]--;
     node.undoCaptured = b[to];
     node.undoCapIdx = capIdx;
   }
 
-  const idx = b[fr | 8];
+  const idx = px[fr];
   pl[stmBase + idx] = to;
-  b[to | 8] = idx;
+  px[to] = idx;
 
   b[to] = b[fr];
   b[fr] = 0;
 
-  stm = curStm ^ BLACK;
+  g_stm = stm ^ BLACK;
 }
 
 function unmake (node, move) {
 
-  const b = board;
-  const pl = pieceList;
+  const b = g_board;
+  const pl = g_pieces;
+  const px = g_plix;
   const fr = (move >> 7) & 0x7F;
   const to = move & 0x7F;
 
   // stm was flipped by make, so current stm is the opponent of the mover
   // the mover's colour is stm ^ BLACK
-  const mover = stm ^ BLACK;
-  const stmBase = (mover >>> 3) * 17;
+  const stm = g_stm ^ BLACK;
+  const stmBase = (stm >>> 3) * 17;
   const oppBase = stmBase ^ 17;
 
   if (move & MOVE_FLAG_SPECIAL) {
@@ -136,9 +138,9 @@ function unmake (node, move) {
     if (move & MOVE_FLAG_PROMOTE) {
 
       // move piece back as a pawn
-      b[fr] = PAWN | mover;
-      b[fr | 8] = b[to | 8];
-      const idx = b[fr | 8];
+      b[fr] = PAWN | stm;
+      px[fr] = px[to];
+      const idx = px[fr];
       pl[stmBase + idx] = fr;
 
       if (move & MOVE_FLAG_CAPTURE) {
@@ -147,29 +149,29 @@ function unmake (node, move) {
         pl[oppBase]++;
         const lastSq = pl[oppBase + capIdx];
         pl[oppBase + pl[oppBase]] = lastSq;
-        b[lastSq | 8] = pl[oppBase];
+        px[lastSq] = pl[oppBase];
         pl[oppBase + capIdx] = to;
-        b[to | 8] = capIdx;
+        px[to] = capIdx;
         b[to] = node.undoCaptured;
       }
       else {
         b[to] = 0;
       }
 
-      rights = node.undoRights;
-      ep = node.undoEp;
-      stm = mover;
+      g_rights = node.undoRights;
+      g_ep = node.undoEp;
+      g_stm = stm;
       return;
     }
 
     if (move & MOVE_FLAG_EPCAPTURE) {
 
-      const capSq = to - 16 + (mover << 2);
+      const capSq = to - 16 + (stm << 2);
 
       // move pawn back
-      const idx = b[to | 8];
+      const idx = px[to];
       pl[stmBase + idx] = fr;
-      b[fr | 8] = idx;
+      px[fr] = idx;
       b[fr] = b[to];
       b[to] = 0;
 
@@ -178,21 +180,21 @@ function unmake (node, move) {
       pl[oppBase]++;
       const lastSq = pl[oppBase + capIdx];
       pl[oppBase + pl[oppBase]] = lastSq;
-      b[lastSq | 8] = pl[oppBase];
+      px[lastSq] = pl[oppBase];
       pl[oppBase + capIdx] = capSq;
-      b[capSq | 8] = capIdx;
-      b[capSq] = PAWN | (mover ^ BLACK);
+      px[capSq] = capIdx;
+      b[capSq] = PAWN | (stm ^ BLACK);
 
-      rights = node.undoRights;
-      ep = node.undoEp;
-      stm = mover;
+      g_rights = node.undoRights;
+      g_ep = node.undoEp;
+      g_stm = stm;
       return;
     }
 
     // castle - move king back, move rook back
 
     pl[stmBase + 1] = fr;
-    b[fr | 8] = 1;
+    px[fr] = 1;
     b[fr] = b[to];
     b[to] = 0;
 
@@ -205,24 +207,24 @@ function unmake (node, move) {
       rookFr = to - 2; rookTo = to + 1;
     }
 
-    const rookIdx = b[rookTo | 8];
+    const rookIdx = px[rookTo];
     pl[stmBase + rookIdx] = rookFr;
-    b[rookFr | 8] = rookIdx;
+    px[rookFr] = rookIdx;
     b[rookFr] = b[rookTo];
     b[rookTo] = 0;
 
-    rights = node.undoRights;
-    ep = node.undoEp;
-    stm = mover;
+    g_rights = node.undoRights;
+    g_ep = node.undoEp;
+    g_stm = stm;
     return;
   }
 
   // quiet move or normal capture
 
   // move piece back
-  const idx = b[to | 8];
+  const idx = px[to];
   pl[stmBase + idx] = fr;
-  b[fr | 8] = idx;
+  px[fr] = idx;
   b[fr] = b[to];
 
   if (move & MOVE_FLAG_CAPTURE) {
@@ -231,16 +233,16 @@ function unmake (node, move) {
     pl[oppBase]++;
     const lastSq = pl[oppBase + capIdx];
     pl[oppBase + pl[oppBase]] = lastSq;
-    b[lastSq | 8] = pl[oppBase];
+    px[lastSq] = pl[oppBase];
     pl[oppBase + capIdx] = to;
-    b[to | 8] = capIdx;
+    px[to] = capIdx;
     b[to] = node.undoCaptured;
   }
   else {
     b[to] = 0;
   }
 
-  rights = node.undoRights;
-  ep = node.undoEp;
-  stm = mover;
+  g_rights = node.undoRights;
+  g_ep = node.undoEp;
+  g_stm = stm;
 }

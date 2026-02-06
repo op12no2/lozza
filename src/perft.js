@@ -3,10 +3,10 @@ function perft(ply, depth) {
   if (depth === 0)
     return 1;
 
-  const node = nodes[ply];
-  const curStm = stm;
-  const nstm = curStm ^ BLACK;
-  const stmBase = (curStm >>> 3) * 17;
+  const node = g_ss[ply];
+  const stm = g_stm;
+  const nstm = stm ^ BLACK;
+  const stmBase = (stm >>> 3) * 17;
 
   genMoves(node);
 
@@ -20,7 +20,7 @@ function perft(ply, depth) {
 
     make(node, move);
 
-    const kingSq = pieceList[stmBase + 1];
+    const kingSq = g_pieces[stmBase + 1];
 
     if (!isAttacked(kingSq, nstm))
       total += perft(ply + 1, depth - 1);

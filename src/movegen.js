@@ -1,21 +1,21 @@
 function genMoves(node) {
 
-  const b = board;
+  const b = g_board;
   const moves = node.moves;
-  const curStm = stm;
-  const curEp = ep;
-  const curRights = rights;
+  const stm = g_stm;
+  const curEp = g_ep;
+  const curRights = g_rights;
 
   let numMoves = 0;
 
-  const enemy = curStm ^ BLACK;
+  const enemy = stm ^ BLACK;
 
-  const pawnDir = curStm === WHITE ? 16 : -16;
-  const pawnStartR = curStm === WHITE ? 0x10 : 0x60;
-  const promoteR = curStm === WHITE ? 0x70 : 0x00;
+  const pawnDir = stm === WHITE ? 16 : -16;
+  const pawnStartR = stm === WHITE ? 0x10 : 0x60;
+  const promoteR = stm === WHITE ? 0x70 : 0x00;
 
-  const pl = pieceList;
-  const base = (curStm >>> 3) * 17;
+  const pl = g_pieces;
+  const base = (stm >>> 3) * 17;
   const count = pl[base];
 
   for (let i = 1; i <= count; i++) {
@@ -185,7 +185,7 @@ function genMoves(node) {
 
         // castling
 
-        if (curStm === WHITE) {
+        if (stm === WHITE) {
           if ((curRights & WHITE_RIGHTS_KING) && !b[0x05] && !b[0x06]
               && !isAttacked(0x04, enemy) && !isAttacked(0x05, enemy) && !isAttacked(0x06, enemy))
             moves[numMoves++] = from | 0x06 | MOVE_FLAG_CASTLE;
