@@ -19,11 +19,12 @@ function qsearch(ply, depth, alpha, beta) {
   let bestMove = 0;
   let bestScore = -INF;
   let score = 0;
-  
+
   if (!inCheck) {
+    bestScore = ev;
     if (ev >= beta)
       return ev;
-    if (ev >= alpha)
+    if (ev > alpha)
       alpha = ev;
   }
 

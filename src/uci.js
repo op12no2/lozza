@@ -49,6 +49,11 @@ function uciExecLine(line) {
       printBoard();
       break;
 
+    case 'h':
+    case 'bench':
+      bench();
+      break;
+
     case 'perft':
     case 'f': {
       const depth = parseInt(tokens[1]) || 0;
@@ -63,6 +68,11 @@ function uciExecLine(line) {
 
     case 'pt':
       perftTests(parseInt(tokens[1]) || 0);
+      break;
+
+    case 'eval':
+    case 'e':
+      uciSend('eval ' + evaluate());
       break;
 
     case 'go':

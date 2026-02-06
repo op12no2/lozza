@@ -11,6 +11,7 @@ cat \
   src/search.js \
   src/qsearch.js \
   src/go.js \
+  src/bench.js \
   src/uci.js \
   src/main.js > lozza.js
   

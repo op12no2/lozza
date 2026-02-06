@@ -1,4 +1,5 @@
 initNodes();
+initPST();
 
 const nodeHost = typeof process !== 'undefined' && process.versions?.node;
 
