@@ -244,6 +244,77 @@ function initZobrist() {
   }
 
 }
+
+const TT_EXACT = 1;
+const TT_ALPHA = 2;
+const TT_BETA = 4;
+const TT_DEFAULT = 16; // mb
+const TT_WIDTH = 18; // bytes
+
+let ttSize = 1;
+let ttMask = 0;
+
+let ttLo = new Int32Array(ttSize);
+let ttHi = new Int32Array(ttSize);
+let ttType = new Uint8Array(ttSize);
+let ttDepth = new Int8Array(ttSize);
+let ttMove = new Uint32Array(ttSize);
+let ttEval = new Int16Array(ttSize);
+let ttScore = new Int16Array(ttSize);
+
+function ttResize(mb) {
+
+  const bytesPerEntry = TT_WIDTH;
+  const requestedBytes = mb * 1024 * 1024;
+  const entriesNeeded = requestedBytes / bytesPerEntry;
+  const pow2 = Math.ceil(Math.log2(entriesNeeded));
+
+  ttSize = 1 << pow2;
+  ttMask = ttSize - 1;
+
+  ttLoHash = new Int32Array(ttSize);
+  ttHiHash = new Int32Array(ttSize);
+  ttType = new Uint8Array(ttSize);
+  ttDepth = new Int8Array(ttSize);
+  ttMove = new Uint32Array(ttSize);
+  ttEval = new Int16Array(ttSize);
+  ttScore = new Int16Array(ttSize);
+
+  uciSend('info tt bits ' + pow2 + ' entries ' + ttSize + ' (0x' + ttSize.toString(16) + ') mb ' + Math.trunc((TT_WIDTH * ttSize) / (1024 * 1024)));
+
+}
+
+function ttPut (type, depth, score, move, ev) {
+
+  const idx = g_loHash & ttMask;
+
+  ttLoHash[idx] = g_loHash;
+  ttHiHash[idx] = g_hiHash;
+  ttType[idx] = type;
+  ttDepth[idx] = depth;
+  ttScore[idx] = score;
+  ttEval[idx] = ev;
+  ttMove[idx] = move;
+
+}
+
+function ttGet () {
+
+  const idx = g_loHash & ttMask;
+
+  if (ttLoHash[idx] !== g_loHash || ttHiHash[idx] !== g_hiHash )
+    return -1;
+
+  return idx;
+
+}
+
+function ttClear() {
+
+  ttType.fill(0);
+
+}
+
 function nodeStruct() {
 
   this.moves = new Uint32Array(MAX_MOVES);
@@ -1495,6 +1566,9 @@ function search(ply, depth, alpha, beta) {
       return 0;
   }
 
+  if (ply >= MAX_PLY)
+    return evaluate();
+
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
@@ -1580,6 +1654,9 @@ function qsearch(ply, depth, alpha, beta) {
     if (g_finished)
       return 0;
   }
+
+  if (ply >= MAX_PLY)
+    return evaluate();
 
   const node = g_ss[ply];
   const stm = g_stm;
@@ -1701,6 +1778,10 @@ function go() {
   uciSend('bestmove ' + formatMove(g_bestMove));
 
 }
+
+function newGame () {
+  ttClear();  
+}
 function bench() {
 
   const depth = 1;
@@ -1712,8 +1793,9 @@ function bench() {
         
     const fen = BENCHFENS[i];
         
+    uciExecLine('ucinewgame'); // clear tt (create on first call if not already created)
     uciExecLine('position fen ' + fen);
-    uciExecLine('go depth ' + depth);
+    uciExecLine('go depth ' + depth); // g_nodes cleared here
         
     nodes += g_nodes;
         
@@ -1745,17 +1827,27 @@ function uciExecLine(line) {
 
   switch (cmd) {
 
-    case 'isready':
+    case 'isready': {
       uciSend('readyok');
       break;
+    }
 
-    case 'uci':
+    case 'ucinewgame':
+    case 'u': {
+      if (ttMask === 0)
+        ttResize(TT_DEFAULT);
+      newGame();
+      break;
+    }    
+
+    case 'uci': {
       uciSend('id name Lozza 11');
       uciSend('id author xyzzy');
-      //uciSend('option name Hash type spin default ' + ttDefault + ' min 1 max 1024');
+      uciSend('option name Hash type spin default ' + TT_DEFAULT + ' min 1 max 1024');
       //uciSend('option name MultiPV type spin default 1 min 1 max 10');
       uciSend('uciok');
       break;
+    }
 
     case 'p':
     case 'position': {
@@ -1772,14 +1864,23 @@ function uciExecLine(line) {
     }
 
     case 'b':
-    case 'board':
+    case 'board': {
       printBoard();
       break;
+    }
 
     case 'h':
-    case 'bench':
+    case 'bench': {
       bench();
       break;
+    }
+
+    case 'o':
+    case 'setoption': {
+      if (tokens[2].toLowerCase() === 'hash')
+        ttResize(parseInt(tokens[4]));
+      break;
+    }
 
     case 'perft':
     case 'f': {
@@ -1793,31 +1894,38 @@ function uciExecLine(line) {
       break;
     }
 
-    case 'pt':
+    case 'pt': {
       perftTests(parseInt(tokens[1]) || 0);
       break;
+    }
 
     case 'eval':
-    case 'e':
+    case 'e': {
       uciSend('eval ' + evaluate());
       break;
+    }
 
     case 'go':
-    case 'g':
+    case 'g': {
+      if (ttMask === 0)
+        ttResize(TT_DEFAULT);
       initTimeControl(tokens);
       go();
       break;
+    }
 
     case 'quit':
-    case 'q':
+    case 'q': {
       if (nodeHost) {
         process.exit(0);
       }
       break;
+    }
 
-    default:
+    default: {
       uciSend('?');
       break;
+    }  
   }
 }
 initNodes();

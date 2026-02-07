@@ -44,3 +44,74 @@ function initZobrist() {
   }
 
 }
+
+const TT_EXACT = 1;
+const TT_ALPHA = 2;
+const TT_BETA = 4;
+const TT_DEFAULT = 16; // mb
+const TT_WIDTH = 18; // bytes - see below
+
+let ttSize = 1;
+let ttMask = 0; // 0 implies tt not resized yet
+
+let ttLo = new Int32Array(ttSize); // 4
+let ttHi = new Int32Array(ttSize); // 4
+let ttType = new Uint8Array(ttSize); // 1
+let ttDepth = new Int8Array(ttSize); // 1
+let ttMove = new Uint32Array(ttSize); // 4
+let ttEval = new Int16Array(ttSize); // 2
+let ttScore = new Int16Array(ttSize); // 2
+
+function ttResize(mb) {
+
+  const bytesPerEntry = TT_WIDTH;
+  const requestedBytes = mb * 1024 * 1024;
+  const entriesNeeded = requestedBytes / bytesPerEntry;
+  const pow2 = Math.ceil(Math.log2(entriesNeeded));
+
+  ttSize = 1 << pow2;
+  ttMask = ttSize - 1;
+
+  ttLoHash = new Int32Array(ttSize);
+  ttHiHash = new Int32Array(ttSize);
+  ttType = new Uint8Array(ttSize);
+  ttDepth = new Int8Array(ttSize);
+  ttMove = new Uint32Array(ttSize);
+  ttEval = new Int16Array(ttSize);
+  ttScore = new Int16Array(ttSize);
+
+  uciSend('info tt bits ' + pow2 + ' entries ' + ttSize + ' (0x' + ttSize.toString(16) + ') mb ' + Math.trunc((TT_WIDTH * ttSize) / (1024 * 1024)));
+
+}
+
+function ttPut (type, depth, score, move, ev) {
+
+  const idx = g_loHash & ttMask;
+
+  ttLoHash[idx] = g_loHash;
+  ttHiHash[idx] = g_hiHash;
+  ttType[idx] = type;
+  ttDepth[idx] = depth;
+  ttScore[idx] = score;
+  ttEval[idx] = ev;
+  ttMove[idx] = move;
+
+}
+
+function ttGet () {
+
+  const idx = g_loHash & ttMask;
+
+  if (ttLoHash[idx] !== g_loHash || ttHiHash[idx] !== g_hiHash )
+    return -1;
+
+  return idx;
+
+}
+
+function ttClear() {
+
+  ttType.fill(0);
+
+}
+

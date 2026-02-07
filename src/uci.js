@@ -18,17 +18,27 @@ function uciExecLine(line) {
 
   switch (cmd) {
 
-    case 'isready':
+    case 'isready': {
       uciSend('readyok');
       break;
+    }
 
-    case 'uci':
+    case 'ucinewgame':
+    case 'u': {
+      if (ttMask === 0)
+        ttResize(TT_DEFAULT);
+      newGame();
+      break;
+    }    
+
+    case 'uci': {
       uciSend('id name Lozza 11');
       uciSend('id author xyzzy');
-      //uciSend('option name Hash type spin default ' + ttDefault + ' min 1 max 1024');
+      uciSend('option name Hash type spin default ' + TT_DEFAULT + ' min 1 max 1024');
       //uciSend('option name MultiPV type spin default 1 min 1 max 10');
       uciSend('uciok');
       break;
+    }
 
     case 'p':
     case 'position': {
@@ -45,14 +55,23 @@ function uciExecLine(line) {
     }
 
     case 'b':
-    case 'board':
+    case 'board': {
       printBoard();
       break;
+    }
 
     case 'h':
-    case 'bench':
+    case 'bench': {
       bench();
       break;
+    }
+
+    case 'o':
+    case 'setoption': {
+      if (tokens[2].toLowerCase() === 'hash')
+        ttResize(parseInt(tokens[4]));
+      break;
+    }
 
     case 'perft':
     case 'f': {
@@ -66,30 +85,37 @@ function uciExecLine(line) {
       break;
     }
 
-    case 'pt':
+    case 'pt': {
       perftTests(parseInt(tokens[1]) || 0);
       break;
+    }
 
     case 'eval':
-    case 'e':
+    case 'e': {
       uciSend('eval ' + evaluate());
       break;
+    }
 
     case 'go':
-    case 'g':
+    case 'g': {
+      if (ttMask === 0)
+        ttResize(TT_DEFAULT);
       initTimeControl(tokens);
       go();
       break;
+    }
 
     case 'quit':
-    case 'q':
+    case 'q': {
       if (nodeHost) {
         process.exit(0);
       }
       break;
+    }
 
-    default:
+    default: {
       uciSend('?');
       break;
+    }  
   }
 }

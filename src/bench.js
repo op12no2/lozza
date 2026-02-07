@@ -9,8 +9,9 @@ function bench() {
         
     const fen = BENCHFENS[i];
         
+    uciExecLine('ucinewgame'); // clear tt (create on first call if not already created)
     uciExecLine('position fen ' + fen);
-    uciExecLine('go depth ' + depth);
+    uciExecLine('go depth ' + depth); // g_nodes cleared here
         
     nodes += g_nodes;
         

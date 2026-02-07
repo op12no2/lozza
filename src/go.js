@@ -50,3 +50,7 @@ function go() {
   uciSend('bestmove ' + formatMove(g_bestMove));
 
 }
+
+function newGame () {
+  ttClear();  
+}

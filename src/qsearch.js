@@ -7,6 +7,9 @@ function qsearch(ply, depth, alpha, beta) {
       return 0;
   }
 
+  if (ply >= MAX_PLY)
+    return evaluate();
+
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
