@@ -47,7 +47,9 @@ function initZobrist() {
 
 const TT_EXACT = 1;
 const TT_ALPHA = 2;
-const TT_BETA = 4;
+const TT_BETA = 3;
+const TT_TYPE_MASK = 3;
+const TT_INCHECK = 4;
 const TT_DEFAULT = 16; // mb
 const TT_WIDTH = 18; // bytes - see below
 
@@ -84,13 +86,13 @@ function ttResize(mb) {
 
 }
 
-function ttPut(type, depth, score, move, ev) {
+function ttPut(type, depth, score, move, ev, inCheck) {
 
   const idx = g_loHash & ttMask;
 
   ttLoHash[idx] = g_loHash;
   ttHiHash[idx] = g_hiHash;
-  ttType[idx] = type;
+  ttType[idx] = inCheck ? type | TT_INCHECK : type;
   ttDepth[idx] = depth;
   ttScore[idx] = score;
   ttEval[idx] = ev;

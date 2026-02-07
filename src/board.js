@@ -142,9 +142,12 @@ function position(boardStr, stmStr, rightsStr, epStr, moves) {
 
   if (moves) {
     for (let m = 0; m < moves.length; m++) {
-      const n = genMoves(rootNode);
+      rootNode.numMoves = 0;
+      genNoisy(rootNode);
+      genQuiets(rootNode);
+      genCastling(rootNode);
       let found = 0;
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < rootNode.numMoves; i++) {
         if (formatMove(rootNode.moves[i]) === moves[m]) {
           make(rootNode, rootNode.moves[i]);
           found = 1;

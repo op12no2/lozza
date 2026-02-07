@@ -13,9 +13,9 @@ function qsearch(ply, depth, alpha, beta) {
   // hack check for mat draw here
 
   const ttix = ttGet();
-  
+
   if (ttix >= 0) {
-    const type = ttType[ttix];
+    const type = ttType[ttix] & TT_TYPE_MASK;
     const score = getAdjustedScore(ply, ttScore[ttix]);
     if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
       return score;
@@ -26,9 +26,10 @@ function qsearch(ply, depth, alpha, beta) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1;
-  const inCheck = depth > -10 ? isAttacked(g_pieces[kix], nstm) : 0; // safety net
+  const realInCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
+  const inCheck = depth > -10 ? realInCheck : 0; // safety net
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 ? ttMove[ttix] : 0; // hack may be quiet / check for legalityish
+  const ttMov = ttix >= 0 ? ttMove[ttix] : 0;
 
   let bestScore = -INF;
 
@@ -46,13 +47,12 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  initNextSearchMove(node, inCheck, ttMov);
+  if (inCheck)
+    initNextSearchMove(node, inCheck, ttMov);
+  else
+    initNextNoisyMove(node, ttMov);
 
-  while ((move = getNextSearchMove(node))) {
-
-    if (!inCheck && !(move & MOVE_FLAG_NOISY)) { // hack until qs movegen
-      continue;
-    }
+  while ((move = inCheck ? getNextSearchMove(node) : getNextNoisyMove(node))) {
 
     make(node, move);
     //checkHash();
@@ -78,9 +78,9 @@ function qsearch(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
-          ttPut(TT_BETA, 0, putAdjustedScore(ply, bestScore), bestMove, ev);
+          ttPut(TT_BETA, 0, putAdjustedScore(ply, bestScore), bestMove, ev, realInCheck);
           return bestScore;
-        }  
+        }
       }
     }
   }

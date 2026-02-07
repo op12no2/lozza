@@ -1,17 +1,15 @@
-function genMoves(node) {
+function genNoisy(node) { // mutually exclusive with genQuiets()
 
   const b = g_board;
   const moves = node.moves;
   const stm = g_stm;
   const curEp = g_ep;
-  const curRights = g_rights;
 
   let numMoves = node.numMoves;
 
   const enemy = stm ^ BLACK;
 
   const pawnDir = stm === WHITE ? 16 : -16;
-  const pawnStartR = stm === WHITE ? 0x10 : 0x60;
   const promoteR = stm === WHITE ? 0x70 : 0x00;
 
   const pl = g_pieces;
@@ -30,26 +28,13 @@ function genMoves(node) {
 
         const to1 = sq + pawnDir;
 
-        // single push
+        // push promotions
 
-        if (!b[to1]) {
-
-          if ((to1 & 0x70) === promoteR) {
-            moves[numMoves++] = from | to1 | MOVE_FLAG_PROMOTE | (QUEEN  << PROMOTE_SHIFT);
-            moves[numMoves++] = from | to1 | MOVE_FLAG_PROMOTE | (ROOK   << PROMOTE_SHIFT);
-            moves[numMoves++] = from | to1 | MOVE_FLAG_PROMOTE | (BISHOP << PROMOTE_SHIFT);
-            moves[numMoves++] = from | to1 | MOVE_FLAG_PROMOTE | (KNIGHT << PROMOTE_SHIFT);
-          }
-          else {
-            moves[numMoves++] = from | to1;
-
-            // double push
-
-            const to2 = sq + pawnDir * 2;
-
-            if ((sq & 0x70) === pawnStartR && !b[to2])
-              moves[numMoves++] = from | to2;
-          }
+        if (!b[to1] && (to1 & 0x70) === promoteR) {
+          moves[numMoves++] = from | to1 | MOVE_FLAG_PROMOTE | (QUEEN  << PROMOTE_SHIFT);
+          moves[numMoves++] = from | to1 | MOVE_FLAG_PROMOTE | (ROOK   << PROMOTE_SHIFT);
+          moves[numMoves++] = from | to1 | MOVE_FLAG_PROMOTE | (BISHOP << PROMOTE_SHIFT);
+          moves[numMoves++] = from | to1 | MOVE_FLAG_PROMOTE | (KNIGHT << PROMOTE_SHIFT);
         }
 
         // captures
@@ -73,7 +58,7 @@ function genMoves(node) {
               moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
             }
           }
-          else if (curEp && to === curEp) { // ep=0 means no ep, but 0x00 (a1) is valid so guard with ep&&
+          else if (curEp && to === curEp) {
             moves[numMoves++] = from | to | MOVE_FLAG_EPCAPTURE | MOVE_FLAG_CAPTURE;
           }
         }
@@ -90,10 +75,154 @@ function genMoves(node) {
           if (to & 0x88)
             continue;
 
+          if (b[to] && (b[to] & BLACK) === enemy)
+            moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
+        }
+
+        break;
+      }
+
+      case BISHOP: {
+
+        for (let i = 0; i < 4; i++) {
+
+          const dir = BISHOP_OFFSETS[i];
+
+          for (let to = sq + dir; !(to & 0x88); to += dir) {
+
+            if (!b[to])
+              continue;
+
+            if ((b[to] & BLACK) === enemy)
+              moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
+
+            break;
+          }
+        }
+
+        break;
+      }
+
+      case ROOK: {
+
+        for (let i = 0; i < 4; i++) {
+
+          const dir = ROOK_OFFSETS[i];
+
+          for (let to = sq + dir; !(to & 0x88); to += dir) {
+
+            if (!b[to])
+              continue;
+
+            if ((b[to] & BLACK) === enemy)
+              moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
+
+            break;
+          }
+        }
+
+        break;
+      }
+
+      case QUEEN: {
+
+        for (let i = 0; i < 8; i++) {
+
+          const dir = QUEEN_OFFSETS[i];
+
+          for (let to = sq + dir; !(to & 0x88); to += dir) {
+
+            if (!b[to])
+              continue;
+
+            if ((b[to] & BLACK) === enemy)
+              moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
+
+            break;
+          }
+        }
+
+        break;
+      }
+
+      case KING: {
+
+        for (let i = 0; i < 8; i++) {
+
+          const to = sq + KING_OFFSETS[i];
+
+          if (to & 0x88)
+            continue;
+
+          if (b[to] && (b[to] & BLACK) === enemy)
+            moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
+        }
+
+        break;
+      }
+    }
+  }
+
+  node.numMoves = numMoves;
+
+}
+
+function genQuiets(node) {
+
+  const b = g_board;
+  const moves = node.moves;
+  const stm = g_stm;
+
+  let numMoves = node.numMoves;
+
+  const pawnDir = stm === WHITE ? 16 : -16;
+  const pawnStartR = stm === WHITE ? 0x10 : 0x60;
+  const promoteR = stm === WHITE ? 0x70 : 0x00;
+
+  const pl = g_pieces;
+  const base = (stm >>> 3) * 17;
+  const count = pl[base];
+
+  for (let i = 1; i <= count; i++) {
+
+    const sq = pl[base + i];
+    const piece = b[sq];
+    const from = sq << 7;
+
+    switch (piece & 7) {
+
+      case PAWN: {
+
+        const to1 = sq + pawnDir;
+
+        // single push (non-promote)
+
+        if (!b[to1] && (to1 & 0x70) !== promoteR) {
+
+          moves[numMoves++] = from | to1;
+
+          // double push
+
+          const to2 = sq + pawnDir * 2;
+
+          if ((sq & 0x70) === pawnStartR && !b[to2])
+            moves[numMoves++] = from | to2;
+        }
+
+        break;
+      }
+
+      case KNIGHT: {
+
+        for (let i = 0; i < 8; i++) {
+
+          const to = sq + KNIGHT_OFFSETS[i];
+
+          if (to & 0x88)
+            continue;
+
           if (!b[to])
             moves[numMoves++] = from | to;
-          else if ((b[to] & BLACK) === enemy)
-            moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
         }
 
         break;
@@ -111,9 +240,6 @@ function genMoves(node) {
               moves[numMoves++] = from | to;
               continue;
             }
-
-            if ((b[to] & BLACK) === enemy)
-              moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
 
             break;
           }
@@ -135,9 +261,6 @@ function genMoves(node) {
               continue;
             }
 
-            if ((b[to] & BLACK) === enemy)
-              moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
-
             break;
           }
         }
@@ -158,9 +281,6 @@ function genMoves(node) {
               continue;
             }
 
-            if ((b[to] & BLACK) === enemy)
-              moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
-
             break;
           }
         }
@@ -179,8 +299,6 @@ function genMoves(node) {
 
           if (!b[to])
             moves[numMoves++] = from | to;
-          else if ((b[to] & BLACK) === enemy)
-            moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
         }
 
         break;

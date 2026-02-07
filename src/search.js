@@ -19,7 +19,7 @@ function search(ply, depth, alpha, beta) {
   const ttix = ttGet();
   
   if (!isPV && ttix >= 0 && ttDepth[ttix] >= depth) {
-    const type = ttType[ttix];
+    const type = ttType[ttix] & TT_TYPE_MASK;
     const score = getAdjustedScore(ply, ttScore[ttix]);
     if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
       return score;
@@ -31,8 +31,8 @@ function search(ply, depth, alpha, beta) {
   const nstm = stm ^ BLACK;
   const isRoot = ply === 0;
   const kix = (stm >>> 3) * 17 + 1;
-  const inCheck = isAttacked(g_pieces[kix], nstm);
   const origAlpha = alpha;
+  const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
   const ttMov = ttix >= 0 ? ttMove[ttix] : 0; // check for legalityish
 
@@ -87,7 +87,7 @@ function search(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
-          ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev);
+          ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
           return bestScore;
         }  
       }
@@ -101,7 +101,7 @@ function search(ply, depth, alpha, beta) {
       return 0;
   }
 
-  ttPut(alpha > origAlpha ? TT_EXACT : TT_ALPHA, depth, putAdjustedScore(ply, bestScore), bestMove, ev);
+  ttPut(alpha > origAlpha ? TT_EXACT : TT_ALPHA, depth, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
 
   return bestScore;
 

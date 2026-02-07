@@ -27,7 +27,7 @@ function getNextSortedMove(node) {
   let maxR = INT32_MIN;
   let maxI = 0;
   let maxM = 0;
-    
+
   for (let i=next; i < num; i++) {
     if (ranks[i] > maxR) {
       maxR = ranks[i];
@@ -106,9 +106,9 @@ function getNextSearchMove(node) {
   switch (node.stage) {
 
     case 0: {
-      
+
       node.stage++;
-      
+
       if (node.ttMov) {
         return node.ttMov;
       }
@@ -120,9 +120,7 @@ function getNextSearchMove(node) {
       node.stage++;
       node.nextMove = 0;
       node.numMoves = 0;
-      genMoves(node);
-      if (!node.inCheck)
-        genCastling(node);
+      genNoisy(node);
       removeTTMove(node);
       //rank_captures(node);
 
@@ -134,8 +132,78 @@ function getNextSearchMove(node) {
         return getNextSortedMove(node);
       }
 
+      node.stage++;
+
+    }
+
+    case 3: {
+
+      node.stage++;
+      node.nextMove = 0;
+      node.numMoves = 0;
+      genQuiets(node);
+      if (!node.inCheck)
+        genCastling(node);
+      removeTTMove(node);
+      //rank_quiets(node);
+
+    }
+
+    case 4: {
+
+      if (node.nextMove < node.numMoves) {
+        return getNextSortedMove(node);
+      }
+
       return 0;
-      
+
+    }
+
+    default:
+      return 0;
+
+  }
+}
+
+function initNextNoisyMove(node, ttMov) {
+
+  node.stage = 0;
+  node.ttMov = ttMov;
+
+}
+
+function getNextNoisyMove(node) {
+
+  switch (node.stage) {
+
+    case 0: {
+
+      node.stage++;
+
+      if (node.ttMov) {
+        return node.ttMov;
+      }
+
+    }
+
+    case 1: {
+
+      node.stage++;
+      node.nextMove = 0;
+      node.numMoves = 0;
+      genNoisy(node);
+      removeTTMove(node);
+
+    }
+
+    case 2: {
+
+      if (node.nextMove < node.numMoves) {
+        return getNextSortedMove(node);
+      }
+
+      return 0;
+
     }
 
     default:
