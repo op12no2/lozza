@@ -1,5 +1,10 @@
 "use strict"
 
+const INT32_MIN = -0x80000000; // -2147483648
+const INT32_MAX =  0x7fffffff; // 2147483647
+const INT16_MIN = -0x8000; // -32768
+const INT16_MAX =  0x7fff; // 32767
+
 const INF = 31000;
 const MATE = 30000;
 const MATEISH = 29000;
@@ -78,6 +83,7 @@ let g_startTime = 0; // always set via performance.now()
 let g_finishTime = 0; // finish time if appropriate (else 0)
 let g_finished = 0; // 1 when time/nodes reached (else 0)
 let g_bestMove = 0;
+
 const PERFTFENS = [
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 0, 1,         'startpos-0'],
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 1, 20,        'startpos-1'],
@@ -290,9 +296,6 @@ function ttPut(type, depth, score, move, ev) {
 
   const idx = g_loHash & ttMask;
 
-  if (ttType[idx] && ttDepth[idx] >= depth && ttLoHash[idx] === g_loHash && ttHiHash[idx] === g_hiHash)
-    return; // preseve better depths for this hash
-  
   ttLoHash[idx] = g_loHash;
   ttHiHash[idx] = g_hiHash;
   ttType[idx] = type;
@@ -307,10 +310,10 @@ function ttGet() {
 
   const idx = g_loHash & ttMask;
 
-  if (ttLoHash[idx] !== g_loHash || ttHiHash[idx] !== g_hiHash)
-    return -1;
+  if (ttType[idx] && ttLoHash[idx] === g_loHash && ttHiHash[idx] === g_hiHash)
+    return idx;
 
-  return idx;
+  return -1;
 
 }
 
@@ -348,9 +351,14 @@ function getAdjustedScore(ply, score) {
 
 function nodeStruct() {
 
+  this.numMoves = 0;
   this.moves = new Uint32Array(MAX_MOVES);
   this.ranks = new Int32Array(MAX_MOVES);
-  this.undoRights = 0;
+  this.nextMove = 0; // for move iterator
+  this.ttMov = 0;  // for move iterator
+  this.inCheck = 0; // for move gen (no castling if in check)
+  this.stage = 0; // for move iterator
+  this.undoRights = 0; // undo* for unmake()
   this.undoEp = 0;
   this.undoCaptured = 0;
   this.undoCapIdx = 0;
@@ -385,6 +393,7 @@ function formatMove(move) {
 
   return s;
 }
+
 
 const pieceChar = [' ', 'P', 'N', 'B', 'R', 'Q', 'K', ' ', ' ', 'p', 'n', 'b', 'r', 'q', 'k'];
 
@@ -1017,7 +1026,7 @@ function genMoves(node) {
   const curEp = g_ep;
   const curRights = g_rights;
 
-  let numMoves = 0;
+  let numMoves = node.numMoves;
 
   const enemy = stm ^ BLACK;
 
@@ -1194,33 +1203,194 @@ function genMoves(node) {
             moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
         }
 
-        // castling
-
-        if (stm === WHITE) {
-          if ((curRights & WHITE_RIGHTS_KING) && !b[0x05] && !b[0x06]
-              && !isAttacked(0x04, enemy) && !isAttacked(0x05, enemy) && !isAttacked(0x06, enemy))
-            moves[numMoves++] = from | 0x06 | MOVE_FLAG_CASTLE;
-          if ((curRights & WHITE_RIGHTS_QUEEN) && !b[0x03] && !b[0x02] && !b[0x01]
-              && !isAttacked(0x04, enemy) && !isAttacked(0x03, enemy) && !isAttacked(0x02, enemy))
-            moves[numMoves++] = from | 0x02 | MOVE_FLAG_CASTLE;
-        }
-        else {
-          if ((curRights & BLACK_RIGHTS_KING) && !b[0x75] && !b[0x76]
-              && !isAttacked(0x74, enemy) && !isAttacked(0x75, enemy) && !isAttacked(0x76, enemy))
-            moves[numMoves++] = from | 0x76 | MOVE_FLAG_CASTLE;
-          if ((curRights & BLACK_RIGHTS_QUEEN) && !b[0x73] && !b[0x72] && !b[0x71]
-              && !isAttacked(0x74, enemy) && !isAttacked(0x73, enemy) && !isAttacked(0x72, enemy))
-            moves[numMoves++] = from | 0x72 | MOVE_FLAG_CASTLE;
-        }
-
         break;
       }
     }
   }
 
-  return numMoves;
+  node.numMoves = numMoves;
 
 }
+
+function genCastling(node) {
+
+  const b = g_board;
+  const moves = node.moves;
+  const enemy = g_stm ^ BLACK;
+
+  const base = (g_stm >>> 3) * 17;
+  const sq = g_pieces[base + 1];
+  const from = sq << 7;
+
+  let numMoves = node.numMoves;
+
+  if (g_stm === WHITE) {
+    if ((g_rights & WHITE_RIGHTS_KING) && !b[0x05] && !b[0x06]
+        && !isAttacked(0x05, enemy) && !isAttacked(0x06, enemy))
+      moves[numMoves++] = from | 0x06 | MOVE_FLAG_CASTLE;
+    if ((g_rights & WHITE_RIGHTS_QUEEN) && !b[0x03] && !b[0x02] && !b[0x01]
+        && !isAttacked(0x03, enemy) && !isAttacked(0x02, enemy))
+      moves[numMoves++] = from | 0x02 | MOVE_FLAG_CASTLE;
+  }
+  else {
+    if ((g_rights & BLACK_RIGHTS_KING) && !b[0x75] && !b[0x76]
+        && !isAttacked(0x75, enemy) && !isAttacked(0x76, enemy))
+      moves[numMoves++] = from | 0x76 | MOVE_FLAG_CASTLE;
+    if ((g_rights & BLACK_RIGHTS_QUEEN) && !b[0x73] && !b[0x72] && !b[0x71]
+        && !isAttacked(0x73, enemy) && !isAttacked(0x72, enemy))
+      moves[numMoves++] = from | 0x72 | MOVE_FLAG_CASTLE;
+  }
+
+  node.numMoves = numMoves;
+
+}
+
+function removeTTMove(node) {
+
+  const ttMov = node.ttMov;
+
+  if (ttMov === 0)
+    return;
+
+  const moves = node.moves;
+  const n = node.numMoves;
+
+  for (let i = 0; i < n; i++) {
+    if (moves[i] == ttMov) {
+      moves[i] = moves[n - 1];
+      node.numMoves--;
+      return;
+    }
+  }
+
+}
+
+function getNextSortedMove(node) {
+
+  const moves = node.moves;
+  const ranks = node.ranks;
+  const next = node.nextMove;
+  const num = node.numMoves;
+  let maxR = INT32_MIN;
+  let maxI = 0;
+  let maxM = 0;
+    
+  for (let i=next; i < num; i++) {
+    if (ranks[i] > maxR) {
+      maxR = ranks[i];
+      maxI = i;
+    }
+  }
+
+  maxM = moves[maxI];
+
+  moves[maxI] = moves[next];
+  ranks[maxI] = ranks[next];
+
+  node.nextMove++;
+
+  return maxM;
+
+}
+
+/*
+void rank_quiets(Node *node) {
+
+  const uint8_t *board = node->pos.board;
+  const move_t *moves = node->moves;
+  int16_t *ranks = node->ranks;
+  const int n = node->num_moves;
+
+  for (let i=0; i < n; i++) {
+
+    const move_t m = moves[i];
+    const int from = (m >> 6) & 0x3F;
+    const int to = m & 0x3F;
+    const int piece = board[from];
+
+    ranks[i] = piece_to_history[piece][to];
+
+  }
+}
+
+void rank_captures(Node *node) {
+
+  const uint8_t *board = node->pos.board;
+  const move_t *moves = node->moves;
+  int16_t *ranks = node->ranks;
+  const int n = node->num_moves;
+
+  for (let i=0; i < n; i++) {
+
+    const move_t m = moves[i];
+    const int from = (m >> 6) & 0x3F;
+    const int to = m & 0x3F;
+    const int attacker = board[from] % 6;
+    int victim = board[to];
+
+    if (victim == EMPTY)  // ep
+      victim = 0;
+    else
+      victim %= 6;
+
+    ranks[i] = (victim << 3) | (5 - attacker);
+
+  }
+}
+
+*/
+
+function initNextSearchMove(node, inCheck, ttMov) {
+
+  node.stage = 0;
+  node.inCheck = inCheck;
+  node.ttMov = ttMov;
+
+}
+
+function getNextSearchMove(node) {
+
+  switch (node.stage) {
+
+    case 0: {
+      
+      node.stage++;
+      
+      if (node.ttMov) {
+        return node.ttMov;
+      }
+
+    }
+
+    case 1: {
+
+      node.stage++;
+      node.nextMove = 0;
+      node.numMoves = 0;
+      genMoves(node);
+      if (!node.inCheck)
+        genCastling(node);
+      removeTTMove(node);
+      //rank_captures(node);
+
+    }
+
+    case 2: {
+
+      if (node.nextMove < node.numMoves) {
+        return getNextSortedMove(node);
+      }
+
+      return 0;
+      
+    }
+
+    default:
+      return 0;
+
+  }
+}
+
 function perft(ply, depth) {
 
   if (depth === 0)
@@ -1230,15 +1400,14 @@ function perft(ply, depth) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1; // our king square index in piece list
-  const moves = node.moves;
+  const inCheck = isAttacked(g_pieces[kix], nstm); // to exercise the move iterator
   
+  let move = 0;
   let total = 0;
 
-  const numMoves = genMoves(node);
+  initNextSearchMove(node, inCheck, 0);
 
-  for (let i = 0; i < numMoves; i++) {
-
-    const move = moves[i];
+  while ((move = getNextSearchMove(node))) {
 
     make(node, move);
     //checkHash();
@@ -1289,6 +1458,7 @@ function perftTests(maxDepth) {
 
   uciSend('');
   uciSend(count + ' tests, ' + fails + ' fails, ' + totalNodes + ' nodes in ' + ms + ' ms ' + nps + ' nps');
+
 }
 
 function checkTime() {
@@ -1600,6 +1770,8 @@ function search(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  // hack check for draws here
+
   const isPV = beta !== (alpha + 1);
   const ttix = ttGet();
   
@@ -1615,24 +1787,23 @@ function search(ply, depth, alpha, beta) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const isRoot = ply === 0;
-  const moves = node.moves;
   const kix = (stm >>> 3) * 17 + 1;
   const inCheck = isAttacked(g_pieces[kix], nstm);
   const origAlpha = alpha;
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
+  const ttMov = ttix >= 0 ? ttMove[ttix] : 0; // check for legalityish
 
+  let move = 0;
   let played = 0;
   let bestMove = 0;
   let bestScore = -INF;
   let score = 0;
-  let reductions = 0;
-  let extensions = 0;
+  let reductions = 0; // hack for use with lmr
+  let extensions = 0; // ditto
   
-  const numMoves = genMoves(node);
-  
-  for (let i = 0; i < numMoves; i++) {
+  initNextSearchMove(node, inCheck, ttMov);
 
-    const move = moves[i];
+  while ((move = getNextSearchMove(node))) {
 
     make(node, move);
     //checkHash();
@@ -1705,6 +1876,8 @@ function qsearch(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  // hack check for mat draw here
+
   const ttix = ttGet();
   
   if (ttix >= 0) {
@@ -1718,15 +1891,12 @@ function qsearch(ply, depth, alpha, beta) {
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
-  const moves = node.moves;
   const kix = (stm >>> 3) * 17 + 1;
-  const inCheck = isAttacked(g_pieces[kix], nstm);
+  const inCheck = depth > -10 ? isAttacked(g_pieces[kix], nstm) : 0; // safety net
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
+  const ttMov = ttix >= 0 ? ttMove[ttix] : 0; // hack may be quiet / check for legalityish
 
-  let played = 0;
-  let bestMove = 0;
   let bestScore = -INF;
-  let score = 0;
 
   if (!inCheck) {
     bestScore = ev;
@@ -1736,15 +1906,17 @@ function qsearch(ply, depth, alpha, beta) {
       alpha = ev;
   }
 
+  let move = 0;
+  let played = 0;
+  let bestMove = 0;
+  let score = 0;
   let origAlpha = alpha;
 
-  const numMoves = genMoves(node);
-  
-  for (let i = 0; i < numMoves; i++) {
+  initNextSearchMove(node, inCheck, ttMov);
 
-    const move = moves[i];
+  while ((move = getNextSearchMove(node))) {
 
-    if (!inCheck && !(move & MOVE_FLAG_NOISY)) {
+    if (!inCheck && !(move & MOVE_FLAG_NOISY)) { // hack until qs movegen
       continue;
     }
 
@@ -1783,7 +1955,7 @@ function qsearch(ply, depth, alpha, beta) {
     return -MATE + ply;
   }
 
-  ttPut(alpha > origAlpha ? TT_EXACT : TT_ALPHA, 0, putAdjustedScore(ply, bestScore), bestMove, ev);
+  //ttPut(alpha > origAlpha ? TT_EXACT : TT_ALPHA, 0, putAdjustedScore(ply, bestScore), bestMove, ev);
 
   return bestScore;
 
@@ -1827,7 +1999,7 @@ function go() {
       }
       
       else {
-        uciSend(depth);
+        uciSend(depth); // hack extend to pv
         break;
       }
       
@@ -1845,9 +2017,10 @@ function go() {
 function newGame () {
   ttClear();  
 }
+
 function bench() {
 
-  const depth = 1;
+  const depth = 3;
 
   let nodes = 0;
   let start = performance.now();
@@ -1870,6 +2043,7 @@ function bench() {
   uciSend('nodes ' + nodes + ' elapsed ' + elapsed + ' nps ' + nps);
         
 }  
+
 function uciSend(s) {
   if (nodeHost) {
     console.log(s);

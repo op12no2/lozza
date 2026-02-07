@@ -6,7 +6,7 @@ function genMoves(node) {
   const curEp = g_ep;
   const curRights = g_rights;
 
-  let numMoves = 0;
+  let numMoves = node.numMoves;
 
   const enemy = stm ^ BLACK;
 
@@ -183,30 +183,45 @@ function genMoves(node) {
             moves[numMoves++] = from | to | MOVE_FLAG_CAPTURE;
         }
 
-        // castling
-
-        if (stm === WHITE) {
-          if ((curRights & WHITE_RIGHTS_KING) && !b[0x05] && !b[0x06]
-              && !isAttacked(0x04, enemy) && !isAttacked(0x05, enemy) && !isAttacked(0x06, enemy))
-            moves[numMoves++] = from | 0x06 | MOVE_FLAG_CASTLE;
-          if ((curRights & WHITE_RIGHTS_QUEEN) && !b[0x03] && !b[0x02] && !b[0x01]
-              && !isAttacked(0x04, enemy) && !isAttacked(0x03, enemy) && !isAttacked(0x02, enemy))
-            moves[numMoves++] = from | 0x02 | MOVE_FLAG_CASTLE;
-        }
-        else {
-          if ((curRights & BLACK_RIGHTS_KING) && !b[0x75] && !b[0x76]
-              && !isAttacked(0x74, enemy) && !isAttacked(0x75, enemy) && !isAttacked(0x76, enemy))
-            moves[numMoves++] = from | 0x76 | MOVE_FLAG_CASTLE;
-          if ((curRights & BLACK_RIGHTS_QUEEN) && !b[0x73] && !b[0x72] && !b[0x71]
-              && !isAttacked(0x74, enemy) && !isAttacked(0x73, enemy) && !isAttacked(0x72, enemy))
-            moves[numMoves++] = from | 0x72 | MOVE_FLAG_CASTLE;
-        }
-
         break;
       }
     }
   }
 
-  return numMoves;
+  node.numMoves = numMoves;
 
 }
+
+function genCastling(node) {
+
+  const b = g_board;
+  const moves = node.moves;
+  const enemy = g_stm ^ BLACK;
+
+  const base = (g_stm >>> 3) * 17;
+  const sq = g_pieces[base + 1];
+  const from = sq << 7;
+
+  let numMoves = node.numMoves;
+
+  if (g_stm === WHITE) {
+    if ((g_rights & WHITE_RIGHTS_KING) && !b[0x05] && !b[0x06]
+        && !isAttacked(0x05, enemy) && !isAttacked(0x06, enemy))
+      moves[numMoves++] = from | 0x06 | MOVE_FLAG_CASTLE;
+    if ((g_rights & WHITE_RIGHTS_QUEEN) && !b[0x03] && !b[0x02] && !b[0x01]
+        && !isAttacked(0x03, enemy) && !isAttacked(0x02, enemy))
+      moves[numMoves++] = from | 0x02 | MOVE_FLAG_CASTLE;
+  }
+  else {
+    if ((g_rights & BLACK_RIGHTS_KING) && !b[0x75] && !b[0x76]
+        && !isAttacked(0x75, enemy) && !isAttacked(0x76, enemy))
+      moves[numMoves++] = from | 0x76 | MOVE_FLAG_CASTLE;
+    if ((g_rights & BLACK_RIGHTS_QUEEN) && !b[0x73] && !b[0x72] && !b[0x71]
+        && !isAttacked(0x73, enemy) && !isAttacked(0x72, enemy))
+      moves[numMoves++] = from | 0x72 | MOVE_FLAG_CASTLE;
+  }
+
+  node.numMoves = numMoves;
+
+}
+

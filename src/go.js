@@ -36,7 +36,7 @@ function go() {
       }
       
       else {
-        uciSend(depth);
+        uciSend(depth); // hack extend to pv
         break;
       }
       
@@ -54,3 +54,4 @@ function go() {
 function newGame () {
   ttClear();  
 }
+

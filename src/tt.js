@@ -88,9 +88,6 @@ function ttPut(type, depth, score, move, ev) {
 
   const idx = g_loHash & ttMask;
 
-  if (ttType[idx] && ttDepth[idx] >= depth && ttLoHash[idx] === g_loHash && ttHiHash[idx] === g_hiHash)
-    return; // preseve better depths for this hash
-  
   ttLoHash[idx] = g_loHash;
   ttHiHash[idx] = g_hiHash;
   ttType[idx] = type;
@@ -105,10 +102,10 @@ function ttGet() {
 
   const idx = g_loHash & ttMask;
 
-  if (ttLoHash[idx] !== g_loHash || ttHiHash[idx] !== g_hiHash)
-    return -1;
+  if (ttType[idx] && ttLoHash[idx] === g_loHash && ttHiHash[idx] === g_hiHash)
+    return idx;
 
-  return idx;
+  return -1;
 
 }
 

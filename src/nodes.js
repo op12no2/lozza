@@ -1,8 +1,13 @@
 function nodeStruct() {
 
+  this.numMoves = 0;
   this.moves = new Uint32Array(MAX_MOVES);
   this.ranks = new Int32Array(MAX_MOVES);
-  this.undoRights = 0;
+  this.nextMove = 0; // for move iterator
+  this.ttMov = 0;  // for move iterator
+  this.inCheck = 0; // for move gen (no castling if in check)
+  this.stage = 0; // for move iterator
+  this.undoRights = 0; // undo* for unmake()
   this.undoEp = 0;
   this.undoCaptured = 0;
   this.undoCapIdx = 0;
@@ -37,3 +42,4 @@ function formatMove(move) {
 
   return s;
 }
+

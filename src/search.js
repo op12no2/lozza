@@ -13,6 +13,8 @@ function search(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  // hack check for draws here
+
   const isPV = beta !== (alpha + 1);
   const ttix = ttGet();
   
@@ -28,24 +30,23 @@ function search(ply, depth, alpha, beta) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const isRoot = ply === 0;
-  const moves = node.moves;
   const kix = (stm >>> 3) * 17 + 1;
   const inCheck = isAttacked(g_pieces[kix], nstm);
   const origAlpha = alpha;
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
+  const ttMov = ttix >= 0 ? ttMove[ttix] : 0; // check for legalityish
 
+  let move = 0;
   let played = 0;
   let bestMove = 0;
   let bestScore = -INF;
   let score = 0;
-  let reductions = 0;
-  let extensions = 0;
+  let reductions = 0; // hack for use with lmr
+  let extensions = 0; // ditto
   
-  const numMoves = genMoves(node);
-  
-  for (let i = 0; i < numMoves; i++) {
+  initNextSearchMove(node, inCheck, ttMov);
 
-    const move = moves[i];
+  while ((move = getNextSearchMove(node))) {
 
     make(node, move);
     //checkHash();

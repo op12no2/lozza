@@ -1,6 +1,6 @@
 function bench() {
 
-  const depth = 1;
+  const depth = 3;
 
   let nodes = 0;
   let start = performance.now();
@@ -23,3 +23,4 @@ function bench() {
   uciSend('nodes ' + nodes + ' elapsed ' + elapsed + ' nps ' + nps);
         
 }  
+

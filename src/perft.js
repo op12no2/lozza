@@ -7,15 +7,14 @@ function perft(ply, depth) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1; // our king square index in piece list
-  const moves = node.moves;
+  const inCheck = isAttacked(g_pieces[kix], nstm); // to exercise the move iterator
   
+  let move = 0;
   let total = 0;
 
-  const numMoves = genMoves(node);
+  initNextSearchMove(node, inCheck, 0);
 
-  for (let i = 0; i < numMoves; i++) {
-
-    const move = moves[i];
+  while ((move = getNextSearchMove(node))) {
 
     make(node, move);
     //checkHash();
@@ -66,5 +65,6 @@ function perftTests(maxDepth) {
 
   uciSend('');
   uciSend(count + ' tests, ' + fails + ' fails, ' + totalNodes + ' nodes in ' + ms + ' ms ' + nps + ' nps');
+
 }
 
