@@ -87,6 +87,8 @@ function search(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
+          if (!(bestMove & MOVE_FLAG_NOISY))
+            updateQpth(bestMove, depth * depth);
           ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
           return bestScore;
         }  

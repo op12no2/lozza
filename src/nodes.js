@@ -5,7 +5,8 @@ function nodeStruct() {
   this.ranks = new Int32Array(MAX_MOVES);
   this.nextMove = 0; // for move iterator
   this.ttMov = 0;  // for move iterator
-  this.inCheck = 0; // for move gen (no castling if in check)
+  this.inCheck = 0; // for move iterator (gen castling moves when not in check)
+  this.noisyOnly = 0; // for move iterator (qsearch skips quiets)
   this.stage = 0; // for move iterator
   this.undoRights = 0; // undo* for unmake()
   this.undoEp = 0;

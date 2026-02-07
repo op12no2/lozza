@@ -7,6 +7,7 @@ cat \
   src/makemove.js \
   src/debug.js \
   src/movegen.js \
+  src/history.js \
   src/iterate.js \
   src/perft.js \
   src/tc.js \

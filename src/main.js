@@ -1,6 +1,7 @@
 initNodes();
 initPST();
 initZobrist();
+initQpth();
 
 const nodeHost = typeof process !== 'undefined' && process.versions?.node;
 
@@ -41,3 +42,4 @@ else {
     process.exit(0);
   });
 }
+

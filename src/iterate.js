@@ -46,58 +46,62 @@ function getNextSortedMove(node) {
 
 }
 
-/*
-void rank_quiets(Node *node) {
+function rankQuiets(node) {
 
-  const uint8_t *board = node->pos.board;
-  const move_t *moves = node->moves;
-  int16_t *ranks = node->ranks;
-  const int n = node->num_moves;
+  const b = g_board;
+  const moves = node.moves;
+  const ranks = node.ranks;
+  const n = node.numMoves;
 
   for (let i=0; i < n; i++) {
 
-    const move_t m = moves[i];
-    const int from = (m >> 6) & 0x3F;
-    const int to = m & 0x3F;
-    const int piece = board[from];
+    const m = moves[i];
+    const fr = (m >> 7) & 0x7F;
+    const to = m & 0x7F;
+    const piece = b[fr];
 
-    ranks[i] = piece_to_history[piece][to];
+    ranks[i] = qpth[piece][to];
 
   }
 }
 
-void rank_captures(Node *node) {
+function rankNoisy(node) {
 
-  const uint8_t *board = node->pos.board;
-  const move_t *moves = node->moves;
-  int16_t *ranks = node->ranks;
-  const int n = node->num_moves;
+  const b = g_board;
+  const moves = node.moves;
+  const ranks = node.ranks;
+  const n = node.numMoves;
 
-  for (let i=0; i < n; i++) {
+  for (let i = 0; i < n; i++) {
 
-    const move_t m = moves[i];
-    const int from = (m >> 6) & 0x3F;
-    const int to = m & 0x3F;
-    const int attacker = board[from] % 6;
-    int victim = board[to];
+    const m = moves[i];
+    const fr = (m >> 7) & 0x7F;
+    const to = m & 0x7F;
 
-    if (victim == EMPTY)  // ep
-      victim = 0;
-    else
-      victim %= 6;
+    let rank = 0;
 
-    ranks[i] = (victim << 3) | (5 - attacker);
+    if (m & MOVE_FLAG_PROMOTE) {
+      rank = 1000000 + ((m >> PROMOTE_SHIFT) & 7) * 100000;
+      if (m & MOVE_FLAG_CAPTURE)
+        rank += (b[to] & 7) * 100 - (b[fr] & 7);
+    }
+    else if (m & MOVE_FLAG_EPCAPTURE) {
+      rank = PAWN * 100 - PAWN;
+    }
+    else {
+      rank = (b[to] & 7) * 100 - (b[fr] & 7);
+    }
 
+    ranks[i] = rank;
   }
 }
 
-*/
-
-function initNextSearchMove(node, inCheck, ttMov) {
+function initNextSearchMove(node, inCheck, ttMov, noisyOnly) {
 
   node.stage = 0;
   node.inCheck = inCheck;
   node.ttMov = ttMov;
+  node.noisyOnly = noisyOnly;
 
 }
 
@@ -122,7 +126,7 @@ function getNextSearchMove(node) {
       node.numMoves = 0;
       genNoisy(node);
       removeTTMove(node);
-      //rank_captures(node);
+      rankNoisy(node);
 
     }
 
@@ -131,6 +135,9 @@ function getNextSearchMove(node) {
       if (node.nextMove < node.numMoves) {
         return getNextSortedMove(node);
       }
+
+      if (node.noisyOnly)
+        return 0;
 
       node.stage++;
 
@@ -142,10 +149,10 @@ function getNextSearchMove(node) {
       node.nextMove = 0;
       node.numMoves = 0;
       genQuiets(node);
-      if (!node.inCheck)
+      if (g_rights && !node.inCheck)
         genCastling(node);
       removeTTMove(node);
-      //rank_quiets(node);
+      rankQuiets(node);
 
     }
 
@@ -165,50 +172,4 @@ function getNextSearchMove(node) {
   }
 }
 
-function initNextNoisyMove(node, ttMov) {
-
-  node.stage = 0;
-  node.ttMov = ttMov;
-
-}
-
-function getNextNoisyMove(node) {
-
-  switch (node.stage) {
-
-    case 0: {
-
-      node.stage++;
-
-      if (node.ttMov) {
-        return node.ttMov;
-      }
-
-    }
-
-    case 1: {
-
-      node.stage++;
-      node.nextMove = 0;
-      node.numMoves = 0;
-      genNoisy(node);
-      removeTTMove(node);
-
-    }
-
-    case 2: {
-
-      if (node.nextMove < node.numMoves) {
-        return getNextSortedMove(node);
-      }
-
-      return 0;
-
-    }
-
-    default:
-      return 0;
-
-  }
-}
 

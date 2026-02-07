@@ -47,12 +47,9 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  if (inCheck)
-    initNextSearchMove(node, inCheck, ttMov);
-  else
-    initNextNoisyMove(node, ttMov);
+  initNextSearchMove(node, inCheck, ttMov, !inCheck);
 
-  while ((move = inCheck ? getNextSearchMove(node) : getNextNoisyMove(node))) {
+  while ((move = getNextSearchMove(node))) {
 
     make(node, move);
     //checkHash();

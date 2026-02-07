@@ -1,5 +1,7 @@
 function go() {
 
+  clearQpth();
+  
   let alpha = 0;
   let beta = 0;
   let score = 0;

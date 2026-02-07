@@ -1,6 +1,6 @@
 function bench() {
 
-  const depth = 5;
+  const depth = 6;
 
   let nodes = 0;
   let start = performance.now();
