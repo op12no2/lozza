@@ -54,8 +54,8 @@ const TT_WIDTH = 18; // bytes - see below
 let ttSize = 1;
 let ttMask = 0; // 0 implies tt not resized yet
 
-let ttLo = new Int32Array(ttSize); // 4
-let ttHi = new Int32Array(ttSize); // 4
+let ttLoHash = new Int32Array(ttSize); // 4
+let ttHiHash = new Int32Array(ttSize); // 4
 let ttType = new Uint8Array(ttSize); // 1
 let ttDepth = new Int8Array(ttSize); // 1
 let ttMove = new Uint32Array(ttSize); // 4
@@ -84,10 +84,13 @@ function ttResize(mb) {
 
 }
 
-function ttPut (type, depth, score, move, ev) {
+function ttPut(type, depth, score, move, ev) {
 
   const idx = g_loHash & ttMask;
 
+  if (ttType[idx] && ttDepth[idx] >= depth && ttLoHash[idx] === g_loHash && ttHiHash[idx] === g_hiHash)
+    return; // preseve better depths for this hash
+  
   ttLoHash[idx] = g_loHash;
   ttHiHash[idx] = g_hiHash;
   ttType[idx] = type;
@@ -98,11 +101,11 @@ function ttPut (type, depth, score, move, ev) {
 
 }
 
-function ttGet () {
+function ttGet() {
 
   const idx = g_loHash & ttMask;
 
-  if (ttLoHash[idx] !== g_loHash || ttHiHash[idx] !== g_hiHash )
+  if (ttLoHash[idx] !== g_loHash || ttHiHash[idx] !== g_hiHash)
     return -1;
 
   return idx;
@@ -112,6 +115,32 @@ function ttGet () {
 function ttClear() {
 
   ttType.fill(0);
+
+}
+
+function putAdjustedScore(ply, score) {
+
+  if (score < -MATEISH)
+    return score - ply;
+
+  else if (score > MATEISH)
+    return score + ply;
+
+  else
+   return score;
+
+}
+
+function getAdjustedScore(ply, score) {
+
+  if (score < -MATEISH)
+    return score + ply;
+
+  else if (score > MATEISH)
+    return score - ply;
+
+  else
+    return score;
 
 }
 

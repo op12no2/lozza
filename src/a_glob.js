@@ -1,3 +1,5 @@
+"use strict"
+
 const INF = 31000;
 const MATE = 30000;
 const MATEISH = 29000;
@@ -76,3 +78,4 @@ let g_startTime = 0; // always set via performance.now()
 let g_finishTime = 0; // finish time if appropriate (else 0)
 let g_finished = 0; // 1 when time/nodes reached (else 0)
 let g_bestMove = 0;
+

@@ -10,13 +10,23 @@ function qsearch(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  const ttix = ttGet();
+  
+  if (ttix >= 0) {
+    const type = ttType[ttix];
+    const score = getAdjustedScore(ply, ttScore[ttix]);
+    if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
+      return score;
+    }
+  }
+
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const moves = node.moves;
   const kix = (stm >>> 3) * 17 + 1;
   const inCheck = isAttacked(g_pieces[kix], nstm);
-  const ev = evaluate();
+  const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
 
   let played = 0;
   let bestMove = 0;
@@ -30,6 +40,8 @@ function qsearch(ply, depth, alpha, beta) {
     if (ev > alpha)
       alpha = ev;
   }
+
+  let origAlpha = alpha;
 
   const numMoves = genMoves(node);
   
@@ -65,6 +77,7 @@ function qsearch(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
+          ttPut(TT_BETA, 0, putAdjustedScore(ply, bestScore), bestMove, ev);
           return bestScore;
         }  
       }
@@ -75,6 +88,9 @@ function qsearch(ply, depth, alpha, beta) {
     return -MATE + ply;
   }
 
+  ttPut(alpha > origAlpha ? TT_EXACT : TT_ALPHA, 0, putAdjustedScore(ply, bestScore), bestMove, ev);
+
   return bestScore;
 
 }
+

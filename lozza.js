@@ -1,3 +1,5 @@
+"use strict"
+
 const INF = 31000;
 const MATE = 30000;
 const MATEISH = 29000;
@@ -249,18 +251,18 @@ const TT_EXACT = 1;
 const TT_ALPHA = 2;
 const TT_BETA = 4;
 const TT_DEFAULT = 16; // mb
-const TT_WIDTH = 18; // bytes
+const TT_WIDTH = 18; // bytes - see below
 
 let ttSize = 1;
-let ttMask = 0;
+let ttMask = 0; // 0 implies tt not resized yet
 
-let ttLo = new Int32Array(ttSize);
-let ttHi = new Int32Array(ttSize);
-let ttType = new Uint8Array(ttSize);
-let ttDepth = new Int8Array(ttSize);
-let ttMove = new Uint32Array(ttSize);
-let ttEval = new Int16Array(ttSize);
-let ttScore = new Int16Array(ttSize);
+let ttLoHash = new Int32Array(ttSize); // 4
+let ttHiHash = new Int32Array(ttSize); // 4
+let ttType = new Uint8Array(ttSize); // 1
+let ttDepth = new Int8Array(ttSize); // 1
+let ttMove = new Uint32Array(ttSize); // 4
+let ttEval = new Int16Array(ttSize); // 2
+let ttScore = new Int16Array(ttSize); // 2
 
 function ttResize(mb) {
 
@@ -284,10 +286,13 @@ function ttResize(mb) {
 
 }
 
-function ttPut (type, depth, score, move, ev) {
+function ttPut(type, depth, score, move, ev) {
 
   const idx = g_loHash & ttMask;
 
+  if (ttType[idx] && ttDepth[idx] >= depth && ttLoHash[idx] === g_loHash && ttHiHash[idx] === g_hiHash)
+    return; // preseve better depths for this hash
+  
   ttLoHash[idx] = g_loHash;
   ttHiHash[idx] = g_hiHash;
   ttType[idx] = type;
@@ -298,11 +303,11 @@ function ttPut (type, depth, score, move, ev) {
 
 }
 
-function ttGet () {
+function ttGet() {
 
   const idx = g_loHash & ttMask;
 
-  if (ttLoHash[idx] !== g_loHash || ttHiHash[idx] !== g_hiHash )
+  if (ttLoHash[idx] !== g_loHash || ttHiHash[idx] !== g_hiHash)
     return -1;
 
   return idx;
@@ -312,6 +317,32 @@ function ttGet () {
 function ttClear() {
 
   ttType.fill(0);
+
+}
+
+function putAdjustedScore(ply, score) {
+
+  if (score < -MATEISH)
+    return score - ply;
+
+  else if (score > MATEISH)
+    return score + ply;
+
+  else
+   return score;
+
+}
+
+function getAdjustedScore(ply, score) {
+
+  if (score < -MATEISH)
+    return score + ply;
+
+  else if (score > MATEISH)
+    return score - ply;
+
+  else
+    return score;
 
 }
 
@@ -1569,15 +1600,27 @@ function search(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  const isPV = beta !== (alpha + 1);
+  const ttix = ttGet();
+  
+  if (!isPV && ttix >= 0 && ttDepth[ttix] >= depth) {
+    const type = ttType[ttix];
+    const score = getAdjustedScore(ply, ttScore[ttix]);
+    if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
+      return score;
+    }
+  }
+
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
-  const isPV = beta !== (alpha + 1);
   const isRoot = ply === 0;
   const moves = node.moves;
   const kix = (stm >>> 3) * 17 + 1;
   const inCheck = isAttacked(g_pieces[kix], nstm);
-  
+  const origAlpha = alpha;
+  const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
+
   let played = 0;
   let bestMove = 0;
   let bestScore = -INF;
@@ -1630,6 +1673,7 @@ function search(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
+          ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev);
           return bestScore;
         }  
       }
@@ -1643,9 +1687,12 @@ function search(ply, depth, alpha, beta) {
       return 0;
   }
 
+  ttPut(alpha > origAlpha ? TT_EXACT : TT_ALPHA, depth, putAdjustedScore(ply, bestScore), bestMove, ev);
+
   return bestScore;
 
 }
+
 function qsearch(ply, depth, alpha, beta) {
 
   g_nodes++;
@@ -1658,13 +1705,23 @@ function qsearch(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  const ttix = ttGet();
+  
+  if (ttix >= 0) {
+    const type = ttType[ttix];
+    const score = getAdjustedScore(ply, ttScore[ttix]);
+    if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
+      return score;
+    }
+  }
+
   const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const moves = node.moves;
   const kix = (stm >>> 3) * 17 + 1;
   const inCheck = isAttacked(g_pieces[kix], nstm);
-  const ev = evaluate();
+  const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
 
   let played = 0;
   let bestMove = 0;
@@ -1678,6 +1735,8 @@ function qsearch(ply, depth, alpha, beta) {
     if (ev > alpha)
       alpha = ev;
   }
+
+  let origAlpha = alpha;
 
   const numMoves = genMoves(node);
   
@@ -1713,6 +1772,7 @@ function qsearch(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
+          ttPut(TT_BETA, 0, putAdjustedScore(ply, bestScore), bestMove, ev);
           return bestScore;
         }  
       }
@@ -1723,9 +1783,12 @@ function qsearch(ply, depth, alpha, beta) {
     return -MATE + ply;
   }
 
+  ttPut(alpha > origAlpha ? TT_EXACT : TT_ALPHA, 0, putAdjustedScore(ply, bestScore), bestMove, ev);
+
   return bestScore;
 
 }
+
 function go() {
 
   let alpha = 0;
