@@ -2,7 +2,7 @@ function collectPV(node, cNode, move) {
 
   if (cNode) {
     node.pv.set(cNode.pv.subarray(0, cNode.pvLen), 0);
-    node.pvLen  = cNode.pvLen;
+    node.pvLen = cNode.pvLen;
     node.pv[node.pvLen++] = move;
   }
   else {

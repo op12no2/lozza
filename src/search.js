@@ -92,7 +92,7 @@ function search(ply, depth, alpha, beta) {
           if (!(bestMove & MOVE_FLAG_NOISY)) {
             const bonus = depth * depth;
             updateQpth(bestMove, bonus);
-            for (let i = 0; i < played; i++) {
+            for (let i = 0; i < played - 1; i++) {
               const pm = playedMoves[i];
               if (!(pm & MOVE_FLAG_NOISY)) {
                 updateQpth(playedMoves[i], -bonus);

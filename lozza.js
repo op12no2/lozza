@@ -2004,7 +2004,7 @@ function collectPV(node, cNode, move) {
 
   if (cNode) {
     node.pv.set(cNode.pv.subarray(0, cNode.pvLen), 0);
-    node.pvLen  = cNode.pvLen;
+    node.pvLen = cNode.pvLen;
     node.pv[node.pvLen++] = move;
   }
   else {
@@ -2124,7 +2124,7 @@ function search(ply, depth, alpha, beta) {
           if (!(bestMove & MOVE_FLAG_NOISY)) {
             const bonus = depth * depth;
             updateQpth(bestMove, bonus);
-            for (let i = 0; i < played; i++) {
+            for (let i = 0; i < played - 1; i++) {
               const pm = playedMoves[i];
               if (!(pm & MOVE_FLAG_NOISY)) {
                 updateQpth(playedMoves[i], -bonus);
