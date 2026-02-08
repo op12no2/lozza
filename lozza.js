@@ -208,17 +208,17 @@ const BENCHFENS = [
 ];
 let g_seed = 1;
 
-let loStm = 0;
-let hiStm = 0;
+let g_loStm = 0;
+let g_hiStm = 0;
 
-const loPieces = Array(15);
-const hiPieces = Array(15);
+const g_loPieces = Array(15);
+const g_hiPieces = Array(15);
 
-const loRights = new Int32Array(16);
-const hiRights = new Int32Array(16);
+const g_loRights = new Int32Array(16);
+const g_hiRights = new Int32Array(16);
 
-const loEP = new Int32Array(128);
-const hiEP = new Int32Array(128);
+const g_loEP = new Int32Array(128);
+const g_hiEP = new Int32Array(128);
 
 function rand32(seed) { // Mulberry32
   seed = seed + 0x6D2B79F5 | 0;
@@ -229,26 +229,26 @@ function rand32(seed) { // Mulberry32
 
 function initZobrist() {
 
-  loStm = rand32(g_seed++);
-  hiStm = rand32(g_seed++);
+  g_loStm = rand32(g_seed++);
+  g_hiStm = rand32(g_seed++);
 
   for (let i=0; i < 15; i++) {
-    loPieces[i] = new Int32Array(128);
-    hiPieces[i] = new Int32Array(128);
+    g_loPieces[i] = new Int32Array(128);
+    g_hiPieces[i] = new Int32Array(128);
     for (let j=0; j < 128; j++){
-      loPieces[i][j] = rand32(g_seed++);
-      hiPieces[i][j] = rand32(g_seed++);
+      g_loPieces[i][j] = rand32(g_seed++);
+      g_hiPieces[i][j] = rand32(g_seed++);
     }
   }
 
   for (let i=0; i < 16; i++) {
-    loRights[i] = rand32(g_seed++);
-    hiRights[i] = rand32(g_seed++);
+    g_loRights[i] = rand32(g_seed++);
+    g_hiRights[i] = rand32(g_seed++);
   }
 
   for (let i=0; i < 128; i++) {
-    loEP[i] = rand32(g_seed++);
-    hiEP[i] = rand32(g_seed++);
+    g_loEP[i] = rand32(g_seed++);
+    g_hiEP[i] = rand32(g_seed++);
   }
 
 }
@@ -261,16 +261,16 @@ const TT_INCHECK = 4;
 const TT_DEFAULT = 16; // mb
 const TT_WIDTH = 18; // bytes - see below
 
-let ttSize = 1;
-let ttMask = 0; // 0 implies tt not resized yet
+let g_ttSize = 1;
+let g_ttMask = 0; // 0 implies tt not resized yet
 
-let ttLoHash = new Int32Array(ttSize); // 4
-let ttHiHash = new Int32Array(ttSize); // 4
-let ttType = new Uint8Array(ttSize); // 1
-let ttDepth = new Int8Array(ttSize); // 1
-let ttMove = new Uint32Array(ttSize); // 4
-let ttEval = new Int16Array(ttSize); // 2
-let ttScore = new Int16Array(ttSize); // 2
+let g_ttLoHash = new Int32Array(g_ttSize); // 4
+let g_ttHiHash = new Int32Array(g_ttSize); // 4
+let g_ttType = new Uint8Array(g_ttSize); // 1
+let g_ttDepth = new Int8Array(g_ttSize); // 1
+let g_ttMove = new Uint32Array(g_ttSize); // 4
+let g_ttEval = new Int16Array(g_ttSize); // 2
+let g_ttScore = new Int16Array(g_ttSize); // 2
 
 function ttResize(mb) {
 
@@ -279,40 +279,40 @@ function ttResize(mb) {
   const entriesNeeded = requestedBytes / bytesPerEntry;
   const pow2 = Math.ceil(Math.log2(entriesNeeded));
 
-  ttSize = 1 << pow2;
-  ttMask = ttSize - 1;
+  g_ttSize = 1 << pow2;
+  g_ttMask = g_ttSize - 1;
 
-  ttLoHash = new Int32Array(ttSize);
-  ttHiHash = new Int32Array(ttSize);
-  ttType = new Uint8Array(ttSize);
-  ttDepth = new Int8Array(ttSize);
-  ttMove = new Uint32Array(ttSize);
-  ttEval = new Int16Array(ttSize);
-  ttScore = new Int16Array(ttSize);
+  g_ttLoHash = new Int32Array(g_ttSize);
+  g_ttHiHash = new Int32Array(g_ttSize);
+  g_ttType = new Uint8Array(g_ttSize);
+  g_ttDepth = new Int8Array(g_ttSize);
+  g_ttMove = new Uint32Array(g_ttSize);
+  g_ttEval = new Int16Array(g_ttSize);
+  g_ttScore = new Int16Array(g_ttSize);
 
-  uciSend('info tt bits ' + pow2 + ' entries ' + ttSize + ' (0x' + ttSize.toString(16) + ') mb ' + Math.trunc((TT_WIDTH * ttSize) / (1024 * 1024)));
+  uciSend('info tt bits ' + pow2 + ' entries ' + g_ttSize + ' (0x' + g_ttSize.toString(16) + ') mb ' + Math.trunc((TT_WIDTH * g_ttSize) / (1024 * 1024)));
 
 }
 
 function ttPut(type, depth, score, move, ev, inCheck) {
 
-  const idx = g_loHash & ttMask;
+  const idx = g_loHash & g_ttMask;
 
-  ttLoHash[idx] = g_loHash;
-  ttHiHash[idx] = g_hiHash;
-  ttType[idx] = inCheck ? type | TT_INCHECK : type;
-  ttDepth[idx] = depth;
-  ttScore[idx] = score;
-  ttEval[idx] = ev;
-  ttMove[idx] = move;
+  g_ttLoHash[idx] = g_loHash;
+  g_ttHiHash[idx] = g_hiHash;
+  g_ttType[idx] = inCheck ? type | TT_INCHECK : type;
+  g_ttDepth[idx] = depth;
+  g_ttScore[idx] = score;
+  g_ttEval[idx] = ev;
+  g_ttMove[idx] = move;
 
 }
 
 function ttGet() {
 
-  const idx = g_loHash & ttMask;
+  const idx = g_loHash & g_ttMask;
 
-  if (ttType[idx] && ttLoHash[idx] === g_loHash && ttHiHash[idx] === g_hiHash)
+  if (g_ttType[idx] && g_ttLoHash[idx] === g_loHash && g_ttHiHash[idx] === g_hiHash)
     return idx;
 
   return -1;
@@ -321,7 +321,7 @@ function ttGet() {
 
 function ttClear() {
 
-  ttType.fill(0);
+  g_ttType.fill(0);
 
 }
 
@@ -358,7 +358,7 @@ function nodeStruct() {
   this.ranks = new Int32Array(MAX_MOVES);
   this.playedMoves = new Uint32Array(MAX_MOVES); // for applying penalties on beta cutoff
   this.nextMove = 0; // for move iterator
-  this.ttMov = 0;  // for move iterator
+  this.ttMove = 0;  // for move iterator
   this.inCheck = 0; // for move iterator (gen castling moves when not in check)
   this.noisyOnly = 0; // for move iterator (qsearch skips quiets)
   this.stage = 0; // for move iterator
@@ -522,22 +522,22 @@ function position(boardStr, stmStr, rightsStr, epStr, moves) {
     }
     const piece = b[sq];
     if (piece) {
-      g_loHash ^= loPieces[piece][sq];
-      g_hiHash ^= hiPieces[piece][sq];
+      g_loHash ^= g_loPieces[piece][sq];
+      g_hiHash ^= g_hiPieces[piece][sq];
     }
   }
 
-  g_loHash ^= loRights[g_rights];
-  g_hiHash ^= hiRights[g_rights];
+  g_loHash ^= g_loRights[g_rights];
+  g_hiHash ^= g_hiRights[g_rights];
 
   if (g_ep) {
-    g_loHash ^= loEP[g_ep];
-    g_hiHash ^= hiEP[g_ep];
+    g_loHash ^= g_loEP[g_ep];
+    g_hiHash ^= g_hiEP[g_ep];
   }
 
   if (g_stm === BLACK) {
-    g_loHash ^= loStm;
-    g_hiHash ^= hiStm;
+    g_loHash ^= g_loStm;
+    g_hiHash ^= g_hiStm;
   }
 
   if (moves) {
@@ -648,6 +648,7 @@ function isProbablyLegal(move) {
   }
 
   return 1;
+
 }
 
 function isAttacked(sq, byColour) {
@@ -721,6 +722,7 @@ function isAttacked(sq, byColour) {
 
   return 0;
 }
+
 function make(node, move) {
 
   const b = g_board;
@@ -740,32 +742,32 @@ function make(node, move) {
 
   // hash: update rights
 
-  g_loHash ^= loRights[g_rights];
-  g_hiHash ^= hiRights[g_rights];
+  g_loHash ^= g_loRights[g_rights];
+  g_hiHash ^= g_hiRights[g_rights];
   g_rights &= RIGHTS_TABLE[fr] & RIGHTS_TABLE[to];
-  g_loHash ^= loRights[g_rights];
-  g_hiHash ^= hiRights[g_rights];
+  g_loHash ^= g_loRights[g_rights];
+  g_hiHash ^= g_hiRights[g_rights];
 
   // hash: remove old ep
 
   if (g_ep) {
-    g_loHash ^= loEP[g_ep];
-    g_hiHash ^= hiEP[g_ep];
+    g_loHash ^= g_loEP[g_ep];
+    g_hiHash ^= g_hiEP[g_ep];
   }
   g_ep = 0;
 
   // hash: toggle stm
 
-  g_loHash ^= loStm;
-  g_hiHash ^= hiStm;
+  g_loHash ^= g_loStm;
+  g_hiHash ^= g_hiStm;
 
   if (move & MOVE_FLAG_SPECIAL) {
 
     if (move & MOVE_FLAG_PROMOTE) {
 
       if (move & MOVE_FLAG_CAPTURE) {
-        g_loHash ^= loPieces[b[to]][to];
-        g_hiHash ^= hiPieces[b[to]][to];
+        g_loHash ^= g_loPieces[b[to]][to];
+        g_hiHash ^= g_hiPieces[b[to]][to];
         const capIdx = px[to];
         const lastIdx = pl[oppBase];
         const lastSq = pl[oppBase + lastIdx];
@@ -776,16 +778,16 @@ function make(node, move) {
         node.undoCapIdx = capIdx;
       }
 
-      g_loHash ^= loPieces[b[fr]][fr];
-      g_hiHash ^= hiPieces[b[fr]][fr];
+      g_loHash ^= g_loPieces[b[fr]][fr];
+      g_hiHash ^= g_hiPieces[b[fr]][fr];
 
       const idx = px[fr];
       pl[stmBase + idx] = to;
       px[to] = idx;
 
       const promPiece = (move >> PROMOTE_SHIFT) | stm;
-      g_loHash ^= loPieces[promPiece][to];
-      g_hiHash ^= hiPieces[promPiece][to];
+      g_loHash ^= g_loPieces[promPiece][to];
+      g_hiHash ^= g_hiPieces[promPiece][to];
 
       b[to] = promPiece;
       b[fr] = 0;
@@ -797,8 +799,8 @@ function make(node, move) {
 
       const capSq = to - 16 + (stm << 2);
 
-      g_loHash ^= loPieces[b[capSq]][capSq];
-      g_hiHash ^= hiPieces[b[capSq]][capSq];
+      g_loHash ^= g_loPieces[b[capSq]][capSq];
+      g_hiHash ^= g_hiPieces[b[capSq]][capSq];
 
       const capIdx = px[capSq];
       const lastIdx = pl[oppBase];
@@ -808,10 +810,10 @@ function make(node, move) {
       pl[oppBase]--;
       node.undoCapIdx = capIdx;
 
-      g_loHash ^= loPieces[b[fr]][fr];
-      g_hiHash ^= hiPieces[b[fr]][fr];
-      g_loHash ^= loPieces[b[fr]][to];
-      g_hiHash ^= hiPieces[b[fr]][to];
+      g_loHash ^= g_loPieces[b[fr]][fr];
+      g_hiHash ^= g_hiPieces[b[fr]][fr];
+      g_loHash ^= g_loPieces[b[fr]][to];
+      g_hiHash ^= g_hiPieces[b[fr]][to];
 
       const idx = px[fr];
       pl[stmBase + idx] = to;
@@ -826,10 +828,10 @@ function make(node, move) {
 
     // castle
 
-    g_loHash ^= loPieces[b[fr]][fr];
-    g_hiHash ^= hiPieces[b[fr]][fr];
-    g_loHash ^= loPieces[b[fr]][to];
-    g_hiHash ^= hiPieces[b[fr]][to];
+    g_loHash ^= g_loPieces[b[fr]][fr];
+    g_hiHash ^= g_hiPieces[b[fr]][fr];
+    g_loHash ^= g_loPieces[b[fr]][to];
+    g_hiHash ^= g_hiPieces[b[fr]][to];
 
     pl[stmBase + 1] = to;
     px[to] = 1;
@@ -847,10 +849,10 @@ function make(node, move) {
     }
 
     const rookPiece = ROOK | stm;
-    g_loHash ^= loPieces[rookPiece][rookFr];
-    g_hiHash ^= hiPieces[rookPiece][rookFr];
-    g_loHash ^= loPieces[rookPiece][rookTo];
-    g_hiHash ^= hiPieces[rookPiece][rookTo];
+    g_loHash ^= g_loPieces[rookPiece][rookFr];
+    g_hiHash ^= g_hiPieces[rookPiece][rookFr];
+    g_loHash ^= g_loPieces[rookPiece][rookTo];
+    g_hiHash ^= g_hiPieces[rookPiece][rookTo];
 
     const rookIdx = px[rookFr];
     pl[stmBase + rookIdx] = rookTo;
@@ -867,13 +869,13 @@ function make(node, move) {
 
   if ((b[fr] & 7) === PAWN && (to - fr === 32 || to - fr === -32)) {
     g_ep = (fr + to) >> 1;
-    g_loHash ^= loEP[g_ep];
-    g_hiHash ^= hiEP[g_ep];
+    g_loHash ^= g_loEP[g_ep];
+    g_hiHash ^= g_hiEP[g_ep];
   }
 
   if (move & MOVE_FLAG_CAPTURE) {
-    g_loHash ^= loPieces[b[to]][to];
-    g_hiHash ^= hiPieces[b[to]][to];
+    g_loHash ^= g_loPieces[b[to]][to];
+    g_hiHash ^= g_hiPieces[b[to]][to];
     const capIdx = px[to];
     const lastIdx = pl[oppBase];
     const lastSq = pl[oppBase + lastIdx];
@@ -884,10 +886,10 @@ function make(node, move) {
     node.undoCapIdx = capIdx;
   }
 
-  g_loHash ^= loPieces[b[fr]][fr];
-  g_hiHash ^= hiPieces[b[fr]][fr];
-  g_loHash ^= loPieces[b[fr]][to];
-  g_hiHash ^= hiPieces[b[fr]][to];
+  g_loHash ^= g_loPieces[b[fr]][fr];
+  g_hiHash ^= g_hiPieces[b[fr]][fr];
+  g_loHash ^= g_loPieces[b[fr]][to];
+  g_hiHash ^= g_hiPieces[b[fr]][to];
 
   const idx = px[fr];
   pl[stmBase + idx] = to;
@@ -1055,22 +1057,22 @@ function checkHash() {
     }
     const piece = b[sq];
     if (piece) {
-      lo ^= loPieces[piece][sq];
-      hi ^= hiPieces[piece][sq];
+      lo ^= g_loPieces[piece][sq];
+      hi ^= g_hiPieces[piece][sq];
     }
   }
 
-  lo ^= loRights[g_rights];
-  hi ^= hiRights[g_rights];
+  lo ^= g_loRights[g_rights];
+  hi ^= g_hiRights[g_rights];
 
   if (g_ep) {
-    lo ^= loEP[g_ep];
-    hi ^= hiEP[g_ep];
+    lo ^= g_loEP[g_ep];
+    hi ^= g_hiEP[g_ep];
   }
 
   if (g_stm === BLACK) {
-    lo ^= loStm;
-    hi ^= hiStm;
+    lo ^= g_loStm;
+    hi ^= g_hiStm;
   }
 
   if (lo !== g_loHash || hi !== g_hiHash) {
@@ -1078,6 +1080,7 @@ function checkHash() {
   }
 
 }
+
 // noisy - captures (inc. EP) and promotions
 // quiet - non-captures excluding promotions
 // quiet and noisy are mutually exclusive throughout
@@ -1427,7 +1430,7 @@ function genCastling(node) {
 
 }
 
-const qpth = Array(15); // quiet piece to history
+const g_qpth = Array(15); // quiet piece to history
 
 function updateQpth(move, bonus) {
 
@@ -1435,14 +1438,14 @@ function updateQpth(move, bonus) {
   const fr = (move >> 7) & 0x7F;
   const piece = g_board[fr];
 
-  qpth[piece][to] += bonus;
+  g_qpth[piece][to] += bonus;
 
 }
 
 function initQpth () {
 
     for (let i=0; i < 15; i++) {
-      qpth[i] = new Int32Array(128)
+      g_qpth[i] = new Int32Array(128)
     }
 
 }
@@ -1450,25 +1453,26 @@ function initQpth () {
 function clearQpth () {
 
     for (let i=0; i < 15; i++) {
-      qpth[i].fill(0);
+      g_qpth[i].fill(0);
     }
 
 }
 
 function removeTTMove(node) {
 
-  const ttMov = node.ttMov;
+  const ttMove = node.ttMove;
   const moves = node.moves;
   const n = node.numMoves;
 
   for (let i = 0; i < n; i++) {
-    if (moves[i] == ttMov) {
+    if (moves[i] == ttMove) {
       moves[i] = moves[n - 1];
       node.numMoves--;
       return;
     }
   }
 
+  console.log('MISSING TT MOVE');
 }
 
 function getNextSortedMove(node) {
@@ -1513,8 +1517,10 @@ function rankQuiets(node) {
     const to = m & 0x7F;
     const piece = b[fr];
 
-    ranks[i] = qpth[piece][to];
+    ranks[i] = g_qpth[piece][to];
 
+    if (m & MOVE_FLAG_NOISY)
+      console.log('NOISY MOVE IN QUIET LIST');
   }
 }
 
@@ -1531,6 +1537,9 @@ function rankNoisy(node) {
     const fr = (m >> 7) & 0x7F;
     const to = m & 0x7F;
 
+    if (!(m & MOVE_FLAG_NOISY))
+      console.log('QUIET MOVE IN NOISY LIST');
+  
     let rank = 0;
 
     if (m & MOVE_FLAG_PROMOTE) {
@@ -1549,11 +1558,11 @@ function rankNoisy(node) {
   }
 }
 
-function initSearch(node, inCheck, ttMov, noisyOnly) {
+function initSearch(node, inCheck, ttMove, noisyOnly) {
 
   node.stage = 0;
   node.inCheck = inCheck;
-  node.ttMov = ttMov;
+  node.ttMove = ttMove;
   node.noisyOnly = noisyOnly;
 
 }
@@ -1566,8 +1575,8 @@ function getNextMove(node) {
 
       node.stage++;
 
-      if (node.ttMov) {
-        return node.ttMov;
+      if (node.ttMove) {
+        return node.ttMove;
       }
 
     }
@@ -1578,7 +1587,7 @@ function getNextMove(node) {
       node.nextMove = 0;
       node.numMoves = 0;
       genNoisy(node);
-      if (node.ttMov && (node.ttMove & MOVE_FLAG_NOISY))
+      if (node.ttMove && (node.ttMove & MOVE_FLAG_NOISY))
         removeTTMove(node);
       rankNoisy(node);
 
@@ -1605,7 +1614,7 @@ function getNextMove(node) {
       genQuiets(node);
       if (g_rights && !node.inCheck)
         genCastling(node);
-      if (node.ttMov && !(node.ttMove & MOVE_FLAG_NOISY))
+      if (node.ttMove && !(node.ttMove & MOVE_FLAG_NOISY))
         removeTTMove(node);
       rankQuiets(node);
 
@@ -2009,9 +2018,9 @@ function search(ply, depth, alpha, beta) {
   const isPV = beta !== (alpha + 1);
   const ttix = ttGet();
   
-  if (!isPV && ttix >= 0 && ttDepth[ttix] >= depth) {
-    const type = ttType[ttix] & TT_TYPE_MASK;
-    const score = getAdjustedScore(ply, ttScore[ttix]);
+  if (!isPV && ttix >= 0 && g_ttDepth[ttix] >= depth) {
+    const type = g_ttType[ttix] & TT_TYPE_MASK;
+    const score = getAdjustedScore(ply, g_ttScore[ttix]);
     if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
       return score;
     }
@@ -2023,9 +2032,9 @@ function search(ply, depth, alpha, beta) {
   const isRoot = ply === 0;
   const kix = (stm >>> 3) * 17 + 1;
   const origAlpha = alpha;
-  const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
-  const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 && isProbablyLegal(ttMove[ttix]) ? ttMove[ttix] : 0;
+  const inCheck = ttix >= 0 ? (g_ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
+  const ev = ttix >= 0 ? g_ttEval[ttix] : evaluate();
+  const ttMove = ttix >= 0 && isProbablyLegal(g_ttMove[ttix]) ? g_ttMove[ttix] : 0;
   const playedMoves = node.playedMoves;
 
   let move = 0;
@@ -2036,7 +2045,7 @@ function search(ply, depth, alpha, beta) {
   let reductions = 0; // hack for use with lmr
   let extensions = 0; // ditto
   
-  initSearch(node, inCheck, ttMov, 0);
+  initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {
 
@@ -2080,7 +2089,10 @@ function search(ply, depth, alpha, beta) {
             const bonus = depth * depth;
             updateQpth(bestMove, bonus);
             for (let i = 0; i < played; i++) {
-              updateQpth(playedMoves[i], -bonus);
+              const pm = playedMoves[i];
+              if (!(pm & MOVE_FLAG_NOISY)) {
+                updateQpth(playedMoves[i], -bonus);
+              }  
             }  
           }  
           ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
@@ -2120,8 +2132,8 @@ function qsearch(ply, depth, alpha, beta) {
   const ttix = ttGet();
 
   if (ttix >= 0) {
-    const type = ttType[ttix] & TT_TYPE_MASK;
-    const score = getAdjustedScore(ply, ttScore[ttix]);
+    const type = g_ttType[ttix] & TT_TYPE_MASK;
+    const score = getAdjustedScore(ply, g_ttScore[ttix]);
     if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
       return score;
     }
@@ -2131,9 +2143,9 @@ function qsearch(ply, depth, alpha, beta) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1;
-  const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
-  const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 && isProbablyLegal(ttMove[ttix]) && (inCheck || (ttMove[ttix] & MOVE_FLAG_NOISY)) ? ttMove[ttix] : 0;
+  const inCheck = ttix >= 0 ? (g_ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
+  const ev = ttix >= 0 ? g_ttEval[ttix] : evaluate();
+  const ttMove = ttix >= 0 && isProbablyLegal(g_ttMove[ttix]) && (inCheck || (g_ttMove[ttix] & MOVE_FLAG_NOISY)) ? g_ttMove[ttix] : 0;
 
   let bestScore = -INF;
 
@@ -2151,7 +2163,7 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  initSearch(node, inCheck, ttMov, inCheck ^ 1);
+  initSearch(node, inCheck, ttMove, inCheck ^ 1);
 
   while ((move = getNextMove(node))) {
 
@@ -2305,7 +2317,7 @@ function uciExecLine(line) {
 
     case 'ucinewgame':
     case 'u': {
-      if (ttMask === 0)
+      if (g_ttMask === 0)
         ttResize(TT_DEFAULT);
       newGame();
       break;
@@ -2378,7 +2390,7 @@ function uciExecLine(line) {
 
     case 'go':
     case 'g': {
-      if (ttMask === 0)
+      if (g_ttMask === 0)
         ttResize(TT_DEFAULT);
       initTimeControl(tokens);
       go();
@@ -2399,6 +2411,7 @@ function uciExecLine(line) {
     }  
   }
 }
+
 initNodes();
 initPST();
 initZobrist();

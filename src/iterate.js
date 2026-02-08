@@ -1,17 +1,18 @@
 function removeTTMove(node) {
 
-  const ttMov = node.ttMov;
+  const ttMove = node.ttMove;
   const moves = node.moves;
   const n = node.numMoves;
 
   for (let i = 0; i < n; i++) {
-    if (moves[i] == ttMov) {
+    if (moves[i] == ttMove) {
       moves[i] = moves[n - 1];
       node.numMoves--;
       return;
     }
   }
 
+  console.log('MISSING TT MOVE');
 }
 
 function getNextSortedMove(node) {
@@ -56,8 +57,10 @@ function rankQuiets(node) {
     const to = m & 0x7F;
     const piece = b[fr];
 
-    ranks[i] = qpth[piece][to];
+    ranks[i] = g_qpth[piece][to];
 
+    if (m & MOVE_FLAG_NOISY)
+      console.log('NOISY MOVE IN QUIET LIST');
   }
 }
 
@@ -74,6 +77,9 @@ function rankNoisy(node) {
     const fr = (m >> 7) & 0x7F;
     const to = m & 0x7F;
 
+    if (!(m & MOVE_FLAG_NOISY))
+      console.log('QUIET MOVE IN NOISY LIST');
+  
     let rank = 0;
 
     if (m & MOVE_FLAG_PROMOTE) {
@@ -92,11 +98,11 @@ function rankNoisy(node) {
   }
 }
 
-function initSearch(node, inCheck, ttMov, noisyOnly) {
+function initSearch(node, inCheck, ttMove, noisyOnly) {
 
   node.stage = 0;
   node.inCheck = inCheck;
-  node.ttMov = ttMov;
+  node.ttMove = ttMove;
   node.noisyOnly = noisyOnly;
 
 }
@@ -109,8 +115,8 @@ function getNextMove(node) {
 
       node.stage++;
 
-      if (node.ttMov) {
-        return node.ttMov;
+      if (node.ttMove) {
+        return node.ttMove;
       }
 
     }
@@ -121,7 +127,7 @@ function getNextMove(node) {
       node.nextMove = 0;
       node.numMoves = 0;
       genNoisy(node);
-      if (node.ttMov && (node.ttMove & MOVE_FLAG_NOISY))
+      if (node.ttMove && (node.ttMove & MOVE_FLAG_NOISY))
         removeTTMove(node);
       rankNoisy(node);
 
@@ -148,7 +154,7 @@ function getNextMove(node) {
       genQuiets(node);
       if (g_rights && !node.inCheck)
         genCastling(node);
-      if (node.ttMov && !(node.ttMove & MOVE_FLAG_NOISY))
+      if (node.ttMove && !(node.ttMove & MOVE_FLAG_NOISY))
         removeTTMove(node);
       rankQuiets(node);
 

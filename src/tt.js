@@ -1,16 +1,16 @@
 let g_seed = 1;
 
-let loStm = 0;
-let hiStm = 0;
+let g_loStm = 0;
+let g_hiStm = 0;
 
-const loPieces = Array(15);
-const hiPieces = Array(15);
+const g_loPieces = Array(15);
+const g_hiPieces = Array(15);
 
-const loRights = new Int32Array(16);
-const hiRights = new Int32Array(16);
+const g_loRights = new Int32Array(16);
+const g_hiRights = new Int32Array(16);
 
-const loEP = new Int32Array(128);
-const hiEP = new Int32Array(128);
+const g_loEP = new Int32Array(128);
+const g_hiEP = new Int32Array(128);
 
 function rand32(seed) { // Mulberry32
   seed = seed + 0x6D2B79F5 | 0;
@@ -21,26 +21,26 @@ function rand32(seed) { // Mulberry32
 
 function initZobrist() {
 
-  loStm = rand32(g_seed++);
-  hiStm = rand32(g_seed++);
+  g_loStm = rand32(g_seed++);
+  g_hiStm = rand32(g_seed++);
 
   for (let i=0; i < 15; i++) {
-    loPieces[i] = new Int32Array(128);
-    hiPieces[i] = new Int32Array(128);
+    g_loPieces[i] = new Int32Array(128);
+    g_hiPieces[i] = new Int32Array(128);
     for (let j=0; j < 128; j++){
-      loPieces[i][j] = rand32(g_seed++);
-      hiPieces[i][j] = rand32(g_seed++);
+      g_loPieces[i][j] = rand32(g_seed++);
+      g_hiPieces[i][j] = rand32(g_seed++);
     }
   }
 
   for (let i=0; i < 16; i++) {
-    loRights[i] = rand32(g_seed++);
-    hiRights[i] = rand32(g_seed++);
+    g_loRights[i] = rand32(g_seed++);
+    g_hiRights[i] = rand32(g_seed++);
   }
 
   for (let i=0; i < 128; i++) {
-    loEP[i] = rand32(g_seed++);
-    hiEP[i] = rand32(g_seed++);
+    g_loEP[i] = rand32(g_seed++);
+    g_hiEP[i] = rand32(g_seed++);
   }
 
 }
@@ -53,16 +53,16 @@ const TT_INCHECK = 4;
 const TT_DEFAULT = 16; // mb
 const TT_WIDTH = 18; // bytes - see below
 
-let ttSize = 1;
-let ttMask = 0; // 0 implies tt not resized yet
+let g_ttSize = 1;
+let g_ttMask = 0; // 0 implies tt not resized yet
 
-let ttLoHash = new Int32Array(ttSize); // 4
-let ttHiHash = new Int32Array(ttSize); // 4
-let ttType = new Uint8Array(ttSize); // 1
-let ttDepth = new Int8Array(ttSize); // 1
-let ttMove = new Uint32Array(ttSize); // 4
-let ttEval = new Int16Array(ttSize); // 2
-let ttScore = new Int16Array(ttSize); // 2
+let g_ttLoHash = new Int32Array(g_ttSize); // 4
+let g_ttHiHash = new Int32Array(g_ttSize); // 4
+let g_ttType = new Uint8Array(g_ttSize); // 1
+let g_ttDepth = new Int8Array(g_ttSize); // 1
+let g_ttMove = new Uint32Array(g_ttSize); // 4
+let g_ttEval = new Int16Array(g_ttSize); // 2
+let g_ttScore = new Int16Array(g_ttSize); // 2
 
 function ttResize(mb) {
 
@@ -71,40 +71,40 @@ function ttResize(mb) {
   const entriesNeeded = requestedBytes / bytesPerEntry;
   const pow2 = Math.ceil(Math.log2(entriesNeeded));
 
-  ttSize = 1 << pow2;
-  ttMask = ttSize - 1;
+  g_ttSize = 1 << pow2;
+  g_ttMask = g_ttSize - 1;
 
-  ttLoHash = new Int32Array(ttSize);
-  ttHiHash = new Int32Array(ttSize);
-  ttType = new Uint8Array(ttSize);
-  ttDepth = new Int8Array(ttSize);
-  ttMove = new Uint32Array(ttSize);
-  ttEval = new Int16Array(ttSize);
-  ttScore = new Int16Array(ttSize);
+  g_ttLoHash = new Int32Array(g_ttSize);
+  g_ttHiHash = new Int32Array(g_ttSize);
+  g_ttType = new Uint8Array(g_ttSize);
+  g_ttDepth = new Int8Array(g_ttSize);
+  g_ttMove = new Uint32Array(g_ttSize);
+  g_ttEval = new Int16Array(g_ttSize);
+  g_ttScore = new Int16Array(g_ttSize);
 
-  uciSend('info tt bits ' + pow2 + ' entries ' + ttSize + ' (0x' + ttSize.toString(16) + ') mb ' + Math.trunc((TT_WIDTH * ttSize) / (1024 * 1024)));
+  uciSend('info tt bits ' + pow2 + ' entries ' + g_ttSize + ' (0x' + g_ttSize.toString(16) + ') mb ' + Math.trunc((TT_WIDTH * g_ttSize) / (1024 * 1024)));
 
 }
 
 function ttPut(type, depth, score, move, ev, inCheck) {
 
-  const idx = g_loHash & ttMask;
+  const idx = g_loHash & g_ttMask;
 
-  ttLoHash[idx] = g_loHash;
-  ttHiHash[idx] = g_hiHash;
-  ttType[idx] = inCheck ? type | TT_INCHECK : type;
-  ttDepth[idx] = depth;
-  ttScore[idx] = score;
-  ttEval[idx] = ev;
-  ttMove[idx] = move;
+  g_ttLoHash[idx] = g_loHash;
+  g_ttHiHash[idx] = g_hiHash;
+  g_ttType[idx] = inCheck ? type | TT_INCHECK : type;
+  g_ttDepth[idx] = depth;
+  g_ttScore[idx] = score;
+  g_ttEval[idx] = ev;
+  g_ttMove[idx] = move;
 
 }
 
 function ttGet() {
 
-  const idx = g_loHash & ttMask;
+  const idx = g_loHash & g_ttMask;
 
-  if (ttType[idx] && ttLoHash[idx] === g_loHash && ttHiHash[idx] === g_hiHash)
+  if (g_ttType[idx] && g_ttLoHash[idx] === g_loHash && g_ttHiHash[idx] === g_hiHash)
     return idx;
 
   return -1;
@@ -113,7 +113,7 @@ function ttGet() {
 
 function ttClear() {
 
-  ttType.fill(0);
+  g_ttType.fill(0);
 
 }
 

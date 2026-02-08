@@ -12,22 +12,22 @@ function checkHash() {
     }
     const piece = b[sq];
     if (piece) {
-      lo ^= loPieces[piece][sq];
-      hi ^= hiPieces[piece][sq];
+      lo ^= g_loPieces[piece][sq];
+      hi ^= g_hiPieces[piece][sq];
     }
   }
 
-  lo ^= loRights[g_rights];
-  hi ^= hiRights[g_rights];
+  lo ^= g_loRights[g_rights];
+  hi ^= g_hiRights[g_rights];
 
   if (g_ep) {
-    lo ^= loEP[g_ep];
-    hi ^= hiEP[g_ep];
+    lo ^= g_loEP[g_ep];
+    hi ^= g_hiEP[g_ep];
   }
 
   if (g_stm === BLACK) {
-    lo ^= loStm;
-    hi ^= hiStm;
+    lo ^= g_loStm;
+    hi ^= g_hiStm;
   }
 
   if (lo !== g_loHash || hi !== g_hiHash) {
@@ -35,3 +35,4 @@ function checkHash() {
   }
 
 }
+

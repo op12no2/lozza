@@ -18,9 +18,9 @@ function search(ply, depth, alpha, beta) {
   const isPV = beta !== (alpha + 1);
   const ttix = ttGet();
   
-  if (!isPV && ttix >= 0 && ttDepth[ttix] >= depth) {
-    const type = ttType[ttix] & TT_TYPE_MASK;
-    const score = getAdjustedScore(ply, ttScore[ttix]);
+  if (!isPV && ttix >= 0 && g_ttDepth[ttix] >= depth) {
+    const type = g_ttType[ttix] & TT_TYPE_MASK;
+    const score = getAdjustedScore(ply, g_ttScore[ttix]);
     if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
       return score;
     }
@@ -32,9 +32,9 @@ function search(ply, depth, alpha, beta) {
   const isRoot = ply === 0;
   const kix = (stm >>> 3) * 17 + 1;
   const origAlpha = alpha;
-  const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
-  const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 && isProbablyLegal(ttMove[ttix]) ? ttMove[ttix] : 0;
+  const inCheck = ttix >= 0 ? (g_ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
+  const ev = ttix >= 0 ? g_ttEval[ttix] : evaluate();
+  const ttMove = ttix >= 0 && isProbablyLegal(g_ttMove[ttix]) ? g_ttMove[ttix] : 0;
   const playedMoves = node.playedMoves;
 
   let move = 0;
@@ -45,7 +45,7 @@ function search(ply, depth, alpha, beta) {
   let reductions = 0; // hack for use with lmr
   let extensions = 0; // ditto
   
-  initSearch(node, inCheck, ttMov, 0);
+  initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {
 
@@ -89,7 +89,10 @@ function search(ply, depth, alpha, beta) {
             const bonus = depth * depth;
             updateQpth(bestMove, bonus);
             for (let i = 0; i < played; i++) {
-              updateQpth(playedMoves[i], -bonus);
+              const pm = playedMoves[i];
+              if (!(pm & MOVE_FLAG_NOISY)) {
+                updateQpth(playedMoves[i], -bonus);
+              }  
             }  
           }  
           ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);

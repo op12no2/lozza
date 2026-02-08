@@ -196,3 +196,4 @@ function evaluate() {
 
   return (mgScore * mgPhase + egScore * egPhase) / 24 | 0;
 }
+

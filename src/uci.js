@@ -25,7 +25,7 @@ function uciExecLine(line) {
 
     case 'ucinewgame':
     case 'u': {
-      if (ttMask === 0)
+      if (g_ttMask === 0)
         ttResize(TT_DEFAULT);
       newGame();
       break;
@@ -98,7 +98,7 @@ function uciExecLine(line) {
 
     case 'go':
     case 'g': {
-      if (ttMask === 0)
+      if (g_ttMask === 0)
         ttResize(TT_DEFAULT);
       initTimeControl(tokens);
       go();
@@ -119,3 +119,4 @@ function uciExecLine(line) {
     }  
   }
 }
+

@@ -15,8 +15,8 @@ function qsearch(ply, depth, alpha, beta) {
   const ttix = ttGet();
 
   if (ttix >= 0) {
-    const type = ttType[ttix] & TT_TYPE_MASK;
-    const score = getAdjustedScore(ply, ttScore[ttix]);
+    const type = g_ttType[ttix] & TT_TYPE_MASK;
+    const score = getAdjustedScore(ply, g_ttScore[ttix]);
     if (type === TT_EXACT || (type === TT_BETA && score >= beta) || (type === TT_ALPHA && score <= alpha)) {
       return score;
     }
@@ -26,9 +26,9 @@ function qsearch(ply, depth, alpha, beta) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1;
-  const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
-  const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 && isProbablyLegal(ttMove[ttix]) && (inCheck || (ttMove[ttix] & MOVE_FLAG_NOISY)) ? ttMove[ttix] : 0;
+  const inCheck = ttix >= 0 ? (g_ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
+  const ev = ttix >= 0 ? g_ttEval[ttix] : evaluate();
+  const ttMove = ttix >= 0 && isProbablyLegal(g_ttMove[ttix]) && (inCheck || (g_ttMove[ttix] & MOVE_FLAG_NOISY)) ? g_ttMove[ttix] : 0;
 
   let bestScore = -INF;
 
@@ -46,7 +46,7 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  initSearch(node, inCheck, ttMov, inCheck ^ 1);
+  initSearch(node, inCheck, ttMove, inCheck ^ 1);
 
   while ((move = getNextMove(node))) {
 

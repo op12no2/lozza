@@ -122,22 +122,22 @@ function position(boardStr, stmStr, rightsStr, epStr, moves) {
     }
     const piece = b[sq];
     if (piece) {
-      g_loHash ^= loPieces[piece][sq];
-      g_hiHash ^= hiPieces[piece][sq];
+      g_loHash ^= g_loPieces[piece][sq];
+      g_hiHash ^= g_hiPieces[piece][sq];
     }
   }
 
-  g_loHash ^= loRights[g_rights];
-  g_hiHash ^= hiRights[g_rights];
+  g_loHash ^= g_loRights[g_rights];
+  g_hiHash ^= g_hiRights[g_rights];
 
   if (g_ep) {
-    g_loHash ^= loEP[g_ep];
-    g_hiHash ^= hiEP[g_ep];
+    g_loHash ^= g_loEP[g_ep];
+    g_hiHash ^= g_hiEP[g_ep];
   }
 
   if (g_stm === BLACK) {
-    g_loHash ^= loStm;
-    g_hiHash ^= hiStm;
+    g_loHash ^= g_loStm;
+    g_hiHash ^= g_hiStm;
   }
 
   if (moves) {

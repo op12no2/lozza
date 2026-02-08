@@ -1,4 +1,4 @@
-const qpth = Array(15); // quiet piece to history
+const g_qpth = Array(15); // quiet piece to history
 
 function updateQpth(move, bonus) {
 
@@ -6,14 +6,14 @@ function updateQpth(move, bonus) {
   const fr = (move >> 7) & 0x7F;
   const piece = g_board[fr];
 
-  qpth[piece][to] += bonus;
+  g_qpth[piece][to] += bonus;
 
 }
 
 function initQpth () {
 
     for (let i=0; i < 15; i++) {
-      qpth[i] = new Int32Array(128)
+      g_qpth[i] = new Int32Array(128)
     }
 
 }
@@ -21,7 +21,7 @@ function initQpth () {
 function clearQpth () {
 
     for (let i=0; i < 15; i++) {
-      qpth[i].fill(0);
+      g_qpth[i].fill(0);
     }
 
 }
