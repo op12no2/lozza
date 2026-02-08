@@ -79,10 +79,13 @@ let g_hiHash = 0;
 let g_nodes = 0; // node counter (init to 0)
 let g_maxNodes = 0; // node target if given (else 0)
 let g_maxDepth = 0; // target depth if given (set to MAX_PLY otherwise)
-let g_startTime = 0; // always set via performance.now()
+let g_startTime = 0; // always set via now()
 let g_finishTime = 0; // finish time if appropriate (else 0)
 let g_finished = 0; // 1 when time/nodes reached (else 0)
-let g_bestMove = 0;
+
+function now() {
+  return performance.now() | 0;
+}
 
 const PERFTFENS = [
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 0, 1,         'startpos-0'],
@@ -362,6 +365,8 @@ function nodeStruct() {
   this.inCheck = 0; // for move iterator (gen castling moves when not in check)
   this.noisyOnly = 0; // for move iterator (qsearch skips quiets)
   this.stage = 0; // for move iterator
+  this.pv = new Uint32Array(MAX_MOVES);
+  this.pvLen = 0;
   this.undoRights = 0; // undo* for unmake()
   this.undoEp = 0;
   this.undoCaptured = 0;
@@ -1706,10 +1711,7 @@ function perftTests(maxDepth) {
 
 function checkTime() {
 
-    if (g_bestMove == 0)
-      return;
-
-    if (g_finishTime && performance.now() >= g_finishTime)
+    if (g_finishTime && now() >= g_finishTime)
       g_finished = 1;
     
     if (g_maxNodes && g_nodes >= g_maxNodes)
@@ -1724,10 +1726,9 @@ function initTimeControl(tokens) {
   g_nodes = 0;
   g_maxNodes = 0;
   g_maxDepth = MAX_PLY;
-  g_startTime = performance.now();
+  g_startTime = now();
   g_finishTime = 0;
   g_finished = 0;
-  g_bestMove = 0;
 
   // parse go params into a map
 
@@ -1998,6 +1999,37 @@ function evaluate() {
 
   return (mgScore * mgPhase + egScore * egPhase) / 24 | 0;
 }
+
+function collectPV(node, cNode, move) {
+
+  if (cNode) {
+    node.pv.set(cNode.pv.subarray(0, cNode.pvLen), 0);
+    node.pvLen  = cNode.pvLen;
+    node.pv[node.pvLen++] = move;
+  }
+  else {
+    node.pv[0] = move;
+    node.pvLen = 1;
+  }
+
+}
+
+function report (value, depth) {
+
+  let pvStr = 'pv';
+  for (let i=rootNode.pvLen-1; i >= 0; i--)
+    pvStr += ' ' + formatMove(rootNode.pv[i]);
+
+  const elapsed = now() - g_startTime;
+  const nps = (g_nodes * 1000) / elapsed | 0;
+  const nodeStr = 'nodes ' + g_nodes + ' time ' + elapsed + ' nps ' + nps + ' ';
+  const depthStr = 'depth ' + depth + ' ';
+  const scoreStr = 'score cp ' + value + ' ';
+
+  uciSend('info ' + depthStr + scoreStr + nodeStr + pvStr);
+
+}
+
 function search(ply, depth, alpha, beta) {
 
   if (depth <= 0)
@@ -2013,6 +2045,11 @@ function search(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  const node = g_ss[ply]; 
+  const cNode = ply <= MAX_PLY - 2 ? g_ss[ply + 1] : 0;
+  
+  node.pvLen = 0;
+  
   // hack check for draws here
 
   const isPV = beta !== (alpha + 1);
@@ -2026,7 +2063,6 @@ function search(ply, depth, alpha, beta) {
     }
   }
 
-  const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const isRoot = ply === 0;
@@ -2079,11 +2115,11 @@ function search(ply, depth, alpha, beta) {
     if (score > bestScore) {
       bestScore = score;
       bestMove = move;
-      if (isRoot) {
-        g_bestMove = bestMove;
-      }  
       if (bestScore > alpha) {
         alpha = bestScore;
+        if (isPV) {
+          collectPV(node, cNode, bestMove);
+        }  
         if (bestScore >= beta) {
           if (!(bestMove & MOVE_FLAG_NOISY)) {
             const bonus = depth * depth;
@@ -2127,6 +2163,9 @@ function qsearch(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  const node = g_ss[ply]; 
+  node.pvLen = 0;
+
   // hack check for mat draw here
 
   const ttix = ttGet();
@@ -2139,7 +2178,6 @@ function qsearch(ply, depth, alpha, beta) {
     }
   }
 
-  const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1;
@@ -2208,12 +2246,13 @@ function qsearch(ply, depth, alpha, beta) {
 function go() {
 
   clearQpth();
-  
+
   let alpha = 0;
   let beta = 0;
   let score = 0;
   let delta = 0;
   let depth = 0;
+  let bm = 0; // best move from last completed iteration
 
   for (let d=1; d <= g_maxDepth; d++) {
     
@@ -2245,18 +2284,22 @@ function go() {
       }
       
       else {
-        uciSend(depth); // hack extend to pv
+        bm = rootNode.pv[rootNode.pvLen-1];
+        report(score, depth);
         break;
       }
-      
+
     }
-    
+
     if (g_finished)
       break;
     
   }
 
-  uciSend('bestmove ' + formatMove(g_bestMove));
+  if (!bm)
+    console.log('NO BEST MOVE');
+
+  uciSend('bestmove ' + formatMove(bm));
 
 }
 
@@ -2269,7 +2312,7 @@ function bench() {
   const depth = 6;
 
   let nodes = 0;
-  let start = performance.now();
+  let start = now();
   
   for (let i=0; i < BENCHFENS.length; i++) {
         
@@ -2283,7 +2326,7 @@ function bench() {
         
   }
         
-  const elapsed = (performance.now() - start) | 0;
+  const elapsed = now() - start;
   const nps = nodes/elapsed * 1000 | 0;
         
   uciSend('nodes ' + nodes + ' elapsed ' + elapsed + ' nps ' + nps);

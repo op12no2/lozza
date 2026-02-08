@@ -10,6 +10,9 @@ function qsearch(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  const node = g_ss[ply]; 
+  node.pvLen = 0;
+
   // hack check for mat draw here
 
   const ttix = ttGet();
@@ -22,7 +25,6 @@ function qsearch(ply, depth, alpha, beta) {
     }
   }
 
-  const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1;

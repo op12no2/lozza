@@ -1,9 +1,6 @@
 function checkTime() {
 
-    if (g_bestMove == 0)
-      return;
-
-    if (g_finishTime && performance.now() >= g_finishTime)
+    if (g_finishTime && now() >= g_finishTime)
       g_finished = 1;
     
     if (g_maxNodes && g_nodes >= g_maxNodes)
@@ -18,10 +15,9 @@ function initTimeControl(tokens) {
   g_nodes = 0;
   g_maxNodes = 0;
   g_maxDepth = MAX_PLY;
-  g_startTime = performance.now();
+  g_startTime = now();
   g_finishTime = 0;
   g_finished = 0;
-  g_bestMove = 0;
 
   // parse go params into a map
 

@@ -1,12 +1,13 @@
 function go() {
 
   clearQpth();
-  
+
   let alpha = 0;
   let beta = 0;
   let score = 0;
   let delta = 0;
   let depth = 0;
+  let bm = 0; // best move from last completed iteration
 
   for (let d=1; d <= g_maxDepth; d++) {
     
@@ -38,18 +39,22 @@ function go() {
       }
       
       else {
-        uciSend(depth); // hack extend to pv
+        bm = rootNode.pv[rootNode.pvLen-1];
+        report(score, depth);
         break;
       }
-      
+
     }
-    
+
     if (g_finished)
       break;
     
   }
 
-  uciSend('bestmove ' + formatMove(g_bestMove));
+  if (!bm)
+    console.log('NO BEST MOVE');
+
+  uciSend('bestmove ' + formatMove(bm));
 
 }
 

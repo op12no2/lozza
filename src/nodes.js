@@ -9,6 +9,8 @@ function nodeStruct() {
   this.inCheck = 0; // for move iterator (gen castling moves when not in check)
   this.noisyOnly = 0; // for move iterator (qsearch skips quiets)
   this.stage = 0; // for move iterator
+  this.pv = new Uint32Array(MAX_MOVES);
+  this.pvLen = 0;
   this.undoRights = 0; // undo* for unmake()
   this.undoEp = 0;
   this.undoCaptured = 0;

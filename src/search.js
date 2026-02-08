@@ -13,6 +13,11 @@ function search(ply, depth, alpha, beta) {
   if (ply >= MAX_PLY)
     return evaluate();
 
+  const node = g_ss[ply]; 
+  const cNode = ply <= MAX_PLY - 2 ? g_ss[ply + 1] : 0;
+  
+  node.pvLen = 0;
+  
   // hack check for draws here
 
   const isPV = beta !== (alpha + 1);
@@ -26,7 +31,6 @@ function search(ply, depth, alpha, beta) {
     }
   }
 
-  const node = g_ss[ply];
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const isRoot = ply === 0;
@@ -79,11 +83,11 @@ function search(ply, depth, alpha, beta) {
     if (score > bestScore) {
       bestScore = score;
       bestMove = move;
-      if (isRoot) {
-        g_bestMove = bestMove;
-      }  
       if (bestScore > alpha) {
         alpha = bestScore;
+        if (isPV) {
+          collectPV(node, cNode, bestMove);
+        }  
         if (bestScore >= beta) {
           if (!(bestMove & MOVE_FLAG_NOISY)) {
             const bonus = depth * depth;

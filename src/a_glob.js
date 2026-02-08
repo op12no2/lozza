@@ -79,8 +79,7 @@ let g_hiHash = 0;
 let g_nodes = 0; // node counter (init to 0)
 let g_maxNodes = 0; // node target if given (else 0)
 let g_maxDepth = 0; // target depth if given (set to MAX_PLY otherwise)
-let g_startTime = 0; // always set via performance.now()
+let g_startTime = 0; // always set via now()
 let g_finishTime = 0; // finish time if appropriate (else 0)
 let g_finished = 0; // 1 when time/nodes reached (else 0)
-let g_bestMove = 0;
 

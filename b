@@ -1,5 +1,6 @@
 cat \
   src/a_glob.js \
+  src/utils.js \
   src/data.js \
   src/tt.js \
   src/nodes.js \
@@ -12,6 +13,7 @@ cat \
   src/perft.js \
   src/tc.js \
   src/eval.js \
+  src/pv.js \
   src/search.js \
   src/qsearch.js \
   src/go.js \

@@ -3,7 +3,7 @@ function bench() {
   const depth = 6;
 
   let nodes = 0;
-  let start = performance.now();
+  let start = now();
   
   for (let i=0; i < BENCHFENS.length; i++) {
         
@@ -17,7 +17,7 @@ function bench() {
         
   }
         
-  const elapsed = (performance.now() - start) | 0;
+  const elapsed = now() - start;
   const nps = nodes/elapsed * 1000 | 0;
         
   uciSend('nodes ' + nodes + ' elapsed ' + elapsed + ' nps ' + nps);
