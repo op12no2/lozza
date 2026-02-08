@@ -204,6 +204,53 @@ function printBoard() {
   uciSend('  stm: ' + (g_stm === WHITE ? 'w' : 'b') + ' rights: ' + rightsStr + ' ep: ' + epStr);
 }
 
+function isProbablyLegal(move) {
+
+  const b = g_board;
+  const fr = (move >> 7) & 0x7F;
+  const to = move & 0x7F;
+
+  // off board check
+
+  if ((fr | to) & 0x88)
+    return 0;
+
+  // from must have a piece of stm colour
+
+  const frPiece = b[fr];
+
+  if (!frPiece || (frPiece & BLACK) !== g_stm)
+    return 0;
+
+  // to must be empty or opposite colour (unless castling)
+
+  const toPiece = b[to];
+
+  if (move & MOVE_FLAG_CASTLE)
+    return (frPiece & 7) === KING;
+
+  if (toPiece) {
+    if ((toPiece & BLACK) === g_stm)
+      return 0;
+    if (!(move & MOVE_FLAG_CAPTURE))
+      return 0;
+  }
+  else if (move & MOVE_FLAG_CAPTURE) {
+    if (!(move & MOVE_FLAG_EPCAPTURE))
+      return 0;
+  }
+
+  // promote flag must match pawn on correct rank
+
+  if (move & MOVE_FLAG_PROMOTE) {
+    if ((frPiece & 7) !== PAWN)
+      return 0;
+  }
+
+  return 1;
+
+}
+
 function isAttacked(sq, byColour) {
 
   const b = g_board;
@@ -275,3 +322,4 @@ function isAttacked(sq, byColour) {
 
   return 0;
 }
+

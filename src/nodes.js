@@ -3,6 +3,7 @@ function nodeStruct() {
   this.numMoves = 0;
   this.moves = new Uint32Array(MAX_MOVES);
   this.ranks = new Int32Array(MAX_MOVES);
+  this.playedMoves = new Uint32Array(MAX_MOVES); // for applying penalties on beta cutoff
   this.nextMove = 0; // for move iterator
   this.ttMov = 0;  // for move iterator
   this.inCheck = 0; // for move iterator (gen castling moves when not in check)

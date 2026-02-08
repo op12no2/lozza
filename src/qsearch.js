@@ -26,10 +26,9 @@ function qsearch(ply, depth, alpha, beta) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1;
-  const realInCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
-  const inCheck = depth > -10 ? realInCheck : 0; // safety net
+  const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 ? ttMove[ttix] : 0;
+  const ttMov = ttix >= 0 && isProbablyLegal(ttMove[ttix]) && (inCheck || (ttMove[ttix] & MOVE_FLAG_NOISY)) ? ttMove[ttix] : 0;
 
   let bestScore = -INF;
 
@@ -47,15 +46,13 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  initNextSearchMove(node, inCheck, ttMov, !inCheck);
+  initSearch(node, inCheck, ttMov, inCheck ^ 1);
 
-  while ((move = getNextSearchMove(node))) {
+  while ((move = getNextMove(node))) {
 
     make(node, move);
-    //checkHash();
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
-      //checkHash();
       continue;
     }
 
@@ -67,7 +64,6 @@ function qsearch(ply, depth, alpha, beta) {
       return 0;
 
     unmake(node, move);
-    //checkHash();
 
     if (score > bestScore) {
       bestScore = score;
@@ -75,7 +71,7 @@ function qsearch(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
-          ttPut(TT_BETA, 0, putAdjustedScore(ply, bestScore), bestMove, ev, realInCheck);
+          ttPut(TT_BETA, 0, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
           return bestScore;
         }
       }

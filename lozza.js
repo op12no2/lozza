@@ -356,6 +356,7 @@ function nodeStruct() {
   this.numMoves = 0;
   this.moves = new Uint32Array(MAX_MOVES);
   this.ranks = new Int32Array(MAX_MOVES);
+  this.playedMoves = new Uint32Array(MAX_MOVES); // for applying penalties on beta cutoff
   this.nextMove = 0; // for move iterator
   this.ttMov = 0;  // for move iterator
   this.inCheck = 0; // for move iterator (gen castling moves when not in check)
@@ -601,6 +602,52 @@ function printBoard() {
 
   uciSend('');
   uciSend('  stm: ' + (g_stm === WHITE ? 'w' : 'b') + ' rights: ' + rightsStr + ' ep: ' + epStr);
+}
+
+function isProbablyLegal(move) {
+
+  const b = g_board;
+  const fr = (move >> 7) & 0x7F;
+  const to = move & 0x7F;
+
+  // off board check
+
+  if ((fr | to) & 0x88)
+    return 0;
+
+  // from must have a piece of stm colour
+
+  const frPiece = b[fr];
+
+  if (!frPiece || (frPiece & BLACK) !== g_stm)
+    return 0;
+
+  // to must be empty or opposite colour (unless castling)
+
+  const toPiece = b[to];
+
+  if (move & MOVE_FLAG_CASTLE)
+    return (frPiece & 7) === KING;
+
+  if (toPiece) {
+    if ((toPiece & BLACK) === g_stm)
+      return 0;
+    if (!(move & MOVE_FLAG_CAPTURE))
+      return 0;
+  }
+  else if (move & MOVE_FLAG_CAPTURE) {
+    if (!(move & MOVE_FLAG_EPCAPTURE))
+      return 0;
+  }
+
+  // promote flag must match pawn on correct rank
+
+  if (move & MOVE_FLAG_PROMOTE) {
+    if ((frPiece & 7) !== PAWN)
+      return 0;
+  }
+
+  return 1;
 }
 
 function isAttacked(sq, byColour) {
@@ -850,6 +897,9 @@ function make(node, move) {
   b[fr] = 0;
 
   g_stm = stm ^ BLACK;
+
+  //checkHash();
+
 }
 
 function unmake (node, move) {
@@ -986,7 +1036,11 @@ function unmake (node, move) {
   g_loHash = node.undoLoHash;
   g_hiHash = node.undoHiHash;
   g_stm = stm;
+
+  //checkHash();
+
 }
+
 function checkHash() {
 
   const b = g_board;
@@ -1024,7 +1078,11 @@ function checkHash() {
   }
 
 }
-function genNoisy(node) { // mutually exclusive with genQuiets()
+// noisy - captures (inc. EP) and promotions
+// quiet - non-captures excluding promotions
+// quiet and noisy are mutually exclusive throughout
+
+function genNoisy(node) { 
 
   const b = g_board;
   const moves = node.moves;
@@ -1400,10 +1458,6 @@ function clearQpth () {
 function removeTTMove(node) {
 
   const ttMov = node.ttMov;
-
-  if (ttMov === 0)
-    return;
-
   const moves = node.moves;
   const n = node.numMoves;
 
@@ -1495,7 +1549,7 @@ function rankNoisy(node) {
   }
 }
 
-function initNextSearchMove(node, inCheck, ttMov, noisyOnly) {
+function initSearch(node, inCheck, ttMov, noisyOnly) {
 
   node.stage = 0;
   node.inCheck = inCheck;
@@ -1504,7 +1558,7 @@ function initNextSearchMove(node, inCheck, ttMov, noisyOnly) {
 
 }
 
-function getNextSearchMove(node) {
+function getNextMove(node) {
 
   switch (node.stage) {
 
@@ -1524,7 +1578,8 @@ function getNextSearchMove(node) {
       node.nextMove = 0;
       node.numMoves = 0;
       genNoisy(node);
-      removeTTMove(node);
+      if (node.ttMov && (node.ttMove & MOVE_FLAG_NOISY))
+        removeTTMove(node);
       rankNoisy(node);
 
     }
@@ -1550,7 +1605,8 @@ function getNextSearchMove(node) {
       genQuiets(node);
       if (g_rights && !node.inCheck)
         genCastling(node);
-      removeTTMove(node);
+      if (node.ttMov && !(node.ttMove & MOVE_FLAG_NOISY))
+        removeTTMove(node);
       rankQuiets(node);
 
     }
@@ -1571,7 +1627,6 @@ function getNextSearchMove(node) {
   }
 }
 
-
 function perft(ply, depth) {
 
   if (depth === 0)
@@ -1586,16 +1641,14 @@ function perft(ply, depth) {
   let move = 0;
   let total = 0;
 
-  initNextSearchMove(node, inCheck, 0);
+  initSearch(node, inCheck, 0, 0);
 
-  while ((move = getNextSearchMove(node))) {
+  while ((move = getNextMove(node))) {
 
     make(node, move);
-    //checkHash();
     if (!isAttacked(g_pieces[kix], nstm))
       total += perft(ply + 1, depth - 1);
     unmake(node, move);
-    //checkHash();
   }
 
   return total;
@@ -1972,7 +2025,8 @@ function search(ply, depth, alpha, beta) {
   const origAlpha = alpha;
   const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 ? ttMove[ttix] : 0; // check for legalityish
+  const ttMov = ttix >= 0 && isProbablyLegal(ttMove[ttix]) ? ttMove[ttix] : 0;
+  const playedMoves = node.playedMoves;
 
   let move = 0;
   let played = 0;
@@ -1982,19 +2036,17 @@ function search(ply, depth, alpha, beta) {
   let reductions = 0; // hack for use with lmr
   let extensions = 0; // ditto
   
-  initNextSearchMove(node, inCheck, ttMov);
+  initSearch(node, inCheck, ttMov, 0);
 
-  while ((move = getNextSearchMove(node))) {
+  while ((move = getNextMove(node))) {
 
     make(node, move);
-    //checkHash();
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
-      //checkHash();
       continue;
     }
 
-    played++;
+    playedMoves[played++] = move;
 
     if (isPV) {
       if (played === 1) {
@@ -2014,7 +2066,6 @@ function search(ply, depth, alpha, beta) {
       return 0;
 
     unmake(node, move);
-    //checkHash();
 
     if (score > bestScore) {
       bestScore = score;
@@ -2025,8 +2076,13 @@ function search(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
-          if (!(bestMove & MOVE_FLAG_NOISY))
-            updateQpth(bestMove, depth * depth);
+          if (!(bestMove & MOVE_FLAG_NOISY)) {
+            const bonus = depth * depth;
+            updateQpth(bestMove, bonus);
+            for (let i = 0; i < played; i++) {
+              updateQpth(playedMoves[i], -bonus);
+            }  
+          }  
           ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
           return bestScore;
         }  
@@ -2075,10 +2131,9 @@ function qsearch(ply, depth, alpha, beta) {
   const stm = g_stm;
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1;
-  const realInCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
-  const inCheck = depth > -10 ? realInCheck : 0; // safety net
+  const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 ? ttMove[ttix] : 0;
+  const ttMov = ttix >= 0 && isProbablyLegal(ttMove[ttix]) && (inCheck || (ttMove[ttix] & MOVE_FLAG_NOISY)) ? ttMove[ttix] : 0;
 
   let bestScore = -INF;
 
@@ -2096,15 +2151,13 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  initNextSearchMove(node, inCheck, ttMov, !inCheck);
+  initSearch(node, inCheck, ttMov, inCheck ^ 1);
 
-  while ((move = getNextSearchMove(node))) {
+  while ((move = getNextMove(node))) {
 
     make(node, move);
-    //checkHash();
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
-      //checkHash();
       continue;
     }
 
@@ -2116,7 +2169,6 @@ function qsearch(ply, depth, alpha, beta) {
       return 0;
 
     unmake(node, move);
-    //checkHash();
 
     if (score > bestScore) {
       bestScore = score;
@@ -2124,7 +2176,7 @@ function qsearch(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
-          ttPut(TT_BETA, 0, putAdjustedScore(ply, bestScore), bestMove, ev, realInCheck);
+          ttPut(TT_BETA, 0, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
           return bestScore;
         }
       }

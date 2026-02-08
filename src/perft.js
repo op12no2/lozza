@@ -12,16 +12,14 @@ function perft(ply, depth) {
   let move = 0;
   let total = 0;
 
-  initNextSearchMove(node, inCheck, 0);
+  initSearch(node, inCheck, 0, 0);
 
-  while ((move = getNextSearchMove(node))) {
+  while ((move = getNextMove(node))) {
 
     make(node, move);
-    //checkHash();
     if (!isAttacked(g_pieces[kix], nstm))
       total += perft(ply + 1, depth - 1);
     unmake(node, move);
-    //checkHash();
   }
 
   return total;

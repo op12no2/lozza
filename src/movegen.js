@@ -1,4 +1,8 @@
-function genNoisy(node) { // mutually exclusive with genQuiets()
+// noisy - captures (inc. EP) and promotions
+// quiet - non-captures excluding promotions
+// quiet and noisy are mutually exclusive throughout
+
+function genNoisy(node) { 
 
   const b = g_board;
   const moves = node.moves;

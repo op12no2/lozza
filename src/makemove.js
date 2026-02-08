@@ -174,6 +174,9 @@ function make(node, move) {
   b[fr] = 0;
 
   g_stm = stm ^ BLACK;
+
+  //checkHash();
+
 }
 
 function unmake (node, move) {
@@ -310,4 +313,8 @@ function unmake (node, move) {
   g_loHash = node.undoLoHash;
   g_hiHash = node.undoHiHash;
   g_stm = stm;
+
+  //checkHash();
+
 }
+

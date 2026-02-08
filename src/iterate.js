@@ -1,10 +1,6 @@
 function removeTTMove(node) {
 
   const ttMov = node.ttMov;
-
-  if (ttMov === 0)
-    return;
-
   const moves = node.moves;
   const n = node.numMoves;
 
@@ -96,7 +92,7 @@ function rankNoisy(node) {
   }
 }
 
-function initNextSearchMove(node, inCheck, ttMov, noisyOnly) {
+function initSearch(node, inCheck, ttMov, noisyOnly) {
 
   node.stage = 0;
   node.inCheck = inCheck;
@@ -105,7 +101,7 @@ function initNextSearchMove(node, inCheck, ttMov, noisyOnly) {
 
 }
 
-function getNextSearchMove(node) {
+function getNextMove(node) {
 
   switch (node.stage) {
 
@@ -125,7 +121,8 @@ function getNextSearchMove(node) {
       node.nextMove = 0;
       node.numMoves = 0;
       genNoisy(node);
-      removeTTMove(node);
+      if (node.ttMov && (node.ttMove & MOVE_FLAG_NOISY))
+        removeTTMove(node);
       rankNoisy(node);
 
     }
@@ -151,7 +148,8 @@ function getNextSearchMove(node) {
       genQuiets(node);
       if (g_rights && !node.inCheck)
         genCastling(node);
-      removeTTMove(node);
+      if (node.ttMov && !(node.ttMove & MOVE_FLAG_NOISY))
+        removeTTMove(node);
       rankQuiets(node);
 
     }
@@ -171,5 +169,4 @@ function getNextSearchMove(node) {
 
   }
 }
-
 

@@ -34,7 +34,8 @@ function search(ply, depth, alpha, beta) {
   const origAlpha = alpha;
   const inCheck = ttix >= 0 ? (ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
   const ev = ttix >= 0 ? ttEval[ttix] : evaluate();
-  const ttMov = ttix >= 0 ? ttMove[ttix] : 0; // check for legalityish
+  const ttMov = ttix >= 0 && isProbablyLegal(ttMove[ttix]) ? ttMove[ttix] : 0;
+  const playedMoves = node.playedMoves;
 
   let move = 0;
   let played = 0;
@@ -44,19 +45,17 @@ function search(ply, depth, alpha, beta) {
   let reductions = 0; // hack for use with lmr
   let extensions = 0; // ditto
   
-  initNextSearchMove(node, inCheck, ttMov);
+  initSearch(node, inCheck, ttMov, 0);
 
-  while ((move = getNextSearchMove(node))) {
+  while ((move = getNextMove(node))) {
 
     make(node, move);
-    //checkHash();
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
-      //checkHash();
       continue;
     }
 
-    played++;
+    playedMoves[played++] = move;
 
     if (isPV) {
       if (played === 1) {
@@ -76,7 +75,6 @@ function search(ply, depth, alpha, beta) {
       return 0;
 
     unmake(node, move);
-    //checkHash();
 
     if (score > bestScore) {
       bestScore = score;
@@ -87,8 +85,13 @@ function search(ply, depth, alpha, beta) {
       if (bestScore > alpha) {
         alpha = bestScore;
         if (bestScore >= beta) {
-          if (!(bestMove & MOVE_FLAG_NOISY))
-            updateQpth(bestMove, depth * depth);
+          if (!(bestMove & MOVE_FLAG_NOISY)) {
+            const bonus = depth * depth;
+            updateQpth(bestMove, bonus);
+            for (let i = 0; i < played; i++) {
+              updateQpth(playedMoves[i], -bonus);
+            }  
+          }  
           ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
           return bestScore;
         }  
