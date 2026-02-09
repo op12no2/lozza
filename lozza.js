@@ -1,3 +1,4 @@
+#!/usr/local/bin/node
 "use strict"
 
 const INT32_MIN = -0x80000000; // -2147483648
@@ -2050,6 +2051,21 @@ function search(ply, depth, alpha, beta) {
   
   node.pvLen = 0;
   
+  // mate distance pruning
+
+  const matingScore = MATE - ply;
+  if (matingScore < beta) {
+    beta = matingScore;
+    if (alpha >= matingScore)
+      return matingScore;
+  }
+  const matedScore = -MATE + ply;
+  if (matedScore > alpha) {
+    alpha = matedScore;
+    if (beta <= matedScore)
+      return matedScore;
+  }
+
   // hack check for draws here
 
   const isPV = beta !== (alpha + 1);
