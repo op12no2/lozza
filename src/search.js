@@ -71,6 +71,13 @@ function search(ply, depth, alpha, beta) {
 
   while ((move = getNextMove(node))) {
 
+    const noisy = move & MOVE_FLAG_NOISY;
+
+    // basic futility pruning
+    
+    if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + g_opt.futility < alpha)
+      continue;
+
     make(node, move);
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);

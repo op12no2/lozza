@@ -88,6 +88,7 @@ const g_opt = {};
 
 g_opt.idFullWidthDepth = 4;
 g_opt.idDelta = 10;
+g_opt.futility = 100;
 
 function now() {
   return performance.now() | 0;
@@ -2299,6 +2300,11 @@ function search(ply, depth, alpha, beta) {
   initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {
+
+    const noisy = move & MOVE_FLAG_NOISY;
+
+    if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + g_opt.futility < alpha)
+      continue;
 
     make(node, move);
     if (isAttacked(g_pieces[kix], nstm)) {
