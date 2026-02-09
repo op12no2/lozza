@@ -17,6 +17,7 @@ function nodeStruct() {
   this.undoCapIdx = 0;
   this.undoLoHash = 0;
   this.undoHiHash = 0;
+  this.undoHmClock = 0;
 
 }
 

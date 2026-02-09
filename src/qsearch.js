@@ -13,7 +13,9 @@ function qsearch(ply, depth, alpha, beta) {
   const node = g_ss[ply]; 
   node.pvLen = 0;
 
-  // hack check for mat draw here
+  if (isDraw()) {
+    return 0;
+  }
 
   const ttix = ttGet();
 
@@ -48,7 +50,7 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  initSearch(node, inCheck, ttMove, inCheck ^ 1);
+  initSearch(node, inCheck, ttMove, inCheck ^ NOISY_MOVES);
 
   while ((move = getNextMove(node))) {
 

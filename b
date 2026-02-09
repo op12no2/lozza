@@ -5,6 +5,7 @@ cat \
   src/tt.js \
   src/nodes.js \
   src/board.js \
+  src/draw.js \
   src/makemove.js \
   src/debug.js \
   src/movegen.js \

@@ -90,6 +90,11 @@ function uciExecLine(line) {
       break;
     }
 
+    case 'dt': {
+      drawTests();
+      break;
+    }
+
     case 'eval':
     case 'e': {
       uciSend('eval ' + evaluate());

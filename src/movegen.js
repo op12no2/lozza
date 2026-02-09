@@ -2,6 +2,9 @@
 // quiet - non-captures excluding promotions
 // quiet and noisy are mutually exclusive throughout
 
+const ALL_MOVES = 0;
+const NOISY_MOVES = 1;
+
 function genNoisy(node) { 
 
   const b = g_board;

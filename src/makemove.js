@@ -10,6 +10,15 @@ function make(node, move) {
   const stmBase = (stm >>> 3) * 17;
   const oppBase = stmBase ^ 17;
 
+  node.undoHmClock = g_hmClock;
+  g_loHH[g_hhNext] = g_loHash;
+  g_hiHH[g_hhNext] = g_hiHash;
+  g_hhNext++;
+  if ((b[fr] & 7) === PAWN || (move & MOVE_FLAG_CAPTURE))
+    g_hmClock = 0;
+  else
+    g_hmClock++;
+
   node.undoRights = g_rights;
   node.undoEp = g_ep;
   node.undoLoHash = g_loHash;
@@ -223,6 +232,8 @@ function unmake (node, move) {
       g_loHash = node.undoLoHash;
       g_hiHash = node.undoHiHash;
       g_stm = stm;
+      g_hmClock = node.undoHmClock;
+      g_hhNext--;
       return;
     }
 
@@ -252,6 +263,8 @@ function unmake (node, move) {
       g_loHash = node.undoLoHash;
       g_hiHash = node.undoHiHash;
       g_stm = stm;
+      g_hmClock = node.undoHmClock;
+      g_hhNext--;
       return;
     }
 
@@ -282,6 +295,8 @@ function unmake (node, move) {
     g_loHash = node.undoLoHash;
     g_hiHash = node.undoHiHash;
     g_stm = stm;
+    g_hmClock = node.undoHmClock;
+    g_hhNext--;
     return;
   }
 
@@ -313,6 +328,8 @@ function unmake (node, move) {
   g_loHash = node.undoLoHash;
   g_hiHash = node.undoHiHash;
   g_stm = stm;
+  g_hmClock = node.undoHmClock;
+  g_hhNext--;
 
   //checkHash();
 

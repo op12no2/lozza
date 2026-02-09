@@ -33,7 +33,11 @@ function search(ply, depth, alpha, beta) {
       return matedScore;
   }
 
-  // hack check for draws here
+  const isRoot = ply === 0;
+
+  if (!isRoot && isDraw()) {
+    return 0;
+  }
 
   const isPV = beta !== (alpha + 1);
   const ttix = ttGet();
@@ -48,7 +52,6 @@ function search(ply, depth, alpha, beta) {
 
   const stm = g_stm;
   const nstm = stm ^ BLACK;
-  const isRoot = ply === 0;
   const kix = (stm >>> 3) * 17 + 1;
   const origAlpha = alpha;
   const inCheck = ttix >= 0 ? (g_ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
@@ -64,7 +67,7 @@ function search(ply, depth, alpha, beta) {
   let reductions = 0; // hack for use with lmr
   let extensions = 0; // ditto
   
-  initSearch(node, inCheck, ttMove, 0);
+  initSearch(node, inCheck, ttMove, ALL_MOVES);
 
   while ((move = getNextMove(node))) {
 

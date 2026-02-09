@@ -17,6 +17,9 @@ charPiece[107] = BKING;   // k
 
 function position(boardStr, stmStr, rightsStr, epStr, moves) {
 
+  g_hhNext = 0;
+  g_hmClock = 0;
+
   g_board.fill(0);
 
   let rank = 7;
