@@ -50,7 +50,7 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  initSearch(node, inCheck, ttMove, inCheck ^ NOISY_MOVES);
+  initSearch(node, inCheck, ttMove, inCheck ^ 1);
 
   while ((move = getNextMove(node))) {
 

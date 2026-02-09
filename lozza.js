@@ -84,6 +84,11 @@ let g_startTime = 0; // always set via now()
 let g_finishTime = 0; // finish time if appropriate (else 0)
 let g_finished = 0; // 1 when time/nodes reached (else 0)
 
+const g_opt = {};
+
+g_opt.idFullWidthDepth = 4;
+g_opt.idDelta = 10;
+
 function now() {
   return performance.now() | 0;
 }
@@ -1282,9 +1287,6 @@ function checkHash() {
 // quiet - non-captures excluding promotions
 // quiet and noisy are mutually exclusive throughout
 
-const ALL_MOVES = 0;
-const NOISY_MOVES = 1;
-
 function genNoisy(node) { 
 
   const b = g_board;
@@ -1850,7 +1852,7 @@ function perft(ply, depth) {
   let move = 0;
   let total = 0;
 
-  initSearch(node, inCheck, 0, ALL_MOVES);
+  initSearch(node, inCheck, 0, 0);
 
   while ((move = getNextMove(node))) {
 
@@ -2294,7 +2296,7 @@ function search(ply, depth, alpha, beta) {
   let reductions = 0; // hack for use with lmr
   let extensions = 0; // ditto
   
-  initSearch(node, inCheck, ttMove, ALL_MOVES);
+  initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {
 
@@ -2416,7 +2418,7 @@ function qsearch(ply, depth, alpha, beta) {
   let score = 0;
   let origAlpha = alpha;
 
-  initSearch(node, inCheck, ttMove, inCheck ^ NOISY_MOVES);
+  initSearch(node, inCheck, ttMove, inCheck ^ 1);
 
   while ((move = getNextMove(node))) {
 
@@ -2473,10 +2475,10 @@ function go() {
     
     alpha = -INF;
     beta  = INF;
-    delta = 10;
+    delta = g_opt.idDelta;
     depth = d;
     
-    if (depth >= 4) {
+    if (depth >= g_opt.idFullWidthDepth) {
       alpha = Math.max(-INF, score - delta);
       beta  = Math.min(INF,  score + delta);
     }

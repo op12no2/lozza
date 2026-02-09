@@ -13,10 +13,10 @@ function go() {
     
     alpha = -INF;
     beta  = INF;
-    delta = 10;
+    delta = g_opt.idDelta;
     depth = d;
     
-    if (depth >= 4) {
+    if (depth >= g_opt.idFullWidthDepth) {
       alpha = Math.max(-INF, score - delta);
       beta  = Math.min(INF,  score + delta);
     }

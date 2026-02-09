@@ -67,7 +67,7 @@ function search(ply, depth, alpha, beta) {
   let reductions = 0; // hack for use with lmr
   let extensions = 0; // ditto
   
-  initSearch(node, inCheck, ttMove, ALL_MOVES);
+  initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {
 

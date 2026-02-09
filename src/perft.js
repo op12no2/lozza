@@ -12,7 +12,7 @@ function perft(ply, depth) {
   let move = 0;
   let total = 0;
 
-  initSearch(node, inCheck, 0, ALL_MOVES);
+  initSearch(node, inCheck, 0, 0);
 
   while ((move = getNextMove(node))) {
 
