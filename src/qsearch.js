@@ -54,6 +54,14 @@ function qsearch(ply, depth, alpha, beta) {
 
   while ((move = getNextMove(node))) {
 
+    // delta pruning
+
+    if (!inCheck && !(move & MOVE_FLAG_PROMOTE)) {
+      const captured = (move & MOVE_FLAG_EPCAPTURE) ? PAWN : (g_board[move & 0x7F] & 7);
+      if (ev + DELTA_VALS[captured] + g_opt.delta < alpha)
+        continue;
+    }
+
     make(node, move);
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);

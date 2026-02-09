@@ -64,6 +64,13 @@ const ROOK_OFFSETS = new Int8Array([-16, -1, 1, 16]);
 const QUEEN_OFFSETS = new Int8Array([-17, -16, -15, -1, 1, 15, 16, 17]);
 const KING_OFFSETS = new Int8Array([-17, -16, -15, -1, 1, 15, 16, 17]);
 
+const DELTA_VALS = new Int16Array(7);
+DELTA_VALS[PAWN]   = 100;
+DELTA_VALS[KNIGHT] = 350;
+DELTA_VALS[BISHOP] = 350;
+DELTA_VALS[ROOK]   = 525;
+DELTA_VALS[QUEEN]  = 1000;
+
 // board globals - maintained throughout search via make and unmake funcs
 
 const g_board = new Uint8Array(128); 
