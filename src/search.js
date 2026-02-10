@@ -70,14 +70,19 @@ function search(ply, depth, alpha, beta) {
   const ttMove = ttix >= 0 && isProbablyLegal(g_ttMove[ttix]) ? g_ttMove[ttix] : 0;
   const playedMoves = node.playedMoves;
 
+  // https://www.talkchess.com/forum3/viewtopic.php?f=7&t=74769
+  if (depth > 5 && isPV && !ttMove)
+    depth--;
+
   let move = 0;
   let played = 0;
   let bestMove = 0;
   let bestScore = -INF;
   let score = 0;
-  let reductions = 0; // hack for use with lmr
-  let extensions = 0; // ditto
   
+  if (!isPV && !inCheck && beta < MATEISH && depth <= 8 && (ev - depth * 100) >= beta)
+    return ev;
+
   initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {

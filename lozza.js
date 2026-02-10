@@ -2301,25 +2301,30 @@ function search(ply, depth, alpha, beta) {
   const ttMove = ttix >= 0 && isProbablyLegal(g_ttMove[ttix]) ? g_ttMove[ttix] : 0;
   const playedMoves = node.playedMoves;
 
+  //https://www.talkchess.com/forum3/viewtopic.php?f=7&t=74769
+  if (depth > 5 && isPV && !ttMove)
+    depth--;
+
   let move = 0;
   let played = 0;
   let bestMove = 0;
   let bestScore = -INF;
   let score = 0;
-  let reductions = 0; // hack for use with lmr
-  let extensions = 0; // ditto
   
+  if (!isPV && !inCheck && beta < MATEISH && depth <= 8 && (ev - depth * 100) >= beta)
+    return ev;
+
   initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {
 
     const noisy = move & MOVE_FLAG_NOISY;
 
+    // late move pruning
     if (depth > 1 && !inCheck && !noisy && alpha > -MATEISH && played > depth * depth * depth)
       continue;
 
-    // basic futility pruning
-
+    // futility pruning
     if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + 100 < alpha)
       continue;
 
@@ -2331,6 +2336,7 @@ function search(ply, depth, alpha, beta) {
 
     playedMoves[played++] = move;
 
+    // late move reductions 
     let R = 0;
     if (depth >= 3 && played > 3) {
       R = g_lmr[depth][played];
