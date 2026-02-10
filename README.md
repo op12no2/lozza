@@ -6,13 +6,16 @@ A hand-coded Javascript UCI chess engine that is easily deployed in web-based pr
 
 Lozza can be used with chess user interfaces like CuteChess via Node, which is available for most platforms.
 
-Lozza uses a traditional evaluation function with features that are easily adjusted for playing style.
+Lozza (currently) uses the PESTO evaluation function.
+
+```lozza.js``` in the repo root is usable and currently around 2350 elo.
 
 ### Limitations
 
 - No ```stop``` command.
 - No multi-threading.
 - No pondering.
+- No multi-PV.
 
 ### Examples
 
@@ -20,9 +23,4 @@ Note that ```lozza.js``` must be invoked in a web worker.
 
 - https://op12no2.github.io/lozza-ui/ex.htm
 - https://op12no2.github.io/lozza-ui/
-
-
-
-
-
 

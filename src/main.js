@@ -22,7 +22,7 @@ function feed(chunk) {
 
 if (!nodeHost) {
   onmessage = function(e) {
-    feed(e.data);
+    uciExecLine(e.data.trim());
   };
 }
 else {

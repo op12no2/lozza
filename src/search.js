@@ -30,7 +30,6 @@ function search(ply, depth, alpha, beta) {
   node.pvLen = 0;
   
   // mate distance pruning
-
   const matingScore = MATE - ply;
   if (matingScore < beta) {
     beta = matingScore;
@@ -80,6 +79,7 @@ function search(ply, depth, alpha, beta) {
   let bestScore = -INF;
   let score = 0;
   
+  // beta pruning
   if (!isPV && !inCheck && beta < MATEISH && depth <= 8 && (ev - depth * 100) >= beta)
     return ev;
 
