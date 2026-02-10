@@ -1,3 +1,14 @@
+const g_lmr = Array(MAX_PLY);
+
+function initLMR() {
+  for (let d = 0; d < MAX_PLY; d++) {
+    g_lmr[d] = Array(MAX_MOVES);
+    for (let m = 0; m < MAX_MOVES; m++) {
+      g_lmr[d][m] = Math.floor(0.75 + Math.log(d) * Math.log(m) / 2.25);
+     }
+  }
+}
+
 function search(ply, depth, alpha, beta) {
 
   if (depth <= 0)
@@ -86,18 +97,30 @@ function search(ply, depth, alpha, beta) {
 
     playedMoves[played++] = move;
 
+    let R = 0;
+    if (depth >= 3 && played > 3) {
+      R = g_lmr[depth][played];
+      R -= inCheck;
+      if (isPV)
+        R -= 1;
+      if (R > depth - 2)
+        R = depth - 2;
+    }
+
     if (isPV) {
       if (played === 1) {
         score = -search(ply + 1, depth - 1, -beta, -alpha);
       }
       else {
-        score = -search(ply + 1, depth - 1, -alpha - 1, -alpha);
+        score = -search(ply + 1, depth - 1 - R, -alpha - 1, -alpha);
         if (!g_finished && score > alpha)
           score = -search(ply + 1, depth - 1, -beta, -alpha);
       }  
     }
     else {
-      score = -search(ply + 1, depth - 1, -beta, -alpha);
+      score = -search(ply + 1, depth - 1 - R, -beta, -alpha);
+      if (!g_finished && score > alpha)
+        score = -search(ply + 1, depth - 1, -beta, -alpha);
     }
 
     if (g_finished)

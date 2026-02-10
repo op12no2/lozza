@@ -2,6 +2,7 @@ initNodes();
 initPST();
 initZobrist();
 initQpth();
+initLMR();
 
 const nodeHost = typeof process !== 'undefined' && process.versions?.node;
 
