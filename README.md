@@ -4,6 +4,7 @@ A hand-coded Javascript UCI chess engine that is easily deployed in web-based pr
 
 ### Notes
 
+- Current version is 11 as of 10/02/26.
 - Current strength is ~2350 Elo.
 - Currently uses the PESTO evaluation function.
 - No ```stop``` command.
