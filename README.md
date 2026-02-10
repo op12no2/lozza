@@ -2,10 +2,10 @@
 
 A hand-coded Javascript UCI chess engine that is easily deployed in web-based projects.
 
-Lozza (currently) uses the PESTO evaluation function and is around 2350 Elo.
+### Notes
 
-### Limitations
-
+- Current strength is ~2350 Elo.
+- Currently uses the PESTO evaluation function.
 - No ```stop``` command.
 - No multi-threading.
 - No pondering.
@@ -13,7 +13,7 @@ Lozza (currently) uses the PESTO evaluation function and is around 2350 Elo.
 
 ### Examples
 
-All you need is ```lozza.js``` from the repo root. Note that ```lozza.js``` must be invoked in a web worker.
+All you need is ```lozza.js``` from the repo root which you then invoke in a web worker.
 
 - https://op12no2.github.io/lozza-ui/ex.htm
 - https://op12no2.github.io/lozza-ui/
