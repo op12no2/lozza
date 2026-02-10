@@ -1,6 +1,5 @@
 cat \
   src/a_glob.js \
-  src/opt.js \
   src/utils.js \
   src/data.js \
   src/tt.js \

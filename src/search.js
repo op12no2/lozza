@@ -74,8 +74,8 @@ function search(ply, depth, alpha, beta) {
     const noisy = move & MOVE_FLAG_NOISY;
 
     // basic futility pruning
-    
-    if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + g_opt.futility < alpha)
+
+    if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + 100 < alpha)
       continue;
 
     make(node, move);

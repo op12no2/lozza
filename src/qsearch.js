@@ -58,7 +58,7 @@ function qsearch(ply, depth, alpha, beta) {
 
     if (!inCheck && !(move & MOVE_FLAG_PROMOTE)) {
       const captured = (move & MOVE_FLAG_EPCAPTURE) ? PAWN : (g_board[move & 0x7F] & 7);
-      if (ev + DELTA_VALS[captured] + g_opt.delta < alpha)
+      if (ev + DELTA_VALS[captured] + 200 < alpha)
         continue;
     }
 

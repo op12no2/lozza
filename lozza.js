@@ -91,12 +91,6 @@ let g_startTime = 0; // always set via now()
 let g_finishTime = 0; // finish time if appropriate (else 0)
 let g_finished = 0; // 1 when time/nodes reached (else 0)
 
-const g_opt = {};
-
-g_opt.idFullWidthDepth = 4;
-g_opt.idDelta = 10;
-g_opt.futility = 100;
-
 function now() {
   return performance.now() | 0;
 }
@@ -2311,8 +2305,8 @@ function search(ply, depth, alpha, beta) {
     const noisy = move & MOVE_FLAG_NOISY;
 
     // basic futility pruning
-    
-    if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + g_opt.futility < alpha)
+
+    if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + 100 < alpha)
       continue;
 
     make(node, move);
@@ -2437,6 +2431,8 @@ function qsearch(ply, depth, alpha, beta) {
 
   while ((move = getNextMove(node))) {
 
+    // delta pruning
+
     if (!inCheck && !(move & MOVE_FLAG_PROMOTE)) {
       const captured = (move & MOVE_FLAG_EPCAPTURE) ? PAWN : (g_board[move & 0x7F] & 7);
       if (ev + DELTA_VALS[captured] + 200 < alpha)
@@ -2496,10 +2492,10 @@ function go() {
     
     alpha = -INF;
     beta  = INF;
-    delta = g_opt.idDelta;
+    delta = 10;
     depth = d;
     
-    if (depth >= g_opt.idFullWidthDepth) {
+    if (depth >= 4) {
       alpha = Math.max(-INF, score - delta);
       beta  = Math.min(INF,  score + delta);
     }
