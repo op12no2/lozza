@@ -1,5 +1,7 @@
 "use strict"
 
+const BUILD ="11"
+
 const INT32_MIN = -0x80000000; // -2147483648
 const INT32_MAX =  0x7fffffff; // 2147483647
 const INT16_MIN = -0x8000; // -32768

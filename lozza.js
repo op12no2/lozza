@@ -1,5 +1,7 @@
 "use strict"
 
+const BUILD ="11"
+
 const INT32_MIN = -0x80000000; // -2147483648
 const INT32_MAX =  0x7fffffff; // 2147483647
 const INT16_MIN = -0x8000; // -32768
@@ -1097,6 +1099,40 @@ function make(node, move) {
 
   //checkHash();
 
+}
+
+function make_null(node) {
+
+  node.undoEp = g_ep;
+  node.undoLoHash = g_loHash;
+  node.undoHiHash = g_hiHash;
+  node.undoHmClock = g_hmClock;
+
+  g_loHH[g_hhNext] = g_loHash;
+  g_hiHH[g_hhNext] = g_hiHash;
+  g_hhNext++;
+  g_hmClock++;
+
+  if (g_ep) {
+    g_loHash ^= g_loEP[g_ep];
+    g_hiHash ^= g_hiEP[g_ep];
+    g_ep = 0;
+  }
+
+  g_loHash ^= g_loStm;
+  g_hiHash ^= g_hiStm;
+
+  g_stm ^= BLACK;
+}
+
+function unmake_null(node) {
+
+  g_hhNext--;
+  g_ep = node.undoEp;
+  g_loHash = node.undoLoHash;
+  g_hiHash = node.undoHiHash;
+  g_hmClock = node.undoHmClock;
+  g_stm ^= BLACK;
 }
 
 function unmake (node, move) {
@@ -2313,6 +2349,26 @@ function search(ply, depth, alpha, beta) {
   if (!isPV && !inCheck && beta < MATEISH && depth <= 8 && (ev - depth * 100) >= beta)
     return ev;
 
+  // null move pruning
+  if (!isPV && !inCheck && beta < MATEISH && depth > 2 && ev > beta) {
+  
+    const R = 3;
+  
+    make_null(node);
+    score = -search(ply+1, depth-R-1, -beta, -beta+1);
+    unmake_null(node);
+  
+    if (g_finished)
+      return 0;
+
+    if (score >= beta) {
+      if (score > MATEISH)
+        score = beta;
+      return score;
+    }
+  
+  }
+
   initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {
@@ -2632,7 +2688,7 @@ function uciExecLine(line) {
     }    
 
     case 'uci': {
-      uciSend('id name Lozza 11');
+      uciSend('id name Lozza ' + BUILD);
       uciSend('id author xyzzy');
       uciSend('option name Hash type spin default ' + TT_DEFAULT + ' min 1 max 1024');
       //uciSend('option name MultiPV type spin default 1 min 1 max 10');

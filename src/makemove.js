@@ -188,6 +188,40 @@ function make(node, move) {
 
 }
 
+function make_null(node) {
+
+  node.undoEp = g_ep;
+  node.undoLoHash = g_loHash;
+  node.undoHiHash = g_hiHash;
+  node.undoHmClock = g_hmClock;
+
+  g_loHH[g_hhNext] = g_loHash;
+  g_hiHH[g_hhNext] = g_hiHash;
+  g_hhNext++;
+  g_hmClock++;
+
+  if (g_ep) {
+    g_loHash ^= g_loEP[g_ep];
+    g_hiHash ^= g_hiEP[g_ep];
+    g_ep = 0;
+  }
+
+  g_loHash ^= g_loStm;
+  g_hiHash ^= g_hiStm;
+
+  g_stm ^= BLACK;
+}
+
+function unmake_null(node) {
+
+  g_hhNext--;
+  g_ep = node.undoEp;
+  g_loHash = node.undoLoHash;
+  g_hiHash = node.undoHiHash;
+  g_hmClock = node.undoHmClock;
+  g_stm ^= BLACK;
+}
+
 function unmake (node, move) {
 
   const b = g_board;

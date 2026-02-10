@@ -83,6 +83,26 @@ function search(ply, depth, alpha, beta) {
   if (!isPV && !inCheck && beta < MATEISH && depth <= 8 && (ev - depth * 100) >= beta)
     return ev;
 
+  // null move pruning
+  if (!isPV && !inCheck && beta < MATEISH && depth > 2 && ev > beta) {
+  
+    const R = 3;
+  
+    make_null(node);
+    score = -search(ply+1, depth-R-1, -beta, -beta+1);
+    unmake_null(node);
+  
+    if (g_finished)
+      return 0;
+
+    if (score >= beta) {
+      if (score > MATEISH)
+        score = beta;
+      return score;
+    }
+  
+  }
+
   initSearch(node, inCheck, ttMove, 0);
 
   while ((move = getNextMove(node))) {

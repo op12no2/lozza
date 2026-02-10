@@ -1,7 +1,6 @@
 #!/bin/bash
 
-if [ "$(hostname)" = "colinj" ]
-then
+if [ "$(hostname)" = "colinj" ]; then
   echo "use the epyc!"
   exit 1
 fi
@@ -10,12 +9,26 @@ if command -v cpupower >/dev/null; then
   sudo cpupower frequency-set -g performance || true
 fi
 
-rm -f sprt.pgn
-rm -f sprt.log
+ensure_shebang() {
+  local file="$1"
+  [[ "$file" != *.js ]] && return
+  head -1 "$file" | grep -q '^#!' && return
+  local node
+  node="$(which node)" || { echo "node not found"; exit 1; }
+  local tmp
+  tmp=$(mktemp)
+  printf '#!%s\n' "$node" | cat - "$file" > "$tmp" && mv "$tmp" "$file"
+  chmod +x "$file"
+}
+
+rm -f sprt.pgn sprt.log
 
 e1=./lozza.js
 #e2=./releases/lozza.js
 e2=../chess_data/stash18
+
+ensure_shebang "$e1"
+#ensure_shebang "$e2"
 
 if [ "$1" = "ltc" ]; then
   hash=128
@@ -32,15 +45,15 @@ elo1=0
 concurrency=32
 book=4moves_noob
 
-CPUS=0-31   # physical cores only (no SMT) EPYC 7502P
+CPUS=0-31  # physical cores only (no SMT) EPYC 7502P
 
 taskset -c $CPUS \
-../chess_data/cutechess-ob -concurrency $concurrency -each tc=0/$tc \
--sprt elo0=$elo0 elo1=$elo1 alpha=0.05 beta=0.1 \
--engine name=$e1 proto=uci cmd=$e1 timemargin=250 option.Hash=$hash \
--engine name=$e2 proto=uci cmd=$e2 timemargin=250 option.Hash=$hash \
--srand $RANDOM$RANDOM -openings file=../chess_data/$book.epd format=epd order=random \
--repeat -games 200000 -recover -pgnout sprt.pgn fi \
--draw movenumber=40 movecount=8 score=10 \
--resign movecount=5 score=400 \
--ratinginterval 10 $1
+  ../chess_data/cutechess-ob -concurrency $concurrency -each tc=0/$tc \
+  -sprt elo0=$elo0 elo1=$elo1 alpha=0.05 beta=0.1 \
+  -engine name=$e1 proto=uci cmd=$e1 timemargin=250 option.Hash=$hash \
+  -engine name=$e2 proto=uci cmd=$e2 timemargin=250 option.Hash=$hash \
+  -srand $RANDOM$RANDOM -openings file=../chess_data/$book.epd format=epd order=random \
+  -repeat -games 200000 -recover -pgnout sprt.pgn fi \
+  -draw movenumber=40 movecount=8 score=10 \
+  -resign movecount=5 score=400 \
+  -ratinginterval 10 $1
