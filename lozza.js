@@ -2315,6 +2315,9 @@ function search(ply, depth, alpha, beta) {
 
     const noisy = move & MOVE_FLAG_NOISY;
 
+    if (depth > 1 && !inCheck && !noisy && alpha > -MATEISH && played > depth * depth * depth)
+      continue;
+
     // basic futility pruning
 
     if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + 100 < alpha)

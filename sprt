@@ -14,8 +14,8 @@ rm -f sprt.pgn
 rm -f sprt.log
 
 e1=./lozza.js
-#e2=./releases/lozza.js
-e2=../chess_data/stash14
+e2=./releases/lozza.js
+#e2=../chess_data/stash17.js
 
 if [ "$1" = "ltc" ]; then
   hash=128

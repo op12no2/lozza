@@ -84,8 +84,11 @@ function search(ply, depth, alpha, beta) {
 
     const noisy = move & MOVE_FLAG_NOISY;
 
-    // basic futility pruning
+    // late move pruning
+    if (depth > 1 && !inCheck && !noisy && alpha > -MATEISH && played > depth * depth * depth)
+      continue;
 
+    // futility pruning
     if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + 100 < alpha)
       continue;
 
@@ -97,6 +100,7 @@ function search(ply, depth, alpha, beta) {
 
     playedMoves[played++] = move;
 
+    // late move reductions 
     let R = 0;
     if (depth >= 3 && played > 3) {
       R = g_lmr[depth][played];
