@@ -2,16 +2,6 @@
 
 A hand-coded Javascript UCI chess engine that is easily deployed in web-based projects.
 
-### Notes
-
-- Current version is 11 as of 10/02/26.
-- Current strength is ~2400 Elo.
-- Currently uses the PESTO evaluation function.
-- No ```stop``` command.
-- No multi-threading.
-- No pondering.
-- No multi-PV.
-
 ### Examples
 
 All you need is ```lozza.js``` from the repo root which you then invoke in a web worker.
