@@ -11,6 +11,6 @@ All you need is ```lozza.js``` from the repo root which you then invoke in a web
 
 ### Strength
 
-The strength of Lozza is about 2400 Elo.  While it is rated higher in rating lists, that was during the time Lozza had wandered far from its HCE roots and was experimenting with NNUE, WASM and even a C translation. If you are looking for a better hand-coded JS engine I recommend https://github.com/tomitank/tomitankChess, which has always been the strongest HCE JS engine, beating the best Lozza HCE version by around 100 Elo. 
+The strength of Lozza is about 2400 Elo.  While it is rated higher in rating lists, that was during the time Lozza had wandered far from its HCE roots and was experimenting with [NNUE, WASM and even a C translation](https://github.com/op12no2/chess-archive). If you are looking for a better hand-coded JS engine I recommend https://github.com/tomitank/tomitankChess, which has always been the strongest HCE JS engine, beating the best Lozza HCE version by around 100 Elo. 
 
 
