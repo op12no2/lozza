@@ -13,6 +13,7 @@ cat \
   src/iterate.js \
   src/perft.js \
   src/tc.js \
+  src/weights.js \
   src/eval.js \
   src/pv.js \
   src/search.js \
