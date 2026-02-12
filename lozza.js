@@ -2170,17 +2170,17 @@ PHASE_INC[QUEEN]  = 4;
 
 // sq88 to sq64 lookup: sq64 = rank * 8 + file (a1=0 .. h8=63)
 // pre-flipped W arrays mean both colours use the same mapping
-const g_sq64 = new Uint8Array(128);
+const g_sq64 = new Int8Array(128);
 for (let r = 0; r < 8; r++)
   for (let f = 0; f < 8; f++)
-    g_sq64[r * 16 + f] = r * 8 + f;
+    g_sq64[r * 16 + f] = r * 8 + f - 58;
 
 function evaluate() {
 
   const b  = g_board;
   const pl = g_pieces;
 
-  let mgS_W = 0, mgS_B = 0, egS_W = 0, egS_B = 0;
+  let mgW = 0, mgB = 0, egW = 0, egB = 0;
   let phase = 0;
 
   // white pieces (base = 0)
@@ -2189,9 +2189,9 @@ function evaluate() {
     const sq = pl[i];
     const pt = b[sq] & 7;
     const matIdx = pt - 1;
-    const pstIdx = pt * 64 - 58 + g_sq64[sq];
-    mgS_W += g_mgW[matIdx] + g_mgW[pstIdx];
-    egS_W += g_egW[matIdx] + g_egW[pstIdx];
+    const pstIdx = pt * 64 + g_sq64[sq];
+    mgW += g_mgW[matIdx] + g_mgW[pstIdx];
+    egW += g_egW[matIdx] + g_egW[pstIdx];
     phase += PHASE_INC[pt];
   }
 
@@ -2201,15 +2201,15 @@ function evaluate() {
     const sq = pl[17 + i];
     const pt = b[sq] & 7;
     const matIdx = pt - 1;
-    const pstIdx = pt * 64 - 58 + g_sq64[sq];
-    mgS_B += g_mgB[matIdx] + g_mgB[pstIdx];
-    egS_B += g_egB[matIdx] + g_egB[pstIdx];
+    const pstIdx = pt * 64 + g_sq64[sq];
+    mgB += g_mgB[matIdx] + g_mgB[pstIdx];
+    egB += g_egB[matIdx] + g_egB[pstIdx];
     phase += PHASE_INC[pt];
   }
 
   // tapered eval
-  const mgScore = g_stm === WHITE ? mgS_W - mgS_B : mgS_B - mgS_W;
-  const egScore = g_stm === WHITE ? egS_W - egS_B : egS_B - egS_W;
+  const mgScore = g_stm === WHITE ? mgW - mgB : mgB - mgW;
+  const egScore = g_stm === WHITE ? egW - egB : egB - egW;
   let mgPhase = phase;
   if (mgPhase > 24) mgPhase = 24;
   const egPhase = 24 - mgPhase;
