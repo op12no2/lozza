@@ -1,4 +1,5 @@
 initNodes();
+initPST();
 initZobrist();
 initQpth();
 initLMR();

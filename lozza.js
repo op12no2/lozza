@@ -2035,115 +2035,11 @@ function initTimeControl(tokens) {
   g_finishTime = g_startTime + ms;
 
 }
-//
-// Weights for eval (tuner outputs W arrays only)
-//
-// Layout (396 entries per array):
-//   [0..5]     material values (PAWN at 0, KNIGHT at 1, ... KING at 5)
-//   [6..389]   PST values, 64 per piece type (base = 6 + (p-1) * 64)
-//   [390..395] passed pawn bonus by rank (rank2..rank7)
-//
-// sq64 mapping: rank * 8 + file (a1=0 .. h8=63)
-//
-// B arrays are generated from W arrays by flipWeights() below.
-// Tuner only needs to output W weights.
-//
+// PeSTO piece-square tables adapted for 0x88 board
+// https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
 
-const g_mgW = new Int16Array([
-  82,337,365,477,1025,0,0,0,0,0,0,0,0,0,-35,-1,
-  -20,-23,-15,24,38,-22,-26,-4,-4,-10,3,3,33,-12,-27,-2,
-  -5,12,17,6,10,-25,-14,13,6,21,23,12,17,-23,-6,7,
-  26,31,65,56,25,-20,98,134,61,95,68,126,34,-11,0,0,
-  0,0,0,0,0,0,-105,-21,-58,-33,-17,-28,-19,-23,-29,-53,
-  -12,-3,-1,18,-14,-19,-23,-9,12,10,19,17,25,-16,-13,4,
-  16,13,28,19,21,-8,-9,17,19,53,37,69,18,22,-47,60,
-  37,65,84,129,73,44,-73,-41,72,36,23,62,7,-17,-167,-89,
-  -34,-49,61,-97,-15,-107,-33,-3,-14,-21,-13,-12,-39,-21,4,15,
-  16,0,7,21,33,1,0,15,15,15,14,27,18,10,-6,13,
-  13,26,34,12,10,4,-4,5,19,50,37,37,7,-2,-16,37,
-  43,40,35,50,37,-2,-26,16,-18,-13,30,59,18,-47,-29,4,
-  -82,-37,-25,-42,7,-8,-19,-13,1,17,16,7,-37,-26,-44,-16,
-  -20,-9,-1,11,-6,-71,-45,-25,-16,-17,3,0,-5,-33,-36,-26,
-  -12,-1,9,-7,6,-23,-24,-11,7,26,24,35,-8,-20,-5,19,
-  26,36,17,45,61,16,27,32,58,62,80,67,26,44,32,42,
-  32,51,63,9,31,43,-1,-18,-9,10,-15,-25,-31,-50,-35,-8,
-  11,2,8,15,-3,1,-14,2,-11,-2,-5,2,14,5,-9,-26,
-  -9,-10,-2,-4,3,-3,-27,-27,-16,-16,-1,17,-2,1,-13,-17,
-  7,8,29,56,47,57,-24,-39,-5,1,-16,57,28,54,-28,0,
-  29,12,59,44,43,45,-15,36,12,-54,8,-28,24,14,1,7,
-  -8,-64,-43,-16,9,8,-14,-14,-22,-46,-44,-30,-15,-27,-49,-1,
-  -27,-39,-46,-44,-33,-51,-17,-20,-12,-27,-30,-25,-14,-36,-9,24,
-  2,-16,-20,6,22,-22,29,-1,-20,-7,-8,-4,-38,-29,-65,23,
-  16,-15,-56,-34,2,13,
-  0,2,4,6,8,10
-]);
-
-const g_egW = new Int16Array([
-  94,281,297,512,936,0,0,0,0,0,0,0,0,0,13,8,
-  8,10,13,0,2,-7,4,7,-6,1,0,-5,-1,-8,13,9,
-  -3,-7,-7,-8,3,-1,32,24,13,5,-2,4,17,17,94,100,
-  85,67,56,53,82,84,178,173,158,134,147,132,165,187,0,0,
-  0,0,0,0,0,0,-29,-51,-23,-15,-22,-18,-50,-64,-42,-20,
-  -10,-5,-2,-20,-23,-44,-23,-3,-1,15,10,-3,-20,-22,-18,-6,
-  16,25,16,17,4,-18,-17,3,22,22,22,11,8,-18,-24,-20,
-  10,9,-1,-9,-19,-41,-25,-8,-25,-2,-9,-25,-24,-52,-58,-38,
-  -13,-28,-31,-27,-63,-99,-23,-9,-23,-5,-9,-16,-5,-17,-14,-18,
-  -7,-1,4,-9,-15,-27,-12,-3,8,10,13,3,-7,-15,-6,3,
-  13,19,7,10,-3,-9,-3,9,12,9,14,10,3,2,2,-8,
-  0,-1,-2,6,0,4,-8,-4,7,-12,-3,-13,-4,-14,-14,-21,
-  -11,-8,-7,-9,-17,-24,-9,2,3,-1,-5,-13,4,-20,-6,-6,
-  0,2,-9,-9,-11,-3,-4,0,-5,-1,-7,-12,-8,-16,3,5,
-  8,4,-5,-6,-8,-11,4,3,13,1,2,1,-1,2,7,7,
-  7,5,4,-3,-5,-3,11,13,13,11,-3,3,8,3,13,10,
-  18,15,12,12,8,5,-33,-28,-22,-43,-5,-32,-20,-41,-22,-23,
-  -30,-16,-16,-23,-36,-32,-16,-27,15,6,9,17,10,5,-18,28,
-  19,47,31,34,39,23,3,22,24,45,57,40,57,36,-20,6,
-  9,49,47,35,19,9,-17,20,32,41,58,25,30,0,-9,22,
-  22,27,27,19,10,20,-53,-34,-21,-11,-28,-14,-24,-43,-27,-11,
-  4,13,14,4,-5,-17,-19,-3,11,21,23,16,7,-9,-18,-4,
-  21,24,27,23,9,-11,-8,22,24,27,26,33,26,3,10,17,
-  23,15,20,45,44,13,-12,17,14,17,17,38,23,11,-74,-35,
-  -18,-18,-11,15,4,-17,
-  0,4,8,12,16,20
-]);
-
-const g_mgB = new Int16Array(396);
-const g_egB = new Int16Array(396);
-
-//
-// Populate B arrays from W arrays.
-//
-// The W arrays store weights from white's perspective. To get black's
-// perspective we need to flip the board vertically:
-//
-//   material [0..5]:     identical - piece values don't depend on colour
-//   PST [6..389]:        flip ranks within each 64-entry block
-//                        src rank r, file f -> dst rank 7-r, file f
-//                        i.e. src[base + r*8+f] -> dst[base + (7-r)*8+f]
-//   passed pawn [390..395]: reverse the 6 entries
-//                        rank2..rank7 -> rank7..rank2 so that both colours
-//                        can index with rank-1 in eval
-//
-function flipWeights(src, dst) {
-  // material: copy as-is
-  for (let i = 0; i < 6; i++)
-    dst[i] = src[i];
-  // PST: flip each 64-entry block vertically
-  for (let p = 0; p < 6; p++) {
-    const base = 6 + p * 64;
-    for (let r = 0; r < 8; r++)
-      for (let f = 0; f < 8; f++)
-        dst[base + r * 8 + f] = src[base + (7 - r) * 8 + f];
-  }
-  // passed pawns: reverse so rank-1 indexes the equivalent feature
-  for (let i = 0; i < 6; i++)
-    dst[390 + i] = src[390 + 5 - i];
-}
-
-flipWeights(g_mgW, g_mgB);
-flipWeights(g_egW, g_egB);
-
-
+const mgPST = new Int16Array(15 * 128);
+const egPST = new Int16Array(15 * 128);
 
 const PHASE_INC = new Uint8Array(7);
 PHASE_INC[KNIGHT] = 1;
@@ -2151,28 +2047,151 @@ PHASE_INC[BISHOP] = 1;
 PHASE_INC[ROOK]   = 2;
 PHASE_INC[QUEEN]  = 4;
 
-// sq88 to sq64 lookup: rank * 8 + file (a1=0 .. h8=63)
-// pre-flipped W arrays mean both colours use the same mapping
-const sq64 = new Uint8Array(128);
-for (let r = 0; r < 8; r++)
-  for (let f = 0; f < 8; f++)
-    sq64[r * 16 + f] = r * 8 + f;
+function initPST() {
 
-// weight array overlays
-const matMgW    = new Int16Array(g_mgW.buffer, 0,       6);
-const matEgW    = new Int16Array(g_egW.buffer, 0,       6);
-const matMgB    = new Int16Array(g_mgB.buffer, 0,       6);
-const matEgB    = new Int16Array(g_egB.buffer, 0,       6);
+  // material values indexed by piece type (PAWN=1 .. KING=6)
+  const mgVal = [0, 82, 337, 365, 477, 1025, 0];
+  const egVal = [0, 94, 281, 297, 512,  936, 0];
 
-const pstMgW    = new Int16Array(g_mgW.buffer, 6 * 2,   384);
-const pstEgW    = new Int16Array(g_egW.buffer, 6 * 2,   384);
-const pstMgB    = new Int16Array(g_mgB.buffer, 6 * 2,   384);
-const pstEgB    = new Int16Array(g_egB.buffer, 6 * 2,   384);
+  // raw 8x8 PSTs from PeSTO/Rofchade, row 0 = rank 8, row 7 = rank 1
+  const mgRaw = [
+    null,
+    // pawn
+    [ 0,   0,   0,   0,   0,   0,  0,   0,
+     98, 134,  61,  95,  68, 126, 34, -11,
+     -6,   7,  26,  31,  65,  56, 25, -20,
+    -14,  13,   6,  21,  23,  12, 17, -23,
+    -27,  -2,  -5,  12,  17,   6, 10, -25,
+    -26,  -4,  -4, -10,   3,   3, 33, -12,
+    -35,  -1, -20, -23, -15,  24, 38, -22,
+      0,   0,   0,   0,   0,   0,  0,   0],
+    // knight
+    [-167, -89, -34, -49,  61, -97, -15, -107,
+      -73, -41,  72,  36,  23,  62,   7,  -17,
+      -47,  60,  37,  65,  84, 129,  73,   44,
+       -9,  17,  19,  53,  37,  69,  18,   22,
+      -13,   4,  16,  13,  28,  19,  21,   -8,
+      -23,  -9,  12,  10,  19,  17,  25,  -16,
+      -29, -53, -12,  -3,  -1,  18, -14,  -19,
+     -105, -21, -58, -33, -17, -28, -19,  -23],
+    // bishop
+    [-29,   4, -82, -37, -25, -42,   7,  -8,
+     -26,  16, -18, -13,  30,  59,  18, -47,
+     -16,  37,  43,  40,  35,  50,  37,  -2,
+      -4,   5,  19,  50,  37,  37,   7,  -2,
+      -6,  13,  13,  26,  34,  12,  10,   4,
+       0,  15,  15,  15,  14,  27,  18,  10,
+       4,  15,  16,   0,   7,  21,  33,   1,
+     -33,  -3, -14, -21, -13, -12, -39, -21],
+    // rook
+    [ 32,  42,  32,  51, 63,  9,  31,  43,
+      27,  32,  58,  62, 80, 67,  26,  44,
+      -5,  19,  26,  36, 17, 45,  61,  16,
+     -24, -11,   7,  26, 24, 35,  -8, -20,
+     -36, -26, -12,  -1,  9, -7,   6, -23,
+     -45, -25, -16, -17,  3,  0,  -5, -33,
+     -44, -16, -20,  -9, -1, 11,  -6, -71,
+     -19, -13,   1,  17, 16,  7, -37, -26],
+    // queen
+    [-28,   0,  29,  12,  59,  44,  43,  45,
+     -24, -39,  -5,   1, -16,  57,  28,  54,
+     -13, -17,   7,   8,  29,  56,  47,  57,
+     -27, -27, -16, -16,  -1,  17,  -2,   1,
+      -9, -26,  -9, -10,  -2,  -4,   3,  -3,
+     -14,   2, -11,  -2,  -5,   2,  14,   5,
+     -35,  -8,  11,   2,   8,  15,  -3,   1,
+      -1, -18,  -9,  10, -15, -25, -31, -50],
+    // king
+    [-65,  23,  16, -15, -56, -34,   2,  13,
+      29,  -1, -20,  -7,  -8,  -4, -38, -29,
+      -9,  24,   2, -16, -20,   6,  22, -22,
+     -17, -20, -12, -27, -30, -25, -14, -36,
+     -49,  -1, -27, -39, -46, -44, -33, -51,
+     -14, -14, -22, -46, -44, -30, -15, -27,
+       1,   7,  -8, -64, -43, -16,   9,   8,
+     -15,  36,  12, -54,   8, -28,  24,  14]
+  ];
 
-const ppMgW     = new Int16Array(g_mgW.buffer, 390 * 2, 6);
-const ppEgW     = new Int16Array(g_egW.buffer, 390 * 2, 6);
-const ppMgB     = new Int16Array(g_mgB.buffer, 390 * 2, 6);
-const ppEgB     = new Int16Array(g_egB.buffer, 390 * 2, 6);
+  const egRaw = [
+    null,
+    // pawn
+    [  0,   0,   0,   0,   0,   0,   0,   0,
+     178, 173, 158, 134, 147, 132, 165, 187,
+      94, 100,  85,  67,  56,  53,  82,  84,
+      32,  24,  13,   5,  -2,   4,  17,  17,
+      13,   9,  -3,  -7,  -7,  -8,   3,  -1,
+       4,   7,  -6,   1,   0,  -5,  -1,  -8,
+      13,   8,   8,  10,  13,   0,   2,  -7,
+       0,   0,   0,   0,   0,   0,   0,   0],
+    // knight
+    [-58, -38, -13, -28, -31, -27, -63, -99,
+     -25,  -8, -25,  -2,  -9, -25, -24, -52,
+     -24, -20,  10,   9,  -1,  -9, -19, -41,
+     -17,   3,  22,  22,  22,  11,   8, -18,
+     -18,  -6,  16,  25,  16,  17,   4, -18,
+     -23,  -3,  -1,  15,  10,  -3, -20, -22,
+     -42, -20, -10,  -5,  -2, -20, -23, -44,
+     -29, -51, -23, -15, -22, -18, -50, -64],
+    // bishop
+    [-14, -21, -11,  -8, -7,  -9, -17, -24,
+      -8,  -4,   7, -12, -3, -13,  -4, -14,
+       2,  -8,   0,  -1, -2,   6,   0,   4,
+      -3,   9,  12,   9, 14,  10,   3,   2,
+      -6,   3,  13,  19,  7,  10,  -3,  -9,
+     -12,  -3,   8,  10, 13,   3,  -7, -15,
+     -14, -18,  -7,  -1,  4,  -9, -15, -27,
+     -23,  -9, -23,  -5, -9, -16,  -5, -17],
+    // rook
+    [13, 10, 18, 15, 12,  12,   8,   5,
+     11, 13, 13, 11, -3,   3,   8,   3,
+      7,  7,  7,  5,  4,  -3,  -5,  -3,
+      4,  3, 13,  1,  2,   1,  -1,   2,
+      3,  5,  8,  4, -5,  -6,  -8, -11,
+     -4,  0, -5, -1, -7, -12,  -8, -16,
+     -6, -6,  0,  2, -9,  -9, -11,  -3,
+     -9,  2,  3, -1, -5, -13,   4, -20],
+    // queen
+    [ -9,  22,  22,  27,  27,  19,  10,  20,
+     -17,  20,  32,  41,  58,  25,  30,   0,
+     -20,   6,   9,  49,  47,  35,  19,   9,
+       3,  22,  24,  45,  57,  40,  57,  36,
+     -18,  28,  19,  47,  31,  34,  39,  23,
+     -16, -27,  15,   6,   9,  17,  10,   5,
+     -22, -23, -30, -16, -16, -23, -36, -32,
+     -33, -28, -22, -43,  -5, -32, -20, -41],
+    // king
+    [-74, -35, -18, -18, -11,  15,   4, -17,
+     -12,  17,  14,  17,  17,  38,  23,  11,
+      10,  17,  23,  15,  20,  45,  44,  13,
+      -8,  22,  24,  27,  26,  33,  26,   3,
+     -18,  -4,  21,  24,  27,  23,   9, -11,
+     -19,  -3,  11,  21,  23,  16,   7,  -9,
+     -27, -11,   4,  13,  14,   4,  -5, -17,
+     -53, -34, -21, -11, -28, -14, -24, -43]
+  ];
+
+  for (let pieceType = PAWN; pieceType <= KING; pieceType++) {
+    const wPiece = pieceType | WHITE;
+    const bPiece = pieceType | BLACK;
+    const wBase = wPiece * 128;
+    const bBase = bPiece * 128;
+    const mgV = mgVal[pieceType];
+    const egV = egVal[pieceType];
+    const mgT = mgRaw[pieceType];
+    const egT = egRaw[pieceType];
+    for (let rank = 0; rank < 8; rank++) {
+      for (let file = 0; file < 8; file++) {
+        const sq88 = rank * 16 + file;
+        const wIdx = (7 - rank) * 8 + file;
+        const bIdx = rank * 8 + file;
+        mgPST[wBase + sq88] = mgV + mgT[wIdx];
+        egPST[wBase + sq88] = egV + egT[wIdx];
+        mgPST[bBase + sq88] = mgV + mgT[bIdx];
+        egPST[bBase + sq88] = egV + egT[bIdx];
+      }
+    }
+  }
+}
 
 function evaluate() {
 
@@ -2186,60 +2205,22 @@ function evaluate() {
   const wCount = pl[0];
   for (let i = 1; i <= wCount; i++) {
     const sq = pl[i];
-    const pt = b[sq] & 7;
-    const pst = (pt - 1) * 64 + sq64[sq];
-    mgW += matMgW[pt - 1] + pstMgW[pst];
-    egW += matEgW[pt - 1] + pstEgW[pst];
-    phase += PHASE_INC[pt];
+    const piece = b[sq];
+    const idx = piece * 128 + sq;
+    mgW += mgPST[idx];
+    egW += egPST[idx];
+    phase += PHASE_INC[piece & 7];
   }
 
   // black pieces (base = 17)
   const bCount = pl[17];
   for (let i = 1; i <= bCount; i++) {
     const sq = pl[17 + i];
-    const pt = b[sq] & 7;
-    const pst = (pt - 1) * 64 + sq64[sq];
-    mgB += matMgB[pt - 1] + pstMgB[pst];
-    egB += matEgB[pt - 1] + pstEgB[pst];
-    phase += PHASE_INC[pt];
-  }
-
-  // passed pawns - white
-  for (let i = 1; i <= wCount; i++) {
-    const sq = pl[i];
-    if ((b[sq] & 7) !== PAWN) continue;
-    const rank = sq >> 4;
-    const file = sq & 7;
-    let passed = 1;
-    for (let r = rank + 1; r <= 6; r++) {
-      const rsq = r << 4;
-      if (file > 0 && b[rsq + file - 1] === BPAWN) { passed = 0; break; }
-      if (b[rsq + file] === BPAWN) { passed = 0; break; }
-      if (file < 7 && b[rsq + file + 1] === BPAWN) { passed = 0; break; }
-    }
-    if (passed) {
-      mgW += ppMgW[rank - 1];
-      egW += ppEgW[rank - 1];
-    }
-  }
-
-  // passed pawns - black
-  for (let i = 1; i <= bCount; i++) {
-    const sq = pl[17 + i];
-    if ((b[sq] & 7) !== PAWN) continue;
-    const rank = sq >> 4;
-    const file = sq & 7;
-    let passed = 1;
-    for (let r = rank - 1; r >= 1; r--) {
-      const rsq = r << 4;
-      if (file > 0 && b[rsq + file - 1] === WPAWN) { passed = 0; break; }
-      if (b[rsq + file] === WPAWN) { passed = 0; break; }
-      if (file < 7 && b[rsq + file + 1] === WPAWN) { passed = 0; break; }
-    }
-    if (passed) {
-      mgB += ppMgB[rank - 1];
-      egB += ppEgB[rank - 1];
-    }
+    const piece = b[sq];
+    const idx = piece * 128 + sq;
+    mgB += mgPST[idx];
+    egB += egPST[idx];
+    phase += PHASE_INC[piece & 7];
   }
 
   // tapered eval
@@ -2250,9 +2231,7 @@ function evaluate() {
   const egPhase = 24 - mgPhase;
 
   return (mgScore * mgPhase + egScore * egPhase) / 24 | 0;
-
 }
-
 function collectPV(node, cNode, move) {
 
   if (cNode) {
@@ -2801,6 +2780,7 @@ function uciExecLine(line) {
 }
 
 initNodes();
+initPST();
 initZobrist();
 initQpth();
 initLMR();
