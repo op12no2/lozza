@@ -1,14 +1,18 @@
 
-var VERSION = '0.8';
+var VERSION = '0.9';
 
 //{{{  history
 
 /*
 
+19/06/14 v0.9
+
+02/07/14 Use separate PSTs for move ordering.
+
 19/06/14 v0.8
 
 30/06/14 use simple arrays for piece counts and add colour counts.
-30/06/14 Split runningEval into runningEvalS and runningEval E and combine in evaluate();
+30/06/14 Split runningEval into runningEvalS and runningEvalE and combine in evaluate();
 30/06/14 Inline various functions.
 
 19/06/14 v0.7
@@ -3097,9 +3101,9 @@ lozNode.prototype.addMove = function (move) {
     var frPiece = frObj & PIECE_MASK;
 
     if ((frObj & COLOR_MASK) == WHITE)
-      next[0] = BASE_SLIDES + WE_PST[frPiece][to] - WE_PST[frPiece][fr];
+      next[0] = BASE_SLIDES + WS_PST[frPiece][to] - WS_PST[frPiece][fr];
     else
-      next[0] = BASE_SLIDES + BE_PST[frPiece][to] - BE_PST[frPiece][fr];
+      next[0] = BASE_SLIDES + BS_PST[frPiece][to] - BS_PST[frPiece][fr];
   }
 
   return;
