@@ -1,9 +1,19 @@
 
-var VERSION = '1.7';  // 75% against FairyMax
-var BUILD   = 1142;
+var VERSION = '1.8';
+var BUILD   = 1165;
 
 //{{{  history
 /*
+
+01/10/14 v1.8
+
+15/10/14 Extend UCI position/go protocol to make web UIs easier.
+15/10/14 Add late move pruning.
+03/10/14 Rearrange things a bit.
+03/10/14 Untuned isolated pawns.
+03/10/14 Add pawn hash.
+02/10/14 Use ply (not whole moves) for UCI mate scores.
+02/10/14 Fix bug with best move sometimes being the wrong one because of a timeout.
 
 27/08/14 v1.7
 
@@ -113,155 +123,209 @@ var BUILD   = 1142;
 
 //}}}
 //{{{  seed
-//
-// seedrandom.js version 2.3.4
-// Author: David Bau
-// Date: 2014 Mar 9
-//
-// Defines a method Math.seedrandom() that, when called, substitutes
-// an explicitly seeded RC4-based algorithm for Math.random().  Also
-// supports automatic seeding from local or network sources of entropy.
-// Can be used as a node.js or AMD module.  Can be called with "new"
-// to create a local PRNG without changing Math.random.
-//
-// Basic usage:
-//
-//   <script src=http://davidbau.com/encode/seedrandom.min.js></script>
-//
-//   Math.seedrandom('yay.');  // Sets Math.random to a function that is
-//                             // initialized using the given explicit seed.
-//
-//   Math.seedrandom();        // Sets Math.random to a function that is
-//                             // seeded using the current time, dom state,
-//                             // and other accumulated local entropy.
-//                             // The generated seed string is returned.
-//
-//   Math.seedrandom('yowza.', true);
-//                             // Seeds using the given explicit seed mixed
-//                             // together with accumulated entropy.
-//
-//   <script src="https://jsonlib.appspot.com/urandom?callback=Math.seedrandom">
-//   </script>                 <!-- Seeds using urandom bits from a server. -->
-//
-//   Math.seedrandom("hello.");           // Behavior is the same everywhere:
-//   document.write(Math.random());       // Always 0.9282578795792454
-//   document.write(Math.random());       // Always 0.3752569768646784
-//
-// Math.seedrandom can be used as a constructor to return a seeded PRNG
-// that is independent of Math.random:
-//
-//   var myrng = new Math.seedrandom('yay.');
-//   var n = myrng();          // Using "new" creates a local prng without
-//                             // altering Math.random.
-//
-// When used as a module, seedrandom is a function that returns a seeded
-// PRNG instance without altering Math.random:
-//
-//   // With node.js (after "npm install seedrandom"):
-//   var seedrandom = require('seedrandom');
-//   var rng = seedrandom('hello.');
-//   console.log(rng());                  // always 0.9282578795792454
-//
-//   // With require.js or other AMD loader:
-//   require(['seedrandom'], function(seedrandom) {
-//     var rng = seedrandom('hello.');
-//     console.log(rng());                // always 0.9282578795792454
-//   });
-//
-// More examples:
-//
-//   var seed = Math.seedrandom();        // Use prng with an automatic seed.
-//   document.write(Math.random());       // Pretty much unpredictable x.
-//
-//   var rng = new Math.seedrandom(seed); // A new prng with the same seed.
-//   document.write(rng());               // Repeat the 'unpredictable' x.
-//
-//   function reseed(event, count) {      // Define a custom entropy collector.
-//     var t = [];
-//     function w(e) {
-//       t.push([e.pageX, e.pageY, +new Date]);
-//       if (t.length < count) { return; }
-//       document.removeEventListener(event, w);
-//       Math.seedrandom(t, true);        // Mix in any previous entropy.
-//     }
-//     document.addEventListener(event, w);
-//   }
-//   reseed('mousemove', 100);            // Reseed after 100 mouse moves.
-//
-// The callback third arg can be used to get both the prng and the seed.
-// The following returns both an autoseeded prng and the seed as an object,
-// without mutating Math.random:
-//
-//   var obj = Math.seedrandom(null, false, function(prng, seed) {
-//     return { random: prng, seed: seed };
-//   });
-//
-// Version notes:
-//
-// The random number sequence is the same as version 1.0 for string seeds.
-// * Version 2.0 changed the sequence for non-string seeds.
-// * Version 2.1 speeds seeding and uses window.crypto to autoseed if present.
-// * Version 2.2 alters non-crypto autoseeding to sweep up entropy from plugins.
-// * Version 2.3 adds support for "new", module loading, and a null seed arg.
-// * Version 2.3.1 adds a build environment, module packaging, and tests.
-// * Version 2.3.3 fixes bugs on IE8, and switches to MIT license.
-// * Version 2.3.4 fixes documentation to contain the MIT license.
-//
-// The standard ARC4 key scheduler cycles short keys, which means that
-// seedrandom('ab') is equivalent to seedrandom('abab') and 'ababab'.
-// Therefore it is a good idea to add a terminator to avoid trivial
-// equivalences on short string seeds, e.g., Math.seedrandom(str + '\0').
-// Starting with version 2.0, a terminator is added automatically for
-// non-string seeds, so seeding with the number 111 is the same as seeding
-// with '111\0'.
-//
-// When seedrandom() is called with zero args or a null seed, it uses a
-// seed drawn from the browser crypto object if present.  If there is no
-// crypto support, seedrandom() uses the current time, the native rng,
-// and a walk of several DOM objects to collect a few bits of entropy.
-//
-// Each time the one- or two-argument forms of seedrandom are called,
-// entropy from the passed seed is accumulated in a pool to help generate
-// future seeds for the zero- and two-argument forms of seedrandom.
-//
-// On speed - This javascript implementation of Math.random() is several
-// times slower than the built-in Math.random() because it is not native
-// code, but that is typically fast enough.  Some details (timings on
-// Chrome 25 on a 2010 vintage macbook):
-//
-// seeded Math.random()          - avg less than 0.0002 milliseconds per call
-// seedrandom('explicit.')       - avg less than 0.2 milliseconds per call
-// seedrandom('explicit.', true) - avg less than 0.2 milliseconds per call
-// seedrandom() with crypto      - avg less than 0.2 milliseconds per call
-//
-// Autoseeding without crypto is somewhat slower, about 20-30 milliseconds on
-// a 2012 windows 7 1.5ghz i5 laptop, as seen on Firefox 19, IE 10, and Opera.
-// Seeded rng calls themselves are fast across these browsers, with slowest
-// numbers on Opera at about 0.0005 ms per seeded Math.random().
-//
-// LICENSE (MIT):
-//
-// Copyright (c)2014 David Bau.
-//
-// Permission is hereby granted, free of charge, to any person obtaining
-// a copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to
-// permit persons to whom the Software is furnished to do so, subject to
-// the following conditions:
-//
-// The above copyright notice and this permission notice shall be
-// included in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-// CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-// SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-//
+
+/**
+
+seedrandom.js
+=============
+
+Seeded random number generator for Javascript.
+
+version 2.3.10
+Author: David Bau
+Date: 2014 Sep 20
+
+Can be used as a plain script, a node.js module or an AMD module.
+
+Script tag usage
+----------------
+
+<script src=//cdnjs.cloudflare.com/ajax/libs/seedrandom/2.3.10/seedrandom.min.js>
+</script>
+
+// Sets Math.random to a PRNG initialized using the given explicit seed.
+Math.seedrandom('hello.');
+console.log(Math.random());          // Always 0.9282578795792454
+console.log(Math.random());          // Always 0.3752569768646784
+
+// Sets Math.random to an ARC4-based PRNG that is autoseeded using the
+// current time, dom state, and other accumulated local entropy.
+// The generated seed string is returned.
+Math.seedrandom();
+console.log(Math.random());          // Reasonably unpredictable.
+
+// Seeds using the given explicit seed mixed with accumulated entropy.
+Math.seedrandom('added entropy.', { entropy: true });
+console.log(Math.random());          // As unpredictable as added entropy.
+
+// Use "new" to create a local prng without altering Math.random.
+var myrng = new Math.seedrandom('hello.');
+console.log(myrng());                // Always 0.9282578795792454
+
+
+Node.js usage
+-------------
+
+npm install seedrandom
+
+// Local PRNG: does not affect Math.random.
+var seedrandom = require('seedrandom');
+var rng = seedrandom('hello.');
+console.log(rng());                  // Always 0.9282578795792454
+
+// Autoseeded ARC4-based PRNG.
+rng = seedrandom();
+console.log(rng());                  // Reasonably unpredictable.
+
+// Global PRNG: set Math.random.
+seedrandom('hello.', { global: true });
+console.log(Math.random());          // Always 0.9282578795792454
+
+// Mixing accumulated entropy.
+rng = seedrandom('added entropy.', { entropy: true });
+console.log(rng());                  // As unpredictable as added entropy.
+
+
+Require.js usage
+----------------
+
+Similar to node.js usage:
+
+bower install seedrandom
+
+require(['seedrandom'], function(seedrandom) {
+  var rng = seedrandom('hello.');
+  console.log(rng());                  // Always 0.9282578795792454
+});
+
+
+Network seeding
+---------------
+
+<script src=//cdnjs.cloudflare.com/ajax/libs/seedrandom/2.3.10/seedrandom.min.js>
+</script>
+
+<!-- Seeds using urandom bits from a server. -->
+<script src=//jsonlib.appspot.com/urandom?callback=Math.seedrandom">
+</script>
+
+<!-- Seeds mixing in random.org bits -->
+<script>
+(function(x, u, s){
+  try {
+    // Make a synchronous request to random.org.
+    x.open('GET', u, false);
+    x.send();
+    s = unescape(x.response.trim().replace(/^|\s/g, '%'));
+  } finally {
+    // Seed with the response, or autoseed on failure.
+    Math.seedrandom(s, !!s);
+  }
+})(new XMLHttpRequest, 'https://www.random.org/integers/' +
+  '?num=256&min=0&max=255&col=1&base=16&format=plain&rnd=new');
+</script>
+
+Reseeding using user input
+--------------------------
+
+var seed = Math.seedrandom();        // Use prng with an automatic seed.
+document.write(Math.random());       // Pretty much unpredictable x.
+
+var rng = new Math.seedrandom(seed); // A new prng with the same seed.
+document.write(rng());               // Repeat the 'unpredictable' x.
+
+function reseed(event, count) {      // Define a custom entropy collector.
+  var t = [];
+  function w(e) {
+    t.push([e.pageX, e.pageY, +new Date]);
+    if (t.length &lt; count) { return; }
+    document.removeEventListener(event, w);
+    Math.seedrandom(t, { entropy: true });
+  }
+  document.addEventListener(event, w);
+}
+reseed('mousemove', 100);            // Reseed after 100 mouse moves.
+
+The "pass" option can be used to get both the prng and the seed.
+The following returns both an autoseeded prng and the seed as an object,
+without mutating Math.random:
+
+var obj = Math.seedrandom(null, { pass: function(prng, seed) {
+  return { random: prng, seed: seed };
+}});
+
+
+Version notes
+-------------
+
+The random number sequence is the same as version 1.0 for string seeds.
+* Version 2.0 changed the sequence for non-string seeds.
+* Version 2.1 speeds seeding and uses window.crypto to autoseed if present.
+* Version 2.2 alters non-crypto autoseeding to sweep up entropy from plugins.
+* Version 2.3 adds support for "new", module loading, and a null seed arg.
+* Version 2.3.1 adds a build environment, module packaging, and tests.
+* Version 2.3.4 fixes bugs on IE8, and switches to MIT license.
+* Version 2.3.6 adds a readable options object argument.
+* Version 2.3.10 adds support for node.js crypto (contributed by ctd1500).
+
+The standard ARC4 key scheduler cycles short keys, which means that
+seedrandom('ab') is equivalent to seedrandom('abab') and 'ababab'.
+Therefore it is a good idea to add a terminator to avoid trivial
+equivalences on short string seeds, e.g., Math.seedrandom(str + '\0').
+Starting with version 2.0, a terminator is added automatically for
+non-string seeds, so seeding with the number 111 is the same as seeding
+with '111\0'.
+
+When seedrandom() is called with zero args or a null seed, it uses a
+seed drawn from the browser crypto object if present.  If there is no
+crypto support, seedrandom() uses the current time, the native rng,
+and a walk of several DOM objects to collect a few bits of entropy.
+
+Each time the one- or two-argument forms of seedrandom are called,
+entropy from the passed seed is accumulated in a pool to help generate
+future seeds for the zero- and two-argument forms of seedrandom.
+
+On speed - This javascript implementation of Math.random() is several
+times slower than the built-in Math.random() because it is not native
+code, but that is typically fast enough.  Some details (timings on
+Chrome 25 on a 2010 vintage macbook):
+
+* seeded Math.random()          - avg less than 0.0002 milliseconds per call
+* seedrandom('explicit.')       - avg less than 0.2 milliseconds per call
+* seedrandom('explicit.', true) - avg less than 0.2 milliseconds per call
+* seedrandom() with crypto      - avg less than 0.2 milliseconds per call
+
+Autoseeding without crypto is somewhat slower, about 20-30 milliseconds on
+a 2012 windows 7 1.5ghz i5 laptop, as seen on Firefox 19, IE 10, and Opera.
+Seeded rng calls themselves are fast across these browsers, with slowest
+numbers on Opera at about 0.0005 ms per seeded Math.random().
+
+
+LICENSE (MIT)
+-------------
+
+Copyright 2014 David Bau.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+*/
 
 /**
  * All code is in an anonymous closure to keep the global namespace clean.
@@ -276,17 +340,19 @@ var startdenom = math.pow(width, chunks),
     significance = math.pow(2, digits),
     overflow = significance * 2,
     mask = width - 1,
+    nodecrypto;
 
 //
 // seedrandom()
 // This is the seedrandom function described above.
 //
-impl = math['seed' + rngname] = function(seed, use_entropy, callback) {
+var impl = math['seed' + rngname] = function(seed, options, callback) {
   var key = [];
+  options = (options == true) ? { entropy: true } : (options || {});
 
   // Flatten the seed string or build one from local entropy if needed.
   var shortseed = mixkey(flatten(
-    use_entropy ? [seed, tostring(pool)] :
+    options.entropy ? [seed, tostring(pool)] :
     (seed == null) ? autoseed() : seed, 3), key);
 
   // Use the seed to initialize an ARC4 generator.
@@ -296,7 +362,7 @@ impl = math['seed' + rngname] = function(seed, use_entropy, callback) {
   mixkey(tostring(arc4.S), pool);
 
   // Calling convention: what to return as a function of prng, seed, is_math.
-  return (callback ||
+  return (options.pass || callback ||
       // If called as a method of Math (Math.seedrandom()), mutate Math.random
       // because that is how seedrandom.js has worked since v1.0.  Otherwise,
       // it is a newer calling convention, so return the prng directly.
@@ -322,7 +388,7 @@ impl = math['seed' + rngname] = function(seed, use_entropy, callback) {
       x >>>= 1;                         //   we have exactly the desired bits.
     }
     return (n + x) / d;                 // Form the number within [0, 1).
-  }, shortseed, this == math);
+  }, shortseed, 'global' in options ? options.global : (this == math));
 };
 
 //
@@ -363,8 +429,9 @@ function ARC4(key) {
     }
     me.i = i; me.j = j;
     return r;
-    // For robust unpredictability discard an initial batch of values.
-    // See http://www.rsa.com/rsalabs/node.asp?id=2009
+    // For robust unpredictability, the function call below automatically
+    // discards an initial batch of values.  This is called RC4-drop[256].
+    // See http://google.com/search?q=rsa+fluhrer+response&btnI
   })(width);
 }
 
@@ -403,11 +470,12 @@ function mixkey(seed, key) {
 /** @param {Uint8Array|Navigator=} seed */
 function autoseed(seed) {
   try {
+    if (nodecrypto) return tostring(nodecrypto.randomBytes(width));
     global.crypto.getRandomValues(seed = new Uint8Array(width));
     return tostring(seed);
   } catch (e) {
     return [+new Date, global, (seed = global.navigator) && seed.plugins,
-            global.screen, tostring(pool)];
+      global.screen, tostring(pool)];
   }
 }
 
@@ -422,21 +490,29 @@ function tostring(a) {
 //
 // When seedrandom.js is loaded, we immediately mix a few bits
 // from the built-in RNG into the entropy pool.  Because we do
-// not want to intefere with determinstic PRNG state later,
+// not want to interfere with deterministic PRNG state later,
 // seedrandom will not call math.random on its own again after
 // initialization.
 //
 mixkey(math[rngname](), pool);
 
 //
-// Nodejs and AMD support: export the implemenation as a module using
+// Nodejs and AMD support: export the implementation as a module using
 // either convention.
 //
 if (module && module.exports) {
   module.exports = impl;
+  try {
+    // When in node.js, try using crypto package for autoseeding.
+    nodecrypto = require('crypto');
+  } catch (ex) {}
 } else if (define && define.amd) {
   define(function() { return impl; });
 }
+
+//
+// Node.js native crypto support.
+//
 
 // End anonymous scope, and pass initial values.
 })(
@@ -465,11 +541,19 @@ var CONTEMPT        = 0;
 var NULL_Y          = 1;
 var NULL_N          = 0;
 var INCHECK_UNKNOWN = MATE + 1;
-var TTSCORE_UNKNOWN = (MATE + 2) * 1.0;
+var TTSCORE_UNKNOWN = MATE + 2;
+var ASP_MAX         = 75;
+var ASP_DELTA       = 3;
+var ASP_MIN         = 10;
+var EMPTY           = 0;
 
-var WHITE = 0x0;                    // toggle these with:        ~turn & COLOR_MASK
-var BLACK = 0x8;                    // get +/- 1 (W/B) with:     (-turn >> 31) | 1
-                                    // get 0/1 (W/B) index with: turn >>> 3
+var WHITE   = 0x0;                // toggle with ~turn & COLOR_MASK
+var BLACK   = 0x8;
+var I_WHITE = 0;                  // turn >>> 3
+var I_BLACK = 1;
+var M_WHITE = 1;
+var M_BLACK = -1;                 // (-turn >> 31) | 1
+
 var PIECE_MASK = 0x7;
 var COLOR_MASK = 0x8;
 
@@ -497,7 +581,7 @@ var MOVE_PROMAS_MASK   = 0x60000000;  // NBRQ.
 var MOVE_SPARE2_MASK   = 0x80000000;
 
 var MOVE_SPECIAL_MASK  = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK; // need extra work in make move.
-var KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility.
+var KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility etc.
 
 var NULL   = 0x0;
 var PAWN   = 0x1;
@@ -563,17 +647,17 @@ var WHITE_RIGHTS       = WHITE_RIGHTS_QUEEN | WHITE_RIGHTS_KING;
 var BLACK_RIGHTS       = BLACK_RIGHTS_QUEEN | BLACK_RIGHTS_KING;
 
 var MASK_RIGHTS = [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, ~8, 15, 15, 15, ~12,15, 15, ~4, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, ~2, 15, 15, 15, ~3, 15, 15, ~1, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15];
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                     15, 15, ~8, 15, 15, 15, ~12,15, 15, ~4, 15, 15,
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                     15, 15, ~2, 15, 15, 15, ~3, 15, 15, ~1, 15, 15,
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                     15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15];
 
 var WP_OFFSET_ORTH  = -12;
 var WP_OFFSET_DIAG1 = -13;
@@ -592,261 +676,284 @@ var KING_OFFSETS    = [11,-11,13,-13,1,-1,12,-12];
 var OFFSETS = [0,0,KNIGHT_OFFSETS,BISHOP_OFFSETS,ROOK_OFFSETS,QUEEN_OFFSETS,KING_OFFSETS];
 var LIMITS  = [0,1,1,8,8,8,1];
 
-//
-// PSTs based on http://chessprogramming.wikispaces.com/Simplified+evaluation+function
-//
-
 var VALUE_PAWN   = 100;
 var VALUE_QUEEN  = 975;
 var VALUE_VECTOR = [0,VALUE_PAWN,325,325,500,VALUE_QUEEN,10000];
 var RANK_VECTOR  = [0,1,         2,  2,  4,  5,          6];  // for move sorting.
 
-var NULL_PST =     [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var NULL_PST =      [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WPAWN_PSTS =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   6,  12,  18,  24,  24,  18,  12,   6,   0,   0,
-                    0,   0,   5,  10,  15,  20,  20,  15,  10,   5,   0,   0,
-                    0,   0,   4,   8,  12,  16,  16,  12,   8,   4,   0,   0,
-                    0,   0,   3,   6,   9,  12,  12,   9,   6,   3,   0,   0,
-                    0,   0,   2,   4,   6,   8,   8,   6,   4,   2,   0,   0,
-                    0,   0,   1,   2,   3, -40, -40,   3,   2,   1,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WPAWN_PSTS =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   6,  12,  18,  24,  24,  18,  12,   6,   0,   0,
+                       0,   0,   5,  10,  15,  20,  20,  15,  10,   5,   0,   0,
+                       0,   0,   4,   8,  12,  16,  16,  12,   8,   4,   0,   0,
+                       0,   0,   3,   6,   9,  12,  12,   9,   6,   3,   0,   0,
+                       0,   0,   2,   4,   6,   8,   8,   6,   4,   2,   0,   0,
+                       0,   0,   1,   2,   3, -40, -40,   3,   2,   1,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WPAWN_PSTE =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,  12,  24,  36,  48,  48,  36,  24,  12,   0,   0,
-                    0,   0,  10,  20,  30,  40,  40,  30,  20,  10,   0,   0,
-                    0,   0,   8,  16,  24,  32,  32,  24,  16,   8,   0,   0,
-                    0,   0,   6,  12,  18,  24,  24,  18,  12,   6,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WPAWN_PSTE =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,  12,  24,  36,  48,  48,  36,  24,  12,   0,   0,
+                       0,   0,  10,  20,  30,  40,  40,  30,  20,  10,   0,   0,
+                       0,   0,   8,  16,  24,  32,  32,  24,  16,   8,   0,   0,
+                       0,   0,   6,  12,  18,  24,  24,  18,  12,   6,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WKNIGHT_PSTS = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
-                    0,   0, -40, -20,   0,   0,   0,   0,  20, -40,   0,   0,
-                    0,   0, -30,   0,  10,  15,  15,  10,   0, -30,   0,   0,
-                    0,   0, -30,   5,  15,  20,  20,  15,   5, -30,   0,   0,
-                    0,   0, -30,   0,  15,  20,  20,  15,   0, -30,   0,   0,
-                    0,   0, -30,   5,  10,  15,  15,  10,   5, -30,   0,   0,
-                    0,   0, -40, -20,   0,   5,   5,   0, -20, -40,   0,   0,
-                    0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WKNIGHT_PSTS =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
+                       0,   0, -40, -20,   0,   0,   0,   0,  20, -40,   0,   0,
+                       0,   0, -30,   0,  10,  15,  15,  10,   0, -30,   0,   0,
+                       0,   0, -30,   5,  15,  20,  20,  15,   5, -30,   0,   0,
+                       0,   0, -30,   0,  15,  20,  20,  15,   0, -30,   0,   0,
+                       0,   0, -30,   5,  10,  15,  15,  10,   5, -30,   0,   0,
+                       0,   0, -40, -20,   0,   5,   5,   0, -20, -40,   0,   0,
+                       0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WKNIGHT_PSTE = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
-                    0,   0, -40, -20,   0,   0,   0,   0,  20, -40,   0,   0,
-                    0,   0, -30,   0,  10,  15,  15,  10,   0, -30,   0,   0,
-                    0,   0, -30,   5,  15,  20,  20,  15,   5, -30,   0,   0,
-                    0,   0, -30,   0,  15,  20,  20,  15,   0, -30,   0,   0,
-                    0,   0, -30,   5,  10,  15,  15,  10,   5, -30,   0,   0,
-                    0,   0, -40, -20,   0,   5,   5,   0, -20, -40,   0,   0,
-                    0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WKNIGHT_PSTE =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
+                       0,   0, -40, -20,   0,   0,   0,   0,  20, -40,   0,   0,
+                       0,   0, -30,   0,  10,  15,  15,  10,   0, -30,   0,   0,
+                       0,   0, -30,   5,  15,  20,  20,  15,   5, -30,   0,   0,
+                       0,   0, -30,   0,  15,  20,  20,  15,   0, -30,   0,   0,
+                       0,   0, -30,   5,  10,  15,  15,  10,   5, -30,   0,   0,
+                       0,   0, -40, -20,   0,   5,   5,   0, -20, -40,   0,   0,
+                       0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WBISHOP_PSTS = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
-                    0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
-                    0,   0, -10,   0,   5,  10,  10,   5,   0, -10,   0,   0,
-                    0,   0, -10,   5,   5,  10,  10,   5,   5, -10,   0,   0,
-                    0,   0, -10,   0,  10,  10,  10,  10,   0, -10,   0,   0,
-                    0,   0, -10,  10,  10,  10,  10,  10,  10, -10,   0,   0,
-                    0,   0, -10,   5,   0,   0,   0,   0,   5, -10,   0,   0,
-                    0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WBISHOP_PSTS =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
+                       0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
+                       0,   0, -10,   0,   5,  10,  10,   5,   0, -10,   0,   0,
+                       0,   0, -10,   5,   5,  10,  10,   5,   5, -10,   0,   0,
+                       0,   0, -10,   0,  10,  10,  10,  10,   0, -10,   0,   0,
+                       0,   0, -10,  10,  10,  10,  10,  10,  10, -10,   0,   0,
+                       0,   0, -10,   5,   0,   0,   0,   0,   5, -10,   0,   0,
+                       0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WBISHOP_PSTE = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
-                    0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
-                    0,   0, -10,   0,   5,  10,  10,   5,   0, -10,   0,   0,
-                    0,   0, -10,   5,   5,  10,  10,   5,   5, -10,   0,   0,
-                    0,   0, -10,   0,  10,  10,  10,  10,   0, -10,   0,   0,
-                    0,   0, -10,  10,  10,  10,  10,  10,  10, -10,   0,   0,
-                    0,   0, -10,   5,   0,   0,   0,   0,   5, -10,   0,   0,
-                    0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WBISHOP_PSTE =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
+                       0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
+                       0,   0, -10,   0,   5,  10,  10,   5,   0, -10,   0,   0,
+                       0,   0, -10,   5,   5,  10,  10,   5,   5, -10,   0,   0,
+                       0,   0, -10,   0,  10,  10,  10,  10,   0, -10,   0,   0,
+                       0,   0, -10,  10,  10,  10,  10,  10,  10, -10,   0,   0,
+                       0,   0, -10,   5,   0,   0,   0,   0,   5, -10,   0,   0,
+                       0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WROOK_PSTS =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   5,  10,  10,  10,  10,  10,  10,   5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,   0,   0,   0,   5,   5,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WROOK_PSTS =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   5,  10,  10,  10,  10,  10,  10,   5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,   0,   0,   0,   5,   5,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WROOK_PSTE =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   5,  10,  10,  10,  10,  10,  10,   5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
-                    0,   0,   0,   0,   0,   5,   5,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WROOK_PSTE =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   5,  10,  10,  10,  10,  10,  10,   5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                       0,   0,   0,   0,   0,   5,   5,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WQUEEN_PSTS =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
-                    0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
-                    0,   0, -10,   0,   5,   5,   5,   5,   0, -10,   0,   0,
-                    0,   0,  -5,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
-                    0,   0,   0,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
-                    0,   0, -10,   5,   5,   5,   5,   5,   0, -10,   0,   0,
-                    0,   0, -10,   0,   5,   0,   0,   0,   0, -10,   0,   0,
-                    0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WQUEEN_PSTS =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
+                       0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
+                       0,   0, -10,   0,   5,   5,   5,   5,   0, -10,   0,   0,
+                       0,   0,  -5,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
+                       0,   0,   0,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
+                       0,   0, -10,   5,   5,   5,   5,   5,   0, -10,   0,   0,
+                       0,   0, -10,   0,   5,   0,   0,   0,   0, -10,   0,   0,
+                       0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WQUEEN_PSTE =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
-                    0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
-                    0,   0, -10,   0,   5,   5,   5,   5,   0, -10,   0,   0,
-                    0,   0,  -5,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
-                    0,   0,   0,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
-                    0,   0, -10,   5,   5,   5,   5,   5,   0, -10,   0,   0,
-                    0,   0, -10,   0,   5,   0,   0,   0,   0, -10,   0,   0,
-                    0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WQUEEN_PSTE =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
+                       0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
+                       0,   0, -10,   0,   5,   5,   5,   5,   0, -10,   0,   0,
+                       0,   0,  -5,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
+                       0,   0,   0,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
+                       0,   0, -10,   5,   5,   5,   5,   5,   0, -10,   0,   0,
+                       0,   0, -10,   0,   5,   0,   0,   0,   0, -10,   0,   0,
+                       0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WKING_PSTS =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
-                    0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
-                    0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
-                    0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
-                    0,   0, -20, -30, -30, -40, -40, -30, -30, -20,   0,   0,
-                    0,   0, -10, -20, -20, -20, -20, -20, -20, -10,   0,   0,
-                    0,   0,  20,  20,   0,   0,   0,   0,  20,  20,   0,   0,
-                    0,   0,  20,  30,  10,   0,   0,  10,  30,  20,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WKING_PSTS =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
+                       0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
+                       0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
+                       0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
+                       0,   0, -20, -30, -30, -40, -40, -30, -30, -20,   0,   0,
+                       0,   0, -10, -20, -20, -20, -20, -20, -20, -10,   0,   0,
+                       0,   0,  20,  20,   0,   0,   0,   0,  20,  20,   0,   0,
+                       0,   0,  20,  30,  10,   0,   0,  10,  30,  20,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WKING_PSTE =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0, -50, -40, -30, -20, -20, -30, -40, -50,   0,   0,
-                    0,   0, -30, -20, -10,   0,   0, -10, -20, -30,   0,   0,
-                    0,   0, -30, -10,  20,  30,  30,  20, -10, -30,   0,   0,
-                    0,   0, -30, -10,  30,  40,  40,  30, -10, -30,   0,   0,
-                    0,   0, -30, -10,  30,  40,  40,  30, -10, -30,   0,   0,
-                    0,   0, -30, -10,  20,  30,  30,  20, -10, -30,   0,   0,
-                    0,   0, -30, -30,   0,   0,   0,   0, -30, -30,   0,   0,
-                    0,   0, -50, -30, -30, -30, -30, -30, -30, -50,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WKING_PSTE =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0, -50, -40, -30, -20, -20, -30, -40, -50,   0,   0,
+                       0,   0, -30, -20, -10,   0,   0, -10, -20, -30,   0,   0,
+                       0,   0, -30, -10,  20,  30,  30,  20, -10, -30,   0,   0,
+                       0,   0, -30, -10,  30,  40,  40,  30, -10, -30,   0,   0,
+                       0,   0, -30, -10,  30,  40,  40,  30, -10, -30,   0,   0,
+                       0,   0, -30, -10,  20,  30,  30,  20, -10, -30,   0,   0,
+                       0,   0, -30, -30,   0,   0,   0,   0, -30, -30,   0,   0,
+                       0,   0, -50, -30, -30, -30, -30, -30, -30, -50,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WPASSED_PSTS = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                    0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                    0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                    0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                    0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                    0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WPASSED_PSTS =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
+                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
+                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
+                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
+                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
+                       0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WPASSED_PSTE = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,  99,  99,  99,  99,  99,  99,  99,  99,   0,   0,
-                    0,   0,  66,  66,  66,  66,  66,  66,  66,  66,   0,   0,
-                    0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
-                    0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
-                    0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
-                    0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WPASSED_PSTE =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,  99,  99,  99,  99,  99,  99,  99,  99,   0,   0,
+                       0,   0,  66,  66,  66,  66,  66,  66,  66,  66,   0,   0,
+                       0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
+                       0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
+                       0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
+                       0,   0,  30,  30,  30,  30,  30,  30,  30,  30,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WDOUBLED_PSTS =[0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WDOUBLED_PSTS = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WDOUBLED_PSTE =[0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WDOUBLED_PSTE = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,  10,  10,  10,  10,  10,  10,  10,  10,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WCONNECT_PSTS =[0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WCONNECT_PSTS = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WCONNECT_PSTE =[0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var WCONNECT_PSTE = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+
+var WISOLATE_PSTS = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+
+var WISOLATE_PSTE = [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   5,   5,   5,   5,   5,   5,   5,   5,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
 function _pst2Black (from,to) {
   for (var i=0; i < 12; i++) {
@@ -876,6 +983,8 @@ var BDOUBLED_PSTS = Array(144);
 var BDOUBLED_PSTE = Array(144);
 var BCONNECT_PSTS = Array(144);
 var BCONNECT_PSTE = Array(144);
+var BISOLATE_PSTS = Array(144);
+var BISOLATE_PSTE = Array(144);
 
 _pst2Black(WPAWN_PSTS,   BPAWN_PSTS);
 _pst2Black(WPAWN_PSTE,   BPAWN_PSTE);
@@ -904,56 +1013,59 @@ _pst2Black(WDOUBLED_PSTS, BDOUBLED_PSTS);
 _pst2Black(WDOUBLED_PSTE, BDOUBLED_PSTE);
 _pst2Black(WCONNECT_PSTS, BCONNECT_PSTS);
 _pst2Black(WCONNECT_PSTE, BCONNECT_PSTE);
+_pst2Black(WISOLATE_PSTS, BISOLATE_PSTS);
+_pst2Black(WISOLATE_PSTE, BISOLATE_PSTE);
 
 var B88 = [26, 27, 28, 29, 30, 31, 32, 33,
-           38, 39, 40, 41, 42, 43, 44, 45,
-           50, 51, 52, 53, 54, 55, 56, 57,
-           62, 63, 64, 65, 66, 67, 68, 69,
-           74, 75, 76, 77, 78, 79, 80, 81,
-           86, 87, 88, 89, 90, 91, 92, 93,
-           98, 99, 100,101,102,103,104,105,
-           110,111,112,113,114,115,116,117];
+             38, 39, 40, 41, 42, 43, 44, 45,
+             50, 51, 52, 53, 54, 55, 56, 57,
+             62, 63, 64, 65, 66, 67, 68, 69,
+             74, 75, 76, 77, 78, 79, 80, 81,
+             86, 87, 88, 89, 90, 91, 92, 93,
+             98, 99, 100,101,102,103,104,105,
+             110,111,112,113,114,115,116,117];
 
 var COORDS = ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-              '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-              '??', '??', 'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8', '??', '??',
-              '??', '??', 'a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7', '??', '??',
-              '??', '??', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '??', '??',
-              '??', '??', 'a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5', '??', '??',
-              '??', '??', 'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', '??', '??',
-              '??', '??', 'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', '??', '??',
-              '??', '??', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', '??', '??',
-              '??', '??', 'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', '??', '??',
-              '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
-              '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'];
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+                '??', '??', 'a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8', '??', '??',
+                '??', '??', 'a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7', '??', '??',
+                '??', '??', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '??', '??',
+                '??', '??', 'a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5', '??', '??',
+                '??', '??', 'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', '??', '??',
+                '??', '??', 'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', '??', '??',
+                '??', '??', 'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', '??', '??',
+                '??', '??', 'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', '??', '??',
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
+                '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??'];
 
-var NAMES = ['-','P','N','B','R','Q','K','-'];
+var NAMES    = ['-','P','N','B','R','Q','K','-'];
+var PROMOTES = ['n','b','r','q'];                  // 0-3 encoded in move.
 
 var RANK = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
-            0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
-            0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
-            0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
-            0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
-            0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
-            0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
-            0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
+              0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0,
+              0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0,
+              0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0,
+              0, 0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0,
+              0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+              0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0,
+              0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 var FILE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 var MAP = [];
 
@@ -969,6 +1081,21 @@ MAP['B'] = W_BISHOP;
 MAP['R'] = W_ROOK;
 MAP['Q'] = W_QUEEN;
 MAP['K'] = W_KING;
+
+var UMAP = [];
+
+UMAP[B_PAWN]   = 'p';
+UMAP[B_KNIGHT] = 'n';
+UMAP[B_BISHOP] = 'b';
+UMAP[B_ROOK]   = 'r';
+UMAP[B_QUEEN]  = 'q';
+UMAP[B_KING]   = 'k';
+UMAP[W_PAWN]   = 'P';
+UMAP[W_KNIGHT] = 'N';
+UMAP[W_BISHOP] = 'B';
+UMAP[W_ROOK]   = 'R';
+UMAP[W_QUEEN]  = 'Q';
+UMAP[W_KING]   = 'K';
 
 //}}}
 
@@ -1023,9 +1150,6 @@ function lozChess () {
   this.board = new lozBoard();
   this.stats = new lozStats();
   this.uci   = new lozUCI();
-  this.test  = new lozTest();
-
-  this.pos = {};
 
   this.rootNode = this.nodes[0];
 
@@ -1050,288 +1174,21 @@ lozChess.prototype.init = function () {
 //}}}
 //{{{  .position
 
-lozChess.prototype.position = function (pos) {
-
-  this.pos = pos;
-  this.initFromPosition();
-}
-
-//}}}
-//{{{  .initFromPosition
-
-lozChess.prototype.initFromPosition = function () {
+lozChess.prototype.position = function () {
 
   this.init();
-
-  var board = this.board;
-
-  board.id = this.pos.id;
-
-  //{{{  board turn
-  
-  if (this.pos.turn == 'w')
-    board.turn = WHITE;
-  
-  else {
-    board.turn = BLACK;
-    board.loHash ^= board.loTurn;
-    board.hiHash ^= board.hiTurn;
-  }
-  
-  //}}}
-  //{{{  board rights
-  
-  board.rights = 0;
-  
-  for (var i=0; i < this.pos.rights.length; i++) {
-  
-    var ch = this.pos.rights.charAt(i);
-  
-    if (ch == 'K') board.rights |= WHITE_RIGHTS_KING;
-    if (ch == 'Q') board.rights |= WHITE_RIGHTS_QUEEN;
-    if (ch == 'k') board.rights |= BLACK_RIGHTS_KING;
-    if (ch == 'q') board.rights |= BLACK_RIGHTS_QUEEN;
-  }
-  
-  board.loHash ^= board.loRights[board.rights];
-  board.hiHash ^= board.hiRights[board.rights];
-  
-  //}}}
-  //{{{  board board
-  
-  board.phase = TPHASE;
-  
-  var sq = 0;
-  var nw = 0;
-  var nb = 0;
-  
-  for (var j=0; j < this.pos.board.length; j++) {
-  
-    var ch  = this.pos.board.charAt(j);
-    var chn = parseInt(ch);
-  
-    while (board.b[sq] == EDGE)
-      sq++;
-  
-    if (isNaN(chn)) {
-  
-      if (ch != '/') {
-  
-        var obj   = MAP[ch];
-        var piece = obj & PIECE_MASK;
-        var col   = obj & COLOR_MASK;
-  
-        if (col == WHITE) {
-          board.wList[nw] = sq;
-          board.b[sq]     = obj;
-          board.z[sq]     = nw;
-          nw++;
-          board.wCounts[piece]++;
-          board.wCount++;
-        }
-  
-        else {
-          board.bList[nb] = sq;
-          board.b[sq]     = obj;
-          board.z[sq]     = nb;
-          nb++;
-          board.bCounts[piece]++;
-          board.bCount++;
-        }
-  
-        board.loHash ^= board.loPieces[col>>>3][piece-1][sq];
-        board.hiHash ^= board.hiPieces[col>>>3][piece-1][sq];
-  
-        board.phase -= VPHASE[piece];
-  
-        sq++;
-      }
-    }
-  
-    else {
-  
-      for (var k=0; k < chn; k++) {
-        board.b[sq] = NULL;
-        sq++;
-      }
-    }
-  }
-  
-  
-  //}}}
-  //{{{  board ep
-  
-  if (this.pos.ep.length == 2)
-    board.ep = COORDS.indexOf(this.pos.ep)
-  else
-    board.ep = 0;
-  
-  board.loHash ^= board.loEP[board.ep];
-  board.hiHash ^= board.hiEP[board.ep];
-  
-  //}}}
-
-  //{{{  init running evals
-  
-  board.runningEvalS = 0;
-  board.runningEvalE = 0;
-  
-  var next  = 0;
-  var count = 0;
-  
-  while (count < board.wCount) {
-  
-    sq = board.wList[next];
-  
-    if (!sq) {
-      next++;
-      continue;
-    }
-  
-    var piece = board.b[sq] & PIECE_MASK;
-  
-    board.runningEvalS += VALUE_VECTOR[piece];
-    board.runningEvalS += WS_PST[piece][sq];
-    board.runningEvalE += VALUE_VECTOR[piece];
-    board.runningEvalE += WE_PST[piece][sq];
-  
-    count++;
-    next++
-  }
-  
-  var next  = 0;
-  var count = 0;
-  
-  while (count < board.bCount) {
-  
-    sq = board.bList[next];
-  
-    if (!sq) {
-      next++;
-      continue;
-    }
-  
-    var piece = board.b[sq] & PIECE_MASK;
-  
-    board.runningEvalS -= VALUE_VECTOR[piece];
-    board.runningEvalS -= BS_PST[piece][sq];
-    board.runningEvalE -= VALUE_VECTOR[piece];
-    board.runningEvalE -= BE_PST[piece][sq];
-  
-    count++;
-    next++
-  }
-  
-  
-  //}}}
-
-  for (var i=0; i < this.pos.moves.length; i++) {
-    this.playMove(this.pos.moves[i], board.turn);
-    board.turn = ~board.turn & COLOR_MASK;
-  }
-
-  //{{{  compact white list
-  
-  var v = [];
-  
-  for (var i=0; i<16; i++) {
-    if (board.wList[i])
-      v.push(board.wList[i]);
-  }
-  
-  v.sort(function(a,b) {
-    return lozza.board.b[b] - lozza.board.b[a];
-  });
-  
-  for (var i=0; i<16; i++) {
-    if (i < v.length) {
-      board.wList[i] = v[i];
-      board.z[v[i]]  = i;
-    }
-    else
-      board.wList[i] = 0;
-  }
-  
-  board.firstWP = 0;
-  for (var i=0; i<16; i++) {
-    if (board.b[board.wList[i]] == W_PAWN) {
-      board.firstWP = i;
-      break;
-    }
-  }
-  
-  /*
-  console.log('WHITE LIST ' + v.length);
-  for (var i=0; i<board.wCount; i++) {
-    console.log(board.b[board.wList[i]]);
-  }
-  */
-  
-  if (board.b[board.wList[0]] != W_KING)
-    console.log('WHITE INDEX ERR');
-  
-  //}}}
-  //{{{  compact black list
-  
-  var v = [];
-  
-  for (var i=0; i<16; i++) {
-    if (board.bList[i])
-      v.push(board.bList[i]);
-  }
-  
-  v.sort(function(a,b) {
-    return lozza.board.b[b] - lozza.board.b[a];
-  });
-  
-  for (var i=0; i<16; i++) {
-    if (i < v.length) {
-      board.bList[i] = v[i];
-      board.z[v[i]]  = i;
-    }
-    else
-      board.bList[i] = 0;
-  }
-  
-  board.firstBP = 0;
-  for (var i=0; i<16; i++) {
-    if (board.b[board.bList[i]] == B_PAWN) {
-      board.firstBP = i;
-      break;
-    }
-  }
-  
-  /*
-  console.log('BLACK LIST ' + v.length);
-  for (var i=0; i<board.bCount; i++) {
-    console.log(board.b[board.bList[i]]);
-  }
-  */
-  
-  if (board.b[board.bList[0]] != B_KING)
-    console.log('BLACK INDEX ERR');
-  
-  //}}}
-}
-
-//}}}
-//{{{  .id
-
-lozChess.prototype.id = function (id) {
-
-  this.board.id = id;
+  return this.board.position();
 }
 
 //}}}
 //{{{  .go
 
-var ASP_MAX   = 75;
-var ASP_DELTA = 3;
-var ASP_MIN   = 10;
+lozChess.prototype.go = function() {
 
-lozChess.prototype.go = function(spec) {
+  this.uci.debug('');
 
   var board = this.board;
+  var spec  = this.uci.spec;
 
   //{{{  sort out spec
   
@@ -1349,7 +1206,7 @@ lozChess.prototype.go = function(spec) {
     if (spec.movesToGo > 0)
       var movesToGo = spec.movesToGo;
     else
-      var movesToGo = 20;                  //hack - can do better then this based on game stage
+      var movesToGo = 20;
   
     if (board.turn == WHITE) {
       var remTime = spec.wTime + movesToGo * spec.wInc;
@@ -1369,8 +1226,6 @@ lozChess.prototype.go = function(spec) {
   var asp         = ASP_MAX;
   var ply         = 1;
   var maxPly      = spec.depth;
-  var move        = 0;
-  var bestMove    = 0;
   var bestMoveStr = '';
   var score       = 0;
 
@@ -1380,10 +1235,6 @@ lozChess.prototype.go = function(spec) {
 
     score = this.search(this.rootNode, ply, board.turn, alpha, beta);
 
-    move = board.ttGetMove(this.rootNode);
-    if (move)
-      bestMove = move;
-
     if (this.stats.timeOut) {
       break;
     }
@@ -1391,11 +1242,11 @@ lozChess.prototype.go = function(spec) {
     if (score <= alpha || score >= beta) {
       //{{{  research
       
-      this.uci.debug(board.id,'research ply=', ply, 'alpha=', alpha, 'score=', score, 'beta=', beta);
+      this.uci.debug('RESEARCH', '|', ply+'p', '|', 'alpha', alpha, '|', 'score', score, '|', 'beta', beta);
       
       alpha = -INFINITY;
       beta  = INFINITY;
-      asp   = ASP_MAX * 10;          //  don't do shrinking any more.
+      asp   = ASP_MAX * 10;
       
       continue;
       
@@ -1418,23 +1269,18 @@ lozChess.prototype.go = function(spec) {
     this.stats.update();
   }
 
-  //{{{  show dev logs
-  
-  board.evaluate(board.turn);
-  
-  this.uci.debug ('ply=',ply,'phase=',board.gPhase);
-  
-  //}}}
-
   this.stats.update();
   this.stats.stop();
 
-  bestMoveStr = board.formatMove(bestMove);
+  bestMoveStr = board.formatMove(this.stats.bestMove);
 
-  this.uci.send('bestmove',bestMoveStr);
+  if (spec.txfen)
+    this.uci.send('bestmove',bestMoveStr,'txfen',board.fen());
+  else
+    this.uci.send('bestmove',bestMoveStr);
 
-  this.uci.debug('ply=',spec.depth,'Mn=',this.stats.nodesMega,'sec=',this.stats.timeSec,'best=',bestMoveStr);
-  this.uci.debug('');
+  this.uci.debug(spec.board + ' ' + spec.rights + ' ' + spec.ep);
+  this.uci.debug(spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.timeSec+'s','|',bestMoveStr);
 }
 
 //}}}
@@ -1469,6 +1315,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
   var alphaMate      = (alpha <= -MINMATE && alpha >= -MATE) || (alpha >= MINMATE && alpha <= MATE);
   var betaMate       = (beta  <= -MINMATE && beta  >= -MATE) || (beta  >= MINMATE && beta  <= MATE);
   var numSlides      = 0;
+  var lmReduce       = !inCheck && depth >= 2 && !betaMate;
+  var safe           = false;
 
   node.cache();
 
@@ -1505,8 +1353,9 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     //}}}
 
     givesCheck = board.isKingAttacked(turn);
+    safe       = !alphaMate && !(move & KEEPER_MASK) && !givesCheck;
 
-    //{{{  E+R
+    //{{{  E+R (cloned from alphabeta)
     
     if (node.base < BASE_LMR)
       numSlides += 1;
@@ -1515,10 +1364,10 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     R = 0;
     
     if (inCheck)
-      E = 1
+      E = 1;
     
-    if (!E && numSlides > 9 && depth >= 2 && !inCheck && !givesCheck && !(move & KEEPER_MASK) && !betaMate && !alphaMate) {
-      R = 1;
+    if (!E && lmReduce && safe && numSlides > 9) {
+      R = 1; // hack (numSlides >= 8) ? depth >>> 2 : 1;
     }
     
     //}}}
@@ -1554,6 +1403,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         alpha     = score;
         alphaMate = (alpha <= -MINMATE && alpha >= -MATE) || (alpha >= MINMATE && alpha <= MATE);
         board.ttPut(TT_ALPHA, depth, score, move, node.ply);
+        this.stats.bestMove = board.ttGetMove(node);
         //{{{  send score to UI
         
         var absScore = Math.abs(score);
@@ -1562,12 +1412,13 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         
         if (absScore > MINMATE && absScore <= MATE) {
           var units    = 'mate';
-          var uciScore = Math.floor((MATE - absScore) / 2);
+          //var uciScore = Math.floor((MATE - absScore) / 2);
+          var uciScore = MATE - absScore;  // not strictly UCI but more useful.
           if (score < 0)
             uciScore = -uciScore;
         }
         
-        this.uci.send('info depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',this.getPVStr(node));
+        this.uci.send('info depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',board.getPVStr(node));
         
         //}}}
       }
@@ -1577,7 +1428,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
   }
 
   if (numLegalMoves == 0)
-    this.uci.debug('given invalid position');
+    this.uci.debug('INVALID');
 
   if (numLegalMoves == 1)
     this.stats.timeOut = 1;  // only one legal move so don't waste any more time.
@@ -1665,9 +1516,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   }
   
   //}}}
-
-  this.stats.nodes++;
-
   //{{{  try tt
   
   score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove.
@@ -1736,15 +1584,20 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   //}}}
 
+  this.stats.nodes++;
+
   var bestScore      = -INFINITY;
   var move           = 0;
   var bestMove       = 0;
   var oAlpha         = alpha;
   var alphaMate      = (alpha <= -MINMATE && alpha >= -MATE) || (alpha >= MINMATE && alpha <= MATE);
-  var doFutility     = !inCheck && depth <= 5 && (standPat + 10 + depth*70 < alpha);
+  var alphaPrune     = !inCheck && depth <= 5 && (standPat + 10 + depth*70 < alpha);
+  var lmPrune        = false && !inCheck && depth <= 3 && !betaMate; // hack
+  var lmReduce       = !inCheck && depth >= 2 && !betaMate;
   var numLegalMoves  = 0;
   var numSlides      = 0;
   var givesCheck     = 0;
+  var safe           = false;
 
   //{{{  IID
   
@@ -1777,15 +1630,21 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     numLegalMoves++;
 
     givesCheck = board.isKingAttacked(turn);
+    safe       = !alphaMate && !(move & KEEPER_MASK) && !givesCheck;
 
-    //{{{  futile?
+    //{{{  prune
     
-    if (doFutility && !alphaMate && numLegalMoves > 1 && !(move & KEEPER_MASK) && !givesCheck) {
+    if (alphaPrune && safe && numLegalMoves > 1) {
     
       board.unmakeMove(node,move);
-    
       node.uncache();
+      continue;
+    }
     
+    if (lmPrune && safe && numSlides > depth*5) {
+    
+      board.unmakeMove(node,move);
+      node.uncache();
       continue;
     }
     
@@ -1801,8 +1660,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     if (inCheck)
       E = 1;
     
-    if (!E && numSlides > 9 && depth >= 2 && !inCheck && !givesCheck && !(move & KEEPER_MASK) && !betaMate && !alphaMate) {
-      R = 1;
+    if (!E && lmReduce && safe && numSlides > 9) {
+      R = 1; // hack (numSlides >= 8) ? depth >>> 2 : 1;
     }
     
     //}}}
@@ -1823,9 +1682,13 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
         score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);
     }
 
+    //{{{  unmake move
+    
     board.unmakeMove(node,move);
-
+    
     node.uncache();
+    
+    //}}}
 
     if (this.stats.timeOut)
       return;
@@ -1875,8 +1738,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 
 lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
-  this.stats.nodes++;
-
   var board    = this.board;
   var standPat = board.evaluate(turn);
   var gPhase   = board.gPhase;
@@ -1897,6 +1758,8 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
   if (standPat + VALUE_QUEEN < alpha) {
     return alpha;
   }
+
+  this.stats.nodes++;
 
   var nextTurn = ~turn & COLOR_MASK;
   var move     = 0;
@@ -1958,56 +1821,93 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 }
 
 //}}}
-//{{{  .playMove
+//{{{  .perft
 
-lozChess.prototype.playMove = function (moveStr, turn) {
+lozChess.prototype.perft = function () {
 
-  var board = this.board;
-  var move  = 0;
-  var node  = this.rootNode;
+  var spec = this.uci.spec;
+
+  this.stats.ply = spec.depth;
+
+  var moves = this.perftSearch(this.rootNode, spec.depth, this.board.turn, spec.inner);
+
+  this.stats.update();
+
+  var error = moves - spec.moves;
+
+  if (error == 0)
+    var err = 'error';
+  else
+    var err = '<b>ERROR</b>';
+
+  this.uci.debug(spec.depth,'|',moves,'|',spec.moves,err,error);
+}
+
+//}}}
+//{{{  .perftSearch
+
+lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
+
+  this.stats.nodes++;
+
+  if (depth == 0)
+    return 1;
+
+  var board         = this.board;
+  var numNodes      = 0;
+  var totalNodes    = 0;
+  var move          = 0;
+  var nextTurn      = ~turn & COLOR_MASK;
+  var numLegalMoves = 0;
+
+  node.cache();
 
   board.genMoves(node, turn);
 
   while (move = node.getNextMove()) {
 
-    if (moveStr == board.formatMove(move)) {
-      board.makeMove(node,move);
-      return;
+    board.makeMove(node,move);
+
+    //{{{  legal?
+    
+    if (board.isKingAttacked(nextTurn)) {
+    
+       board.unmakeMove(node,move);
+    
+       node.uncache();
+    
+       continue;
+    }
+    
+    //}}}
+
+    numLegalMoves++;
+
+    var numNodes = this.perftSearch(node.childNode, depth-1, nextTurn);
+
+    totalNodes += numNodes;
+
+    //{{{  unmake move
+    
+    board.unmakeMove(node,move);
+    
+    node.uncache();
+    
+    //}}}
+
+    if (node.root) {
+      var fmove = board.formatMove(move);
+      this.uci.send('info currmove ' + fmove + ' currmovenumber ' + numLegalMoves);
+      if (inner)
+        this.uci.debug(fmove,numNodes);
     }
   }
 
-  this.uci.debug('cannot play uci move',moveStr);
+  if (depth > 2)
+    this.stats.lazyUpdate();
+
+  return totalNodes;
 }
-
-//}}}
-//{{{  .getPVStr
-
-lozChess.prototype.getPVStr = function(node) {
-
-  if (!node)
-    return '';
-
-  var board = this.board;
-  var move  = board.ttGetMove(node);
-
-  if (!move)
-    return '';
-
-  node.cache();
-  board.makeMove(node,move);
-
-  var mv = board.formatMove(move);
-  var pv = ' ' + this.getPVStr(node.childNode);
-
-  board.unmakeMove(node,move);
-  node.uncache();
-
-  if (pv.indexOf(' ' + mv + ' ') === -1)
-    return mv + pv;
-  else
-    return '';
-}
-
 
 //}}}
 
@@ -2018,10 +1918,11 @@ lozChess.prototype.getPVStr = function(node) {
 
 function lozBoard () {
 
-  this.b     = Array(144);     // pieces.
-  this.z     = Array(144);     // indexes to w|bList.
-  this.wList = Array(16);      // list of squares with white pieces.
-  this.bList = Array(16);      // list of squares with black pieces.
+  this.b = Array(144);     // pieces.
+  this.z = Array(144);     // indexes to w|bList.
+
+  this.wList = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];      // list of squares with white pieces.
+  this.bList = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];      // list of squares with black pieces.
 
   this.runningEvalS = 0;  // these are all cached across make/unmakeMove.
   this.runningEvalE = 0;
@@ -2031,6 +1932,8 @@ function lozBoard () {
   this.repHi        = 0;
   this.loHash       = 0;
   this.hiHash       = 0;
+  this.ploHash      = 0;
+  this.phiHash      = 0;
 
   this.ttSize = 1 << 24;          // tt size.
   this.ttMask = this.ttSize - 1;  // mask to index tt.
@@ -2045,17 +1948,26 @@ function lozBoard () {
   this.ttMove  = new Uint32Array(this.ttSize); // see constants for structure.
   this.ttScore = new Int16Array(this.ttSize);
 
+  this.pttSize = 1 << 14;
+  this.pttMask = this.pttSize - 1;
+
+  this.pttLo     = new Int32Array(this.pttSize);
+  this.pttHi     = new Int32Array(this.pttSize);
+  this.pttType   = new Uint8Array(this.pttSize);
+  this.pttScoreS = new Int16Array(this.pttSize);
+  this.pttScoreE = new Int16Array(this.pttSize);
+
   this.ttInit();
 
   this.turn = 0;
 
-  //{{{  turn
+  //{{{  Zobrist turn
   
   this.loTurn = this.rand32();
   this.hiTurn = this.rand32();
   
   //}}}
-  //{{{  pieces
+  //{{{  Zobrist pieces
   
   this.loPieces = Array(2);
   for (var i=0; i < 2; i++) {
@@ -2078,7 +1990,7 @@ function lozBoard () {
   }
   
   //}}}
-  //{{{  rights
+  //{{{  Zobrist rights
   
   this.loRights = Array(16);
   this.hiRights = Array(16);
@@ -2089,7 +2001,7 @@ function lozBoard () {
   }
   
   //}}}
-  //{{{  EP
+  //{{{  Zobrist EP
   
   this.loEP = Array(144);
   this.hiEP = Array(144);
@@ -2127,52 +2039,306 @@ function lozBoard () {
 
 lozBoard.prototype.init = function () {
 
-  this.b = [EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
-            EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
-            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-            EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
-            EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE];
+  for (var i=0; i < this.b.length; i++)
+    this.b[i] = EDGE;
 
-  this.z = [NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
-            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z];
+  for (var i=0; i < B88.length; i++)
+    this.b[B88[i]] = NULL;
+
+  for (var i=0; i < this.z.length; i++)
+    this.z[i] = NO_Z;
 
   this.loHash = 0;
   this.hiHash = 0;
 
-  this.repLo  = 0;
-  this.repHi  = 0;
+  this.ploHash = 0;
+  this.phiHash = 0;
+
+  this.repLo = 0;
+  this.repHi = 0;
 
   this.phase  = TPHASE;
   this.gPhase = 0;
 
-  this.wCounts = [0,0,0,0,0,0,0];
-  this.bCounts = [0,0,0,0,0,0,0];
+  for (var i=0; i < this.wCounts.length; i++)
+    this.wCounts[i] = 0;
+
+  for (var i=0; i < this.bCounts.length; i++)
+    this.bCounts[i] = 0;
 
   this.wCount = 0;
   this.bCount = 0;
 
-  this.wList = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-  this.bList = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+  for (var i=0; i < this.wList.length; i++)
+    this.wList[i] = EMPTY;
+
+  for (var i=0; i < this.bList.length; i++)
+    this.bList[i] = EMPTY;
 
   this.firstBP = 0;
   this.firstWP = 0;
+}
+
+//}}}
+//{{{  .position
+
+lozBoard.prototype.position = function () {
+
+  var spec = lozza.uci.spec;
+
+  //{{{  board turn
+  
+  if (spec.turn == 'w')
+    this.turn = WHITE;
+  
+  else {
+    this.turn = BLACK;
+    this.loHash ^= this.loTurn;
+    this.hiHash ^= this.hiTurn;
+  }
+  
+  //}}}
+  //{{{  board rights
+  
+  this.rights = 0;
+  
+  for (var i=0; i < spec.rights.length; i++) {
+  
+    var ch = spec.rights.charAt(i);
+  
+    if (ch == 'K') this.rights |= WHITE_RIGHTS_KING;
+    if (ch == 'Q') this.rights |= WHITE_RIGHTS_QUEEN;
+    if (ch == 'k') this.rights |= BLACK_RIGHTS_KING;
+    if (ch == 'q') this.rights |= BLACK_RIGHTS_QUEEN;
+  }
+  
+  this.loHash ^= this.loRights[this.rights];
+  this.hiHash ^= this.hiRights[this.rights];
+  
+  //}}}
+  //{{{  board board
+  
+  this.phase = TPHASE;
+  
+  var sq = 0;
+  var nw = 0;
+  var nb = 0;
+  
+  for (var j=0; j < spec.board.length; j++) {
+  
+    var ch  = spec.board.charAt(j);
+    var chn = parseInt(ch);
+  
+    while (this.b[sq] == EDGE)
+      sq++;
+  
+    if (isNaN(chn)) {
+  
+      if (ch != '/') {
+  
+        var obj   = MAP[ch];
+        var piece = obj & PIECE_MASK;
+        var col   = obj & COLOR_MASK;
+  
+        if (col == WHITE) {
+          this.wList[nw] = sq;
+          this.b[sq]     = obj;
+          this.z[sq]     = nw;
+          nw++;
+          this.wCounts[piece]++;
+          this.wCount++;
+        }
+  
+        else {
+          this.bList[nb] = sq;
+          this.b[sq]     = obj;
+          this.z[sq]     = nb;
+          nb++;
+          this.bCounts[piece]++;
+          this.bCount++;
+        }
+  
+        this.loHash ^= this.loPieces[col>>>3][piece-1][sq];
+        this.hiHash ^= this.hiPieces[col>>>3][piece-1][sq];
+  
+        if (piece == PAWN) {
+          this.ploHash ^= this.loPieces[col>>>3][0][sq];
+          this.phiHash ^= this.hiPieces[col>>>3][0][sq];
+        }
+  
+        this.phase -= VPHASE[piece];
+  
+        sq++;
+      }
+    }
+  
+    else {
+  
+      for (var k=0; k < chn; k++) {
+        this.b[sq] = NULL;
+        sq++;
+      }
+    }
+  }
+  
+  
+  //}}}
+  //{{{  board ep
+  
+  if (spec.ep.length == 2)
+    this.ep = COORDS.indexOf(spec.ep)
+  else
+    this.ep = 0;
+  
+  this.loHash ^= this.loEP[this.ep];
+  this.hiHash ^= this.hiEP[this.ep];
+  
+  //}}}
+
+  //{{{  init running evals
+  
+  this.runningEvalS = 0;
+  this.runningEvalE = 0;
+  
+  var next  = 0;
+  var count = 0;
+  
+  while (count < this.wCount) {
+  
+    sq = this.wList[next];
+  
+    if (!sq) {
+      next++;
+      continue;
+    }
+  
+    var piece = this.b[sq] & PIECE_MASK;
+  
+    this.runningEvalS += VALUE_VECTOR[piece];
+    this.runningEvalS += WS_PST[piece][sq];
+    this.runningEvalE += VALUE_VECTOR[piece];
+    this.runningEvalE += WE_PST[piece][sq];
+  
+    count++;
+    next++
+  }
+  
+  var next  = 0;
+  var count = 0;
+  
+  while (count < this.bCount) {
+  
+    sq = this.bList[next];
+  
+    if (!sq) {
+      next++;
+      continue;
+    }
+  
+    var piece = this.b[sq] & PIECE_MASK;
+  
+    this.runningEvalS -= VALUE_VECTOR[piece];
+    this.runningEvalS -= BS_PST[piece][sq];
+    this.runningEvalE -= VALUE_VECTOR[piece];
+    this.runningEvalE -= BE_PST[piece][sq];
+  
+    count++;
+    next++
+  }
+  
+  
+  //}}}
+
+  for (var i=0; i < spec.moves.length; i++) {
+    if (!this.playMove(spec.moves[i], this.turn))
+      return 0;
+    this.turn = ~this.turn & COLOR_MASK;
+  }
+
+  //{{{  compact white list
+  
+  var v = [];
+  
+  for (var i=0; i<16; i++) {
+    if (this.wList[i])
+      v.push(this.wList[i]);
+  }
+  
+  v.sort(function(a,b) {
+    return lozza.board.b[b] - lozza.board.b[a];
+  });
+  
+  for (var i=0; i<16; i++) {
+    if (i < v.length) {
+      this.wList[i] = v[i];
+      this.z[v[i]]  = i;
+    }
+    else
+      this.wList[i] = EMPTY;
+  }
+  
+  this.firstWP = 0;
+  for (var i=0; i<16; i++) {
+    if (this.b[this.wList[i]] == W_PAWN) {
+      this.firstWP = i;
+      break;
+    }
+  }
+  
+  /*
+  console.log('WHITE LIST ' + v.length);
+  for (var i=0; i<this.wCount; i++) {
+    console.log(this.b[this.wList[i]]);
+  }
+  */
+  
+  if (this.b[this.wList[0]] != W_KING)
+    console.log('WHITE INDEX ERR');
+  
+  //}}}
+  //{{{  compact black list
+  
+  var v = [];
+  
+  for (var i=0; i<16; i++) {
+    if (this.bList[i])
+      v.push(this.bList[i]);
+  }
+  
+  v.sort(function(a,b) {
+    return lozza.board.b[b] - lozza.board.b[a];
+  });
+  
+  for (var i=0; i<16; i++) {
+    if (i < v.length) {
+      this.bList[i] = v[i];
+      this.z[v[i]]  = i;
+    }
+    else
+      this.bList[i] = EMPTY;
+  }
+  
+  this.firstBP = 0;
+  for (var i=0; i<16; i++) {
+    if (this.b[this.bList[i]] == B_PAWN) {
+      this.firstBP = i;
+      break;
+    }
+  }
+  
+  /*
+  console.log('BLACK LIST ' + v.length);
+  for (var i=0; i<this.bCount; i++) {
+    console.log(this.b[this.bList[i]]);
+  }
+  */
+  
+  if (this.b[this.bList[0]] != B_KING)
+    console.log('BLACK INDEX ERR');
+  
+  //}}}
+
+  return 1;
 }
 
 //}}}
@@ -2375,6 +2541,13 @@ lozBoard.prototype.makeMove = function (node,move) {
   this.loHash ^= this.loPieces[frColI][frPiece-1][to];
   this.hiHash ^= this.hiPieces[frColI][frPiece-1][to];
   
+  if (frPiece == PAWN) {
+    this.ploHash ^= this.loPieces[frColI][PAWN-1][fr];
+    this.phiHash ^= this.hiPieces[frColI][PAWN-1][fr];
+    this.ploHash ^= this.loPieces[frColI][PAWN-1][to];
+    this.phiHash ^= this.hiPieces[frColI][PAWN-1][to];
+  }
+  
   if (frCol == WHITE) {
   
     this.wList[node.frZ] = to;
@@ -2421,11 +2594,16 @@ lozBoard.prototype.makeMove = function (node,move) {
     this.loHash ^= this.loPieces[toColI][toPiece-1][to];
     this.hiHash ^= this.hiPieces[toColI][toPiece-1][to];
   
+    if (toPiece == PAWN) {
+      this.ploHash ^= this.loPieces[toColI][PAWN-1][to];
+      this.phiHash ^= this.hiPieces[toColI][PAWN-1][to];
+    }
+  
     this.phase += VPHASE[toPiece];
   
     if (toCol == WHITE) {
   
-      this.wList[node.toZ] = 0;
+      this.wList[node.toZ] = EMPTY;
   
       this.runningEvalS -= VALUE_VECTOR[toPiece];
       this.runningEvalS -= WS_PST[toPiece][to];
@@ -2438,7 +2616,7 @@ lozBoard.prototype.makeMove = function (node,move) {
   
     else {
   
-      this.bList[node.toZ] = 0;
+      this.bList[node.toZ] = EMPTY;
   
       this.runningEvalS += VALUE_VECTOR[toPiece];
       this.runningEvalS += BS_PST[toPiece][to];
@@ -2487,15 +2665,18 @@ lozBoard.prototype.makeMove = function (node,move) {
         node.epZ = z[ep];
         z[ep]    = NO_Z;
     
-        this.bList[node.epZ] = 0;
+        this.bList[node.epZ] = EMPTY;
     
-        this.loHash ^= this.loPieces[1][PAWN-1][to+12];
-        this.hiHash ^= this.hiPieces[1][PAWN-1][to+12];
+        this.loHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
+        this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
+    
+        this.ploHash ^= this.loPieces[I_BLACK][PAWN-1][ep];
+        this.phiHash ^= this.hiPieces[I_BLACK][PAWN-1][ep];
     
         this.runningEvalS += VALUE_PAWN;
-        this.runningEvalS += BS_PST[PAWN][to+12];  // sic.
+        this.runningEvalS += BS_PST[PAWN][ep];  // sic.
         this.runningEvalE += VALUE_PAWN;
-        this.runningEvalE += BE_PST[PAWN][to+12];  // sic.
+        this.runningEvalE += BE_PST[PAWN][ep];  // sic.
     
         this.bCounts[PAWN]--;
         this.bCount--;
@@ -2506,10 +2687,13 @@ lozBoard.prototype.makeMove = function (node,move) {
         var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]   = WHITE | pro;
     
-        this.loHash ^= this.loPieces[0][PAWN-1][to];
-        this.hiHash ^= this.hiPieces[0][PAWN-1][to];
-        this.loHash ^= this.loPieces[0][pro-1][to];
-        this.hiHash ^= this.hiPieces[0][pro-1][to];
+        this.loHash ^= this.loPieces[I_WHITE][PAWN-1][to];
+        this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][to];
+        this.loHash ^= this.loPieces[I_WHITE][pro-1][to];
+        this.hiHash ^= this.hiPieces[I_WHITE][pro-1][to];
+    
+        this.ploHash ^= this.loPieces[0][PAWN-1][to];
+        this.phiHash ^= this.hiPieces[0][PAWN-1][to];
     
         this.runningEvalS -= VALUE_PAWN;
         this.runningEvalS -= WS_PST[PAWN][to];
@@ -2537,10 +2721,10 @@ lozBoard.prototype.makeMove = function (node,move) {
     
         this.wList[z[F1]] = F1;
     
-        this.loHash ^= this.loPieces[0][ROOK-1][H1];
-        this.hiHash ^= this.hiPieces[0][ROOK-1][H1];
-        this.loHash ^= this.loPieces[0][ROOK-1][F1];
-        this.hiHash ^= this.hiPieces[0][ROOK-1][F1];
+        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][H1];
+        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][H1];
+        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][F1];
+        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][F1];
     
         this.runningEvalS -= WS_PST[ROOK][H1];
         this.runningEvalS += WS_PST[ROOK][F1];
@@ -2559,10 +2743,10 @@ lozBoard.prototype.makeMove = function (node,move) {
     
         this.wList[z[D1]] = D1;
     
-        this.loHash ^= this.loPieces[0][ROOK-1][A1];
-        this.hiHash ^= this.hiPieces[0][ROOK-1][A1];
-        this.loHash ^= this.loPieces[0][ROOK-1][D1];
-        this.hiHash ^= this.hiPieces[0][ROOK-1][D1];
+        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][A1];
+        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][A1];
+        this.loHash ^= this.loPieces[I_WHITE][ROOK-1][D1];
+        this.hiHash ^= this.hiPieces[I_WHITE][ROOK-1][D1];
     
         this.runningEvalS -= WS_PST[ROOK][A1];
         this.runningEvalS += WS_PST[ROOK][D1];
@@ -2594,15 +2778,18 @@ lozBoard.prototype.makeMove = function (node,move) {
         node.epZ = z[ep];
         z[ep]    = NO_Z;
     
-        this.wList[node.epZ] = 0;
+        this.wList[node.epZ] = EMPTY;
     
-        this.loHash ^= this.loPieces[0][PAWN-1][to-12];
-        this.hiHash ^= this.hiPieces[0][PAWN-1][to-12];
+        this.loHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
+        this.hiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
+    
+        this.ploHash ^= this.loPieces[I_WHITE][PAWN-1][ep];
+        this.phiHash ^= this.hiPieces[I_WHITE][PAWN-1][ep];
     
         this.runningEvalS -= VALUE_PAWN;
-        this.runningEvalS -= WS_PST[PAWN][to-12];  // sic.
+        this.runningEvalS -= WS_PST[PAWN][ep];  // sic.
         this.runningEvalE -= VALUE_PAWN;
-        this.runningEvalE -= WE_PST[PAWN][to-12];  // sic.
+        this.runningEvalE -= WE_PST[PAWN][ep];  // sic.
     
         this.wCounts[PAWN]--;
         this.wCount--;
@@ -2613,10 +2800,13 @@ lozBoard.prototype.makeMove = function (node,move) {
         var pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]   = BLACK | pro;
     
-        this.loHash ^= this.loPieces[1][PAWN-1][to];
-        this.hiHash ^= this.hiPieces[1][PAWN-1][to];
-        this.loHash ^= this.loPieces[1][pro-1][to];
-        this.hiHash ^= this.hiPieces[1][pro-1][to];
+        this.loHash ^= this.loPieces[I_BLACK][PAWN-1][to];
+        this.hiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
+        this.loHash ^= this.loPieces[I_BLACK][pro-1][to];
+        this.hiHash ^= this.hiPieces[I_BLACK][pro-1][to];
+    
+        this.ploHash ^= this.loPieces[I_BLACK][PAWN-1][to];
+        this.phiHash ^= this.hiPieces[I_BLACK][PAWN-1][to];
     
         this.runningEvalS += VALUE_PAWN;
         this.runningEvalS += BS_PST[PAWN][to];
@@ -2644,10 +2834,10 @@ lozBoard.prototype.makeMove = function (node,move) {
     
         this.bList[z[F8]] = F8;
     
-        this.loHash ^= this.loPieces[1][ROOK-1][H8];
-        this.hiHash ^= this.hiPieces[1][ROOK-1][H8];
-        this.loHash ^= this.loPieces[1][ROOK-1][F8];
-        this.hiHash ^= this.hiPieces[1][ROOK-1][F8];
+        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][H8];
+        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][H8];
+        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][F8];
+        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][F8];
     
         this.runningEvalS += BS_PST[ROOK][H8];
         this.runningEvalS -= BS_PST[ROOK][F8];
@@ -2666,10 +2856,10 @@ lozBoard.prototype.makeMove = function (node,move) {
     
         this.bList[z[D8]] = D8;
     
-        this.loHash ^= this.loPieces[1][ROOK-1][A8];
-        this.hiHash ^= this.hiPieces[1][ROOK-1][A8];
-        this.loHash ^= this.loPieces[1][ROOK-1][D8];
-        this.hiHash ^= this.hiPieces[1][ROOK-1][D8];
+        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][A8];
+        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][A8];
+        this.loHash ^= this.loPieces[I_BLACK][ROOK-1][D8];
+        this.hiHash ^= this.hiPieces[I_BLACK][ROOK-1][D8];
     
         this.runningEvalS += BS_PST[ROOK][A8];
         this.runningEvalS -= BS_PST[ROOK][D8];
@@ -2768,12 +2958,14 @@ lozBoard.prototype.unmakeMove = function (node,move) {
     
     if ((frObj & COLOR_MASK) == WHITE) {
     
+      var ep = to + 12;
+    
       if (move & MOVE_EPTAKE_MASK) {
     
-        b[to+12] = B_PAWN;
-        z[to+12] = node.epZ;
+        b[ep] = B_PAWN;
+        z[ep] = node.epZ;
     
-        this.bList[node.epZ] = to+12;
+        this.bList[node.epZ] = ep;
     
         this.bCounts[PAWN]++;
         this.bCount++;
@@ -2812,12 +3004,14 @@ lozBoard.prototype.unmakeMove = function (node,move) {
     
     else {
     
+      var ep = to - 12;
+    
       if (move & MOVE_EPTAKE_MASK) {
     
-        b[to-12] = W_PAWN;
-        z[to-12] = node.epZ;
+        b[ep] = W_PAWN;
+        z[ep] = node.epZ;
     
-        this.wList[node.epZ] = to-12;
+        this.wList[node.epZ] = ep;
     
         this.wCounts[PAWN]++;
         this.wCount++;
@@ -3148,8 +3342,6 @@ lozBoard.prototype.isAttacked = function(to, byCol) {
 //}}}
 //{{{  .formatMove
 
-var PROMOTES = ['n','b','r','q']; // 0-3 encoded in move.
-
 lozBoard.prototype.formatMove = function (move) {
 
   if (move == 0)
@@ -3204,7 +3396,7 @@ lozBoard.prototype.formatMove = function (move) {
 
 lozBoard.prototype.evaluate = function (turn) {
 
-  //this.check(turn);
+  //this.hashCheck(turn);
 
   //{{{  init
   
@@ -3213,24 +3405,32 @@ lozBoard.prototype.evaluate = function (turn) {
   
   var phase = this.phase;
   
-  if (phase < 0)            // because of say 3 queens.
+  if (phase < 0)            // because of say 3 queens early on.
     phase = 0;
   
   if (phase > TPHASE)
     phase = TPHASE;
   
-  //this.gPhase = Math.round((phase << 8) / TPHASE);
-  this.gPhase = ~~(((phase << 8) / TPHASE) + 0.5);
+  this.gPhase = Math.round((phase << 8) / TPHASE);
   
   var numPieces = this.wCount + this.bCount;
   
-  var nwB = this.wCounts[BISHOP];
-  var nwN = this.wCounts[KNIGHT];
-  var nwP = this.wCounts[PAWN];
+  var wNumBishops = this.wCounts[BISHOP];
+  var wNumKnights = this.wCounts[KNIGHT];
+  var wNumPawns   = this.wCounts[PAWN];
   
-  var nbB = this.bCounts[BISHOP];
-  var nbN = this.bCounts[KNIGHT];
-  var nbP = this.bCounts[PAWN];
+  var bNumBishops = this.bCounts[BISHOP];
+  var bNumKnights = this.bCounts[KNIGHT];
+  var bNumPawns   = this.bCounts[PAWN];
+  
+  var wKingSq   = this.wList[0];
+  var wKingRank = RANK[wKingSq];
+  var wKingFile = FILE[wKingSq];
+  
+  var bKingSq   = this.bList[0];
+  var bKingRank = RANK[bKingSq];
+  var bKingFile = FILE[bKingSq];
+  
   
   //}}}
   //{{{  insufficient material?
@@ -3238,177 +3438,201 @@ lozBoard.prototype.evaluate = function (turn) {
   if (numPieces == 2)                                  // K v K.
     return CONTEMPT;
   
-  if (numPieces == 3 && (nwN || nwB || nbN || nbB))    // K v K+N|B.
+  if (numPieces == 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))    // K v K+N|B.
     return CONTEMPT;
   
-  if (numPieces == 4 && (nwN || nwB) && (nbN || nbB))  // K+N|B v K+N|B.
+  if (numPieces == 4 && (wNumKnights || wNumBishops) && (bNumKnights || bNumBishops))  // K+N|B v K+N|B.
     return CONTEMPT;
   
   //}}}
-  //{{{  pawns phase 1
+  //{{{  pawns
   
-  //{{{  white
+  var pawnsS = 0;
+  var pawnsE = 0;
   
-  this.wPawns[0] = 9;
-  this.wPawns[1] = 9;
-  this.wPawns[2] = 9;
-  this.wPawns[3] = 9;
-  this.wPawns[4] = 9;
-  this.wPawns[5] = 9;
-  this.wPawns[6] = 9;
-  this.wPawns[7] = 9;
-  this.wPawns[8] = 9;
-  this.wPawns[9] = 9;
+  var idx = this.ploHash & this.pttMask;
   
-  var next  = this.firstWP;
-  var count = 0;
+  if (this.pttType[idx] == TT_EXACT && this.pttLo[idx] == this.ploHash && this.pttHi[idx] == this.phiHash) {
   
-  while (count < nwP) {
-  
-    sq = this.wList[next];
-  
-    if (!sq || this.b[sq] != W_PAWN) {
-      next++;
-      continue;
-    }
-  
-    var rank = RANK[sq];
-    var file = FILE[sq];
-  
-    if (this.wPawns[file] != 9) {
-      evalS -= WDOUBLED_PSTS[sq];
-      evalE -= WDOUBLED_PSTE[sq];
-    }
-  
-    if (rank < this.wPawns[file])
-      this.wPawns[file] = rank;
-  
-    count++;
-    next++
+    pawnsS = this.pttScoreS[idx];
+    pawnsE = this.pttScoreE[idx];
   }
   
-  //}}}
-  //{{{  black
+  else {
   
-  this.bPawns[0] = 0;
-  this.bPawns[1] = 0;
-  this.bPawns[2] = 0;
-  this.bPawns[3] = 0;
-  this.bPawns[4] = 0;
-  this.bPawns[5] = 0;
-  this.bPawns[6] = 0;
-  this.bPawns[7] = 0;
-  this.bPawns[8] = 0;
-  this.bPawns[9] = 0;
-  
-  var next  = this.firstBP;
-  var count = 0;
-  
-  while (count < nbP) {
-  
-    sq = this.bList[next];
-  
-    if (!sq || this.b[sq] != B_PAWN) {
-      next++;
-      continue;
+    //{{{  phase 1
+    
+    this.wPawns[0] = 9;
+    this.wPawns[1] = 9;
+    this.wPawns[2] = 9;
+    this.wPawns[3] = 9;
+    this.wPawns[4] = 9;
+    this.wPawns[5] = 9;
+    this.wPawns[6] = 9;
+    this.wPawns[7] = 9;
+    this.wPawns[8] = 9;
+    this.wPawns[9] = 9;
+    
+    var next  = this.firstWP;
+    var count = 0;
+    
+    while (count < wNumPawns) {
+    
+      sq = this.wList[next];
+    
+      if (!sq || this.b[sq] != W_PAWN) {
+        next++;
+        continue;
+      }
+    
+      var rank = RANK[sq];
+      var file = FILE[sq];
+    
+      if (this.wPawns[file] != 9) {
+        pawnsS -= WDOUBLED_PSTS[sq];
+        pawnsE -= WDOUBLED_PSTE[sq];
+      }
+    
+      if (rank < this.wPawns[file])
+        this.wPawns[file] = rank;
+    
+      count++;
+      next++
     }
-  
-    var rank = RANK[sq];
-    var file = FILE[sq];
-  
-    if (this.bPawns[file] != 0) {
-      evalS += BDOUBLED_PSTS[sq];
-      evalE += BDOUBLED_PSTE[sq];
+    
+    this.bPawns[0] = 0;
+    this.bPawns[1] = 0;
+    this.bPawns[2] = 0;
+    this.bPawns[3] = 0;
+    this.bPawns[4] = 0;
+    this.bPawns[5] = 0;
+    this.bPawns[6] = 0;
+    this.bPawns[7] = 0;
+    this.bPawns[8] = 0;
+    this.bPawns[9] = 0;
+    
+    var next  = this.firstBP;
+    var count = 0;
+    
+    while (count < bNumPawns) {
+    
+      sq = this.bList[next];
+    
+      if (!sq || this.b[sq] != B_PAWN) {
+        next++;
+        continue;
+      }
+    
+      var rank = RANK[sq];
+      var file = FILE[sq];
+    
+      if (this.bPawns[file] != 0) {
+        pawnsS += BDOUBLED_PSTS[sq];
+        pawnsE += BDOUBLED_PSTE[sq];
+      }
+    
+      if (rank > this.bPawns[file])
+        this.bPawns[file] = rank;
+    
+      count++;
+      next++
     }
+    
+    //}}}
+    //{{{  phase 2
+    
+    var next  = this.firstWP;
+    var count = 0;
+    
+    while (count < wNumPawns) {
+    
+      sq = this.wList[next];
+    
+      if (!sq || this.b[sq] != W_PAWN) {
+        next++;
+        continue;
+      }
+    
+      var rank = RANK[sq];
+      var file = FILE[sq];
+      var pass = 1;
+    
+      if (rank >= this.bPawns[file-1] && rank >= this.bPawns[file] && rank >= this.bPawns[file+1]) {
+        pawnsS += WPASSED_PSTS[sq];
+        pawnsE += WPASSED_PSTE[sq];
+        pass   =  1;
+      }
+    
+      if (this.b[sq+11] == W_PAWN || this.b[sq+13] == W_PAWN ) {
+        pawnsS += WCONNECT_PSTS[sq] * pass;
+        pawnsE += WCONNECT_PSTE[sq] * pass;
+      }
+      else if (this.wPawns[file-1] == 9 && this.wPawns[file+1] == 9) {
+        pawnsS -= WISOLATE_PSTS[sq];
+        pawnsE -= WISOLATE_PSTE[sq];
+      }
+    
+      count++;
+      next++
+    }
+    
+    var next  = this.firstBP;
+    var count = 0;
+    
+    while (count < bNumPawns) {
+    
+      sq = this.bList[next];
+    
+      if (!sq || this.b[sq] != B_PAWN) {
+        next++;
+        continue;
+      }
+    
+      var rank = RANK[sq];
+      var file = FILE[sq];
+      var pass = 1;
+    
+      if (rank <= this.wPawns[file-1] && rank <= this.wPawns[file] && rank <= this.wPawns[file+1]) {
+        pawnsS -= BPASSED_PSTS[sq];
+        pawnsE -= BPASSED_PSTE[sq];
+        pass   =  1;
+      }
+    
+      if (this.b[sq-11] == B_PAWN || this.b[sq-13] == B_PAWN ) {
+        pawnsS -= BCONNECT_PSTS[sq] * pass;
+        pawnsE -= BCONNECT_PSTE[sq] * pass;
+      }
+      else if (this.bPawns[file-1] == 0 && this.bPawns[file+1] == 0) {
+        pawnsS += BISOLATE_PSTS[sq];
+        pawnsE += BISOLATE_PSTE[sq];
+      }
+    
+      count++;
+      next++
+    }
+    
+    //}}}
   
-    if (rank > this.bPawns[file])
-      this.bPawns[file] = rank;
-  
-    count++;
-    next++
+    this.pttType[idx]   = TT_EXACT;
+    this.pttLo[idx]     = this.ploHash;
+    this.pttHi[idx]     = this.phiHash;
+    this.pttScoreS[idx] = pawnsS;
+    this.pttScoreE[idx] = pawnsE;
   }
   
-  //}}}
+  evalS += pawnsS;
+  evalE += pawnsE;
   
-  //}}}
-  //{{{  pawns phase 2
-  
-  //{{{  white
-  
-  var next  = this.firstWP;
-  var count = 0;
-  
-  while (count < nwP) {
-  
-    sq = this.wList[next];
-  
-    if (!sq || this.b[sq] != W_PAWN) {
-      next++;
-      continue;
-    }
-  
-    var rank = RANK[sq];
-    var file = FILE[sq];
-  
-    if (Math.abs(rank - this.wPawns[file-1]) == 1) {
-      evalS += WCONNECT_PSTS[sq];
-      evalE += WCONNECT_PSTE[sq];
-    }
-  
-    if (rank >= this.bPawns[file-1] && rank >= this.bPawns[file] && rank >= this.bPawns[file+1]) {
-      evalS += WPASSED_PSTS[sq];
-      evalE += WPASSED_PSTE[sq];
-    }
-  
-    count++;
-    next++
-  }
-  
-  //}}}
-  //{{{  black
-  
-  var bPassed = 0;
-  
-  var next  = this.firstBP;
-  var count = 0;
-  
-  while (count < nbP) {
-  
-    sq = this.bList[next];
-  
-    if (!sq || this.b[sq] != B_PAWN) {
-      next++;
-      continue;
-    }
-  
-    var rank = RANK[sq];
-    var file = FILE[sq];
-  
-    if (Math.abs(rank - this.bPawns[file-1]) == 1) {
-      evalS -= BCONNECT_PSTS[sq];
-      evalE -= BCONNECT_PSTE[sq];
-    }
-  
-    if (rank <= this.wPawns[file-1] && rank <= this.wPawns[file] && rank <= this.wPawns[file+1]) {
-      evalS -= BPASSED_PSTS[sq];
-      evalE -= BPASSED_PSTE[sq];
-    }
-  
-    count++;
-    next++
-  }
-  
-  //}}}
   
   //}}}
   //{{{  bishop pair
   
-  if (nwB >= 2) {
+  if (wNumBishops >= 2) {
     evalS += 50;
     evalE += 50;
   }
   
-  if (nbB >= 2) {
+  if (bNumBishops >= 2) {
     evalS -= 50;
     evalE -= 50;
   }
@@ -3416,43 +3640,41 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  king safety
   
-  var ksq  = this.wList[0];
   var safe = 32;
   
-  if (this.b[ksq-12] == W_PAWN) {
+  if (this.b[wKingSq-12] == W_PAWN) {
     evalS += safe;
     safe = safe >>> 2;
     evalE += safe;
   }
   
-  if (this.b[ksq-13] == W_PAWN) {
+  if (this.b[wKingSq-13] == W_PAWN) {
     evalS += safe;
     safe = safe >>> 2;
     evalE += safe;
   }
   
-  if (this.b[ksq-11] == W_PAWN) {
+  if (this.b[wKingSq-11] == W_PAWN) {
     evalS += safe;
     safe = safe >>> 2;
     evalE += safe;
   }
   
-  var ksq  = this.bList[0];
   var safe = 32;
   
-  if (this.b[ksq+12] == B_PAWN) {
+  if (this.b[bKingSq+12] == B_PAWN) {
     evalS -= safe;
     safe = safe >>> 2;
     evalE -= safe;
   }
   
-  if (this.b[ksq+11] == B_PAWN) {
+  if (this.b[bKingSq+11] == B_PAWN) {
     evalS -= safe;
     safe = safe >>> 2;
     evalE -= safe;
   }
   
-  if (this.b[ksq+13] == B_PAWN) {
+  if (this.b[bKingSq+13] == B_PAWN) {
     evalS -= safe;
     safe = safe >>> 2;
     evalE -= safe;
@@ -3581,18 +3803,26 @@ lozBoard.prototype.ttInit = function () {
   this.loHash = 0;
   this.hiHash = 0;
 
-  for (var i=0; i < this.ttType.length; i++) {
-    this.ttType[i]  = TT_EMPTY;
-  }
+  this.ploHash = 0;
+  this.phiHash = 0;
+
+  for (var i=0; i < this.ttType.length; i++)
+    this.ttType[i] = TT_EMPTY;
+
+  for (var i=0; i < this.pttType.length; i++)
+    this.pttType[i] = TT_EMPTY;
 }
 
 //}}}
-//{{{  .check
+//{{{  .hashCheck
 
-lozBoard.prototype.check = function (turn) {
+lozBoard.prototype.hashCheck = function (turn) {
 
   var loHash = 0;
   var hiHash = 0;
+
+  var ploHash = 0;
+  var phiHash = 0;
 
   if (turn) {
     loHash ^= this.loTurn;
@@ -3618,6 +3848,10 @@ lozBoard.prototype.check = function (turn) {
     loHash ^= this.loPieces[col>>>3][piece-1][sq];
     hiHash ^= this.hiPieces[col>>>3][piece-1][sq];
 
+    if (piece == PAWN) {
+      ploHash ^= this.loPieces[col>>>3][0][sq];
+      phiHash ^= this.hiPieces[col>>>3][0][sq];
+    }
   }
 
   if (this.loHash != loHash)
@@ -3625,7 +3859,96 @@ lozBoard.prototype.check = function (turn) {
 
   if (this.hiHash != hiHash)
     lozza.uci.debug('*************** HI',this.hiHash,hiHash);
+
+  if (this.ploHash != ploHash)
+    lozza.uci.debug('************* PLO',this.ploHash,ploHash);
+
+  if (this.phiHash != phiHash)
+    lozza.uci.debug('************* PHI',this.phiHash,phiHash);
 }
+
+//}}}
+//{{{  .fen
+
+lozBoard.prototype.fen = function () {
+
+  var fen = '';
+  var n   = 0;
+
+  for (i=0; i < 8; i++) {
+    for (j=0; j < 8; j++) {
+      var sq  = B88[i*8 + j]
+      var obj = this.b[sq];
+      if (obj == NULL)
+        n++;
+      else {
+        if (n) {
+          fen += '' + n;
+          n = 0;
+        }
+        fen += UMAP[obj];
+      }
+    }
+    if (n) {
+      fen += '' + n;
+      n = 0;
+    }
+    if (i < 7)
+      fen += '/';
+  }
+
+  return fen;
+}
+
+//}}}
+//{{{  .playMove
+
+lozBoard.prototype.playMove = function (moveStr, turn) {
+
+  var move  = 0;
+  var node  = lozza.rootNode;
+
+  this.genMoves(node, turn);
+
+  while (move = node.getNextMove()) {
+
+    if (moveStr == this.formatMove(move)) {
+      this.makeMove(node,move);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+//}}}
+//{{{  .getPVStr
+
+lozBoard.prototype.getPVStr = function(node) {
+
+  if (!node)
+    return '';
+
+  var move = this.ttGetMove(node);
+
+  if (!move)
+    return '';
+
+  node.cache();
+  this.makeMove(node,move);
+
+  var mv = this.formatMove(move);
+  var pv = ' ' + this.getPVStr(node.childNode);
+
+  this.unmakeMove(node,move);
+  node.uncache();
+
+  if (pv.indexOf(' ' + mv + ' ') === -1)
+    return mv + pv;
+  else
+    return '';
+}
+
 
 //}}}
 
@@ -3637,11 +3960,7 @@ lozBoard.prototype.check = function (turn) {
 function lozNode (parentNode) {
 
   this.ply        = 0;          //  distance from root.
-  this.root       = false;      //  only treir for the root node node[0].
-  this.hashMove   = 0;          //  loaded when we look up the tt.
-  this.killer1    = 0;
-  this.killer2    = 0;
-  this.mateKiller = 0;
+  this.root       = false;      //  only true for the root node node[0].
   this.childNode  = null;       //  pointer to next node (towards leaf) in tree.
   this.parentNode = parentNode; //  pointer previous node (towards root) in tree.
 
@@ -3652,13 +3971,17 @@ function lozNode (parentNode) {
   else
     this.grandparentNode = null;
 
-  this.numMoves    = 0;         //  number of pseudo-legal moves for this node.
-  this.sortedIndex = 0;         //  index to next selection-sorted pseudo-legal move.
-  this.base        = 0;         //  move type base (e.g. good capture) - can be used for LMR.
-
   this.moves = Array(MAX_MOVES);
   for (var i=0; i < this.moves.length; i++)
     this.moves[i] = [0,0];      // [0] = priority, [1] = move.
+
+  this.killer1     = 0;
+  this.killer2     = 0;
+  this.mateKiller  = 0;
+  this.numMoves    = 0;         //  number of pseudo-legal moves for this node.
+  this.sortedIndex = 0;         //  index to next selection-sorted pseudo-legal move.
+  this.hashMove    = 0;         //  loaded when we look up the tt.
+  this.base        = 0;         //  move type base (e.g. good capture) - can be used for LMR.
 
   this.C_runningEvalS = 0;      // cached before move generation and restored after each unmakeMove.
   this.C_runningEvalE = 0;
@@ -3668,10 +3991,34 @@ function lozNode (parentNode) {
   this.C_repHi        = 0;
   this.C_loHash       = 0;
   this.C_hiHash       = 0;
+  this.C_ploHash      = 0;
+  this.C_phiHash      = 0;
 
   this.toZ = 0;                 // move to square index (captures) to piece list - cached during make|unmakeMove.
   this.frZ = 0;                 // move from square index to piece list          - ditto.
   this.epZ = 0;                 // captured ep pawn index to piece list          - ditto.
+}
+
+//}}}
+//{{{  .init
+//
+//  By storing the killers in the node, we are implicitly using depth from root, rather than
+//  depth, which can jump around all over the place and is inappropriate to use for killers.
+//
+
+lozNode.prototype.init = function() {
+
+  this.killer1      = 0;
+  this.killer2      = 0;
+  this.mateKiller   = 0;
+  this.numMoves     = 0;
+  this.sortedIndex  = 0;
+  this.hashMove     = 0;
+  this.base         = 0;
+
+  this.toZ = 0;
+  this.frZ = 0;
+  this.epZ = 0;
 }
 
 //}}}
@@ -3693,6 +4040,8 @@ lozNode.prototype.cache = function() {
   this.C_repHi        = board.repHi;
   this.C_loHash       = board.loHash;
   this.C_hiHash       = board.hiHash;
+  this.C_ploHash      = board.ploHash;
+  this.C_phiHash      = board.phiHash;
 }
 
 //}}}
@@ -3710,24 +4059,8 @@ lozNode.prototype.uncache = function() {
   board.repHi          = this.C_repHi;
   board.loHash         = this.C_loHash;
   board.hiHash         = this.C_hiHash;
-}
-
-//}}}
-//{{{  .init
-//
-//  By storing the killers in the node, we are implicitly using depth from root, rather than
-//  depth, which can jump around all over the place and is inappropriate to use for killers.
-//
-
-lozNode.prototype.init = function() {
-
-  this.killer1      = 0;
-  this.killer2      = 0;
-  this.mateKiller   = 0;
-  this.numMoves     = 0;
-  this.sortedIndex  = 0;
-  this.hashMove     = 0;
-  this.base         = 0;
+  board.ploHash        = this.C_ploHash;
+  board.phiHash        = this.C_phiHash;
 }
 
 //}}}
@@ -3995,6 +4328,7 @@ lozStats.prototype.init = function () {
   this.maxNodes  = 0;
   this.timeOut   = 0;
   this.selDepth  = 0;
+  this.bestMove  = 0;
 }
 
 //}}}
@@ -4040,113 +4374,16 @@ lozStats.prototype.stop = function () {
 //}}}
 
 //}}}
-//{{{  lozTest class
-
-//{{{  lozTest
-
-function lozTest () {
-}
-
-//}}}
-//{{{  .perft
-
-lozTest.prototype.perft = function (spec) {
-
-  lozza.stats.ply = spec.depth;
-
-  var moves = this.perftSearch(lozza.rootNode, spec.depth, lozza.board.turn, spec.inner);
-
-  lozza.stats.update();
-
-  var error = moves - spec.moves;
-
-  if (error == 0)
-    var err = 'error';
-  else
-    var err = '<b>ERROR</b>';
-
-  lozza.uci.debug('depth=',spec.depth,'moves=',moves,'expected=',spec.moves,err,error);
-}
-
-//}}}
-//{{{  .perftSearch
-
-lozTest.prototype.perftSearch = function (node, depth, turn, inner) {
-
-  lozza.stats.nodes++;
-
-  if (depth == 0)
-    return 1;
-
-  var board         = lozza.board;
-  var numNodes      = 0;
-  var totalNodes    = 0;
-  var move          = 0;
-  var nextTurn      = ~turn & COLOR_MASK;
-  var numLegalMoves = 0;
-
-  node.cache();
-
-  board.genMoves(node, turn);
-
-  while (move = node.getNextMove()) {
-
-    board.makeMove(node,move);
-
-    //{{{  legal?
-    
-    if (board.isKingAttacked(nextTurn)) {
-    
-       board.unmakeMove(node,move);
-    
-       node.uncache();
-    
-       continue;
-    }
-    
-    //}}}
-
-    numLegalMoves++;
-
-    var numNodes = this.perftSearch(node.childNode, depth-1, nextTurn);
-
-    totalNodes += numNodes;
-
-    //{{{  unmake move
-    
-    board.unmakeMove(node,move);
-    
-    node.uncache();
-    
-    //}}}
-
-    if (node.root) {
-      var fmove = board.formatMove(move);
-      lozza.uci.send('info currmove ' + fmove + ' currmovenumber ' + numLegalMoves);
-      if (inner)
-        lozza.uci.debug(fmove,numNodes);
-    }
-  }
-
-  if (depth > 2)
-    lozza.stats.lazyUpdate();
-
-  return totalNodes;
-}
-
-//}}}
-
-//}}}
 //{{{  lozUCI class
 
 //{{{  lozUCI
 
 function lozUCI () {
 
-  this.message = '';
-  this.tokens  = [];
-  this.command = '';
-
+  this.message   = '';
+  this.tokens    = [];
+  this.command   = '';
+  this.spec      = {};
   this.debugging = true;
 
   this.options = {};
@@ -4181,10 +4418,11 @@ lozUCI.prototype.debug = function () {
   for (var i = 0; i < arguments.length; i++)
     s += arguments[i] + ' ';
 
+  s = s.trim();
   if (s)
-    postMessage('info string ' + lozza.board.id + ' ' + s);
+    postMessage('info string ' + this.spec.id + ' | ' + s);
   else
-    postMessage('info string');
+    postMessage('info string ');
 }
 
 //}}}
@@ -4258,41 +4496,40 @@ onmessage = function(e) {
 
     case 'position':
       //{{{  position
-      //
-      //  position (startpos | fen <fen>) [moves 0<move>]
-      //
       
-      var spec = {};
-      
-      spec.board  = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
-      spec.turn   = 'w';
-      spec.rights = 'KQkq';
-      spec.ep     = '-';
-      spec.hmc    = 0;
-      spec.fmc    = 1;
-      spec.id     = '';
+      uci.spec.board    = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+      uci.spec.turn     = 'w';
+      uci.spec.rights   = 'KQkq';
+      uci.spec.ep       = '-';
+      uci.spec.hmc      = 0;
+      uci.spec.fmc      = 1;
+      uci.spec.id       = '';
+      uci.spec.validate = uci.getInt('validate',0);
       
       var arr = uci.getArr('fen','moves');
       
       if (arr.lo > 0) { // handle partial FENs
-        if (arr.lo <= arr.hi) spec.board  =          uci.tokens[arr.lo];  arr.lo++;
-        if (arr.lo <= arr.hi) spec.turn   =          uci.tokens[arr.lo];  arr.lo++;
-        if (arr.lo <= arr.hi) spec.rights =          uci.tokens[arr.lo];  arr.lo++;
-        if (arr.lo <= arr.hi) spec.ep     =          uci.tokens[arr.lo];  arr.lo++;
-        if (arr.lo <= arr.hi) spec.hmc    = parseInt(uci.tokens[arr.lo]); arr.lo++;
-        if (arr.lo <= arr.hi) spec.fmc    = parseInt(uci.tokens[arr.lo]); arr.lo++;
+        if (arr.lo <= arr.hi) uci.spec.board  =          uci.tokens[arr.lo];  arr.lo++;
+        if (arr.lo <= arr.hi) uci.spec.turn   =          uci.tokens[arr.lo];  arr.lo++;
+        if (arr.lo <= arr.hi) uci.spec.rights =          uci.tokens[arr.lo];  arr.lo++;
+        if (arr.lo <= arr.hi) uci.spec.ep     =          uci.tokens[arr.lo];  arr.lo++;
+        if (arr.lo <= arr.hi) uci.spec.hmc    = parseInt(uci.tokens[arr.lo]); arr.lo++;
+        if (arr.lo <= arr.hi) uci.spec.fmc    = parseInt(uci.tokens[arr.lo]); arr.lo++;
       }
       
-      spec.moves = [];
+      uci.spec.moves = [];
       
       var arr = uci.getArr('moves','fen');
       
       if (arr.lo > 0) {
         for (var i=arr.lo; i <= arr.hi; i++)
-          spec.moves.push(uci.tokens[i]);
+          uci.spec.moves.push(uci.tokens[i]);
       }
       
-      lozza.position(spec);
+      var valid = lozza.position();
+      
+      if (uci.spec.validate)
+        uci.send('valid', valid);
       
       break;
       
@@ -4300,22 +4537,18 @@ onmessage = function(e) {
 
     case 'go':
       //{{{  go
-      //
-      // go
-      //
       
-      var spec = {};
+      uci.spec.depth     = uci.getInt('depth',0);
+      uci.spec.moveTime  = uci.getInt('movetime',0);
+      uci.spec.maxNodes  = uci.getInt('nodes',0);
+      uci.spec.wTime     = uci.getInt('wtime',0);
+      uci.spec.bTime     = uci.getInt('btime',0);
+      uci.spec.wInc      = uci.getInt('winc',0);
+      uci.spec.bInc      = uci.getInt('binc',0);
+      uci.spec.movesToGo = uci.getInt('movestogo',0);
+      uci.spec.txfen     = uci.getInt('txfen',0);
       
-      spec.depth     = uci.getInt('depth',0);
-      spec.moveTime  = uci.getInt('movetime',0);
-      spec.maxNodes  = uci.getInt('nodes',0);
-      spec.wTime     = uci.getInt('wtime',0);
-      spec.bTime     = uci.getInt('btime',0);
-      spec.wInc      = uci.getInt('winc',0);
-      spec.bInc      = uci.getInt('binc',0);
-      spec.movesToGo = uci.getInt('movestogo',0);
-      
-      lozza.go(spec);
+      lozza.go();
       
       break;
       
@@ -4323,9 +4556,6 @@ onmessage = function(e) {
 
     case 'ucinewgame':
       //{{{  ucinewgame
-      //
-      // ucinewgame
-      //
       
       lozza.board.ttInit();
       
@@ -4391,6 +4621,7 @@ onmessage = function(e) {
       //{{{  ping
       
       uci.send('info string Lozza version',VERSION,'build',BUILD,'is alive');
+      uci.send('info string');
       
       break;
       
@@ -4398,11 +4629,8 @@ onmessage = function(e) {
 
     case 'id':
       //{{{  id
-      //
-      //  id <str>
-      //
       
-      lozza.id(uci.tokens[1]);
+      uci.spec.id = uci.tokens[1];
       
       break;
       
@@ -4410,17 +4638,12 @@ onmessage = function(e) {
 
     case 'perft':
       //{{{  perft
-      //
-      // perft [depth <int>] [moves <int>] [inner 0|1]
-      //
       
-      var spec = {};
+      uci.spec.depth = uci.getInt('depth',0);
+      uci.spec.moves = uci.getInt('moves',0);
+      uci.spec.inner = uci.getInt('inner',0);
       
-      spec.depth = uci.getInt('depth',0);
-      spec.moves = uci.getInt('moves',0);
-      spec.inner = uci.getInt('inner',0);
-      
-      lozza.test.perft (spec);
+      lozza.perft();
       
       break;
       
