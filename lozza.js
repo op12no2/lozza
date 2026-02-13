@@ -1,10 +1,18 @@
 
-// http://op12no2.me/toys/lozza
-
-var BUILD = "1.16 a";
+var BUILD = "1.17";
 
 //{{{  history
 /*
+
+1.17 Fix unstoppable passer bug (thanks Tamas Kuzmics)
+1.17 Min move time of 10ms.
+1.17 Change futility to depth <= 4 (from 5).
+1.17 Use TT at root.
+1.17 Increase LMR a bit.
+1.17 Add eval tempo back in.
+1.17 Remove phase from extend expression.
+1.17 R=3 always in NMP.
+1.16 Rearrange eval to be based on parts of the Toga User Manual (i.e. Fruit 2.1).
 
 1.16 Send node count back when PV is updated.
 1.16 Include non capture promotions in QS.
@@ -1512,6 +1520,9 @@ lozChess.prototype.go = function() {
   
     if (movTime > 0)
       this.stats.moveTime = movTime | 0;
+  
+    if (this.stats.moveTime < 10 && (spec.wTime || spec.bTime))
+      this.stats.moveTime = 10;
   }
   
   //}}}
@@ -1667,10 +1678,12 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
       givesCheck = board.isKingAttacked(turn);
       keeper     = node.base >= BASE_LMR || (move & KEEPER_MASK) || givesCheck || board.mate(alpha);
     
-      if (!keeper && numSlides > 5) {
+      if (!keeper && numSlides > 4) {
         R = 1;
-        if (numSlides > 10)
+        if (numSlides > 8)
           R = 2;
+        if (numSlides > 12)
+          R = 3;
       }
     }
     
@@ -1828,10 +1841,10 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   if (depth <= 0) {
   
-    //score = board.ttGet(node, 0, alpha, beta);
+    score = board.ttGet(node, 0, alpha, beta);
   
-    //if (score != TTSCORE_UNKNOWN)
-      //return score;
+    if (score != TTSCORE_UNKNOWN)
+      return score;
   
     score = this.qSearch(node, -1, turn, alpha, beta);
   
@@ -1874,9 +1887,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   //  Use childNode to make sure killers are aligned.
   //
   
-  R = 2;
-  if (depth > 6)
-    R = 3;
+  R = 3;
   
   if (doBeta && depth > 2 && standPat > beta) {
   
@@ -1917,7 +1928,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var numSlides      = 0;
   var givesCheck     = INCHECK_UNKNOWN;
   var keeper         = false;
-  var doFutility     = !inCheck && depth <= 5 && (standPat + depth * 120) < alpha && !lonePawns;
+  var doFutility     = !inCheck && depth <= 4 && (standPat + depth * 120) < alpha && !lonePawns;
   var doLMR          = !inCheck && depth >= 3;
   var doLMP          = !inCheck && depth <= 2 && !lonePawns;
   var doIID          = !node.hashMove && pvNode && depth > 3;
@@ -1974,7 +1985,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     E          = 0;
     R          = 0;
     
-    if (inCheck && gPhase < EPHASE && depth < 5) {
+    if (inCheck && depth < 5) {
       E = 1;
     }
     
@@ -1998,10 +2009,12 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
         continue;
       }
     
-      if (doLMR && !keeper && numSlides > 5) {
+      if (doLMR && !keeper && numSlides > 4) {
         R = 1;
-        if (numSlides > 10)
+        if (numSlides > 8)
           R = 2;
+        if (numSlides > 12)
+          R = 3;
       }
     }
     
@@ -4499,7 +4512,7 @@ lozBoard.prototype.evaluate = function (turn) {
             pawnsE -= 800;
           }
   
-          if ((bKingRank >= rank || bKingFile != file) && this.wCount == 1 && DIST[sq][B_PROMOTE_SQ[file]] < DIST[wKingSq][B_PROMOTE_SQ[file]] + ((turn==BLACK)|0) - 1) {
+          else if ((bKingRank >= rank || bKingFile != file) && this.wCount == 1 && DIST[sq][B_PROMOTE_SQ[file]] < DIST[wKingSq][B_PROMOTE_SQ[file]] + ((turn==BLACK)|0) - 1) {
             pawnsE -=800;
           }
         }
@@ -5121,12 +5134,12 @@ lozBoard.prototype.evaluate = function (turn) {
   //{{{  tempo
   
   if (turn == WHITE) {
-   var tempoS = 0;
+   var tempoS = 29;
    var tempoE = 0;
   }
   
   else {
-   var tempoS = 0;
+   var tempoS = -29;
    var tempoE = 0;
   }
   
