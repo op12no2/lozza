@@ -7,8 +7,8 @@
 // This file includes debug code that is stripped out on release.        // ##ifdef
 //                                                                       // ##ifdef
 
-var BUILD       = "2.1";
-var BUILD       = "2.1dev";  // ##ifdef
+var BUILD       = "2.2";
+var BUILD       = "2.2dev";  // ##ifdef
 var USEPAWNHASH = 1;
 var USEPAWNHASH = 0;         // ##ifdef
 var LICHESS     = 0;
@@ -16,16 +16,18 @@ var LICHESS     = 0;
 //{{{  history
 /*
 
-2.1 14/02/22 Non-linear mobility.
-2.1 11/02/22 Split up mobility into mobility, tightness and tension.
-2.1 28/01/22 Add Lichess support.
-2.1 21/01/22 Fixate on one square in Q search from depth -12.
-2.1 12/01/22 Retune using gd tuner.
-2.1 06/01/22 Add eval feature extraction code (for gd tuner) which is removed on release.
-2.1 06/01/22 Extract imbalance as a separate eval term.
-2.1 20/12/21 Handle old node versions WRT stdin.resume(). I think.
-2.1 17/12/21 Optimise pruning to pre makeMove().
+2.2 23/02/22 Don't use TT in PV node.
 
+##ifdef 2.1 14/02/22 Non-linear mobility.
+##ifdef 2.1 11/02/22 Split up mobility into mobility, tightness and tension.
+##ifdef 2.1 28/01/22 Add Lichess support.
+##ifdef 2.1 21/01/22 Fixate on one square in Q search from depth -12.
+##ifdef 2.1 12/01/22 Retune using gd tuner.
+##ifdef 2.1 06/01/22 Add eval feature extraction code (for gd tuner) which is removed on release.
+##ifdef 2.1 06/01/22 Extract imbalance as a separate eval term.
+##ifdef 2.1 20/12/21 Handle old node versions WRT stdin.resume(). I think.
+##ifdef 2.1 17/12/21 Optimise pruning to pre makeMove().
+##ifdef
 ##ifdef 2.0a 27/09/21 Fix timeouts.
 ##ifdef 2.0a 27/09/21 Add USEPAWNHASH - useful when testing.
 ##ifdef 2.0a 27/09/21 Set mob offsets to 0 while buggy.
@@ -1861,7 +1863,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove.
   
-  if (score != TTSCORE_UNKNOWN) {
+  if (!pvNode && score != TTSCORE_UNKNOWN) {
     return score;
   }
   
@@ -2110,9 +2112,9 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
   //{{{  housekeeping
   
-  this.stats.checkTime();
-  if (this.stats.timeOut)
-    return;
+  //this.stats.checkTime();
+  //if (this.stats.timeOut)
+    //return;
   
   if (node.ply > this.stats.selDepth)
     this.stats.selDepth = node.ply;
@@ -6101,16 +6103,6 @@ lozBoard.prototype.evaluate = function (turn) {
     uci.send('info string','knights =     ',knightsS,knightsE);
     uci.send('info string','pawns =       ',pawnsS,pawnsE);
     uci.send('info string','tempo =       ',tempoS,tempoE);
-  
-    var XXMOBILITY = [MOB_NS,MOB_NE,MOB_BS,MOB_BE,MOB_RS,MOB_RE,MOB_QS,MOB_QE]; // ##ifdef
-    var XXATTACKS  = [ATT_N,ATT_B,ATT_R,ATT_Q];                                 // ##ifdef
-                                                                                // ##ifdef
-    console.log('material     ', VALUE_VECTOR.toString());                      // ##ifdef
-    console.log('k shelter    ', WSHELTER.toString());                          // ##ifdef
-    console.log('k storm      ', WSTORM.toString());                            // ##ifdef
-    console.log('k penalty    ', KING_PENALTY);                                 // ##ifdef
-    console.log('mobility     ', XXMOBILITY.toString());                        // ##ifdef
-    console.log('attacks      ', XXATTACKS.toString());                         // ##ifdef
   }
   
   //}}}
@@ -7475,16 +7467,32 @@ board = lozza.board;
 var epds   = [];
 var params = [];
 
-var gEpdFile       = 'data/quiet-labeled2.epd';
-var gK             = 3.233;
+var gEpdFile       = 'data/quiet-labeled.epd';
+var gK             = 3.232;
+var gProb          = 5;
 
 var gOutFile       = 'gdtuner.txt';
 var gErrStep       = 10;
 var gLearningRate  = 0.1;
+var gMaxEpochs     = 400;
 
 //}}}
 //{{{  functions
 
+//{{{  getprob
+
+function getprob (r) {
+  if (r == '1/2-1/2')
+    return 0.5;
+  else if (r == '1-0')
+    return 1.0;
+  else if (r == '0-1')
+    return 0.0;
+  else
+    console.log('unknown result',r);
+}
+
+//}}}
 //{{{  is
 
 function is (obj,sq) {
@@ -7564,10 +7572,8 @@ function calcErr () {
 
     uci.spec.board    = epd.board;
     uci.spec.turn     = epd.turn;
-//    uci.spec.rights   = epd.rights;
-//    uci.spec.ep       = epd.ep;
-    uci.spec.rights   = '-';
-    uci.spec.ep       = '-';
+    uci.spec.rights   = epd.rights;
+    uci.spec.ep       = epd.ep;
     uci.spec.fmc      = 0;
     uci.spec.hmc      = 0;
     uci.spec.id       = '';
@@ -7580,7 +7586,7 @@ function calcErr () {
     var ev = board.evaluate(board.turn);
 
     if (board.turn == BLACK)
-      ev = -ev;
+      ev = -ev;               // undo negamax.
 
     var sg = sigmoid(ev);
 
@@ -7613,7 +7619,7 @@ function loga (p,s) {
 
 function logpst (p,s) {
 
-  return loga(p,s);
+  //return loga(p,s);
 
   var a = Array(p.length);
 
@@ -7878,22 +7884,41 @@ function grunt () {
   console.log('num params =', numParams);
   console.log('batch size =', batchSize);
   console.log('num batches =', numBatches);
+  console.log('epochs =', gMaxEpochs);
   
   var K2 = gK / 200.0;
   
-  while (1) {
+  while (gMaxEpochs--) {
+  
+    //{{{  reset adagrad
+    
+    //for (var i=0; i < numParams; i++)
+      //params[i].ag = 0;
+    
+    //}}}
   
     if (epoch % gErrStep == 0) {
+      //{{{  report loss
+      
       err = calcErr();
+      
       console.log(epoch,err,err-lastErr);
+      
       lastErr = err;
+      
       saveparams(err,epoch);
+      
+      //}}}
+      //{{{  check for crazy values
+      /*
       for (var i=0; i < numParams; i++) {
         var p = params[i];
         var delta = Math.abs(p.v - p.a[p.i]);
         if (delta > 5 && p.s)
           console.log(p.s,p.v,p.a[p.i],delta);
       }
+      */
+      //}}}
     }
     else {
       process.stdout.write(epoch+'\r');
@@ -7910,16 +7935,15 @@ function grunt () {
       //}}}
       //{{{  accumulate gradients
       
-      for (var i=batch*batchSize; i < (batch+1)*batchSize; i++) {
+      //for (var i=batch*batchSize; i < (batch+1)*batchSize; i++) {
+      for (var i=0; i < batchSize; i++) {
       
-        var epd = epds[i];
+        var epd = epds[Math.random() * epds.length | 0];
       
         uci.spec.board    = epd.board;
         uci.spec.turn     = epd.turn;
-        //uci.spec.rights   = epd.rights;
-        //uci.spec.ep       = epd.ep;
-        uci.spec.rights   = '-';
-        uci.spec.ep       = '-';
+        uci.spec.rights   = epd.rights;
+        uci.spec.ep       = epd.ep;
         uci.spec.fmc      = 0;
         uci.spec.hmc      = 0;
         uci.spec.id       = 'id' + j;
@@ -7977,6 +8001,8 @@ function grunt () {
     }
   }
   
+  console.log('Done',err);
+  
   //}}}
 
   process.exit();
@@ -8020,7 +8046,7 @@ rl.on('line', function (line) {
   if (thisPosition % 100000 == 0)
     process.stdout.write(thisPosition+'\r');
 
-  line = line.replace(/(\r\n|\n|\r)/gm,'');
+  line = line.replace(/(\r\n|\n|\r|;|")/gm,'');
 
   line = line.trim();
   if (!line.length)
@@ -8028,20 +8054,17 @@ rl.on('line', function (line) {
 
   var parts = line.split(' ');
 
-  if (parts.length && parts.length != 5) {
+  if (parts.length && parts.length != 6) {
     console.log('file format',line);
     process.exit();
   }
 
-//  epds.push({board:   parts[0],
-//             turn:    parts[1],
-//             rights:  parts[2],
-//             ep:      parts[3],
-//             prob:    parseFloat(parts[4])});
+  epds.push({board:   parts[0],
+             turn:    parts[1],
+             rights:  parts[2],
+             ep:      parts[3],
+             prob:    getprob(parts[gProb])});
 
-  epds.push({board: parts[0],
-             turn:  parts[1],
-             prob:  parseFloat(parts[4])});
 });
 
 rl.on('close', function(){
