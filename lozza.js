@@ -3,230 +3,21 @@
 //
 // A Javascript chess engine inspired by Fabien Letouzey's Fruit 2.1.
 //
-// Use lozza.js from the latest release on github for best performance.  // ##ifdef
-// This file includes debug code that is stripped out on release.        // ##ifdef
-//                                                                       // ##ifdef
 
-var BUILD       = "2.2";
-var BUILD       = "2.2dev";  // ##ifdef
+var BUILD       = "2.3";
 var USEPAWNHASH = 1;
-var USEPAWNHASH = 0;         // ##ifdef
 var LICHESS     = 0;
 
 //{{{  history
 /*
 
-2.2 23/02/22 Don't use TT in PV node.
+2.3 06/04/22 Fix qsearch pruning bug.
+2.3 31/03/22 Add eval to TT and lazy compute eval as needed. See board.getEval().
+2.3 31/03/22 Use TT in qsearch but prioritise main search entries.
+2.3 30/03/22 Allow mate scores from NMP.
+2.3 30/03/22 Use fail soft for beta pruning.
+2.3 23/03/22 Fix TT bug which was saving alpha not bestScore.
 
-##ifdef 2.1 14/02/22 Non-linear mobility.
-##ifdef 2.1 11/02/22 Split up mobility into mobility, tightness and tension.
-##ifdef 2.1 28/01/22 Add Lichess support.
-##ifdef 2.1 21/01/22 Fixate on one square in Q search from depth -12.
-##ifdef 2.1 12/01/22 Retune using gd tuner.
-##ifdef 2.1 06/01/22 Add eval feature extraction code (for gd tuner) which is removed on release.
-##ifdef 2.1 06/01/22 Extract imbalance as a separate eval term.
-##ifdef 2.1 20/12/21 Handle old node versions WRT stdin.resume(). I think.
-##ifdef 2.1 17/12/21 Optimise pruning to pre makeMove().
-##ifdef
-##ifdef 2.0a 27/09/21 Fix timeouts.
-##ifdef 2.0a 27/09/21 Add USEPAWNHASH - useful when testing.
-##ifdef 2.0a 27/09/21 Set mob offsets to 0 while buggy.
-##ifdef
-##ifdef 2.0 19/02/21 Add imbalance terms when no pawns.
-##ifdef 2.0 17/02/21 Tune all eval params.
-##ifdef 2.0 16/02/21 Swap mate and draw testing order in search.
-##ifdef 2.0 12/02/21 Do LMR earlier.
-##ifdef 2.0 11/02/21 Add draft bench command.
-##ifdef 2.0 10/02/21 Use pre generated random numbers using https://github.com/davidbau/seedrandom.
-##ifdef 2.0 10/02/21 Use depth^3 (>=beta), depth^2 (>=alpha) and -depth  (< alpha) for history.
-##ifdef 2.0 09/02/21 Add -ve history scores for moves < alpha.
-##ifdef 2.0 08/02/21 Don't do LMP in a pvNode. We need a move!
-##ifdef 2.0 07/02/21 Don't _try and reduce when in check (optimisation).
-##ifdef 2.0 06/02/21 Remove support for jsUCI.
-##ifdef 2.0 23/01/21 Tune piece values and PSTs.
-##ifdef 2.0 10/01/21 Rearrange eval params so they can be tuned.
-##ifdef 2.0 03/01/21 Simplify phase and eval calc.
-##ifdef
-##ifdef 1.18 Don't pseudo-move king adjacent to king.
-##ifdef 1.18 Fix black king endgame PST.
-##ifdef 1.18 Fix tapered eval calc.
-##ifdef 1.18 Fix alpha/beta mate predicates.
-##ifdef 1.18 Fix trapped knights bug (thanks Tamas).
-##ifdef 1.18 Fix hash table put bug.
-##ifdef 1.18 Add depth element to LMR.
-##ifdef 1.18 Increase pruning.
-##ifdef 1.18 Remove alpha TT saves in move loop.
-##ifdef 1.18 Better tempo.
-##ifdef 1.18 Better king safety.
-##ifdef 1.18 Better passed pawn eval.
-##ifdef 1.18 Fix TC.
-##ifdef
-##ifdef 1.17 Min move time of 10ms.
-##ifdef 1.17 Change futility to depth <= 4 (from 5).
-##ifdef 1.17 Use TT at root.
-##ifdef 1.17 Increase LMR a bit.
-##ifdef 1.17 Add eval tempo back in.
-##ifdef 1.17 Remove phase from extend expression.
-##ifdef 1.17 R=3 always in NMP.
-##ifdef
-##ifdef 1.16 Rearrange eval to be based on parts of the Toga User Manual (i.e. Fruit 2.1).
-##ifdef 1.16 Send node count back when PV is updated.
-##ifdef 1.16 Include non capture promotions in QS.
-##ifdef 1.16 Fix unstoppable passer WRT hash (using king squares and turn).
-##ifdef 1.16 Fix unstoppable passer values.
-##ifdef 1.16 Improve pawn eval.
-##ifdef 1.16 Fix bug with futility/LMR.
-##ifdef 1.16 Remove tempo from eval.
-##ifdef 1.16 Only score knight outputs if isolated from enemy pawns.
-##ifdef 1.16 Use fail soft in QS.
-##ifdef 1.16 Don't return from QSearch root if in check.
-##ifdef 1.16 Reduce futility severity.
-##ifdef 1.16 Add king attacks and knight outposts to eval and tidy eval up a bit..
-##ifdef 1.16 Don't prune killers!
-##ifdef 1.16 Use bits for pawn eval.
-##ifdef
-##ifdef 1.15 Fix move rank overflow.
-##ifdef 1.15 add SQ* constants.
-##ifdef 1.15 change futility to 50.
-##ifdef 1.15 increase history range.
-##ifdef 1.15 Add R|Q on 7th bonus.
-##ifdef 1.15 Change futility to 60.
-##ifdef 1.15 Change queen to 1000.
-##ifdef 1.15 Jiggle what is and isn't predicated on mate scores.
-##ifdef 1.15 Add # to PV if mate score.
-##ifdef 1.15 Fix queening SAN format.
-##ifdef 1.15 Dump arbitrary passed bonuses.
-##ifdef 1.15 Dump Connectivity PSTs. They were making passed pawns stop.
-##ifdef 1.15 Use a passed pawn PST based on Fruit curve.
-##ifdef 1.15 Change PVS condition to !bestMove from numLegalMoves == 1.
-##ifdef 1.15 Use Fruit 2.1 piece PSTs.
-##ifdef 1.15 Add && !betaMate to futility condition.
-##ifdef 1.15 Don't do root Q futility.
-##ifdef 1.15 Change double time from 5 to 3 moves after opening.
-##ifdef 1.15 Fix +inc time control.
-##ifdef 1.15 Add some typed arrays to help V8.
-##ifdef 1.15 Tweaks to stop some V8 deoptimising.
-##ifdef 1.15 Don't call eval if in check in alphabeta().
-##ifdef 1.15 Speed up Q move gen.
-##ifdef 1.15 Speed up move gen.
-##ifdef 1.15 Speed up mobility;
-##ifdef 1.15 Speed up isAttacked();
-##ifdef
-##ifdef 1.14 Add massive bonus for pawn-supported pawn on 7th rank.
-##ifdef 1.14 Don't futility away pawn pushes to 6th rank.
-##ifdef 1.14 Fix how PV is displayed WRT hash loops.
-##ifdef 1.14 Send node info with PV for ChessGUI, fix hashUsed info.
-##ifdef 1.14 Redo how host is detected.
-##ifdef 1.14 Add time when fail low at root.
-##ifdef 1.14 Add time for first 5 moves after opening.
-##ifdef 1.14 Be less confident about time left as number of moves increases.
-##ifdef 1.14 Fix time control for increments.
-##ifdef 1.14 Reset the stats on the go command.
-##ifdef 1.14 Get synchronous PV working with node.js on Windows.
-##ifdef 1.14 Check for draws before anything else.
-##ifdef 1.14 Don't assume hash move is legal.
-##ifdef 1.14 Use |0 as needed and don't use Math.floor() or Math.round() in critical places.
-##ifdef 1.14 Remove alphaMate.
-##ifdef 1.14 Don't make beta pruning and null move dependent on betaMate.
-##ifdef 1.13 Add support for node.js allowing Lozza to run on any platform that supports node.js.
-##ifdef 1.13 Send stats back to host early to reset counters.
-##ifdef 1.13 Use O not 0 for castling to avoid potential expression confusion.
-##ifdef
-##ifdef 1.12 Add untuned mobility to eval.
-##ifdef 1.12 Tweak King safety.
-##ifdef 1.12 Enable LMP now we're using history for move ordering.
-##ifdef 1.12 Remove ugly castling running eval in makeMove.
-##ifdef 1.12 Increase LMR because of history based move ordering.
-##ifdef 1.12 Use history (and PSTs if no history) for move ordering.
-##ifdef
-##ifdef 1.11 No null move if lone king.
-##ifdef 1.11 Change to always write TT, no exceptions.
-##ifdef 1.11 Make a micro adjustment to the way Zobrist randoms are generated.
-##ifdef 1.11 Implement UCI info hashfull.
-##ifdef
-##ifdef 1.10 Fix occasional null PVs.
-##ifdef 1.10 Fix promotion not being allowed by the web UI.
-##ifdef 1.10 Add board, stop, start, clear, id, ping & eval to UCI console.
-##ifdef 1.10 Add verbose option to evaluate.
-##ifdef
-##ifdef 1.9 Add late move pruning.
-##ifdef 1.9 Rearrange things a bit.
-##ifdef
-##ifdef 1.8 Untuned isolated pawns.
-##ifdef 1.8 Add pawn hash.
-##ifdef 1.8 Use ply (not whole moves) for UCI mate scores.
-##ifdef 1.8 Fix bug with best move sometimes being the wrong one because of a timeout.
-##ifdef
-##ifdef 1.7 Fix LMR condition in root search.
-##ifdef 1.7 Untuned beta pruning.
-##ifdef 1.7 Untuned passed/doubled pawns.
-##ifdef 1.7 Untuned king safety.
-##ifdef
-##ifdef 1.6 Use end game PSTs for move ordering.
-##ifdef 1.6 Only do futility if depth <= 5.
-##ifdef 1.6 Check for illegal position by detecting 0 moves at root.
-##ifdef 1.6 Fix UCI "mate" score.
-##ifdef 1.6 More traditional extension/reduction arrangement.
-##ifdef
-##ifdef 1.5 Tweak LMR constants.
-##ifdef
-##ifdef 1.4 Better castling rights update.
-##ifdef 1.4 Change futility thresholds.
-##ifdef
-##ifdef 1.3 Never futility away all moves; do at least one.
-##ifdef 1.3 Tweak time controls.
-##ifdef
-##ifdef 1.2 Point nodes at board so global lookup not needed.
-##ifdef 1.2 Add piece lists.
-##ifdef
-##ifdef 1.1 50 move draw rule.
-##ifdef 1.1 Add K+B|N v K+B|N as insufficient material in eval.
-##ifdef
-##ifdef 1.0 Only reset TT on UCINEWGAME command.  Seems to work OK at last.
-##ifdef
-##ifdef 0.9 Encode mate scores for UI.
-##ifdef 0.9 Use separate PSTs for move ordering.
-##ifdef
-##ifdef 0.8 use simple arrays for piece counts and add colour counts.
-##ifdef 0.8 Split runningEval into runningEvalS and runningEval E and combine in evaluate();
-##ifdef 0.8 Inline various functions.
-##ifdef
-##ifdef 0.7 Fix repetition detection at last.
-##ifdef
-##ifdef 0.6 Base LMR on the move base.
-##ifdef 0.6 Just use > alpha for LMR research.
-##ifdef 0.6 Fix hash update bugs.
-##ifdef 0.6 move mate distance and rep check tests to pre horizon.
-##ifdef 0.6 Only extend at root and if depth below horizon.
-##ifdef 0.6 Remove lone king.
-##ifdef
-##ifdef 0.5 Mate distance pruning.
-##ifdef 0.5 No LMR if lone king.
-##ifdef
-##ifdef 0.4 No null move if a lone king on the board.
-##ifdef 0.4 Add detection of insufficient material draws.
-##ifdef 0.4 Add very primitive king safety to eval.
-##ifdef 0.4 Change pCounts into wCount and bCount.
-##ifdef 0.4 Set contempt to 0.
-##ifdef 0.4 Fix fail soft QS bug on beta cut.
-##ifdef
-##ifdef 0.3 Facilitate N messages in one UCI message string.
-##ifdef 0.3 Fix bug where search() and alphabeta() returned -INFINITY instead of oAlpha.
-##ifdef 0.3 Adjust MATE score in TT etc.
-##ifdef
-##ifdef 0.2 Allow futility to filter all moves and return oAlpha in that case.
-##ifdef 0.2 Fix infinite loops when showing PV.
-##ifdef 0.2 Fix mate killer addition condition.
-##ifdef 0.2 Generalise bishop counting using board.pCounts.
-##ifdef 0.2 Don't allow a killer to be the (current) hash.
-##ifdef 0.2 Don't research ALL node LMR fails unless R is set!
-##ifdef 0.2 Arrange things so that QS doesn't use or affect node killers/hashes etc.  In tests it's less nodes.
-##ifdef 0.2 Increase asp window and add time on ID research.
-##ifdef 0.2 Add crude bishop pair bonus imp.  NB: updating a piece count array using a[i]++ and a[i]-- was too slow!!
-##ifdef 0.2 Use tapered PSTs.
-##ifdef
-##ifdef 0.1 Fix bug in QS.  It *must not* fail soft.
-##ifdef
 */
 
 //}}}
@@ -265,10 +56,6 @@ function myround(x) {
 // Removed on release.
 //
 
-function wbmap (sq) {          // ##ifdef
-  var m = (143-sq)/12|0;       // ##ifdef
-  return 12*m + sq%12;         // ##ifdef
-}                              // ##ifdef
 
 //}}}
 
@@ -1614,7 +1401,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
   //{{{  housekeeping
   
   if (!node.childNode) {
-    console.log('s depth');  // ##ifdef
     this.stats.timeOut = 1;
     return;
   }
@@ -1727,7 +1513,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
       if (score > alpha) {
         if (score >= beta) {
           node.addKiller(score, move);
-          board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta);
+          board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta, INFINITY);
           board.addHistory(depth*depth*depth, move);
           return score;
         }
@@ -1769,20 +1555,17 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
       board.addHistory(-depth, move);
   }
 
-  if (numLegalMoves == 0) {  // ##ifdef
-    console.log('INVALID');  // ##ifdef
-  }                          // ##ifdef
 
   if (numLegalMoves == 1)
     this.stats.timeOut = 1;  // only one legal move so don't waste any more time.
 
   if (bestScore > oAlpha) {
-    board.ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta);
+    board.ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
     return bestScore;
   }
   else {
-    board.ttPut(TT_ALPHA, depth, oAlpha,    bestMove, node.ply, alpha, beta);
-    return oAlpha;
+    board.ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
+    return bestScore;
   }
 }
 
@@ -1794,7 +1577,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   //{{{  housekeeping
   
   if (!node.childNode) {
-    console.log('AB DEPTH');  // ##ifdef
     this.stats.timeOut = 1;
     return;
   }
@@ -1848,11 +1630,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   if (depth <= 0) {
   
-    score = board.ttGet(node, 0, alpha, beta);
-  
-    if (score != TTSCORE_UNKNOWN)
-      return score;
-  
     score = this.qSearch(node, -1, turn, alpha, beta, 0);
   
     return score;
@@ -1861,7 +1638,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   //}}}
   //{{{  try tt
   
-  score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove.
+  score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove and node.hashEval.
   
   if (!pvNode && score != TTSCORE_UNKNOWN) {
     return score;
@@ -1872,16 +1649,16 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   if (inCheck == INCHECK_UNKNOWN)
     inCheck  = board.isKingAttacked(nextTurn);
 
+  var standPat  = INFINITY;
   var R         = 0;
   var E         = 0;
   var lonePawns = (turn == WHITE && board.wCount == board.wCounts[PAWN]+1) || (turn == BLACK && board.bCount == board.bCounts[PAWN]+1);
-  var standPat  = board.evaluate(turn);
   var doBeta    = !pvNode && !inCheck && !lonePawns && nullOK == NULL_Y && !board.betaMate(beta);
 
   //{{{  prune?
   
-  if (doBeta && depth <= 2 && (standPat - depth * 200) >= beta) {
-    return beta;
+  if (doBeta && depth <= 2 && ((standPat = board.getEval(standPat,node,turn)) - depth * 200) >= beta) {
+    return standPat;
   }
   
   //}}}
@@ -1895,7 +1672,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   R = 3;
   
-  if (doBeta && depth > 2 && standPat > beta) {
+  if (doBeta && depth > 2 && (standPat = board.getEval(standPat,node,turn)) > beta) {
   
     board.loHash ^= board.loEP[board.ep];
     board.hiHash ^= board.hiEP[board.ep];
@@ -1916,8 +1693,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
       return;
   
     if (score >= beta) {
-      if (board.betaMate(score))
-        score = beta;
+      //if (board.betaMate(score))
+        //score = beta;
       return score;
     }
   
@@ -1939,7 +1716,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var numSlides      = 0;
   var givesCheck     = INCHECK_UNKNOWN;
   var keeper         = false;
-  var doFutility     = !inCheck && depth <= 4 && (standPat + depth * 120) < alpha && !lonePawns;
+  var doFutility     = !inCheck && depth <= 4 && ((standPat = board.getEval(standPat,node,turn)) + depth * 120) < alpha && !lonePawns;
   var doLMR          = !inCheck && depth >= 3;
   var doLMP          = !pvNode && !inCheck && depth <= 2 && !lonePawns;
   var doIID          = !node.hashMove && pvNode && depth > 3;
@@ -2064,7 +1841,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
       if (score > alpha) {
         if (score >= beta) {
           node.addKiller(score, move);
-          board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta);
+          board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta, standPat);
           board.addHistory(depth*depth*depth, move);
           return score;
         }
@@ -2083,12 +1860,12 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   if (numLegalMoves == 0) {
   
     if (inCheck) {
-      board.ttPut(TT_EXACT, depth, -MATE + node.ply, 0, node.ply, alpha, beta);
+      board.ttPut(TT_EXACT, depth, -MATE + node.ply, 0, node.ply, alpha, beta, standPat);
       return -MATE + node.ply;
     }
   
     else {
-      board.ttPut(TT_EXACT, depth, CONTEMPT, 0, node.ply, alpha, beta);
+      board.ttPut(TT_EXACT, depth, CONTEMPT, 0, node.ply, alpha, beta, standPat);
       return CONTEMPT;
     }
   }
@@ -2096,17 +1873,17 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   //}}}
 
   if (bestScore > oAlpha) {
-    board.ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta);
+    board.ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, standPat);
     return bestScore;
   }
   else {
-    board.ttPut(TT_ALPHA, depth, oAlpha,    bestMove, node.ply, alpha, beta);
-    return oAlpha;
+    board.ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, standPat);
+    return bestScore;
   }
 }
 
 //}}}
-//{{{  .quiescence
+//{{{  .qsearch
 
 lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
@@ -2120,7 +1897,6 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
     this.stats.selDepth = node.ply;
   
   if (!node.childNode) {
-    console.log('Q DEPTH');  // ##ifdef
     return this.board.evaluate(turn);
   }
   
@@ -2129,10 +1905,15 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   var board         = this.board;
   var numLegalMoves = 0;
   var move          = 0;
-  var standPat      = 0;
+  var standPat      = INFINITY;
   var phase         = 0;
   var nextTurn      = ~turn & COLOR_MASK;
   var to            = 0;
+
+  score = board.ttGet(node, 0, alpha, beta);
+
+  if (score != TTSCORE_UNKNOWN)
+    return score;
 
   if (depth > -2)
     var inCheck = board.isKingAttacked(nextTurn);
@@ -2140,8 +1921,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
     var inCheck = false;
 
   if (!inCheck) {
-    standPat = board.evaluate(turn);
-    if (standPat >= beta)
+    if ((standPat = board.getEval(standPat,node,turn)) >= beta)
       return standPat;
     if (standPat >= alpha)
       alpha = standPat;
@@ -2166,7 +1946,11 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
     //{{{  prune?
     
-    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+    var delta = VALUE_VECTOR[PAWN];  // ep capture.
+    if (move & MOVE_TOOBJ_MASK)      // usual capture
+      delta = VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK]
+    
+    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + delta < alpha) {
     
       continue;
     }
@@ -2202,6 +1986,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
     if (score > alpha) {
       if (score >= beta) {
+        board.ttPut(TT_BETA, 0, score, move, node.ply, alpha, beta, standPat);
         return score;
       }
       alpha = score;
@@ -2221,6 +2006,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   
   //}}}
 
+  board.ttPut(TT_ALPHA, 0, alpha, 0, node.ply, alpha, beta, standPat);
   return alpha;
 }
 
@@ -2326,19 +2112,11 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 
 function lozBoard () {
 
-  this.features          = {};                      // ##ifdef
-  this.features.wShelter = Array(WSHELTER.length);  // ##ifdef
-  this.features.wStorm   = Array(WSTORM.length);    // ##ifdef
-  this.features.wOutpost = Array(144);              // ##ifdef
-  this.features.mobN     = Array(MOBN_S.length);    // ##ifdef
-  this.features.mobB     = Array(MOBB_S.length);    // ##ifdef
-  this.features.mobR     = Array(MOBR_S.length);    // ##ifdef
-  this.features.mobQ     = Array(MOBQ_S.length);    // ##ifdef
 
-  this.lozza        = null;
-  this.verbose      = false;
-  this.mvFmt        = 0;
-  this.hashUsed     = 0;
+  this.lozza    = null;
+  this.verbose  = false;
+  this.mvFmt    = 0;
+  this.hashUsed = 0;
 
   this.b = new Uint16Array(144);    // pieces.
   this.z = new Uint16Array(144);    // indexes to w|bList.
@@ -2366,9 +2144,10 @@ function lozBoard () {
   this.ttLo      = new Int32Array(TTSIZE);
   this.ttHi      = new Int32Array(TTSIZE);
   this.ttType    = new Uint8Array(TTSIZE);
-  this.ttDepth   = new Int8Array(TTSIZE);   // allow -ve depths but currently not used for q.
-  this.ttMove    = new Uint32Array(TTSIZE); // see constants for structure.
+  this.ttDepth   = new Int8Array(TTSIZE);
+  this.ttMove    = new Uint32Array(TTSIZE);
   this.ttScore   = new Int16Array(TTSIZE);
+  this.ttEval    = new Int16Array(TTSIZE);
 
   this.pttLo     = new Int32Array(PTTSIZE);
   this.pttHi     = new Int32Array(PTTSIZE);
@@ -2450,8 +2229,8 @@ function lozBoard () {
   this.wCounts = new Uint16Array(7);
   this.bCounts = new Uint16Array(7);
 
-  this.wCount  = 0;
-  this.bCount  = 0;
+  this.wCount = 0;
+  this.bCount = 0;
 
   this.wHistory = Array(7)
   for (var i=0; i < 7; i++) {
@@ -2743,8 +2522,6 @@ lozBoard.prototype.compact = function () {
     }
   }
   
-  if (this.b[this.wList[0]] != W_KING)  // ##ifdef
-    console.log('WHITE INDEX ERR');     // ##ifdef
   
   //}}}
   //{{{  compact black list
@@ -2777,8 +2554,6 @@ lozBoard.prototype.compact = function () {
     }
   }
   
-  if (this.b[this.bList[0]] != B_KING)  // ##ifdef
-    console.log('BLACK INDEX ERR');     // ##ifdef
   
   //}}}
 }
@@ -4273,74 +4048,6 @@ lozBoard.prototype.evaluate = function (turn) {
   // Removed on release.
   //
   
-  var f = this.features;       // ##ifdef
-                               // ##ifdef
-  f.wOutpost.fill(0);          // ##ifdef
-  f.wShelter.fill(0);          // ##ifdef
-  f.wStorm.fill(0);            // ##ifdef
-  f.mobN.fill(0);              // ##ifdef
-  f.mobB.fill(0);              // ##ifdef
-  f.mobR.fill(0);              // ##ifdef
-  f.mobQ.fill(0);              // ##ifdef
-  f.kingPenalty        = 0;    // ##ifdef
-  f.pawnDoubledS       = 0;    // ##ifdef
-  f.pawnDoubledE       = 0;    // ##ifdef
-  f.pawnBackwardS      = 0;    // ##ifdef
-  f.pawnBackwardE      = 0;    // ##ifdef
-  f.pawnIsolatedS      = 0;    // ##ifdef
-  f.pawnIsolatedE      = 0;    // ##ifdef
-  f.pawnPassedOffsetS  = 0;    // ##ifdef
-  f.pawnPassedOffsetE  = 0;    // ##ifdef
-  f.pawnPassedMultS    = 0;    // ##ifdef
-  f.pawnPassedMultE    = 0;    // ##ifdef
-  f.pawnPassedOffset2S = 0;    // ##ifdef
-  f.pawnPassedOffset2E = 0;    // ##ifdef
-  f.pawnPassedMult2S   = 0;    // ##ifdef
-  f.pawnPassedMult2E   = 0;    // ##ifdef
-  f.pawnPassedKing1E   = 0;    // ##ifdef
-  f.pawnPassedKing2E   = 0;    // ##ifdef
-  f.pawnPassedFreeE    = 0;    // ##ifdef
-  f.pawnPassedUnstopE  = 0;    // ##ifdef
-  f.tightNS            = 0;    // ##ifdef
-  f.tightNE            = 0;    // ##ifdef
-  f.tightBS            = 0;    // ##ifdef
-  f.tightBE            = 0;    // ##ifdef
-  f.tightRS            = 0;    // ##ifdef
-  f.tightRE            = 0;    // ##ifdef
-  f.tightQS            = 0;    // ##ifdef
-  f.tightQE            = 0;    // ##ifdef
-  f.tenseNS            = 0;    // ##ifdef
-  f.tenseNE            = 0;    // ##ifdef
-  f.tenseBS            = 0;    // ##ifdef
-  f.tenseBE            = 0;    // ##ifdef
-  f.tenseRS            = 0;    // ##ifdef
-  f.tenseRE            = 0;    // ##ifdef
-  f.tenseQS            = 0;    // ##ifdef
-  f.tenseQE            = 0;    // ##ifdef
-  f.bishopPairS        = 0;    // ##ifdef
-  f.bishopPairE        = 0;    // ##ifdef
-  f.rook7thS           = 0;    // ##ifdef
-  f.rook7thE           = 0;    // ##ifdef
-  f.rookOpenS          = 0;    // ##ifdef
-  f.rookOpenE          = 0;    // ##ifdef
-  f.queen7thS          = 0;    // ##ifdef
-  f.queen7thE          = 0;    // ##ifdef
-  f.tempoS             = 0;    // ##ifdef
-  f.tempoE             = 0;    // ##ifdef
-  f.attWN              = 0;    // ##ifdef
-  f.attWB              = 0;    // ##ifdef
-  f.attWR              = 0;    // ##ifdef
-  f.attWQ              = 0;    // ##ifdef
-  f.attBN              = 0;    // ##ifdef
-  f.attBB              = 0;    // ##ifdef
-  f.attBR              = 0;    // ##ifdef
-  f.attBQ              = 0;    // ##ifdef
-  f.attN               = 0;    // ##ifdef
-  f.attB               = 0;    // ##ifdef
-  f.attR               = 0;    // ##ifdef
-  f.attQ               = 0;    // ##ifdef
-  f.trappedS           = 0;    // ##ifdef
-  f.trappedE           = 0;    // ##ifdef
   
   //}}}
   //{{{  init EV feature weights
@@ -4348,57 +4055,6 @@ lozBoard.prototype.evaluate = function (turn) {
   // Removed on release.
   //
   
-  TIGHT_NS             = EV[iTIGHT_NS];               // ##ifdef
-  TIGHT_NE             = EV[iTIGHT_NE];               // ##ifdef
-  TIGHT_BS             = EV[iTIGHT_BS];               // ##ifdef
-  TIGHT_BE             = EV[iTIGHT_BE];               // ##ifdef
-  TIGHT_RS             = EV[iTIGHT_RS];               // ##ifdef
-  TIGHT_RE             = EV[iTIGHT_RE];               // ##ifdef
-  TIGHT_QS             = EV[iTIGHT_QS];               // ##ifdef
-  TIGHT_QE             = EV[iTIGHT_QE];               // ##ifdef
-  TENSE_NS             = EV[iTENSE_NS];               // ##ifdef
-  TENSE_NE             = EV[iTENSE_NE];               // ##ifdef
-  TENSE_BS             = EV[iTENSE_BS];               // ##ifdef
-  TENSE_BE             = EV[iTENSE_BE];               // ##ifdef
-  TENSE_RS             = EV[iTENSE_RS];               // ##ifdef
-  TENSE_RE             = EV[iTENSE_RE];               // ##ifdef
-  TENSE_QS             = EV[iTENSE_QS];               // ##ifdef
-  TENSE_QE             = EV[iTENSE_QE];               // ##ifdef
-  ATT_N                = EV[iATT_N];                  // ##ifdef
-  ATT_B                = EV[iATT_B];                  // ##ifdef
-  ATT_R                = EV[iATT_R];                  // ##ifdef
-  ATT_Q                = EV[iATT_Q];                  // ##ifdef
-  PAWN_DOUBLED_S       = EV[iPAWN_DOUBLED_S];         // ##ifdef
-  PAWN_DOUBLED_E       = EV[iPAWN_DOUBLED_E];         // ##ifdef
-  PAWN_ISOLATED_S      = EV[iPAWN_ISOLATED_S]         // ##ifdef
-  PAWN_ISOLATED_E      = EV[iPAWN_ISOLATED_E];        // ##ifdef
-  PAWN_BACKWARD_S      = EV[iPAWN_BACKWARD_S];        // ##ifdef
-  PAWN_BACKWARD_E      = EV[iPAWN_BACKWARD_E];        // ##ifdef
-  PAWN_PASSED_OFFSET_S = EV[iPAWN_PASSED_OFFSET_S];   // ##ifdef
-  PAWN_PASSED_OFFSET_E = EV[iPAWN_PASSED_OFFSET_E];   // ##ifdef
-  PAWN_PASSED_MULT_S   = EV[iPAWN_PASSED_MULT_S];     // ##ifdef
-  PAWN_PASSED_MULT_E   = EV[iPAWN_PASSED_MULT_E];     // ##ifdef
-  TWOBISHOPS_S         = EV[iTWOBISHOPS_S];           // ##ifdef
-  ROOK7TH_S            = EV[iROOK7TH_S];              // ##ifdef
-  ROOK7TH_E            = EV[iROOK7TH_E];              // ##ifdef
-  ROOKOPEN_S           = EV[iROOKOPEN_S];             // ##ifdef
-  ROOKOPEN_E           = EV[iROOKOPEN_E];             // ##ifdef
-  QUEEN7TH_S           = EV[iQUEEN7TH_S];             // ##ifdef
-  QUEEN7TH_E           = EV[iQUEEN7TH_E];             // ##ifdef
-  TRAPPED_S            = EV[iTRAPPED_S];              // ##ifdef
-  TRAPPED_E            = EV[iTRAPPED_E];              // ##ifdef
-  KING_PENALTY         = EV[iKING_PENALTY];           // ##ifdef
-  PAWN_OFFSET_S        = EV[iPAWN_OFFSET_S];          // ##ifdef
-  PAWN_OFFSET_E        = EV[iPAWN_OFFSET_E];          // ##ifdef
-  PAWN_MULT_S          = EV[iPAWN_MULT_S];            // ##ifdef
-  PAWN_MULT_E          = EV[iPAWN_MULT_E];            // ##ifdef
-  PAWN_PASS_FREE       = EV[iPAWN_PASS_FREE];         // ##ifdef
-  PAWN_PASS_UNSTOP     = EV[iPAWN_PASS_UNSTOP];       // ##ifdef
-  PAWN_PASS_KING1      = EV[iPAWN_PASS_KING1];        // ##ifdef
-  PAWN_PASS_KING2      = EV[iPAWN_PASS_KING2];        // ##ifdef
-  TWOBISHOPS_E         = EV[iTWOBISHOPS_E];           // ##ifdef
-  TEMPO_S              = EV[iTEMPO_S];                // ##ifdef
-  TEMPO_E              = EV[iTEMPO_E];                // ##ifdef
   
   //}}}
 
@@ -4581,8 +4237,6 @@ lozBoard.prototype.evaluate = function (turn) {
       if (lRank != 9) {
         pawnsS -= PAWN_DOUBLED_S;
         pawnsE -= PAWN_DOUBLED_E;
-        f.pawnDoubledS -= 1;  // ##ifdef
-        f.pawnDoubledE -= 1;  // ##ifdef
       }
     
       if (rank < lRank)
@@ -4629,8 +4283,6 @@ lozBoard.prototype.evaluate = function (turn) {
       if (lRank != 0) {
         pawnsS += PAWN_DOUBLED_S;
         pawnsE += PAWN_DOUBLED_E;
-        f.pawnDoubledS += 1;  // ##ifdef
-        f.pawnDoubledE += 1;  // ##ifdef
       }
     
       if (rank > lRank)
@@ -4654,14 +4306,6 @@ lozBoard.prototype.evaluate = function (turn) {
     
     //}}}
     
-    var xxS = f.pawnDoubledS * PAWN_DOUBLED_S;                                    // ##ifdef
-    var xxE = f.pawnDoubledE * PAWN_DOUBLED_E;                                    // ##ifdef
-                                                                                  // ##ifdef
-    if (Math.abs(pawnsS - xxS) > 0.0001)                                          // ##ifdef
-      console.log('feature pawns phase 1 s', pawnsS, xxS, this.fen(this.turn));   // ##ifdef
-                                                                                  // ##ifdef
-    if (Math.abs(pawnsE - xxE) > 0.0001)                                          // ##ifdef
-      console.log('feature pawns phase 1 e', pawnsE, xxE, this.fen(this.turn));   // ##ifdef
     
     //}}}
     //{{{  phase 2
@@ -4692,8 +4336,6 @@ lozBoard.prototype.evaluate = function (turn) {
       if ((wLeastL >>> bits & 0xF) == 9 && (wLeastR >>> bits & 0xF) == 9) {
         pawnsS -= PAWN_ISOLATED_S + PAWN_ISOLATED_S * open;
         pawnsE -= PAWN_ISOLATED_E;
-        f.pawnIsolatedS -= 1 + 1 * open;  // ##ifdef
-        f.pawnIsolatedE -= 1;             // ##ifdef
       }
     
       else if ((wLeastL >>> bits & 0xF) > rank && (wLeastR >>> bits & 0xF) > rank) {
@@ -4705,8 +4347,6 @@ lozBoard.prototype.evaluate = function (turn) {
         if (backward) {
           pawnsS -= PAWN_BACKWARD_S + PAWN_BACKWARD_S * open;
           pawnsE -= PAWN_BACKWARD_E;
-          f.pawnBackwardS -= 1 + 1 * open;  // ##ifdef
-          f.pawnBackwardE -= 1;             // ##ifdef
         }
       }
     
@@ -4735,10 +4375,6 @@ lozBoard.prototype.evaluate = function (turn) {
             if (defenders >= attackers) {
               pawnsS += PAWN_PASSED_OFFSET_S + PAWN_PASSED_MULT_S * PAWN_PASSED[rank];
               pawnsE += PAWN_PASSED_OFFSET_E + PAWN_PASSED_MULT_E * PAWN_PASSED[rank];
-              f.pawnPassedOffsetS += 1;                      // ##ifdef
-              f.pawnPassedOffsetE += 1;                      // ##ifdef
-              f.pawnPassedMultS   += 1 * PAWN_PASSED[rank];  // ##ifdef
-              f.pawnPassedMultE   += 1 * PAWN_PASSED[rank];  // ##ifdef
             }
           }
         }
@@ -4775,8 +4411,6 @@ lozBoard.prototype.evaluate = function (turn) {
       if ((bLeastL >>> bits & 0xF) == 0x0 && (bLeastR >>> bits & 0xF) == 0x0) {
         pawnsS += PAWN_ISOLATED_S + PAWN_ISOLATED_S * open;
         pawnsE += PAWN_ISOLATED_E;
-        f.pawnIsolatedS += 1 + 1 * open;  // ##ifdef
-        f.pawnIsolatedE += 1;             // ##ifdef
       }
     
       else if ((bLeastL >>> bits & 0xF) < rank && (bLeastR >>> bits & 0xF) < rank) {
@@ -4788,8 +4422,6 @@ lozBoard.prototype.evaluate = function (turn) {
         if (backward) {
           pawnsS += PAWN_BACKWARD_S + PAWN_BACKWARD_S * open;
           pawnsE += PAWN_BACKWARD_E;
-          f.pawnBackwardS += 1 + 1 * open;  // ##ifdef
-          f.pawnBackwardE += 1;             // ##ifdef
         }
       }
     
@@ -4818,10 +4450,6 @@ lozBoard.prototype.evaluate = function (turn) {
             if (defenders >= attackers) {
               pawnsS -= PAWN_PASSED_OFFSET_S + PAWN_PASSED_MULT_S * PAWN_PASSED[9-rank];
               pawnsE -= PAWN_PASSED_OFFSET_E + PAWN_PASSED_MULT_E * PAWN_PASSED[9-rank];
-              f.pawnPassedOffsetS -= 1;                        // ##ifdef
-              f.pawnPassedOffsetE -= 1;                        // ##ifdef
-              f.pawnPassedMultS   -= 1 * PAWN_PASSED[9-rank];  // ##ifdef
-              f.pawnPassedMultE   -= 1 * PAWN_PASSED[9-rank];  // ##ifdef
             }
           }
         }
@@ -4833,23 +4461,6 @@ lozBoard.prototype.evaluate = function (turn) {
     
     //}}}
     
-    xxS += f.pawnBackwardS     * PAWN_BACKWARD_S;                                             // ##ifdef
-    xxE += f.pawnBackwardE     * PAWN_BACKWARD_E;                                             // ##ifdef
-    xxS += f.pawnIsolatedS     * PAWN_ISOLATED_S;                                             // ##ifdef
-    xxE += f.pawnIsolatedE     * PAWN_ISOLATED_E;                                             // ##ifdef
-    xxS += f.pawnPassedOffsetS * PAWN_PASSED_OFFSET_S;                                        // ##ifdef
-    xxE += f.pawnPassedOffsetE * PAWN_PASSED_OFFSET_E;                                        // ##ifdef
-    xxS += f.pawnPassedMultS   * PAWN_PASSED_MULT_S;                                          // ##ifdef
-    xxE += f.pawnPassedMultE   * PAWN_PASSED_MULT_E;                                          // ##ifdef
-                                                                                              // ##ifdef
-    if (Math.abs(pawnsS - xxS) > 0.0001 || Math.abs(pawnsE - xxE) > 0.0001) {                 // ##ifdef
-      console.log('feature pawns phase 2', pawnsS, pawnsE, xxS, xxE, this.fen(this.turn));    // ##ifdef
-      console.log('doubled',f.pawnDoubledS,f.pawnDoubledE);                                   // ##ifdef
-      console.log('backward',f.pawnBackwardS,f.pawnBackwardE);                                // ##ifdef
-      console.log('isolated',f.pawnIsolatedS,f.pawnIsolatedE);                                // ##ifdef
-      console.log('offset',f.pawnPassedOffsetS,f.pawnPassedOffsetE);                          // ##ifdef
-      console.log('mult',f.pawnPassedMultS,f.pawnPassedMultE);                                // ##ifdef
-    }                                                                                         // ##ifdef
     
     //}}}
     //{{{  put tt
@@ -4903,18 +4514,12 @@ lozBoard.prototype.evaluate = function (turn) {
   
           pawnsS += PAWN_OFFSET_S + PAWN_MULT_S * PAWN_PASSED[rank];
           pawnsE += PAWN_OFFSET_E + PAWN_MULT_E * PAWN_PASSED[rank];
-          f.pawnPassedOffset2S += 1                      // ##ifdef
-          f.pawnPassedOffset2E += 1                      // ##ifdef
-          f.pawnPassedMult2S   += 1 * PAWN_PASSED[rank]  // ##ifdef
-          f.pawnPassedMult2E   += 1 * PAWN_PASSED[rank]  // ##ifdef
           //{{{  king dist
           
           var passKings = PAWN_PASS_KING1 * DIST[bKingSq][sq2] - PAWN_PASS_KING2 * DIST[wKingSq][sq2];
           
           pawnsE += passKings * PAWN_PASSED[rank];
           
-          f.pawnPassedKing1E += 1 * DIST[bKingSq][sq2] * PAWN_PASSED[rank];  // ##ifdef
-          f.pawnPassedKing2E -= 1 * DIST[wKingSq][sq2] * PAWN_PASSED[rank];  // ##ifdef
           
           //}}}
           //{{{  attacked?
@@ -4924,7 +4529,6 @@ lozBoard.prototype.evaluate = function (turn) {
           if (!b[sq2]) {
             passFree = PAWN_PASS_FREE * (!this.isAttacked(sq2,BLACK)|0);
             pawnsE += passFree * PAWN_PASSED[rank];
-            f.pawnPassedFreeE += 1 * (!this.isAttacked(sq2,BLACK)|0) * PAWN_PASSED[rank];  // ##ifdef
           }
           
           //}}}
@@ -4940,7 +4544,6 @@ lozBoard.prototype.evaluate = function (turn) {
             if (DIST[wKingSq][sq] <= 1 && DIST[wKingSq][promSq] <= 1) {
               passUnstop = PAWN_PASS_UNSTOP;
               pawnsE += passUnstop * PAWN_PASSED[rank];
-              f.pawnPassedUnstopE += 1 * PAWN_PASSED[rank]  // ##ifdef
             }
           
             else if (DIST[sq][promSq] < DIST[bKingSq][promSq] + ((turn==WHITE)|0) - 1) {  // oppo cannot get there
@@ -4951,7 +4554,6 @@ lozBoard.prototype.evaluate = function (turn) {
               if (b[sq2] == EDGE) {
                 passUnstop = PAWN_PASS_UNSTOP;
                 pawnsE += passUnstop * PAWN_PASSED[rank];
-                f.pawnPassedUnstopE += 1 * PAWN_PASSED[rank]  // ##ifdef
               }
             }
           }
@@ -4992,10 +4594,6 @@ lozBoard.prototype.evaluate = function (turn) {
   
           pawnsS -= PAWN_OFFSET_S + PAWN_MULT_S * PAWN_PASSED[9-rank];
           pawnsE -= PAWN_OFFSET_E + PAWN_MULT_E * PAWN_PASSED[9-rank];
-          f.pawnPassedOffset2S -= 1                        // ##ifdef
-          f.pawnPassedOffset2E -= 1                        // ##ifdef
-          f.pawnPassedMult2S   -= 1 * PAWN_PASSED[9-rank]  // ##ifdef
-          f.pawnPassedMult2E   -= 1 * PAWN_PASSED[9-rank]  // ##ifdef
   
           //{{{  king dist
           
@@ -5003,8 +4601,6 @@ lozBoard.prototype.evaluate = function (turn) {
           
           pawnsE -= passKings * PAWN_PASSED[9-rank];
           
-          f.pawnPassedKing1E -= 1 * DIST[wKingSq][sq2] * PAWN_PASSED[9-rank];  // ##ifdef
-          f.pawnPassedKing2E += 1 * DIST[bKingSq][sq2] * PAWN_PASSED[9-rank];  // ##ifdef
           
           //}}}
           //{{{  attacked?
@@ -5014,7 +4610,6 @@ lozBoard.prototype.evaluate = function (turn) {
           if (!b[sq2]) {
             passFree = PAWN_PASS_FREE * (!this.isAttacked(sq2,WHITE)|0);
             pawnsE -= passFree * PAWN_PASSED[9-rank];
-            f.pawnPassedFreeE -= 1 * (!this.isAttacked(sq2,WHITE)|0) * PAWN_PASSED[9-rank];  // ##ifdef
           }
           
           //}}}
@@ -5030,7 +4625,6 @@ lozBoard.prototype.evaluate = function (turn) {
             if (DIST[bKingSq][sq] <= 1 && DIST[bKingSq][promSq] <= 1) {
               passUnstop = PAWN_PASS_UNSTOP;
               pawnsE -= passUnstop * PAWN_PASSED[9-rank];
-              f.pawnPassedUnstopE -= 1 * PAWN_PASSED[9-rank]  // ##ifdef
             }
           
             else if (DIST[sq][promSq] < DIST[wKingSq][promSq] + ((turn==BLACK)|0) - 1) {  // oppo cannot get there
@@ -5041,7 +4635,6 @@ lozBoard.prototype.evaluate = function (turn) {
               if (b[sq2] == EDGE) {
                 passUnstop = PAWN_PASS_UNSTOP;
                 pawnsE -= passUnstop * PAWN_PASSED[9-rank];
-                f.pawnPassedUnstopE -= 1 * PAWN_PASSED[9-rank]  // ##ifdef
               }
             }
           }
@@ -5057,23 +4650,6 @@ lozBoard.prototype.evaluate = function (turn) {
   
   //}}}
   
-  xxS += f.pawnPassedOffset2S * PAWN_OFFSET_S;                                              // ##ifdef
-  xxE += f.pawnPassedOffset2E * PAWN_OFFSET_E;                                              // ##ifdef
-  xxS += f.pawnPassedMult2S   * PAWN_MULT_S;                                                // ##ifdef
-  xxE += f.pawnPassedMult2E   * PAWN_MULT_E;                                                // ##ifdef
-  xxE += f.pawnPassedKing1E   * PAWN_PASS_KING1;                                            // ##ifdef
-  xxE += f.pawnPassedKing2E   * PAWN_PASS_KING2;                                            // ##ifdef
-  xxE += f.pawnPassedFreeE    * PAWN_PASS_FREE;                                             // ##ifdef
-  xxE += f.pawnPassedUnstopE  * PAWN_PASS_UNSTOP;                                           // ##ifdef
-                                                                                            // ##ifdef
-  if (Math.abs(pawnsS - xxS) > 0.0001 || Math.abs(pawnsE - xxE) > 0.0001) {                 // ##ifdef
-    console.log('feature pawns phase 3', pawnsS, pawnsE, xxS, xxE, this.fen(this.turn));    // ##ifdef
-    console.log('offset 2',f.pawnPassedOffset2S,f.pawnPassedOffset2E);                      // ##ifdef
-    console.log('mult 2',f.pawnPassedMult2S,f.pawnPassedMult2E);                            // ##ifdef
-    console.log('kings',f.pawnPassedKing1E,f.pawnPassedKing2E);                             // ##ifdef
-    console.log('free',f.pawnPassedFreeE);                                                  // ##ifdef
-    console.log('unstop',f.pawnPassedUnstopE);                                              // ##ifdef
-  }                                                                                         // ##ifdef
   
   //}}}
   
@@ -5094,26 +4670,17 @@ lozBoard.prototype.evaluate = function (turn) {
     penalty = 0;
     
     penalty += WSHELTER[(wLeast & wKingMask) >>> wKingBits] * 2;
-    f.wShelter[(wLeast & wKingMask) >>> wKingBits] -= 1 * 2;            // ##ifdef
     
     if (wKingFile != 8) {
       penalty += WSHELTER[(wLeastR & wKingMask) >>> wKingBits];
-      f.wShelter[(wLeastR & wKingMask) >>> wKingBits] -= 1;             // ##ifdef
     }
     
     if (wKingFile != 1) {
       penalty += WSHELTER[(wLeastL & wKingMask) >>> wKingBits];
-      f.wShelter[(wLeastL & wKingMask) >>> wKingBits] -= 1;             // ##ifdef
     }
     
     if (penalty == 0) {
-      f.wShelter[(wLeast & wKingMask) >>> wKingBits] += 1 * 2;          // ##ifdef
-      if (wKingFile != 8)                                               // ##ifdef
-        f.wShelter[(wLeastR & wKingMask) >>> wKingBits] += 1;           // ##ifdef
-      if (wKingFile != 1)                                               // ##ifdef
-        f.wShelter[(wLeastL & wKingMask) >>> wKingBits] += 1;           // ##ifdef
       penalty = KING_PENALTY;
-      f.kingPenalty -= 1;                                               // ##ifdef
     }
     
     kingS -= penalty;
@@ -5124,16 +4691,13 @@ lozBoard.prototype.evaluate = function (turn) {
     penalty = 0;
     
     penalty += WSTORM[(bMost & wKingMask) >>> wKingBits];
-    f.wStorm[(bMost & wKingMask) >>> wKingBits] -= 1;     // ##ifdef
     
     if (wKingFile != 8) {
       penalty += WSTORM[(bMostR & wKingMask) >>> wKingBits];
-      f.wStorm[(bMostR & wKingMask) >>> wKingBits] -= 1;  // ##ifdef
     }
     
     if (wKingFile != 1) {
       penalty += WSTORM[(bMostL & wKingMask) >>> wKingBits];
-      f.wStorm[(bMostL & wKingMask) >>> wKingBits] -= 1;  // ##ifdef
     }
     
     kingS -= penalty;
@@ -5147,26 +4711,17 @@ lozBoard.prototype.evaluate = function (turn) {
     penalty = 0;
     
     penalty += WSHELTER[9 - ((bLeast & bKingMask) >>> bKingBits)] * 2;
-    f.wShelter[9 - ((bLeast & bKingMask) >>> bKingBits)] += 1 * 2;              // ##ifdef
     
     if (bKingFile != 8) {
       penalty += WSHELTER[9 - ((bLeastR & bKingMask) >>> bKingBits)];
-      f.wShelter[9 - ((bLeastR & bKingMask) >>> bKingBits)] += 1;               // ##ifdef
     }
     
     if (bKingFile != 1) {
       penalty += WSHELTER[9 - ((bLeastL & bKingMask) >>> bKingBits)];
-      f.wShelter[9 - ((bLeastL & bKingMask) >>> bKingBits)] += 1;               // ##ifdef
     }
     
     if (penalty == 0) {
-      f.wShelter[9 - ((bLeast & bKingMask) >>> bKingBits)]  -= 1 * 2;           // ##ifdef
-      if (bKingFile != 8)                                                       // ##ifdef
-        f.wShelter[9 - ((bLeastR & bKingMask) >>> bKingBits)] -= 1;             // ##ifdef
-      if (bKingFile != 1)                                                       // ##ifdef
-        f.wShelter[9 - ((bLeastL & bKingMask) >>> bKingBits)] -= 1;             // ##ifdef
       penalty = KING_PENALTY;
-      f.kingPenalty += 1;                                                       // ##ifdef
     }
     
     kingS += penalty;
@@ -5177,16 +4732,13 @@ lozBoard.prototype.evaluate = function (turn) {
     penalty = 0;
     
     penalty += WSTORM[9 - ((wMost & bKingMask) >>> bKingBits)];
-    f.wStorm[9 - ((wMost & bKingMask) >>> bKingBits)] += 1;           // ##ifdef
     
     if (bKingFile != 8) {
       penalty += WSTORM[9 - ((wMostR & bKingMask) >>> bKingBits)];
-      f.wStorm[9 - ((wMostR & bKingMask) >>> bKingBits)] += 1;        // ##ifdef
     }
     
     if (bKingFile != 1) {
       penalty += WSTORM[9 - ((wMostL & bKingMask) >>> bKingBits)];
-      f.wStorm[9 - ((wMostL & bKingMask) >>> bKingBits)] += 1;        // ##ifdef
     }
     
     kingS += penalty;
@@ -5194,17 +4746,6 @@ lozBoard.prototype.evaluate = function (turn) {
     //}}}
   }
   
-  var xx = 0;                                          // ##ifdef
-                                                       // ##ifdef
-  for (var zz=0; zz < f.wShelter.length; zz++) {       // ##ifdef
-    xx += f.wShelter[zz] * WSHELTER[zz];               // ##ifdef
-    xx += f.wStorm[zz]   * WSTORM[zz];                 // ##ifdef
-  }                                                    // ##ifdef
-                                                       // ##ifdef
-  xx += f.kingPenalty * KING_PENALTY;                  // ##ifdef
-                                                       // ##ifdef
-  if (Math.abs(kingS-xx) > 0.0001)                     // ##ifdef
-    console.log('feature kingS',kingS,xx,this.fen());  // ##ifdef
   
   //}}}
   //{{{  NBRQ
@@ -5298,7 +4839,6 @@ lozBoard.prototype.evaluate = function (turn) {
       mobS += MOBN_S[mob];
       mobE += MOBN_E[mob];
       
-      f.mobN[mob] += 1;    // ##ifdef
       
       tightS += tight * TIGHT_NS;
       tightE += tight * TIGHT_NE;
@@ -5306,15 +4846,10 @@ lozBoard.prototype.evaluate = function (turn) {
       tenseS += tense * TENSE_NS;
       tenseE += tense * TENSE_NE;
       
-      f.tightNS += tight;  // ##ifdef
-      f.tightNE += tight;  // ##ifdef
-      f.tenseNS += tense;  // ##ifdef
-      f.tenseNE += tense;  // ##ifdef
       
       if (bCanBeAttacked && att) {
         attackN++;
         attackV += ATT_N;
-        f.attWN += 1;   // ##ifdef
       }
       
       //{{{  outpost
@@ -5327,9 +4862,6 @@ lozBoard.prototype.evaluate = function (turn) {
           knightsS += outpost;
           knightsS += outpost * IS_WP[b[fr+11]];
           knightsS += outpost * IS_WP[b[fr+13]];
-          f.wOutpost[fr] += 1;                                         // ##ifdef
-          f.wOutpost[fr] += 1 * IS_WP[b[fr+11]];                       // ##ifdef
-          f.wOutpost[fr] += 1 * IS_WP[b[fr+13]];                       // ##ifdef
         }
       }
       
@@ -5357,7 +4889,6 @@ lozBoard.prototype.evaluate = function (turn) {
       mobS += MOBB_S[mob];
       mobE += MOBB_E[mob];
       
-      f.mobB[mob] += 1;    // ##ifdef
       
       tightS += tight * TIGHT_BS;
       tightE += tight * TIGHT_BE;
@@ -5365,15 +4896,10 @@ lozBoard.prototype.evaluate = function (turn) {
       tenseS += tense * TENSE_BS;
       tenseE += tense * TENSE_BE;
       
-      f.tightBS += tight;  // ##ifdef
-      f.tightBE += tight;  // ##ifdef
-      f.tenseBS += tense;  // ##ifdef
-      f.tenseBE += tense;  // ##ifdef
       
       if (bCanBeAttacked && att) {
         attackN++;
         attackV += ATT_B;
-        f.attWB += 1;   // ##ifdef
       }
       
       wBishop += WSQUARE[fr];
@@ -5401,12 +4927,7 @@ lozBoard.prototype.evaluate = function (turn) {
       mobS += MOBR_S[mob];
       mobE += MOBR_E[mob];
       
-      f.mobR[mob] += 1;    // ##ifdef
       
-      f.tightRS += tight;  // ##ifdef
-      f.tightRE += tight;  // ##ifdef
-      f.tenseRS += tense;  // ##ifdef
-      f.tenseRE += tense;  // ##ifdef
       
       tightS += tight * TIGHT_RS;
       tightE += tight * TIGHT_RE;
@@ -5417,18 +4938,13 @@ lozBoard.prototype.evaluate = function (turn) {
       if (bCanBeAttacked && att) {
         attackN++;
         attackV += ATT_R;
-        f.attWR += 1;   // ##ifdef
       }
       
       if (frRank == 7 && (bKingRank == 8 || bHome)) {
-        f.rook7thS += 1               // ##ifdef
-        f.rook7thE += 1               // ##ifdef
         rooksS += ROOK7TH_S;
         rooksE += ROOK7TH_E;
       }
       
-      f.rookOpenS -= 1;                             // ##ifdef
-      f.rookOpenE -= 1;                             // ##ifdef
       rooksS -= ROOKOPEN_S;
       rooksE -= ROOKOPEN_E;
       
@@ -5436,24 +4952,18 @@ lozBoard.prototype.evaluate = function (turn) {
       
         rooksS += ROOKOPEN_S;
         rooksE += ROOKOPEN_E;
-        f.rookOpenS += 1;                           // ##ifdef
-        f.rookOpenE += 1;                           // ##ifdef
       
         if (!(bLeast & frMask)) {  // no b pawn.
           rooksS += ROOKOPEN_S;
           rooksE += ROOKOPEN_E;
-          f.rookOpenS += 1;                         // ##ifdef
-          f.rookOpenE += 1;                         // ##ifdef
         }
       
         if (frFile == bKingFile) {
           rooksS += ROOKOPEN_S;
-          f.rookOpenS += 1;                         // ##ifdef
         }
       
         if (Math.abs(frFile - bKingFile) <= 1) {
           rooksS += ROOKOPEN_S;
-          f.rookOpenS += 1;                         // ##ifdef
         }
       }
       
@@ -5484,7 +4994,6 @@ lozBoard.prototype.evaluate = function (turn) {
       mobS += MOBQ_S[mob];
       mobE += MOBQ_E[mob];
       
-      f.mobQ[mob] += 1;    // ##ifdef
       
       tightS += tight * TIGHT_QS;
       tightE += tight * TIGHT_QE;
@@ -5492,20 +5001,13 @@ lozBoard.prototype.evaluate = function (turn) {
       tenseS += tense * TENSE_QS;
       tenseE += tense * TENSE_QE;
       
-      f.tightQS += tight;  // ##ifdef
-      f.tightQE += tight;  // ##ifdef
-      f.tenseQS += tense;  // ##ifdef
-      f.tenseQE += tense;  // ##ifdef
       
       if (bCanBeAttacked && att) {
         attackN++;
         attackV += ATT_Q;
-        f.attWQ += 1;   // ##ifdef
       }
       
       if (frRank == 7 && (bKingRank == 8 || bHome)) {
-        f.queen7thS += 1               // ##ifdef
-        f.queen7thE += 1               // ##ifdef
         queensS += QUEEN7TH_S;
         queensE += QUEEN7TH_E;
       }
@@ -5521,21 +5023,8 @@ lozBoard.prototype.evaluate = function (turn) {
   
   attS += attackV * ATT_W[attackN];
   attE += 0;
-  f.attWN = f.attWN * ATT_W[attackN];                               // ##ifdef
-  f.attWB = f.attWB * ATT_W[attackN];                               // ##ifdef
-  f.attWR = f.attWR * ATT_W[attackN];                               // ##ifdef
-  f.attWQ = f.attWQ * ATT_W[attackN];                               // ##ifdef
-  var xx = 0;                                                       // ##ifdef
-  xx += f.attWN * ATT_N;                                            // ##ifdef
-  xx += f.attWB * ATT_B;                                            // ##ifdef
-  xx += f.attWR * ATT_R;                                            // ##ifdef
-  xx += f.attWQ * ATT_Q;                                            // ##ifdef
-  if (Math.abs(attS - xx) > 0.000001)                               // ##ifdef
-    console.log('W attack',attS,xx,attackN,this.fen(this.turn));    // ##ifdef
   
   if (wBishop && bBishop) {
-    f.bishopPairS += 1;        // ##ifdef
-    f.bishopPairE += 1;        // ##ifdef
     bishopsS += TWOBISHOPS_S;
     bishopsE += TWOBISHOPS_E;
   }
@@ -5604,7 +5093,6 @@ lozBoard.prototype.evaluate = function (turn) {
       mobS -= MOBN_S[mob];
       mobE -= MOBN_E[mob];
       
-      f.mobN[mob] -= 1;    // ##ifdef
       
       tightS -= tight * TIGHT_NS;
       tightE -= tight * TIGHT_NE;
@@ -5612,15 +5100,10 @@ lozBoard.prototype.evaluate = function (turn) {
       tenseS -= tense * TENSE_NS;
       tenseE -= tense * TENSE_NE;
       
-      f.tightNS -= tight;  // ##ifdef
-      f.tightNE -= tight;  // ##ifdef
-      f.tenseNS -= tense;  // ##ifdef
-      f.tenseNE -= tense;  // ##ifdef
       
       if (wCanBeAttacked && att) {
         attackN++;
         attackV += ATT_N;
-        f.attBN += 1;   // ##ifdef
       }
       
       //{{{  outpost
@@ -5633,9 +5116,6 @@ lozBoard.prototype.evaluate = function (turn) {
           knightsS -= outpost;
           knightsS -= outpost * IS_BP[b[fr-11]];
           knightsS -= outpost * IS_BP[b[fr-13]];
-          f.wOutpost[wbmap(fr)] -= 1;                                  // ##ifdef
-          f.wOutpost[wbmap(fr)] -= 1 * IS_BP[b[fr-11]];                // ##ifdef
-          f.wOutpost[wbmap(fr)] -= 1 * IS_BP[b[fr-13]];                // ##ifdef
         }
       }
       
@@ -5663,7 +5143,6 @@ lozBoard.prototype.evaluate = function (turn) {
       mobS -= MOBB_S[mob];
       mobE -= MOBB_E[mob];
       
-      f.mobB[mob] -= 1;    // ##ifdef
       
       tightS -= tight * TIGHT_BS;
       tightE -= tight * TIGHT_BE;
@@ -5671,15 +5150,10 @@ lozBoard.prototype.evaluate = function (turn) {
       tenseS -= tense * TENSE_BS;
       tenseE -= tense * TENSE_BE;
       
-      f.tightBS -= tight;  // ##ifdef
-      f.tightBE -= tight;  // ##ifdef
-      f.tenseBS -= tense;  // ##ifdef
-      f.tenseBE -= tense;  // ##ifdef
       
       if (wCanBeAttacked && att) {
         attackN++;
         attackV += ATT_B;
-        f.attBB += 1;   // ##ifdef
       }
       
       wBishop += WSQUARE[fr];
@@ -5707,7 +5181,6 @@ lozBoard.prototype.evaluate = function (turn) {
       mobS -= MOBR_S[mob];
       mobE -= MOBR_E[mob];
       
-      f.mobR[mob] -= 1;    // ##ifdef
       
       tightS -= tight * TIGHT_RS;
       tightE -= tight * TIGHT_RE;
@@ -5715,51 +5188,36 @@ lozBoard.prototype.evaluate = function (turn) {
       tenseS -= tense * TENSE_RS;
       tenseE -= tense * TENSE_RE;
       
-      f.tightRS -= tight;  // ##ifdef
-      f.tightRE -= tight;  // ##ifdef
-      f.tenseRS -= tense;  // ##ifdef
-      f.tenseRE -= tense;  // ##ifdef
       
       if (wCanBeAttacked && att) {
         attackN++;
         attackV += ATT_R;
-        f.attBR += 1;   // ##ifdef
       }
       
       if (frRank == 2 && (wKingRank == 1 || wHome)) {
-        f.rook7thS -= 1               // ##ifdef
-        f.rook7thE -= 1               // ##ifdef
         rooksS -= ROOK7TH_S;
         rooksE -= ROOK7TH_E;
       }
       
       rooksS += ROOKOPEN_S;
       rooksE += ROOKOPEN_E;
-      f.rookOpenS += 1;                               // ##ifdef
-      f.rookOpenE += 1;                               // ##ifdef
       
       if (!(bLeast & frMask)) {   // no b pawn.
       
         rooksS -= ROOKOPEN_S;
         rooksE -= ROOKOPEN_E;
-        f.rookOpenS -= 1;                             // ##ifdef
-        f.rookOpenE -= 1;                             // ##ifdef
       
         if (!(wMost & frMask)) {  // no w pawn.
           rooksS -= ROOKOPEN_S;
           rooksE -= ROOKOPEN_E;
-          f.rookOpenS -= 1;                           // ##ifdef
-          f.rookOpenE -= 1;                           // ##ifdef
         }
       
         if (frFile == wKingFile) {
           rooksS -= ROOKOPEN_S;
-          f.rookOpenS -= 1;                           // ##ifdef
         }
       
         if (Math.abs(frFile - wKingFile) <= 1) {
           rooksS -= ROOKOPEN_S;
-          f.rookOpenS -= 1;                           // ##ifdef
         }
       }
       
@@ -5790,7 +5248,6 @@ lozBoard.prototype.evaluate = function (turn) {
       mobS -= MOBQ_S[mob];
       mobE -= MOBQ_E[mob];
       
-      f.mobQ[mob] -= 1;    // ##ifdef
       
       tightS -= tight * TIGHT_QS;
       tightE -= tight * TIGHT_QE;
@@ -5798,20 +5255,13 @@ lozBoard.prototype.evaluate = function (turn) {
       tenseS -= tense * TENSE_QS;
       tenseE -= tense * TENSE_QE;
       
-      f.tightQS -= tight;  // ##ifdef
-      f.tightQE -= tight;  // ##ifdef
-      f.tenseQS -= tense;  // ##ifdef
-      f.tenseQE -= tense;  // ##ifdef
       
       if (wCanBeAttacked && att) {
         attackN++;
         attackV += ATT_Q;
-        f.attBQ += 1;   // ##ifdef
       }
       
       if (frRank == 2 && (wKingRank == 1 || wHome)) {
-        f.queen7thS -= 1               // ##ifdef
-        f.queen7thE -= 1               // ##ifdef
         queensS -= QUEEN7TH_S;
         queensE -= QUEEN7TH_E;
       }
@@ -5827,93 +5277,14 @@ lozBoard.prototype.evaluate = function (turn) {
   
   attS -= attackV * ATT_W[attackN];
   attE -= 0;
-  f.attBN = f.attBN * ATT_W[attackN];    // ##ifdef
-  f.attBB = f.attBB * ATT_W[attackN];    // ##ifdef
-  f.attBR = f.attBR * ATT_W[attackN];    // ##ifdef
-  f.attBQ = f.attBQ * ATT_W[attackN];    // ##ifdef
   
   if (wBishop && bBishop) {
-    f.bishopPairS -= 1;         // ##ifdef
-    f.bishopPairE -= 1;         // ##ifdef
     bishopsS -= TWOBISHOPS_S;
     bishopsE -= TWOBISHOPS_E;
   }
   
   //}}}
   
-  var xx = 0;                                                       // ##ifdef
-  xx += f.attWN * ATT_N;                                            // ##ifdef
-  xx += f.attWB * ATT_B;                                            // ##ifdef
-  xx += f.attWR * ATT_R;                                            // ##ifdef
-  xx += f.attWQ * ATT_Q;                                            // ##ifdef
-  xx -= f.attBN * ATT_N;                                            // ##ifdef
-  xx -= f.attBB * ATT_B;                                            // ##ifdef
-  xx -= f.attBR * ATT_R;                                            // ##ifdef
-  xx -= f.attBQ * ATT_Q;                                            // ##ifdef
-  if (Math.abs(attS - xx) > 0.000001)                               // ##ifdef
-     console.log('attack',attS,xx,this.fen(this.turn));             // ##ifdef
-  f.attN = f.attWN - f.attBN                                        // ##ifdef
-  f.attB = f.attWB - f.attBB                                        // ##ifdef
-  f.attR = f.attWR - f.attBR                                        // ##ifdef
-  f.attQ = f.attWQ - f.attBQ                                        // ##ifdef
-  var xxS = 0;                                                      // ##ifdef
-  for (var zz=0; zz<144; zz++)                                      // ##ifdef
-    xxS += f.wOutpost[zz] * WOUTPOST[zz];                           // ##ifdef
-  if (Math.abs(knightsS - xxS) > 0.000001)                          // ##ifdef
-    console.log('outpost',knightsS,xxS,this.fen(this.turn));        // ##ifdef
-                                                                    // ##ifdef
-  var xxS = 0;                                                      // ##ifdef
-  var xxE = 0;                                                      // ##ifdef
-  for (var zz=0; zz<f.mobN.length; zz++) {                          // ##ifdef
-    xxS += f.mobN[zz] * MOBN_S[zz];                                 // ##ifdef
-    xxE += f.mobN[zz] * MOBN_E[zz];                                 // ##ifdef
-  }                                                                 // ##ifdef
-  for (var zz=0; zz<f.mobB.length; zz++) {                          // ##ifdef
-    xxS += f.mobB[zz] * MOBB_S[zz];                                 // ##ifdef
-    xxE += f.mobB[zz] * MOBB_E[zz];                                 // ##ifdef
-  }                                                                 // ##ifdef
-  for (var zz=0; zz<f.mobR.length; zz++) {                          // ##ifdef
-    xxS += f.mobR[zz] * MOBR_S[zz];                                 // ##ifdef
-    xxE += f.mobR[zz] * MOBR_E[zz];                                 // ##ifdef
-  }                                                                 // ##ifdef
-  for (var zz=0; zz<f.mobQ.length; zz++) {                          // ##ifdef
-    xxS += f.mobQ[zz] * MOBQ_S[zz];                                 // ##ifdef
-    xxE += f.mobQ[zz] * MOBQ_E[zz];                                 // ##ifdef
-  }                                                                 // ##ifdef
-  if (Math.abs(mobS - xxS) > 0.000001)                              // ##ifdef
-    console.log('mobility s',mobS,xxS,this.fen(this.turn));         // ##ifdef
-  if (Math.abs(mobE - xxE) > 0.000001)                              // ##ifdef
-    console.log('mobility e',mobE,xxE,this.fen(this.turn));         // ##ifdef
-                                                                    // ##ifdef
-  var xxS = 0;                                                      // ##ifdef
-  var xxE = 0;                                                      // ##ifdef
-  xxS += f.tightNS * TIGHT_NS;                                      // ##ifdef
-  xxE += f.tightNE * TIGHT_NE;                                      // ##ifdef
-  xxS += f.tightBS * TIGHT_BS;                                      // ##ifdef
-  xxE += f.tightBE * TIGHT_BE;                                      // ##ifdef
-  xxS += f.tightRS * TIGHT_RS;                                      // ##ifdef
-  xxE += f.tightRE * TIGHT_RE;                                      // ##ifdef
-  xxS += f.tightQS * TIGHT_QS;                                      // ##ifdef
-  xxE += f.tightQE * TIGHT_QE;                                      // ##ifdef
-  if (Math.abs(tightS - xxS) > 0.000001)                            // ##ifdef
-    console.log('tight s',tightS,xxS,this.fen(this.turn));          // ##ifdef
-  if (Math.abs(tightE - xxE) > 0.000001)                            // ##ifdef
-    console.log('tight e',tightE,xxE,this.fen(this.turn));          // ##ifdef
-                                                                    // ##ifdef
-  var xxS = 0;                                                      // ##ifdef
-  var xxE = 0;                                                      // ##ifdef
-  xxS += f.tenseNS * TENSE_NS;                                      // ##ifdef
-  xxE += f.tenseNE * TENSE_NE;                                      // ##ifdef
-  xxS += f.tenseBS * TENSE_BS;                                      // ##ifdef
-  xxE += f.tenseBE * TENSE_BE;                                      // ##ifdef
-  xxS += f.tenseRS * TENSE_RS;                                      // ##ifdef
-  xxE += f.tenseRE * TENSE_RE;                                      // ##ifdef
-  xxS += f.tenseQS * TENSE_QS;                                      // ##ifdef
-  xxE += f.tenseQE * TENSE_QE;                                      // ##ifdef
-  if (Math.abs(tenseS - xxS) > 0.000001)                            // ##ifdef
-    console.log('tense s',tenseS,xxS,this.fen(this.turn));          // ##ifdef
-  if (Math.abs(tenseE - xxE) > 0.000001)                            // ##ifdef
-    console.log('tense e',tenseE,xxE,this.fen(this.turn));          // ##ifdef
   
   attS = myround(myround(attS * 1000) / 1000);
   
@@ -5946,8 +5317,6 @@ lozBoard.prototype.evaluate = function (turn) {
   
     trappedS -= trap * TRAPPED_S;
     trappedE -= trap * TRAPPED_E;
-    f.trappedS -= trap;  // ##ifdef
-    f.trappedE -= trap;  // ##ifdef
   }
   
   if (bNumBishops) {
@@ -5968,8 +5337,6 @@ lozBoard.prototype.evaluate = function (turn) {
   
     trappedS += trap * TRAPPED_S;
     trappedE += trap * TRAPPED_E;
-    f.trappedS += trap;  // ##ifdef
-    f.trappedE += trap;  // ##ifdef
   }
   
   //}}}
@@ -5990,8 +5357,6 @@ lozBoard.prototype.evaluate = function (turn) {
   
     trappedS -= trap * TRAPPED_S;
     trappedE -= trap * TRAPPED_E;
-    f.trappedS -= trap; // ##ifdef
-    f.trappedE -= trap; // ##ifdef
   }
   
   if (bNumKnights) {
@@ -6009,8 +5374,6 @@ lozBoard.prototype.evaluate = function (turn) {
   
     trappedS += trap * TRAPPED_S;
     trappedE += trap * TRAPPED_E;
-    f.trappedS += trap; // ##ifdef
-    f.trappedE += trap; // ##ifdef
   }
   
   //}}}
@@ -6021,15 +5384,11 @@ lozBoard.prototype.evaluate = function (turn) {
   if (turn == WHITE) {
     var tempoS = TEMPO_S;
     var tempoE = TEMPO_E;
-    f.tempoS = 1;                // ##ifdef
-    f.tempoE = 1;                // ##ifdef
   }
   
   else {
     var tempoS = -TEMPO_S;
     var tempoE = -TEMPO_E;
-    f.tempoS = -1;               // ##ifdef
-    f.tempoE = -1;               // ##ifdef
   }
   
   //}}}
@@ -6114,6 +5473,23 @@ lozBoard.prototype.evaluate = function (turn) {
 }
 
 //}}}
+//{{{  .getEval
+//
+// Assumes eval has been initialised to INFINITY and that ttGet() has been called.
+//
+
+lozBoard.prototype.getEval = function (eval,node,turn) {
+
+  if (eval != INFINITY)
+    return eval;                   // We've already got it.
+
+  if (node.hashEval != INFINITY)
+    return node.hashEval;          // Use the TT value
+
+  return this.evaluate(turn);      // Fallback on calulating it.
+}
+
+//}}}
 //{{{  .rand32
 
 lozBoard.prototype.rand32 = function () {
@@ -6132,13 +5508,12 @@ lozBoard.prototype.rand32 = function () {
 //}}}
 //{{{  .ttPut
 
-lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
+lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta,eval) {
 
   var idx = this.loHash & TTMASK;
 
-  //if (this.ttType[idx] == TT_EXACT && this.loHash == this.ttLo[idx] && this.hiHash == this.ttHi[idx] && this.ttDepth[idx] > depth && this.ttScore[idx] > alpha && this.ttScore[idx] < beta) {
-    //return;
-  //}
+  if (depth == 0 && this.ttType[idx] != TT_EMPTY && this.ttDepth[idx] > 0)
+    return;  // don't let qsearch tt entries overwrite search tt entries.
 
   if (this.ttType[idx] == TT_EMPTY)
     this.hashUsed++;
@@ -6155,6 +5530,7 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
   this.ttDepth[idx] = depth;
   this.ttScore[idx] = score;
   this.ttMove[idx]  = move;
+  this.ttEval[idx]  = eval;
 }
 
 //}}}
@@ -6162,32 +5538,26 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
 
 lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
 
-  var idx   = this.loHash & TTMASK;
-  var type  = this.ttType[idx];
+  var idx  = this.loHash & TTMASK;
+  var type = this.ttType[idx];
 
   node.hashMove = 0;
+  node.hashEval = INFINITY;
 
-  if (type == TT_EMPTY) {
+  if (type == TT_EMPTY)
     return TTSCORE_UNKNOWN;
-  }
 
   var lo = this.ttLo[idx];
   var hi = this.ttHi[idx];
 
-  if (lo != this.loHash || hi != this.hiHash) {
+  if (lo != this.loHash || hi != this.hiHash)
     return TTSCORE_UNKNOWN;
-  }
 
-  //
-  // Set the hash move before the depth check
-  // so that iterative deepening works.
-  //
+  node.hashMove = this.ttMove[idx];   // Useful regardless of depth.
+  node.hashEval = this.ttEval[idx];   // Depth independent.
 
-  node.hashMove = this.ttMove[idx];
-
-  if (this.ttDepth[idx] < depth) {
+  if (this.ttDepth[idx] < depth)
     return TTSCORE_UNKNOWN;
-  }
 
   var score = this.ttScore[idx];
 
@@ -6197,17 +5567,14 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
   else if (score >= MINMATE && score <= MATE)
     score -= node.ply;
 
-  if (type == TT_EXACT) {
+  if (type == TT_EXACT)
     return score;
-   }
 
-  if (type == TT_ALPHA && score <= alpha) {
+  if (type == TT_ALPHA && score <= alpha)
     return score;
-  }
 
-  if (type == TT_BETA && score >= beta) {
+  if (type == TT_BETA && score >= beta)
     return score;
-  }
 
   return TTSCORE_UNKNOWN;
 }
@@ -6504,6 +5871,7 @@ function lozNode (parentNode) {
   this.numMoves    = 0;         //  number of pseudo-legal moves for this node.
   this.sortedIndex = 0;         //  index to next selection-sorted pseudo-legal move.
   this.hashMove    = 0;         //  loaded when we look up the tt.
+  this.hashEval    = 0;         //  loaded when we look up the tt.
   this.base        = 0;         //  move type base (e.g. good capture) - can be used for LMR.
 
   this.C_runningEvalS = 0;      // cached before move generation and restored after each unmakeMove.
@@ -7403,709 +6771,6 @@ if (lozzaHost == HOST_NODEJS) {
 // Removed on release.
 //
 
-for (var i=0; i < WS_PST.length; i++) {                           // ##ifdef
-  var wpst = WS_PST[i];                                           // ##ifdef
-  var bpst = BS_PST[i];                                           // ##ifdef
-  if (wpst.length != 144)                                         // ##ifdef
-    console.log('ws pst len err',i);                              // ##ifdef
-  if (bpst.length != 144)                                         // ##ifdef
-    console.log('bs pst len err',i);                              // ##ifdef
-  for (var j=0; j < wpst.length; j++) {                           // ##ifdef
-    if (wpst[j] != bpst[wbmap(j)])                                // ##ifdef
-      console.log('s pst err',i,j,wpst[j],bpst[wbmap(j)]);        // ##ifdef
-  }                                                               // ##ifdef
-}                                                                 // ##ifdef
-                                                                  // ##ifdef
-for (var i=0; i < WE_PST.length; i++) {                           // ##ifdef
-  var wpst = WE_PST[i];                                           // ##ifdef
-  var bpst = BE_PST[i];                                           // ##ifdef
-  if (wpst.length != 144)                                         // ##ifdef
-    console.log('we pst len err',i);                              // ##ifdef
-  if (bpst.length != 144)                                         // ##ifdef
-    console.log('be pst len err',i);                              // ##ifdef
-  for (var j=0; j < wpst.length; j++) {                           // ##ifdef
-    if (wpst[j] != bpst[wbmap(j)])                                // ##ifdef
-      console.log('e pst err',i,j,wpst[j],bpst[wbmap(j)]);        // ##ifdef
-  }                                                               // ##ifdef
-}                                                                 // ##ifdef
-                                                                  // ##ifdef
-if (WOUTPOST.length != 144)                                       // ##ifdef
-  console.log('w outpost len err',i);                             // ##ifdef
-if (BOUTPOST.length != 144)                                       // ##ifdef
-  console.log('b outpost len err',i);                             // ##ifdef
-for (var j=0; j < WOUTPOST.length; j++) {                         // ##ifdef
-  if (WOUTPOST[j] != BOUTPOST[wbmap(j)])                          // ##ifdef
-    console.log('outpost err',j,WOUTPOST[j],BOUTPOST[wbmap(j)]);  // ##ifdef
-}                                                                 // ##ifdef
-                                                                  // ##ifdef
-for (var i=0; i < 144; i++) {                                     // ##ifdef
-  for (var j=0; j < 144; j++) {                                   // ##ifdef
-    if (WKZONES[i][j] != BKZONES[wbmap(i)][wbmap(j)])             // ##ifdef
-      console.log('kzones err',i,j,WKZONES[i][j],BKZONES[i][j]);  // ##ifdef
-  }                                                               // ##ifdef
-}                                                                 // ##ifdef
-                                                                  // ##ifdef
-if (EV.length != 66)                                              // ##ifdef
-  console.log('ev len',EV.length,66);                             // ##ifdef
-                                                                  // ##ifdef
-onmessage({data: 'u\np s\nb'});                                   // ##ifdef
-
-//}}}
-
-//
-// Copy dev lozza.js above here.
-//
-
-lozza.newGameInit();
-
-//{{{  globals
-
-fs    = lozza.uci.nodefs;
-uci   = lozza.uci;
-board = lozza.board;
-
-var epds   = [];
-var params = [];
-
-var gEpdFile       = 'data/quiet-labeled.epd';
-var gK             = 3.232;
-var gProb          = 5;
-
-var gOutFile       = 'gdtuner.txt';
-var gErrStep       = 10;
-var gLearningRate  = 0.1;
-var gMaxEpochs     = 400;
-
-//}}}
-//{{{  functions
-
-//{{{  getprob
-
-function getprob (r) {
-  if (r == '1/2-1/2')
-    return 0.5;
-  else if (r == '1-0')
-    return 1.0;
-  else if (r == '0-1')
-    return 0.0;
-  else
-    console.log('unknown result',r);
-}
-
-//}}}
-//{{{  is
-
-function is (obj,sq) {
-  return (board.b[sq] == obj) | 0;
-}
-
-//}}}
-//{{{  findK
-
-function findK () {
-
-  console.log('computing k');
-
-  var min  = INFINITY;
-  var step = 1.0;
-  var x    = 1.0;
-  var err  = 0;
-  var dp   = 4;
-
-  while (dp) {
-    gK = x;
-    err = calcErr();
-    if (err <  min) {
-      min = err;
-      x += step;
-    }
-    else {
-      console.log(gK-step,err,step);
-      dp--;
-      step = -step / 10.0;
-      x += step;
-      min = INFINITY;
-    }
-  }
-}
-
-//}}}
-//{{{  addp
-
-function addp (s,a,i,coeff) {
-  params.push({s: s, v: a[i], a: a, i: i, coeff: coeff, gr: 0, ag: 0});
-}
-
-//}}}
-//{{{  myround
-
-function myround(x) {
-  return Math.sign(x) * Math.round(Math.abs(x));
-}
-
-//}}}
-//{{{  wbmap
-
-function wbmap (sq) {
-  var m = (143-sq)/12|0;
-  return 12*m + sq%12;
-}
-
-//}}}
-//{{{  sigmoid
-
-function sigmoid (x) {
-  return 1.0 / (1.0 + Math.exp(-gK*x/400.0));
-}
-
-//}}}
-//{{{  calcErr
-
-function calcErr () {
-
-  var err = 0;
-  var num = epds.length;
-
-  for (var i=0; i < num; i++) {
-
-    var epd = epds[i];
-
-    uci.spec.board    = epd.board;
-    uci.spec.turn     = epd.turn;
-    uci.spec.rights   = epd.rights;
-    uci.spec.ep       = epd.ep;
-    uci.spec.fmc      = 0;
-    uci.spec.hmc      = 0;
-    uci.spec.id       = '';
-    uci.spec.moves    = [];
-
-    lozza.position();
-
-    var sf = epd.sfeval;
-    var pr = epd.prob;
-    var ev = board.evaluate(board.turn);
-
-    if (board.turn == BLACK)
-      ev = -ev;               // undo negamax.
-
-    var sg = sigmoid(ev);
-
-    if (isNaN(ev) || isNaN(pr) || isNaN(sg) || sg > 1.0 || pr > 1.0 || sg < 0.0 || pr < 0.0) {
-      console.log('nan eek',pr,sg,ev);
-      process.exit();
-    }
-
-    err += (pr-sg) * (pr-sg);
-  }
-
-  return err / num;
-}
-
-//}}}
-//{{{  loga
-
-function loga (p,s) {
-
-  var a = Array(p.length);
-
-  for (var i=0; i < p.length; i++)
-    a[i] = myround(p[i]) | 0;
-
-  return 'const ' + s + ' = [' + a.toString() + '];\r\n';
-}
-
-//}}}
-//{{{  logpst
-
-function logpst (p,s) {
-
-  //return loga(p,s);
-
-  var a = Array(p.length);
-
-  for (var i=0; i < p.length; i++)
-    a[i] = myround(p[i]) | 0;
-
-  var o = 'const ';
-
-  o = o + s + ' = [';
-
-  for (var i=0; i < 144; i++) {
-    if ((i % 12) == 0)
-      o = o + '\r\n  ';
-    o = o + a[i].toString().padStart(4,' ');
-    if (i < 143)
-      o = o + ', ';
-  }
-
-  o = o + '\r\n];\r\n';
-
-  return o;
-}
-
-//}}}
-//{{{  saveparams
-
-var lastOut = '';
-
-function saveparams (err, epochs) {
-
-  var d    = new Date();
-  var out1 = '//{{{  tuned feature weights\r\n\r\n';
-
-  out1 += '// data=' + gEpdFile;
-  out1 += '\r\n';
-  out1 += '// features=' + params.length;
-  out1 += '\r\n';
-  out1 += '// k='+gK;
-  out1 += '\r\n';
-  out1 += '// loss='+err;
-  out1 += '\r\n';
-  out1 += '// epochs='+epochs;
-  out1 += '\r\n';
-  out1 += '// last update '+d;
-  out1 += '\r\n\r\n';
-
-  var out = '';
-
-  out += loga(VALUE_VECTOR,     'VALUE_VECTOR   ');
-
-  out += logpst(WPAWN_PSTS,     'WPAWN_PSTS     ');
-  out += logpst(WPAWN_PSTE,     'WPAWN_PSTE     ');
-  out += logpst(WKNIGHT_PSTS,   'WKNIGHT_PSTS   ');
-  out += logpst(WKNIGHT_PSTE,   'WKNIGHT_PSTE   ');
-  out += logpst(WBISHOP_PSTS,   'WBISHOP_PSTS   ');
-  out += logpst(WBISHOP_PSTE,   'WBISHOP_PSTE   ');
-  out += logpst(WROOK_PSTS,     'WROOK_PSTS     ');
-  out += logpst(WROOK_PSTE,     'WROOK_PSTE     ');
-  out += logpst(WQUEEN_PSTS,    'WQUEEN_PSTS    ');
-  out += logpst(WQUEEN_PSTE,    'WQUEEN_PSTE    ');
-  out += logpst(WKING_PSTS,     'WKING_PSTS     ');
-  out += logpst(WKING_PSTE,     'WKING_PSTE     ');
-
-  out += logpst(BPAWN_PSTS,     'BPAWN_PSTS     ');
-  out += logpst(BPAWN_PSTE,     'BPAWN_PSTE     ');
-  out += logpst(BKNIGHT_PSTS,   'BKNIGHT_PSTS   ');
-  out += logpst(BKNIGHT_PSTE,   'BKNIGHT_PSTE   ');
-  out += logpst(BBISHOP_PSTS,   'BBISHOP_PSTS   ');
-  out += logpst(BBISHOP_PSTE,   'BBISHOP_PSTE   ');
-  out += logpst(BROOK_PSTS,     'BROOK_PSTS     ');
-  out += logpst(BROOK_PSTE,     'BROOK_PSTE     ');
-  out += logpst(BQUEEN_PSTS,    'BQUEEN_PSTS    ');
-  out += logpst(BQUEEN_PSTE,    'BQUEEN_PSTE    ');
-  out += logpst(BKING_PSTS,     'BKING_PSTS     ');
-  out += logpst(BKING_PSTE,     'BKING_PSTE     ');
-
-  out += logpst(WOUTPOST,       'WOUTPOST       ');
-  out += logpst(BOUTPOST,       'BOUTPOST       ');
-
-  out += loga(EV,               'EV             ');
-
-  out += loga(WSTORM,           'WSTORM         ');
-  out += loga(WSHELTER,         'WSHELTER       ');
-
-  out += loga(IMBALN_S,         'IMBALN_S       ');
-  out += loga(IMBALN_E,         'IMBALN_E       ');
-  out += loga(IMBALB_S,         'IMBALB_S       ');
-  out += loga(IMBALB_E,         'IMBALB_E       ');
-  out += loga(IMBALR_S,         'IMBALR_S       ');
-  out += loga(IMBALR_E,         'IMBALR_E       ');
-  out += loga(IMBALQ_S,         'IMBALQ_S       ');
-  out += loga(IMBALQ_E,         'IMBALQ_E       ');
-
-  out += loga(MOBN_S,           'MOBN_S         ');
-  out += loga(MOBN_E,           'MOBN_E         ');
-  out += loga(MOBB_S,           'MOBB_S         ');
-  out += loga(MOBB_E,           'MOBB_E         ');
-  out += loga(MOBR_S,           'MOBR_S         ');
-  out += loga(MOBR_E,           'MOBR_E         ');
-  out += loga(MOBQ_S,           'MOBQ_S         ');
-  out += loga(MOBQ_E,           'MOBQ_E         ');
-
-  if (out == lastOut)
-    console.log(epochs,err,'POSSIBLE CONVERGENCE');
-
-  lastOut = out;
-
-  out = out + '\r\n//}}}\r\n\r\n';
-
-  if (epochs == 0)
-    fs.writeFileSync('0'+gOutFile, out1+out);
-  else
-    fs.writeFileSync(gOutFile, out1+out);
-}
-
-//}}}
-//{{{  grunt
-
-function grunt () {
-
-  lozza.newGameInit();
-
-  //findK();
-  //process.exit();
-
-  //{{{  create params
-  
-  addp('', VALUE_VECTOR, KNIGHT, function (piece,mg,eg) {return (board.wCounts[KNIGHT] - board.bCounts[KNIGHT]);});
-  addp('', VALUE_VECTOR, BISHOP, function (piece,mg,eg) {return (board.wCounts[BISHOP] - board.bCounts[BISHOP]);});
-  addp('', VALUE_VECTOR, ROOK,   function (piece,mg,eg) {return (board.wCounts[ROOK]   - board.bCounts[ROOK]);});
-  addp('', VALUE_VECTOR, QUEEN,  function (piece,mg,eg) {return (board.wCounts[QUEEN]  - board.bCounts[QUEEN]);});
-  
-  for (var i=8; i < 56; i++) {
-    var sq = B88[i];
-    addp('', WPAWN_PSTS, sq, function (sq,mg,eg) {return (is(W_PAWN,sq) - is(B_PAWN,wbmap(sq))) * mg;});
-    addp('', WPAWN_PSTE, sq, function (sq,mg,eg) {return (is(W_PAWN,sq) - is(B_PAWN,wbmap(sq))) * eg;});
-  }
-  
-  for (var i=0; i < 64; i++) {
-    var sq = B88[i];
-    addp('', WKNIGHT_PSTS, sq, function (sq,mg,eg) {return (is(W_KNIGHT,sq) - is(B_KNIGHT,wbmap(sq))) * mg;});
-    addp('', WKNIGHT_PSTE, sq, function (sq,mg,eg) {return (is(W_KNIGHT,sq) - is(B_KNIGHT,wbmap(sq))) * eg;});
-    addp('', WBISHOP_PSTS, sq, function (sq,mg,eg) {return (is(W_BISHOP,sq) - is(B_BISHOP,wbmap(sq))) * mg;});
-    addp('', WBISHOP_PSTE, sq, function (sq,mg,eg) {return (is(W_BISHOP,sq) - is(B_BISHOP,wbmap(sq))) * eg;});
-    addp('', WROOK_PSTS,   sq, function (sq,mg,eg) {return (is(W_ROOK,sq)   - is(B_ROOK,  wbmap(sq))) * mg;});
-    addp('', WROOK_PSTE,   sq, function (sq,mg,eg) {return (is(W_ROOK,sq)   - is(B_ROOK,  wbmap(sq))) * eg;});
-    addp('', WQUEEN_PSTS,  sq, function (sq,mg,eg) {return (is(W_QUEEN,sq)  - is(B_QUEEN, wbmap(sq))) * mg;});
-    addp('', WQUEEN_PSTE,  sq, function (sq,mg,eg) {return (is(W_QUEEN,sq)  - is(B_QUEEN, wbmap(sq))) * eg;});
-    addp('', WKING_PSTS,   sq, function (sq,mg,eg) {return (is(W_KING,sq)   - is(B_KING,  wbmap(sq))) * mg;});
-    addp('', WKING_PSTE,   sq, function (sq,mg,eg) {return (is(W_KING,sq)   - is(B_KING,  wbmap(sq))) * eg;});
-  }
-  
-  var ko =[51,52,53,54,55,56,63,64,65,66,67,68,75,76,77,78,79,80]; //knight outpost squares
-  for (var i=0; i < ko.length; i++) {
-    var sq = ko[i];
-    addp('', WOUTPOST, sq, function (sq,mg,eg) {return board.features.wOutpost[sq] * mg;});
-  }
-  
-  for (var i=0; i <= 8; i++) {
-    addp('', IMBALN_S, i, function (pawns,mg,eg) {return (board.wCounts[KNIGHT] * (board.wCounts[PAWN] == pawns) - board.bCounts[KNIGHT] * (board.bCounts[PAWN] == pawns)) * mg});
-    addp('', IMBALN_E, i, function (pawns,mg,eg) {return (board.wCounts[KNIGHT] * (board.wCounts[PAWN] == pawns) - board.bCounts[KNIGHT] * (board.bCounts[PAWN] == pawns)) * eg});
-    addp('', IMBALB_S, i, function (pawns,mg,eg) {return (board.wCounts[BISHOP] * (board.wCounts[PAWN] == pawns) - board.bCounts[BISHOP] * (board.bCounts[PAWN] == pawns)) * mg});
-    addp('', IMBALB_E, i, function (pawns,mg,eg) {return (board.wCounts[BISHOP] * (board.wCounts[PAWN] == pawns) - board.bCounts[BISHOP] * (board.bCounts[PAWN] == pawns)) * eg});
-    addp('', IMBALR_S, i, function (pawns,mg,eg) {return (board.wCounts[ROOK]   * (board.wCounts[PAWN] == pawns) - board.bCounts[ROOK]   * (board.bCounts[PAWN] == pawns)) * mg});
-    addp('', IMBALR_E, i, function (pawns,mg,eg) {return (board.wCounts[ROOK]   * (board.wCounts[PAWN] == pawns) - board.bCounts[ROOK]   * (board.bCounts[PAWN] == pawns)) * eg});
-    addp('', IMBALQ_S, i, function (pawns,mg,eg) {return (board.wCounts[QUEEN]  * (board.wCounts[PAWN] == pawns) - board.bCounts[QUEEN]  * (board.bCounts[PAWN] == pawns)) * mg});
-    addp('', IMBALQ_E, i, function (pawns,mg,eg) {return (board.wCounts[QUEEN]  * (board.wCounts[PAWN] == pawns) - board.bCounts[QUEEN]  * (board.bCounts[PAWN] == pawns)) * eg});
-  }
-  
-  for (var i=0; i < WSHELTER.length; i++) {
-    addp('', WSHELTER, i, function (row,mg,eg) {return board.features.wShelter[row] * mg;});
-    addp('', WSTORM,   i, function (row,mg,eg) {return board.features.wStorm[row]   * mg;});
-  }
-  addp('k penalty s', EV, iKING_PENALTY, function (i,mg,eg) {return board.features.kingPenalty * mg;});
-  
-  for (var i=0; i < MOBN_S.length; i++) {
-    addp('', MOBN_S, i, function (mob,mg,eg) {return board.features.mobN[mob] * mg});
-    addp('', MOBN_E, i, function (mob,mg,eg) {return board.features.mobN[mob] * eg});
-  }
-  for (var i=0; i < MOBB_S.length; i++) {
-    addp('', MOBB_S, i, function (mob,mg,eg) {return board.features.mobB[mob] * mg});
-    addp('', MOBB_E, i, function (mob,mg,eg) {return board.features.mobB[mob] * eg});
-  }
-  for (var i=0; i < MOBR_S.length; i++) {
-    addp('', MOBR_S, i, function (mob,mg,eg) {return board.features.mobR[mob] * mg});
-    addp('', MOBR_E, i, function (mob,mg,eg) {return board.features.mobR[mob] * eg});
-  }
-  for (var i=0; i < MOBQ_S.length; i++) {
-    addp('', MOBQ_S, i, function (mob,mg,eg) {return board.features.mobQ[mob] * mg});
-    addp('', MOBQ_E, i, function (mob,mg,eg) {return board.features.mobQ[mob] * eg});
-  }
-  
-  addp('', EV, iTIGHT_NS,             function (i,mg,eg) {return board.features.tightNS            * mg;});
-  addp('', EV, iTIGHT_NE,             function (i,mg,eg) {return board.features.tightNE            * eg;});
-  addp('', EV, iTIGHT_BS,             function (i,mg,eg) {return board.features.tightBS            * mg;});
-  addp('', EV, iTIGHT_BE,             function (i,mg,eg) {return board.features.tightBE            * eg;});
-  addp('', EV, iTIGHT_RS,             function (i,mg,eg) {return board.features.tightRS            * mg;});
-  addp('', EV, iTIGHT_RE,             function (i,mg,eg) {return board.features.tightRE            * eg;});
-  addp('', EV, iTIGHT_QS,             function (i,mg,eg) {return board.features.tightQS            * mg;});
-  addp('', EV, iTIGHT_QE,             function (i,mg,eg) {return board.features.tightQE            * eg;});
-  
-  addp('', EV, iTENSE_NS,             function (i,mg,eg) {return board.features.tenseNS            * mg;});
-  addp('', EV, iTENSE_NE,             function (i,mg,eg) {return board.features.tenseNE            * eg;});
-  addp('', EV, iTENSE_BS,             function (i,mg,eg) {return board.features.tenseBS            * mg;});
-  addp('', EV, iTENSE_BE,             function (i,mg,eg) {return board.features.tenseBE            * eg;});
-  addp('', EV, iTENSE_RS,             function (i,mg,eg) {return board.features.tenseRS            * mg;});
-  addp('', EV, iTENSE_RE,             function (i,mg,eg) {return board.features.tenseRE            * eg;});
-  addp('', EV, iTENSE_QS,             function (i,mg,eg) {return board.features.tenseQS            * mg;});
-  addp('', EV, iTENSE_QE,             function (i,mg,eg) {return board.features.tenseQE            * eg;});
-  
-  addp('', EV, iPAWN_DOUBLED_S,       function (i,mg,eg) {return board.features.pawnDoubledS       * mg;});
-  addp('', EV, iPAWN_DOUBLED_E,       function (i,mg,eg) {return board.features.pawnDoubledE       * eg;});
-  addp('', EV, iPAWN_BACKWARD_S,      function (i,mg,eg) {return board.features.pawnBackwardS      * mg;});
-  addp('', EV, iPAWN_BACKWARD_E,      function (i,mg,eg) {return board.features.pawnBackwardE      * eg;});
-  addp('', EV, iPAWN_ISOLATED_S,      function (i,mg,eg) {return board.features.pawnIsolatedS      * mg;});
-  addp('', EV, iPAWN_ISOLATED_E,      function (i,mg,eg) {return board.features.pawnIsolatedE      * eg;});
-  addp('', EV, iPAWN_PASSED_OFFSET_S, function (i,mg,eg) {return board.features.pawnPassedOffsetS  * mg;});
-  addp('', EV, iPAWN_PASSED_OFFSET_E, function (i,mg,eg) {return board.features.pawnPassedOffsetE  * eg;});
-  addp('', EV, iPAWN_PASSED_MULT_S,   function (i,mg,eg) {return board.features.pawnPassedMultS    * mg;});
-  addp('', EV, iPAWN_PASSED_MULT_E,   function (i,mg,eg) {return board.features.pawnPassedMultE    * eg;});
-  addp('', EV, iPAWN_OFFSET_S,        function (i,mg,eg) {return board.features.pawnPassedOffset2S * mg;});
-  addp('', EV, iPAWN_OFFSET_E,        function (i,mg,eg) {return board.features.pawnPassedOffset2E * eg;});
-  addp('', EV, iPAWN_MULT_S,          function (i,mg,eg) {return board.features.pawnPassedMult2S   * mg;});
-  addp('', EV, iPAWN_MULT_E,          function (i,mg,eg) {return board.features.pawnPassedMult2E   * eg;});
-  addp('', EV, iPAWN_PASS_FREE,       function (i,mg,eg) {return board.features.pawnPassedFreeE    * eg;});
-  addp('', EV, iPAWN_PASS_UNSTOP,     function (i,mg,eg) {return board.features.pawnPassedUnstopE  * eg;});
-  addp('', EV, iPAWN_PASS_KING1,      function (i,mg,eg) {return board.features.pawnPassedKing1E   * eg;});
-  addp('', EV, iPAWN_PASS_KING2,      function (i,mg,eg) {return board.features.pawnPassedKing2E   * eg;});
-  
-  addp('', EV, iTWOBISHOPS_S,         function (i,mg,eg) {return board.features.bishopPairS        * mg;});
-  addp('', EV, iTWOBISHOPS_E,         function (i,mg,eg) {return board.features.bishopPairE        * eg;});
-  
-  addp('', EV, iROOK7TH_S,            function (i,mg,eg) {return board.features.rook7thS           * mg;});
-  addp('', EV, iROOK7TH_E,            function (i,mg,eg) {return board.features.rook7thE           * eg;});
-  addp('', EV, iROOKOPEN_S,           function (i,mg,eg) {return board.features.rookOpenS          * mg;});
-  addp('', EV, iROOKOPEN_E,           function (i,mg,eg) {return board.features.rookOpenE          * eg;});
-  
-  addp('', EV, iQUEEN7TH_S,           function (i,mg,eg) {return board.features.queen7thS          * mg;});
-  addp('', EV, iQUEEN7TH_E,           function (i,mg,eg) {return board.features.queen7thE          * eg;});
-  
-  addp('', EV, iTEMPO_S,              function (i,mg,eg) {return board.features.tempoS             * mg;});
-  addp('', EV, iTEMPO_E,              function (i,mg,eg) {return board.features.tempoE             * eg;});
-  
-  addp('', EV, iTRAPPED_S,            function (i,mg,eg) {return board.features.trappedS           * mg;});
-  addp('', EV, iTRAPPED_E,            function (i,mg,eg) {return board.features.trappedE           * eg;});
-  
-  addp('', EV, iATT_N,                function (i,mg,eg) {return board.features.attN               * mg;});
-  addp('', EV, iATT_B,                function (i,mg,eg) {return board.features.attB               * mg;});
-  addp('', EV, iATT_R,                function (i,mg,eg) {return board.features.attR               * mg;});
-  addp('', EV, iATT_Q,                function (i,mg,eg) {return board.features.attQ               * mg;});
-  
-  //}}}
-  //{{{  tune params
-  
-  var epoch      = 0;
-  var numParams  = params.length;
-  var batchSize  = 10000;
-  var numBatches = epds.length / batchSize | 0;
-  var err        = 0;
-  var lastErr    = 0;
-  
-  console.log('num params =', numParams);
-  console.log('batch size =', batchSize);
-  console.log('num batches =', numBatches);
-  console.log('epochs =', gMaxEpochs);
-  
-  var K2 = gK / 200.0;
-  
-  while (gMaxEpochs--) {
-  
-    //{{{  reset adagrad
-    
-    //for (var i=0; i < numParams; i++)
-      //params[i].ag = 0;
-    
-    //}}}
-  
-    if (epoch % gErrStep == 0) {
-      //{{{  report loss
-      
-      err = calcErr();
-      
-      console.log(epoch,err,err-lastErr);
-      
-      lastErr = err;
-      
-      saveparams(err,epoch);
-      
-      //}}}
-      //{{{  check for crazy values
-      /*
-      for (var i=0; i < numParams; i++) {
-        var p = params[i];
-        var delta = Math.abs(p.v - p.a[p.i]);
-        if (delta > 5 && p.s)
-          console.log(p.s,p.v,p.a[p.i],delta);
-      }
-      */
-      //}}}
-    }
-    else {
-      process.stdout.write(epoch+'\r');
-    }
-  
-    epoch++;
-  
-    for (var batch=0; batch < numBatches; batch++) {
-      //{{{  reset gradient sums
-      
-      for (var i=0; i < numParams; i++)
-        params[i].gr = 0;
-      
-      //}}}
-      //{{{  accumulate gradients
-      
-      //for (var i=batch*batchSize; i < (batch+1)*batchSize; i++) {
-      for (var i=0; i < batchSize; i++) {
-      
-        var epd = epds[Math.random() * epds.length | 0];
-      
-        uci.spec.board    = epd.board;
-        uci.spec.turn     = epd.turn;
-        uci.spec.rights   = epd.rights;
-        uci.spec.ep       = epd.ep;
-        uci.spec.fmc      = 0;
-        uci.spec.hmc      = 0;
-        uci.spec.id       = 'id' + j;
-        uci.spec.moves    = [];
-      
-        lozza.position();
-      
-        var pr = epd.prob;
-      
-        var ev = board.evaluate(board.turn);
-        if (board.turn == BLACK)
-          ev = -ev;  // undo negamax.
-      
-        var sg    = sigmoid(ev);
-        var phase = board.cleanPhase(board.phase);
-        var mg    = (TPHASE - phase) / TPHASE;
-        var eg    = phase / TPHASE;
-      
-        for (var j=0; j < numParams; j++) {
-          var p = params[j];
-          p.gr += p.coeff(p.i,mg,eg) * (sg * (1 - sg)) * (sg - pr);  // chain rule
-        }
-      }
-      
-      //}}}
-      //{{{  apply mean gradient
-      
-      for (var i=0; i < numParams; i++) {
-        var p    = params[i];
-        var gr   = K2 * p.gr / batchSize;
-        p.ag     += gr * gr;
-        p.a[p.i] -= (gLearningRate / Math.sqrt(p.ag + 1e-8)) * gr;  // adagrad
-      }
-      
-      //}}}
-      //{{{  sync black arrays
-      
-      for (var i=0; i < 144; i++) {
-        BPAWN_PSTS[wbmap(i)]   = WPAWN_PSTS[i];
-        BPAWN_PSTE[wbmap(i)]   = WPAWN_PSTE[i];
-        BKNIGHT_PSTS[wbmap(i)] = WKNIGHT_PSTS[i];
-        BKNIGHT_PSTE[wbmap(i)] = WKNIGHT_PSTE[i];
-        BBISHOP_PSTS[wbmap(i)] = WBISHOP_PSTS[i];
-        BBISHOP_PSTE[wbmap(i)] = WBISHOP_PSTE[i];
-        BROOK_PSTS[wbmap(i)]   = WROOK_PSTS[i];
-        BROOK_PSTE[wbmap(i)]   = WROOK_PSTE[i];
-        BQUEEN_PSTS[wbmap(i)]  = WQUEEN_PSTS[i];
-        BQUEEN_PSTE[wbmap(i)]  = WQUEEN_PSTE[i];
-        BKING_PSTS[wbmap(i)]   = WKING_PSTS[i];
-        BKING_PSTE[wbmap(i)]   = WKING_PSTE[i];
-        BOUTPOST[wbmap(i)]     = WOUTPOST[i];
-      }
-      
-      //}}}
-    }
-  }
-  
-  console.log('Done',err);
-  
-  //}}}
-
-  process.exit();
-}
-
-//}}}
-
-//}}}
-//{{{  log
-
-console.log('data =',                  gEpdFile);
-console.log('k =',                     gK);
-console.log('learning rate =',         gLearningRate);
-console.log('loss display rate = 1 in',gErrStep);
-
-//}}}
-//{{{  check sigmoid
-
-//for (var i=-600;i<=600;i+=100) {
-  //console.log(i,sigmoid(i));
-//}
-
-//}}}
-//{{{  kick it off
-
-var thisPosition = 0;
-
-const readline = require('readline');
-
-const rl = readline.createInterface({
-    input: fs.createReadStream(gEpdFile),
-    output: process.stdout,
-    crlfDelay: Infinity,
-    terminal: false
-});
-
-rl.on('line', function (line) {
-
-  thisPosition += 1;
-
-  if (thisPosition % 100000 == 0)
-    process.stdout.write(thisPosition+'\r');
-
-  line = line.replace(/(\r\n|\n|\r|;|")/gm,'');
-
-  line = line.trim();
-  if (!line.length)
-    return;
-
-  var parts = line.split(' ');
-
-  if (parts.length && parts.length != 6) {
-    console.log('file format',line);
-    process.exit();
-  }
-
-  epds.push({board:   parts[0],
-             turn:    parts[1],
-             rights:  parts[2],
-             ep:      parts[3],
-             prob:    getprob(parts[gProb])});
-
-});
-
-rl.on('close', function(){
-  console.log('positions =',epds.length);
-  //{{{  count win, lose, draw
-  //
-  // Just to make sure the file has been parsed OK.
-  //
-  
-  var wins = 0;
-  var loss = 0;
-  var draw = 0;
-  
-  for (var i=0; i < epds.length; i++) {
-  
-    if (i % 100000 == 0)
-      process.stdout.write(i+'\r');
-  
-    var epd = epds[i];
-  
-    if (epd.prob == 1.0)
-      wins++;
-  
-    else if (epd.prob == 0.0)
-      loss++;
-  
-    else if (epd.prob == 0.5)
-      draw++;
-  
-    else {
-      console.log('not a prob',epd.prob);
-      process.exit();
-    }
-  }
-  
-  console.log('wins =',wins,'losses =',loss,'draws =',draw);
-  console.log('error check =',epds.length - wins - draw - loss,'(should be 0)');
-  
-  //}}}
-  grunt();
-});
 
 //}}}
 
