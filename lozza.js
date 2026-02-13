@@ -1,8 +1,13 @@
 
-var VERSION = '1.1';
+var VERSION = '1.2';
 
 //{{{  history
 /*
+
+21/07/14 v1.2
+
+21/07/14 Point nodes at board so global lookup not needed.
+21/07/14 Add piece lists.
 
 16/07/14 v1.1
 
@@ -77,353 +82,11 @@ var VERSION = '1.1';
 */
 
 //}}}
-//{{{  seed
-//
-// seedrandom.js version 2.3.4
-// Author: David Bau
-// Date: 2014 Mar 9
-//
-// Defines a method Math.seedrandom() that, when called, substitutes
-// an explicitly seeded RC4-based algorithm for Math.random().  Also
-// supports automatic seeding from local or network sources of entropy.
-// Can be used as a node.js or AMD module.  Can be called with "new"
-// to create a local PRNG without changing Math.random.
-//
-// Basic usage:
-//
-//   <script src=http://davidbau.com/encode/seedrandom.min.js></script>
-//
-//   Math.seedrandom('yay.');  // Sets Math.random to a function that is
-//                             // initialized using the given explicit seed.
-//
-//   Math.seedrandom();        // Sets Math.random to a function that is
-//                             // seeded using the current time, dom state,
-//                             // and other accumulated local entropy.
-//                             // The generated seed string is returned.
-//
-//   Math.seedrandom('yowza.', true);
-//                             // Seeds using the given explicit seed mixed
-//                             // together with accumulated entropy.
-//
-//   <script src="https://jsonlib.appspot.com/urandom?callback=Math.seedrandom">
-//   </script>                 <!-- Seeds using urandom bits from a server. -->
-//
-//   Math.seedrandom("hello.");           // Behavior is the same everywhere:
-//   document.write(Math.random());       // Always 0.9282578795792454
-//   document.write(Math.random());       // Always 0.3752569768646784
-//
-// Math.seedrandom can be used as a constructor to return a seeded PRNG
-// that is independent of Math.random:
-//
-//   var myrng = new Math.seedrandom('yay.');
-//   var n = myrng();          // Using "new" creates a local prng without
-//                             // altering Math.random.
-//
-// When used as a module, seedrandom is a function that returns a seeded
-// PRNG instance without altering Math.random:
-//
-//   // With node.js (after "npm install seedrandom"):
-//   var seedrandom = require('seedrandom');
-//   var rng = seedrandom('hello.');
-//   console.log(rng());                  // always 0.9282578795792454
-//
-//   // With require.js or other AMD loader:
-//   require(['seedrandom'], function(seedrandom) {
-//     var rng = seedrandom('hello.');
-//     console.log(rng());                // always 0.9282578795792454
-//   });
-//
-// More examples:
-//
-//   var seed = Math.seedrandom();        // Use prng with an automatic seed.
-//   document.write(Math.random());       // Pretty much unpredictable x.
-//
-//   var rng = new Math.seedrandom(seed); // A new prng with the same seed.
-//   document.write(rng());               // Repeat the 'unpredictable' x.
-//
-//   function reseed(event, count) {      // Define a custom entropy collector.
-//     var t = [];
-//     function w(e) {
-//       t.push([e.pageX, e.pageY, +new Date]);
-//       if (t.length < count) { return; }
-//       document.removeEventListener(event, w);
-//       Math.seedrandom(t, true);        // Mix in any previous entropy.
-//     }
-//     document.addEventListener(event, w);
-//   }
-//   reseed('mousemove', 100);            // Reseed after 100 mouse moves.
-//
-// The callback third arg can be used to get both the prng and the seed.
-// The following returns both an autoseeded prng and the seed as an object,
-// without mutating Math.random:
-//
-//   var obj = Math.seedrandom(null, false, function(prng, seed) {
-//     return { random: prng, seed: seed };
-//   });
-//
-// Version notes:
-//
-// The random number sequence is the same as version 1.0 for string seeds.
-// * Version 2.0 changed the sequence for non-string seeds.
-// * Version 2.1 speeds seeding and uses window.crypto to autoseed if present.
-// * Version 2.2 alters non-crypto autoseeding to sweep up entropy from plugins.
-// * Version 2.3 adds support for "new", module loading, and a null seed arg.
-// * Version 2.3.1 adds a build environment, module packaging, and tests.
-// * Version 2.3.3 fixes bugs on IE8, and switches to MIT license.
-// * Version 2.3.4 fixes documentation to contain the MIT license.
-//
-// The standard ARC4 key scheduler cycles short keys, which means that
-// seedrandom('ab') is equivalent to seedrandom('abab') and 'ababab'.
-// Therefore it is a good idea to add a terminator to avoid trivial
-// equivalences on short string seeds, e.g., Math.seedrandom(str + '\0').
-// Starting with version 2.0, a terminator is added automatically for
-// non-string seeds, so seeding with the number 111 is the same as seeding
-// with '111\0'.
-//
-// When seedrandom() is called with zero args or a null seed, it uses a
-// seed drawn from the browser crypto object if present.  If there is no
-// crypto support, seedrandom() uses the current time, the native rng,
-// and a walk of several DOM objects to collect a few bits of entropy.
-//
-// Each time the one- or two-argument forms of seedrandom are called,
-// entropy from the passed seed is accumulated in a pool to help generate
-// future seeds for the zero- and two-argument forms of seedrandom.
-//
-// On speed - This javascript implementation of Math.random() is several
-// times slower than the built-in Math.random() because it is not native
-// code, but that is typically fast enough.  Some details (timings on
-// Chrome 25 on a 2010 vintage macbook):
-//
-// seeded Math.random()          - avg less than 0.0002 milliseconds per call
-// seedrandom('explicit.')       - avg less than 0.2 milliseconds per call
-// seedrandom('explicit.', true) - avg less than 0.2 milliseconds per call
-// seedrandom() with crypto      - avg less than 0.2 milliseconds per call
-//
-// Autoseeding without crypto is somewhat slower, about 20-30 milliseconds on
-// a 2012 windows 7 1.5ghz i5 laptop, as seen on Firefox 19, IE 10, and Opera.
-// Seeded rng calls themselves are fast across these browsers, with slowest
-// numbers on Opera at about 0.0005 ms per seeded Math.random().
-//
-// LICENSE (MIT):
-//
-// Copyright (c)2014 David Bau.
-//
-// Permission is hereby granted, free of charge, to any person obtaining
-// a copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to
-// permit persons to whom the Software is furnished to do so, subject to
-// the following conditions:
-//
-// The above copyright notice and this permission notice shall be
-// included in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-// CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-// SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-//
-
-/**
- * All code is in an anonymous closure to keep the global namespace clean.
- */
-(function (
-    global, pool, math, width, chunks, digits, module, define, rngname) {
-
-//
-// The following constants are related to IEEE 754 limits.
-//
-var startdenom = math.pow(width, chunks),
-    significance = math.pow(2, digits),
-    overflow = significance * 2,
-    mask = width - 1,
-
-//
-// seedrandom()
-// This is the seedrandom function described above.
-//
-impl = math['seed' + rngname] = function(seed, use_entropy, callback) {
-  var key = [];
-
-  // Flatten the seed string or build one from local entropy if needed.
-  var shortseed = mixkey(flatten(
-    use_entropy ? [seed, tostring(pool)] :
-    (seed == null) ? autoseed() : seed, 3), key);
-
-  // Use the seed to initialize an ARC4 generator.
-  var arc4 = new ARC4(key);
-
-  // Mix the randomness into accumulated entropy.
-  mixkey(tostring(arc4.S), pool);
-
-  // Calling convention: what to return as a function of prng, seed, is_math.
-  return (callback ||
-      // If called as a method of Math (Math.seedrandom()), mutate Math.random
-      // because that is how seedrandom.js has worked since v1.0.  Otherwise,
-      // it is a newer calling convention, so return the prng directly.
-      function(prng, seed, is_math_call) {
-        if (is_math_call) { math[rngname] = prng; return seed; }
-        else return prng;
-      })(
-
-  // This function returns a random double in [0, 1) that contains
-  // randomness in every bit of the mantissa of the IEEE 754 value.
-  function() {
-    var n = arc4.g(chunks),             // Start with a numerator n < 2 ^ 48
-        d = startdenom,                 //   and denominator d = 2 ^ 48.
-        x = 0;                          //   and no 'extra last byte'.
-    while (n < significance) {          // Fill up all significant digits by
-      n = (n + x) * width;              //   shifting numerator and
-      d *= width;                       //   denominator and generating a
-      x = arc4.g(1);                    //   new least-significant-byte.
-    }
-    while (n >= overflow) {             // To avoid rounding up, before adding
-      n /= 2;                           //   last byte, shift everything
-      d /= 2;                           //   right using integer math until
-      x >>>= 1;                         //   we have exactly the desired bits.
-    }
-    return (n + x) / d;                 // Form the number within [0, 1).
-  }, shortseed, this == math);
-};
-
-//
-// ARC4
-//
-// An ARC4 implementation.  The constructor takes a key in the form of
-// an array of at most (width) integers that should be 0 <= x < (width).
-//
-// The g(count) method returns a pseudorandom integer that concatenates
-// the next (count) outputs from ARC4.  Its return value is a number x
-// that is in the range 0 <= x < (width ^ count).
-//
-/** @constructor */
-function ARC4(key) {
-  var t, keylen = key.length,
-      me = this, i = 0, j = me.i = me.j = 0, s = me.S = [];
-
-  // The empty key [] is treated as [0].
-  if (!keylen) { key = [keylen++]; }
-
-  // Set up S using the standard key scheduling algorithm.
-  while (i < width) {
-    s[i] = i++;
-  }
-  for (i = 0; i < width; i++) {
-    s[i] = s[j = mask & (j + key[i % keylen] + (t = s[i]))];
-    s[j] = t;
-  }
-
-  // The "g" method returns the next (count) outputs as one number.
-  (me.g = function(count) {
-    // Using instance members instead of closure state nearly doubles speed.
-    var t, r = 0,
-        i = me.i, j = me.j, s = me.S;
-    while (count--) {
-      t = s[i = mask & (i + 1)];
-      r = r * width + s[mask & ((s[i] = s[j = mask & (j + t)]) + (s[j] = t))];
-    }
-    me.i = i; me.j = j;
-    return r;
-    // For robust unpredictability discard an initial batch of values.
-    // See http://www.rsa.com/rsalabs/node.asp?id=2009
-  })(width);
-}
-
-//
-// flatten()
-// Converts an object tree to nested arrays of strings.
-//
-function flatten(obj, depth) {
-  var result = [], typ = (typeof obj), prop;
-  if (depth && typ == 'object') {
-    for (prop in obj) {
-      try { result.push(flatten(obj[prop], depth - 1)); } catch (e) {}
-    }
-  }
-  return (result.length ? result : typ == 'string' ? obj : obj + '\0');
-}
-
-//
-// mixkey()
-// Mixes a string seed into a key that is an array of integers, and
-// returns a shortened string seed that is equivalent to the result key.
-//
-function mixkey(seed, key) {
-  var stringseed = seed + '', smear, j = 0;
-  while (j < stringseed.length) {
-    key[mask & j] =
-      mask & ((smear ^= key[mask & j] * 19) + stringseed.charCodeAt(j++));
-  }
-  return tostring(key);
-}
-
-//
-// autoseed()
-// Returns an object for autoseeding, using window.crypto if available.
-//
-/** @param {Uint8Array|Navigator=} seed */
-function autoseed(seed) {
-  try {
-    global.crypto.getRandomValues(seed = new Uint8Array(width));
-    return tostring(seed);
-  } catch (e) {
-    return [+new Date, global, (seed = global.navigator) && seed.plugins,
-            global.screen, tostring(pool)];
-  }
-}
-
-//
-// tostring()
-// Converts an array of charcodes to a string
-//
-function tostring(a) {
-  return String.fromCharCode.apply(0, a);
-}
-
-//
-// When seedrandom.js is loaded, we immediately mix a few bits
-// from the built-in RNG into the entropy pool.  Because we do
-// not want to intefere with determinstic PRNG state later,
-// seedrandom will not call math.random on its own again after
-// initialization.
-//
-mixkey(math[rngname](), pool);
-
-//
-// Nodejs and AMD support: export the implemenation as a module using
-// either convention.
-//
-if (module && module.exports) {
-  module.exports = impl;
-} else if (define && define.amd) {
-  define(function() { return impl; });
-}
-
-// End anonymous scope, and pass initial values.
-})(
-  this,   // global window object
-  [],     // pool: entropy pool starts empty
-  Math,   // math: package containing random, pow, and seedrandom
-  256,    // width: each RC4 output is 0 <= x < 256
-  6,      // chunks: at least six RC4 outputs for each double
-  52,     // digits: there are 52 significant digits in a double
-  (typeof module) == 'object' && module,    // present in node.js
-  (typeof define) == 'function' && define,  // present with an AMD loader
-  'random'// rngname: name for Math.random and Math.seedrandom
-);
-
-Math.seedrandom('Lozza rules OK');  //always generates the same sequence of PRNs
-
-//}}}
 //{{{  constants
 
-var MAX_PLY   = 100;                // limited by lozza.board.ttDepth.
+var MAX_PLY   = 100;                // limited by lozza.board.ttDepth bits.
 var MAX_MOVES = 220;
-var INFINITY  = 30000;              // limited by lozza.board.ttScore.
+var INFINITY  = 30000;              // limited by lozza.board.ttScore bits.
 var MATE      = 20000;
 var MINMATE   = MATE - 2*MAX_PLY;
 var CONTEMPT  = 0;
@@ -468,6 +131,7 @@ var ROOK   = 0x4;
 var QUEEN  = 0x5;
 var KING   = 0x6;
 var EDGE   = 0x7;
+var NO_Z   = 0x8;
 
 var W_PAWN   = PAWN;
 var W_KNIGHT = KNIGHT;
@@ -519,11 +183,6 @@ var WHITE_RIGHTS_KING  = 0x00000001;
 var WHITE_RIGHTS_QUEEN = 0x00000002;
 var BLACK_RIGHTS_KING  = 0x00000004;
 var BLACK_RIGHTS_QUEEN = 0x00000008;
-var SPARE1_RIGHTS_MASK = 0x000000F0;
-var WKSQ_RIGHTS_MASK   = 0x0000FF00;  // we can manipulate the turn colour (0,0x8) generically to
-var BKSQ_RIGHTS_MASK   = 0x00FF0000;  // generate the required shift by col+BLACK: 0->8, 8->16
-var SPARE2_RIGHTS_MASK = 0xFF000000;  // ep could go in here.
-
 var WHITE_RIGHTS       = WHITE_RIGHTS_QUEEN | WHITE_RIGHTS_KING;
 var BLACK_RIGHTS       = BLACK_RIGHTS_QUEEN | BLACK_RIGHTS_KING;
 var ALL_RIGHTS         = BLACK_RIGHTS | WHITE_RIGHTS;
@@ -536,11 +195,11 @@ var BP_OFFSET_ORTH  = 12;
 var BP_OFFSET_DIAG1 = 13;
 var BP_OFFSET_DIAG2 = 11;
 
-var KNIGHT_OFFSETS = [25,-25,23,-23,14,-14,10,-10];
-var BISHOP_OFFSETS = [11,-11,13,-13];
-var ROOK_OFFSETS   =               [1,-1,12,-12];
-var QUEEN_OFFSETS  = [11,-11,13,-13,1,-1,12,-12]; // must be diag then orth - see isAttacked.
-var KING_OFFSETS   = [11,-11,13,-13,1,-1,12,-12];
+var KNIGHT_OFFSETS  = [25,-25,23,-23,14,-14,10,-10];
+var BISHOP_OFFSETS  = [11,-11,13,-13];
+var ROOK_OFFSETS    =               [1,-1,12,-12];
+var QUEEN_OFFSETS   = [11,-11,13,-13,1,-1,12,-12]; // must be diag then orth - see isAttacked.
+var KING_OFFSETS    = [11,-11,13,-13,1,-1,12,-12];
 
 var OFFSETS = [0,0,KNIGHT_OFFSETS,BISHOP_OFFSETS,ROOK_OFFSETS,QUEEN_OFFSETS,KING_OFFSETS];
 var LIMITS  = [0,1,1,8,8,8,1];
@@ -554,125 +213,124 @@ var VALUE_QUEEN  = 975;
 var VALUE_VECTOR = [0,VALUE_PAWN,325,325,500,VALUE_QUEEN,10000];
 var RANK_VECTOR  = [0,1,         2,  2,  4,  5,          6];  // for move sorting.
 
-var NULL_PST = [0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0];
+var NULL_PST =     [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WPAWN_PST = [0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                 0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                 0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                 0, 0, 50, 50, 50,  50,  50,  50,  50, 50, 0, 0,
-                 0, 0, 10, 10, 20,  30,  30,  20,  10, 10, 0, 0,
-                 0, 0, 5,  5,  10,  25,  25,  10,  5,  5,  0, 0,
-                 0, 0, 0,  0,  0,   20,  20,  0,   0,  0,  0, 0,
-                 0, 0, 5,  -5, -10, 0,   0,   -10, -5, 5,  0, 0,
-                 0, 0, 5,  10, 10,  -20, -20, 10,  10, 5,  0, 0,
-                 0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                 0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                 0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0];
+var WPAWN_PST =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,  50,  50,  50,  50,  50,  50,  50,  50,   0,   0,
+                    0,   0,  10,  10,  20,  30,  30,  20,  10,  10,   0,   0,
+                    0,   0,   5,   5,  10,  25,  25,  10,   5,   5,   0,   0,
+                    0,   0,   0,   0,   0,  20,  20,   0,   0,   0,   0,   0,
+                    0,   0,   5,  -5, -10,   0,   0, -10,  -5,   5,   0,   0,
+                    0,   0,   5,  10,  10, -20, -20,  10,  10,   5,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WPAWN_PST2 = [0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                  0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                  0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                  0, 0, 80, 80, 80,  80,  80,  80,  80, 80, 0, 0,
-                  0, 0, 60, 60, 60,  60,  60,  60,  60, 60, 0, 0,
-                  0, 0, 40, 40, 40,  40,  40,  40,  40, 40, 0, 0,
-                  0, 0, 20, 20, 20,  20,  20,  20,  20, 20, 0, 0,
-                  0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                  0, 0, -20,-20,-20, -20, -20, -20, -20,-20,0, 0,
-                  0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                  0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0,
-                  0, 0, 0,  0,  0,   0,   0,   0,   0,  0,  0, 0];
+var WPAWN_PST2 =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,  80,  80,  80,  80,  80,  80,  80,  80,   0,   0,
+                    0,   0,  60,  60,  60,  60,  60,  60,  60,  60,   0,   0,
+                    0,   0,  40,  40,  40,  40,  40,  40,  40,  40,   0,   0,
+                    0,   0,  20,  20,  20,  20,  20,  20,  20,  20,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0, -20, -20, -20, -20, -20, -20, -20, -20,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-
-var WKNIGHT_PST = [0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0, 0,
-                   0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0, 0,
-                   0, 0, -50, -40, -30, -30, -30, -30, -40, -50, 0, 0,
-                   0, 0, -40, -20, 0,   0,   0,   0,   -20, -40, 0, 0,
-                   0, 0, -30, 0,   10,  15,  15,  10,   0,  -30, 0, 0,
-                   0, 0, -30, 5,   15,  20,  20,  15,   5,  -30, 0, 0,
-                   0, 0, -30, 0,   15,  20,  20,  15,   0,  -30, 0, 0,
-                   0, 0, -30, 5,   10,  15,  15,  10,   5,  -30, 0, 0,
-                   0, 0, -40, -20, 0,   5,   5,   0,   -20, -40, 0, 0,
-                   0, 0, -50, -40, -30, -30, -30, -30, -40, -50, 0, 0,
-                   0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0, 0,
-                   0, 0, 0,   0,   0,   0,   0,   0,   0,   0,   0, 0];
+var WKNIGHT_PST =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
+                    0,   0, -40, -20,   0,   0,   0,   0,  20, -40,   0,   0,
+                    0,   0, -30,   0,  10,  15,  15,  10,   0, -30,   0,   0,
+                    0,   0, -30,   5,  15,  20,  20,  15,   5, -30,   0,   0,
+                    0,   0, -30,   0,  15,  20,  20,  15,   0, -30,   0,   0,
+                    0,   0, -30,   5,  10,  15,  15,  10,   5, -30,   0,   0,
+                    0,   0, -40, -20,   0,   5,   5,   0, -20, -40,   0,   0,
+                    0,   0, -50, -40, -30, -30, -30, -30, -40, -50,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
 var WBISHOP_PST =  [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   -20, -10, -10, -10, -10, -10, -10, -20, 0,   0,
-                    0,   0,   -10, 0,   0,   0,   0,   0,    0,  -10, 0,   0,
-                    0,   0,   -10, 0,   5,   10,  10,  5,    0,  -10, 0,   0,
-                    0,   0,   -10, 5,   5,   10,  10,  5,    5,  -10, 0,   0,
-                    0,   0,   -10, 0,   10,  10,  10,  10,   0,  -10, 0,   0,
-                    0,   0,   -10, 10,  10,  10,  10,  10,   10, -10, 0,   0,
-                    0,   0,   -10, 5 ,  0,   0,   0,   0,    5,  -10, 0,   0,
-                    0,   0,   -20, -10, -10, -10, -10, -10, -10, -20, 0,   0,
+                    0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
+                    0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
+                    0,   0, -10,   0,   5,  10,  10,   5,   0, -10,   0,   0,
+                    0,   0, -10,   5,   5,  10,  10,   5,   5, -10,   0,   0,
+                    0,   0, -10,   0,  10,  10,  10,  10,   0, -10,   0,   0,
+                    0,   0, -10,  10,  10,  10,  10,  10,  10, -10,   0,   0,
+                    0,   0, -10,   5,   0,   0,   0,   0,   5, -10,   0,   0,
+                    0,   0, -20, -10, -10, -10, -10, -10, -10, -20,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
 var WROOK_PST =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   5,   10,  10,  10,  10,  10,  10,  5,   0,   0,
-                    0,   0,   -5,  0,   0,   0,   0,   0,   0,   -5,  0,   0,
-                    0,   0,   -5,  0,   0,   0,   0,   0,   0,   -5,  0,   0,
-                    0,   0,   -5,  0,   0,   0,   0,   0,   0,   -5,  0,   0,
-                    0,   0,   -5,  0,   0,   0,   0,   0,   0,   -5,  0,   0,
-                    0,   0,   -5,  0,   0,   0,   0,   0,   0,   -5,  0,   0,
+                    0,   0,   5,  10,  10,  10,  10,  10,  10,   5,   0,   0,
+                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
+                    0,   0,  -5,   0,   0,   0,   0,   0,   0,  -5,   0,   0,
                     0,   0,   0,   0,   0,   5,   5,   0,   0,   0,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
 var WQUEEN_PST =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                    0,   0,   -20, -10, -10, -5,  -5,  -10, -10, -20, 0,   0,
-                    0,   0,   -10, 0,   0,   0,   0,   0,    0,  -10, 0,   0,
-                    0,   0,   -10, 0,   5,   5,   5,   5,    0,  -10, 0,   0,
-                    0,   0,   -5,  0,   5,   5,   5,   5,    0,  -5,  0,   0,
-                    0,   0,   0,   0,   5,   5,   5,   5,    0,  -5,  0,   0,
-                    0,   0,   -10, 5,   5,   5,   5,   5,    0,  -10, 0,   0,
-                    0,   0,   -10, 0,   5,   0,   0,   0,    0,  -10, 0,   0,
-                    0,   0,   -20, -10, -10, -5,  -5,  -10, -10, -20, 0,   0,
+                    0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
+                    0,   0, -10,   0,   0,   0,   0,   0,   0, -10,   0,   0,
+                    0,   0, -10,   0,   5,   5,   5,   5,   0, -10,   0,   0,
+                    0,   0,  -5,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
+                    0,   0,   0,   0,   5,   5,   5,   5,   0,  -5,   0,   0,
+                    0,   0, -10,   5,   5,   5,   5,   5,   0, -10,   0,   0,
+                    0,   0, -10,   0,   5,   0,   0,   0,   0, -10,   0,   0,
+                    0,   0, -20, -10, -10,  -5,  -5, -10, -10, -20,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WKING_PST =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, 0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, 0,
-                    0,   0,   -30, -40, -40, -50, -50, -40, -40, -30, 0, 0,
-                    0,   0,   -30, -40, -40, -50, -50, -40, -40, -30, 0, 0,
-                    0,   0,   -30, -40, -40, -50, -50, -40, -40, -30, 0, 0,
-                    0,   0,   -30, -40, -40, -50, -50, -40, -40, -30, 0, 0,
-                    0,   0,   -20, -30, -30, -40, -40, -30, -30, -20, 0, 0,
-                    0,   0,   -10, -20, -20, -20, -20, -20, -20, -10, 0, 0,
-                    0,   0,   20,  20,  0,   0,   0,   0,   20,  20,  0, 0,
-                    0,   0,   20,  30,  10,  0,   0,   10,  30,  20,  0, 0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, 0,
-                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, 0];
+var WKING_PST =    [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
+                    0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
+                    0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
+                    0,   0, -30, -40, -40, -50, -50, -40, -40, -30,   0,   0,
+                    0,   0, -20, -30, -30, -40, -40, -30, -30, -20,   0,   0,
+                    0,   0, -10, -20, -20, -20, -20, -20, -20, -10,   0,   0,
+                    0,   0,  20,  20,   0,   0,   0,   0,  20,  20,   0,   0,
+                    0,   0,  20,  30,  10,   0,   0,  10,  30,  20,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-var WKING_PST2 = [0,0,0,  0,  0,  0,  0,  0,  0,  0,  0,0,
-                  0,0,0,  0,  0,  0,  0,  0,  0,  0,  0,0,
-                  0,0,-50,-40,-30,-20,-20,-30,-40,-50,0,0,
-                  0,0,-30,-20,-10,  0,  0,-10,-20,-30,0,0,
-                  0,0,-30,-10, 20, 30, 30, 20,-10,-30,0,0,
-                  0,0,-30,-10, 30, 40, 40, 30,-10,-30,0,0,
-                  0,0,-30,-10, 30, 40, 40, 30,-10,-30,0,0,
-                  0,0,-30,-10, 20, 30, 30, 20,-10,-30,0,0,
-                  0,0,-30,-30,  0,  0,  0,  0,-30,-30,0,0,
-                  0,0,-50,-30,-30,-30,-30,-30,-30,-50,0,0,
-                  0,0,0,  0,  0,  0,  0,  0,  0,  0,  0,0,
-                  0,0,0,  0,  0,  0,  0,  0,  0,  0,  0,0];
+var WKING_PST2 =   [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0, -50, -40, -30, -20, -20, -30, -40, -50,   0,   0,
+                    0,   0, -30, -20, -10,   0,   0, -10, -20, -30,   0,   0,
+                    0,   0, -30, -10,  20,  30,  30,  20, -10, -30,   0,   0,
+                    0,   0, -30, -10,  30,  40,  40,  30, -10, -30,   0,   0,
+                    0,   0, -30, -10,  30,  40,  40,  30, -10, -30,   0,   0,
+                    0,   0, -30, -10,  20,  30,  30,  20, -10, -30,   0,   0,
+                    0,   0, -30, -30,   0,   0,   0,   0, -30, -30,   0,   0,
+                    0,   0, -50, -30, -30, -30, -30, -30, -30, -50,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
-function pst2Black (from,to) {
+function _pst2Black (from,to) {
   for (var i=0; i < 12; i++) {
     var frbase = i*12;
     var tobase = (11-i)*12;
@@ -690,18 +348,18 @@ var BQUEEN_PST  = Array(144);
 var BKING_PST   = Array(144);
 var BKING_PST2  = Array(144);
 
-pst2Black(WPAWN_PST,   BPAWN_PST);
-pst2Black(WPAWN_PST2,  BPAWN_PST2);
-pst2Black(WKNIGHT_PST, BKNIGHT_PST);
-pst2Black(WBISHOP_PST, BBISHOP_PST);
-pst2Black(WROOK_PST,   BROOK_PST);
-pst2Black(WQUEEN_PST,  BQUEEN_PST);
-pst2Black(WKING_PST,   BKING_PST);
-pst2Black(WKING_PST2,  BKING_PST2);
+_pst2Black(WPAWN_PST,   BPAWN_PST);
+_pst2Black(WPAWN_PST2,  BPAWN_PST2);
+_pst2Black(WKNIGHT_PST, BKNIGHT_PST);
+_pst2Black(WBISHOP_PST, BBISHOP_PST);
+_pst2Black(WROOK_PST,   BROOK_PST);
+_pst2Black(WQUEEN_PST,  BQUEEN_PST);
+_pst2Black(WKING_PST,   BKING_PST);
+_pst2Black(WKING_PST2,  BKING_PST2);
 
-var WS_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST];
-var WE_PST = [NULL_PST, WPAWN_PST2,  WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2];
-var WM_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2];
+var WS_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST];  // opening eval.
+var WE_PST = [NULL_PST, WPAWN_PST2,  WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2]; // end game eval.
+var WM_PST = [NULL_PST, WPAWN_PST,   WKNIGHT_PST, WBISHOP_PST, WROOK_PST, WQUEEN_PST, WKING_PST2]; // move ordering.
 
 var BS_PST = [NULL_PST, BPAWN_PST,   BKNIGHT_PST, BBISHOP_PST, BROOK_PST, BQUEEN_PST, BKING_PST];
 var BE_PST = [NULL_PST, BPAWN_PST2,  BKNIGHT_PST, BBISHOP_PST, BROOK_PST, BQUEEN_PST, BKING_PST2];
@@ -757,11 +415,58 @@ var FILE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
+var MAP = [];
+
+MAP['p'] = B_PAWN;
+MAP['n'] = B_KNIGHT;
+MAP['b'] = B_BISHOP;
+MAP['r'] = B_ROOK;
+MAP['q'] = B_QUEEN;
+MAP['k'] = B_KING;
+MAP['P'] = W_PAWN;
+MAP['N'] = W_KNIGHT;
+MAP['B'] = W_BISHOP;
+MAP['R'] = W_ROOK;
+MAP['Q'] = W_QUEEN;
+MAP['K'] = W_KING;
+
 //}}}
 
 //{{{  lozChess class
 
 //{{{  lozChess
+//
+//   node[0]
+//     .root            =  true;
+//     .ply             =  0
+//     .parentNode      => NULL
+//     .grandParentNode => NULL
+//     .childNode       => node[1];
+//
+//   node[1]
+//     .root            =  false;
+//     .ply             =  1
+//     .parentNode      => node[0]
+//     .grandParentNode => NULL
+//     .childNode       => node[2];
+//
+//  ...
+//
+//   node[n]
+//     .root            =  false;
+//     .ply             =  n
+//     .parentNode      => node[n-1]
+//     .grandParentNode => node[n-2] | NULL
+//     .childNode       => node[n+1] | NULL
+//
+//   etc
+//
+//  Search starts at node[0] with a depth spec.  In Lozza "depth" is the depth to
+//  search and can jump around all over the place with extensions and reductions,
+//  "ply" is the distance from the root.  Killers are stored in nodes because they
+//  need to be ply based not depth based.  The .grandParentNode pointer can be used
+//  to easily look up killers for the previous move of the same colour.
+//
 
 function lozChess () {
 
@@ -769,13 +474,10 @@ function lozChess () {
 
   var parentNode = null;
   for (var i=0; i < this.nodes.length; i++) {
-    this.nodes[i] = new lozNode(parentNode);
-    this.nodes[i].ply = i;
-    parentNode = this.nodes[i];
-    if (i == 0)
-      this.nodes[i].root = true;
-    else
-      this.nodes[i].root = false;
+    this.nodes[i]      = new lozNode(parentNode);
+    this.nodes[i].ply  = i;                     // distance to root node for mate etc.
+    parentNode         = this.nodes[i];
+    this.nodes[i].root = i == 0;
   }
 
   this.board = new lozBoard();
@@ -783,10 +485,12 @@ function lozChess () {
   this.uci   = new lozUCI();
   this.test  = new lozTest();
 
-  this.log = {};
   this.pos = {};
 
   this.rootNode = this.nodes[0];
+
+  for (var i=0; i < this.nodes.length; i++)
+    this.nodes[i].board = this.board;
 
   return this;
 }
@@ -796,19 +500,8 @@ function lozChess () {
 
 lozChess.prototype.init = function () {
 
-  this.log = {};
-
-  this.log.ttHits     = 0;
-  this.log.ttMisses   = 0;
-  this.log.ttCollide  = 0;
-  this.log.zwHits     = 0;
-  this.log.zwMisses   = 0;
-  this.log.killMisses = 0;
-  this.log.killHits   = 0;
-
-  for (var i=0; i < this.nodes.length; i++) {
+  for (var i=0; i < this.nodes.length; i++)
     this.nodes[i].init();
-  }
 
   this.board.init();
   this.stats.init();
@@ -830,7 +523,7 @@ lozChess.prototype.initFromPosition = function () {
 
   this.init();
 
-  var board = lozza.board;
+  var board = this.board;
 
   board.id = this.pos.id;
 
@@ -866,80 +559,64 @@ lozChess.prototype.initFromPosition = function () {
   //}}}
   //{{{  board board
   
-  var map = [];
-  
-  map['p'] = B_PAWN;
-  map['n'] = B_KNIGHT;
-  map['b'] = B_BISHOP;
-  map['r'] = B_ROOK;
-  map['q'] = B_QUEEN;
-  map['k'] = B_KING;
-  map['P'] = W_PAWN;
-  map['N'] = W_KNIGHT;
-  map['B'] = W_BISHOP;
-  map['R'] = W_ROOK;
-  map['Q'] = W_QUEEN;
-  map['K'] = W_KING;
-  
-  board.b = [EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
-             EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
-             EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-             EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-             EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-             EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-             EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-             EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-             EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-             EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
-             EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
-             EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE];
-  
   board.phase = TPHASE;
   
-  var i = 0;
+  var sq = 0;
+  var nw = 0;
+  var nb = 0;
+  
   for (var j=0; j < this.pos.board.length; j++) {
+  
     var ch  = this.pos.board.charAt(j);
     var chn = parseInt(ch);
-    while (board.b[i] == EDGE)
-      i++;
+  
+    while (board.b[sq] == EDGE)
+      sq++;
+  
     if (isNaN(chn)) {
+  
       if (ch != '/') {
   
-        board.b[i] = map[ch];
-  
-        var obj   = board.b[i];
+        var obj   = MAP[ch];
         var piece = obj & PIECE_MASK;
         var col   = obj & COLOR_MASK;
   
         if (col == WHITE) {
+          board.wList[nw] = sq;
+          board.b[sq]     = obj;
+          board.z[sq]     = nw;
+          nw++;
           board.wCounts[piece]++;
           board.wCount++;
         }
+  
         else {
+          board.bList[nb] = sq;
+          board.b[sq]     = obj;
+          board.z[sq]     = nb;
+          nb++;
           board.bCounts[piece]++;
           board.bCount++;
         }
   
-        board.loHash ^= board.loPieces[col>>>3][piece-1][i];
-        board.hiHash ^= board.hiPieces[col>>>3][piece-1][i];
+        board.loHash ^= board.loPieces[col>>>3][piece-1][sq];
+        board.hiHash ^= board.hiPieces[col>>>3][piece-1][sq];
   
         board.phase -= VPHASE[piece];
   
-        if (obj == W_KING)
-          board.rights |= i << BLACK;
-        if (obj == B_KING)
-          board.rights |= i << BLACK*2;
-  
-        i++;
+        sq++;
       }
     }
+  
     else {
+  
       for (var k=0; k < chn; k++) {
-        board.b[i] = 0;
-        i++;
+        board.b[sq] = NULL;
+        sq++;
       }
     }
   }
+  
   
   //}}}
   //{{{  board ep
@@ -954,35 +631,57 @@ lozChess.prototype.initFromPosition = function () {
   
   //}}}
 
-  //{{{  init evals
+  //{{{  init running evals
   
   board.runningEvalS = 0;
   board.runningEvalE = 0;
   
-  for (var sq8=0; sq8 < 64; sq8++) {
+  var next  = 0;
+  var count = 0;
   
-    var sq = B88[sq8];
-    var p  = board.b[sq];
+  while (count < board.wCount) {
   
-    if (p == NULL)
+    sq = board.wList[next];
+  
+    if (!sq) {
+      next++;
       continue;
-  
-    var pCol  = p & COLOR_MASK;
-    var pType = p & PIECE_MASK;
-  
-    if (pCol == WHITE) {
-      board.runningEvalS += VALUE_VECTOR[pType];
-      board.runningEvalS += WS_PST[pType][sq];
-      board.runningEvalE += VALUE_VECTOR[pType];
-      board.runningEvalE += WE_PST[pType][sq];
     }
-    else {
-      board.runningEvalS -= VALUE_VECTOR[pType];
-      board.runningEvalS -= BS_PST[pType][sq];
-      board.runningEvalE -= VALUE_VECTOR[pType];
-      board.runningEvalE -= BE_PST[pType][sq];
-    }
+  
+    var piece = board.b[sq] & PIECE_MASK;
+  
+    board.runningEvalS += VALUE_VECTOR[piece];
+    board.runningEvalS += WS_PST[piece][sq];
+    board.runningEvalE += VALUE_VECTOR[piece];
+    board.runningEvalE += WE_PST[piece][sq];
+  
+    count++;
+    next++
   }
+  
+  var next  = 0;
+  var count = 0;
+  
+  while (count < board.bCount) {
+  
+    sq = board.bList[next];
+  
+    if (!sq) {
+      next++;
+      continue;
+    }
+  
+    var piece = board.b[sq] & PIECE_MASK;
+  
+    board.runningEvalS -= VALUE_VECTOR[piece];
+    board.runningEvalS -= BS_PST[piece][sq];
+    board.runningEvalE -= VALUE_VECTOR[piece];
+    board.runningEvalE -= BE_PST[piece][sq];
+  
+    count++;
+    next++
+  }
+  
   
   //}}}
 
@@ -990,6 +689,73 @@ lozChess.prototype.initFromPosition = function () {
     this.playMove(this.pos.moves[i], board.turn);
     board.turn = ~board.turn & COLOR_MASK;
   }
+
+  //{{{  compact white list
+  
+  var v = [];
+  
+  for (var i=0; i<16; i++) {
+    if (board.wList[i])
+      v.push(board.wList[i]);
+  }
+  
+  v.sort(function(a,b) {
+    return lozza.board.b[b] - lozza.board.b[a];
+  });
+  
+  for (var i=0; i<16; i++) {
+    if (i < v.length) {
+      board.wList[i] = v[i];
+      board.z[v[i]]  = i;
+    }
+    else
+      board.wList[i] = 0;
+  }
+  
+  /*
+  console.log('WHITE LIST ' + v.length);
+  for (var i=0; i<board.wCount; i++) {
+    console.log(board.b[board.wList[i]]);
+  }
+  */
+  
+  if (board.b[board.wList[0]] != W_KING)
+    console.log('WHITE INDEX ERR');
+  
+  //}}}
+  //{{{  compact black list
+  
+  var v = [];
+  
+  for (var i=0; i<16; i++) {
+    if (board.bList[i])
+      v.push(board.bList[i]);
+  }
+  
+  v.sort(function(a,b) {
+    return lozza.board.b[b] - lozza.board.b[a];
+  });
+  
+  for (var i=0; i<16; i++) {
+    if (i < v.length) {
+      board.bList[i] = v[i];
+      board.z[v[i]]  = i;
+    }
+    else
+      board.bList[i] = 0;
+  }
+  
+  /*
+  console.log('BLACK LIST ' + v.length);
+  for (var i=0; i<board.bCount; i++) {
+    console.log(board.b[board.bList[i]]);
+  }
+  */
+  
+  if (board.b[board.bList[0]] != B_KING)
+    console.log('BLACK INDEX ERR');
+  
+  //}}}
 }
 
 //}}}
@@ -997,7 +763,7 @@ lozChess.prototype.initFromPosition = function () {
 
 lozChess.prototype.id = function (id) {
 
-  lozza.board.id = id;
+  this.board.id = id;
 }
 
 //}}}
@@ -1073,10 +839,10 @@ lozChess.prototype.go = function(spec) {
       
       alpha = -INFINITY;
       beta  = INFINITY;
-      asp   = ASP_MAX * 10;
+      asp   = ASP_MAX * 10;          //  don't do shrinking any more.
       
       if (this.stats.moveTime)
-        this.stats.moveTime += 250;
+        this.stats.moveTime += 250;  // add some time because of the research.
       
       continue;
       
@@ -1090,7 +856,7 @@ lozChess.prototype.go = function(spec) {
     alpha = score - asp;
     beta  = score + asp;
 
-    asp -= ASP_DELTA;
+    asp -= ASP_DELTA;       //  shrink the window.
     if (asp < ASP_MIN)
       asp = ASP_MIN;
 
@@ -1101,18 +867,9 @@ lozChess.prototype.go = function(spec) {
 
   //{{{  show dev logs
   
-  var l = this.log;
+  board.evaluate(board.turn);
   
-  //this.uci.debug (board.id,'depth',ply,'TT','hits',l.ttHits,'misses',l.ttMisses,'hit rate',l.ttHits/(l.ttMisses+l.ttHits),'collisions',l.ttCollide/(l.ttMisses+l.ttHits));
-  //this.uci.debug (board.id,'depth',ply,'ZW','hits',l.zwHits,'misses',l.zwMisses,'research rate',l.zwMisses/(l.zwHits+l.zwMisses));
-  //this.uci.debug (board.id,'depth',ply,'KILL','hits',l.killHits,'misses',l.killMisses,'hit rate',l.killHits/(l.killHits+l.killMisses));
-  
-  //board.evaluate(board.turn);
-  
-  //var wBP = board.wCounts[BISHOP];
-  //var bBP = board.bCounts[BISHOP];
-  
-  //this.uci.debug (board.id,'depth',ply,'PHASE',board.gPhase,wBP,bBP,board.wCount,board.bCount);
+  this.uci.debug (board.id,'depth',ply,'PHASE',board.gPhase);
   
   //}}}
 
@@ -1152,7 +909,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
   var bestMove       = 0;
   var score          = 0;
   var bestScore      = -INFINITY;
-  var inCheck        = board.isAttacked((board.rights >>> turn+BLACK) & 0xFF, nextTurn);
+  var inCheck        = board.isKingAttacked(nextTurn);
   var R              = 0;
   var givesCheck     = 0;
   var alphaMate      = (alpha <= -MINMATE && alpha >= -MATE) || (alpha >= MINMATE && alpha <= MATE);
@@ -1171,13 +928,13 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
 
   while (move = node.getNextMove()) {
 
-    board.makeMove(move);
+    board.makeMove(node,move);
 
     //{{{  legal?
     
-    if (move != node.hashMove && board.isAttacked((board.rights >>> turn+BLACK) & 0xFF, nextTurn)) {
+    if (move != node.hashMove && board.isKingAttacked(nextTurn)) {
     
-      board.unmakeMove(move);
+      board.unmakeMove(node,move);
     
       node.uncache();
     
@@ -1205,7 +962,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     
     if (doLMR && !alphaMate && lmrs > 10) {
     
-      givesCheck = board.isAttacked((board.rights >>> nextTurn+BLACK) & 0xFF, turn);
+      givesCheck = board.isKingAttacked(turn);
     
       if (!givesCheck) {
         R = 1;
@@ -1221,16 +978,13 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     else {
       score = -this.alphabeta(node.childNode, depth-R-1, nextTurn, -alpha-1, -alpha);
       if (!this.stats.timeOut && score > alpha) {
-        this.log.zwMisses++;
         score = -this.alphabeta(node.childNode, depth-1, nextTurn, -beta, -alpha);
       }
-      else
-        this.log.zwHits++;
     }
 
     //{{{  unmake move
     
-    board.unmakeMove(move);
+    board.unmakeMove(node,move);
     
     node.uncache();
     
@@ -1243,7 +997,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     if (score > bestScore) {
       if (score > alpha) {
         if (score >= beta) {
-          node.addKiller(depth, score, move);
+          node.addKiller(score, move);
           board.ttPut(TT_BETA, depth, score, move, node.ply);
           return score;
         }
@@ -1274,9 +1028,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     }
   }
 
-  if (numLegalMoves == 1) {
-    this.stats.timeOut = 1;
-  }
+  if (numLegalMoves == 1)
+    this.stats.timeOut = 1;  // only one legal move so don't waste any more time.
 
   if (bestScore > oAlpha) {
     board.ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply);
@@ -1339,20 +1092,19 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
   
   for (var i=board.repHi-5; i >= board.repLo; i -= 2) {
   
-    if (board.rep[i][0] == board.loHash && board.rep[i][1] == board.hiHash) {
+    if (board.repLoHash[i] == board.loHash && board.repHiHash[i] == board.hiHash)
       return CONTEMPT;
-    }
   }
   
   //}}}
 
   var nextTurn = ~turn & COLOR_MASK;
   var score    = 0;
-  var inCheck  = board.isAttacked((board.rights >>> turn+BLACK) & 0xFF, nextTurn);
+  var inCheck  = board.isKingAttacked(nextTurn);
 
   if (inCheck) {
     depth += 1;
-    if (depth <= 0)
+    if (depth <= 0)  // don't go into QS in check.
       depth = 1;
   }
 
@@ -1453,13 +1205,13 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
 
   while (move = node.getNextMove()) {
 
-    board.makeMove(move);
+    board.makeMove(node,move);
 
     //{{{  legal?
     
-    if (move != node.hashMove && board.isAttacked((board.rights >>> turn+BLACK) & 0xFF, nextTurn)) {
+    if (move != node.hashMove && board.isKingAttacked(nextTurn)) {
     
-      board.unmakeMove(move);
+      board.unmakeMove(node,move);
     
       node.uncache();
     
@@ -1476,11 +1228,11 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
     
     if (futility && !alphaMate && !(pvNode && numLegalMoves == 1) && !(move & KEEPER_MASK)) {
     
-      givesCheck = board.isAttacked((board.rights >>> nextTurn+BLACK) & 0xFF, turn);
+      givesCheck = board.isKingAttacked(turn);
     
       if (!givesCheck) {
     
-        board.unmakeMove(move);
+        board.unmakeMove(node,move);
     
         node.uncache();
     
@@ -1499,7 +1251,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
     if (doLMR && !alphaMate && lmrs > 5) {
     
       if (givesCheck == undefined)
-        givesCheck = board.isAttacked((board.rights >>> nextTurn+BLACK) & 0xFF, turn);
+        givesCheck = board.isKingAttacked(turn);
     
       if (!givesCheck) {
         R = 1;
@@ -1516,11 +1268,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
       else {
         score = -this.alphabeta(node.childNode, depth-R-1, nextTurn, -alpha-1, -alpha);
         if (!this.stats.timeOut && score > alpha) {
-          this.log.zwMisses++;
           score = -this.alphabeta(node.childNode, depth-1, nextTurn, -beta, -alpha);
         }
-        else
-          this.log.zwHits++;
       }
     }
     else {
@@ -1531,7 +1280,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
 
     //{{{  unmake move
     
-    board.unmakeMove(move);
+    board.unmakeMove(node,move);
     
     node.uncache();
     
@@ -1543,7 +1292,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
     if (score > bestScore) {
       if (score > alpha) {
         if (score >= beta) {
-          node.addKiller(depth, score, move);
+          node.addKiller(score, move);
           board.ttPut(TT_BETA, depth, score, move, node.ply);
           return score;
         }
@@ -1619,13 +1368,13 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
   while (move = node.getNextMove()) {
 
-    board.makeMove(move);
+    board.makeMove(node,move);
 
     //{{{  legal?
     
-    if (board.isAttacked((board.rights >>> turn+BLACK) & 0xFF, nextTurn)) {
+    if (board.isKingAttacked(nextTurn)) {
     
-      board.unmakeMove(move);
+      board.unmakeMove(node,move);
     
       node.uncache();
     
@@ -1637,7 +1386,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
     
     if (phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
     
-      board.unmakeMove(move);
+      board.unmakeMove(node,move);
     
       node.uncache();
     
@@ -1650,7 +1399,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
     //{{{  unmake move
     
-    board.unmakeMove(move);
+    board.unmakeMove(node,move);
     
     node.uncache();
     
@@ -1674,14 +1423,14 @@ lozChess.prototype.playMove = function (moveStr, turn) {
 
   var board = this.board;
   var move  = 0;
-  var node  = lozza.rootNode;
+  var node  = this.rootNode;
 
   board.genMoves(node, turn);
 
   while (move = node.getNextMove()) {
 
     if (moveStr == board.formatMove(move)) {
-      board.makeMove(move);
+      board.makeMove(node,move);
       return;
     }
   }
@@ -1697,19 +1446,19 @@ lozChess.prototype.getPVStr = function(node) {
   if (!node)
     return '';
 
-  var board = lozza.board;
+  var board = this.board;
   var move  = board.ttGetMove(node);
 
   if (!move)
     return '';
 
   node.cache();
-  board.makeMove(move);
+  board.makeMove(node,move);
 
   var mv = board.formatMove(move);
   var pv = ' ' + this.getPVStr(node.childNode);
 
-  board.unmakeMove(move);
+  board.unmakeMove(node,move);
   node.uncache();
 
   if (pv.indexOf(' ' + mv + ' ') === -1)
@@ -1728,9 +1477,12 @@ lozChess.prototype.getPVStr = function(node) {
 
 function lozBoard () {
 
-  this.b = [];
+  this.b     = Array(144);     // pieces.
+  this.z     = Array(144);     // indexes to w|bList.
+  this.wList = Array(16);      // list of squares with white pieces.
+  this.bList = Array(16);      // list of squares with black pieces.
 
-  this.runningEvalS = 0;  // these are all caches across make/unmakeMove.
+  this.runningEvalS = 0;  // these are all cached across make/unmakeMove.
   this.runningEvalE = 0;
   this.rights       = 0;
   this.ep           = 0;
@@ -1739,8 +1491,8 @@ function lozBoard () {
   this.loHash       = 0;
   this.hiHash       = 0;
 
-  this.ttSize = 1 << 24;
-  this.ttMask = this.ttSize - 1;
+  this.ttSize = 1 << 24;          // tt size.
+  this.ttMask = this.ttSize - 1;  // mask to index tt.
 
   // use separate typed arrays to save space.  optimiser probably has a go anyway but better
   // to be explicit at the expense of some conversion.  total width is 16 bytes.
@@ -1799,7 +1551,7 @@ function lozBoard () {
   //{{{  EP
   
   this.loEP = Array(144);
-  this.hiEP = Array(1444);
+  this.hiEP = Array(144);
   
   for (var i=0; i < 144; i++) {
     this.loEP[i] = this.rand32();
@@ -1808,9 +1560,13 @@ function lozBoard () {
   
   //}}}
 
-  this.rep = Array(2000);
-  for (var i=0; i < 2000; i++)
-    this.rep[i] = [0,0]; // lo/hi hash.
+  this.repLoHash = Array(1000);
+  for (var i=0; i < 1000; i++)
+    this.repLoHash[i] = 0;
+
+  this.repHiHash = Array(1000);
+  for (var i=0; i < 1000; i++)
+    this.repHiHash[i] = 0;
 
   this.phase   = 0;
   this.gPhase  = 0;
@@ -1827,14 +1583,40 @@ function lozBoard () {
 
 lozBoard.prototype.init = function () {
 
+  this.b = [EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
+            EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
+            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
+            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
+            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
+            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
+            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
+            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
+            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
+            EDGE,EDGE,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,EDGE,EDGE,
+            EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,
+            EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE,EDGE];
+
+  this.z = [NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,
+            NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z,NO_Z];
+
   this.loHash = 0;
   this.hiHash = 0;
 
   this.repLo  = 0;
   this.repHi  = 0;
 
-  this.phase   = 0;
-  this.gPhase  = 0;
+  this.phase  = TPHASE;
+  this.gPhase = 0;
 
   this.wCounts = [0,0,0,0,0,0,0];
   this.bCounts = [0,0,0,0,0,0,0];
@@ -1842,7 +1624,8 @@ lozBoard.prototype.init = function () {
   this.wCount = 0;
   this.bCount = 0;
 
-  //this.ttInit();
+  this.wList = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+  this.bList = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 }
 
 //}}}
@@ -1865,6 +1648,8 @@ lozBoard.prototype.genMoves = function(node, turn) {
     var pHomeRank    = 2;
     var pPromoteRank = 8;
     var rights       = this.rights & WHITE_RIGHTS;
+    var pList        = this.wList;
+    var pCount       = this.wCount;
   
     if (rights) {
   
@@ -1884,6 +1669,8 @@ lozBoard.prototype.genMoves = function(node, turn) {
     var pHomeRank    = 7;
     var pPromoteRank = 1;
     var rights       = this.rights & BLACK_RIGHTS;
+    var pList        = this.bList;
+    var pCount       = this.bCount;
   
     if (rights) {
   
@@ -1897,14 +1684,18 @@ lozBoard.prototype.genMoves = function(node, turn) {
   
   //}}}
 
-  for (var sq=0; sq<64; sq++) {
+  var next  = 0;
+  var count = 0;
 
-    var fr      = B88[sq];
-    var frObj   = b[fr];
+  while (count < pCount) {
 
-    if (frObj == NULL || turn != (frObj & COLOR_MASK))
+    var fr = pList[next];
+    if (!fr) {
+      next++;
       continue;
+    }
 
+    var frObj   = this.b[fr];
     var frPiece = frObj & PIECE_MASK;
     var frMove  = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
 
@@ -1998,15 +1789,19 @@ lozBoard.prototype.genMoves = function(node, turn) {
       
       //}}}
     }
+
+    next++;
+    count++
   }
 }
 
 //}}}
 //{{{  .makeMove
 
-lozBoard.prototype.makeMove = function (move) {
+lozBoard.prototype.makeMove = function (node,move) {
 
   var b = this.b;
+  var z = this.z;
 
   var fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
   var to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
@@ -2021,6 +1816,12 @@ lozBoard.prototype.makeMove = function (move) {
   b[fr] = NULL;
   b[to] = frObj;
   
+  node.frZ = z[fr];
+  node.toZ = z[to];
+  
+  z[fr] = NO_Z;
+  z[to] = node.frZ;
+  
   this.loHash ^= this.loPieces[frColI][frPiece-1][fr];
   this.hiHash ^= this.hiPieces[frColI][frPiece-1][fr];
   
@@ -2028,6 +1829,9 @@ lozBoard.prototype.makeMove = function (move) {
   this.hiHash ^= this.hiPieces[frColI][frPiece-1][to];
   
   if (frCol == WHITE) {
+  
+    this.wList[node.frZ] = to;
+  
     this.runningEvalS -= WS_PST[frPiece][fr];
     this.runningEvalS += WS_PST[frPiece][to];
     this.runningEvalE -= WE_PST[frPiece][fr];
@@ -2035,10 +1839,41 @@ lozBoard.prototype.makeMove = function (move) {
   }
   
   else {
+  
+    this.bList[node.frZ] = to;
+  
     this.runningEvalS += BS_PST[frPiece][fr];
     this.runningEvalS -= BS_PST[frPiece][to];
     this.runningEvalE += BE_PST[frPiece][fr];
     this.runningEvalE -= BE_PST[frPiece][to];
+  }
+  
+  //}}}
+  //{{{  clear rights?
+  //
+  // don't be tempted to split this up into black and white
+  // without considering the to == clauses.
+  //
+  
+  if (this.rights & ALL_RIGHTS) {
+  
+    this.loHash ^= this.loRights[this.rights & ALL_RIGHTS];
+    this.hiHash ^= this.hiRights[this.rights & ALL_RIGHTS];
+  
+    if (frObj == W_KING || (frObj == W_ROOK && fr == H1) || to == H1)
+      this.rights &= ~WHITE_RIGHTS_KING;
+  
+    if (frObj == W_KING || (frObj == W_ROOK && fr == A1) || to == A1)
+      this.rights &= ~WHITE_RIGHTS_QUEEN;
+  
+    if (frObj == B_KING || (frObj == B_ROOK && fr == H8) || to == H8)
+      this.rights &= ~BLACK_RIGHTS_KING;
+  
+    if (frObj == B_KING || (frObj == B_ROOK && fr == A8) || to == A8)
+      this.rights &= ~BLACK_RIGHTS_QUEEN;
+  
+    this.loHash ^= this.loRights[this.rights & ALL_RIGHTS];
+    this.hiHash ^= this.hiRights[this.rights & ALL_RIGHTS];
   }
   
   //}}}
@@ -2057,6 +1892,8 @@ lozBoard.prototype.makeMove = function (move) {
   
     if (toCol == WHITE) {
   
+      this.wList[node.toZ] = 0;
+  
       this.runningEvalS -= VALUE_VECTOR[toPiece];
       this.runningEvalS -= WS_PST[toPiece][to];
       this.runningEvalE -= VALUE_VECTOR[toPiece];
@@ -2068,6 +1905,8 @@ lozBoard.prototype.makeMove = function (move) {
   
     else {
   
+      this.bList[node.toZ] = 0;
+  
       this.runningEvalS += VALUE_VECTOR[toPiece];
       this.runningEvalS += BS_PST[toPiece][to];
       this.runningEvalE += VALUE_VECTOR[toPiece];
@@ -2077,37 +1916,6 @@ lozBoard.prototype.makeMove = function (move) {
       this.bCount--;
     }
   }
-  
-  //}}}
-  //{{{  clear rights?
-  
-  this.loHash ^= this.loRights[this.rights & ALL_RIGHTS];
-  this.hiHash ^= this.hiRights[this.rights & ALL_RIGHTS];
-  
-  if (frPiece == KING) {
-    this.rights &= ~((WHITE_RIGHTS << (frCol >>> 2)) | (0xFF << frCol+8));
-    this.rights |= to << frCol+8;
-  }
-  
-  
-  if (this.rights & ALL_RIGHTS) {
-  
-    if ((frObj == W_ROOK && fr == H1) || to == H1)
-      this.rights &= ~WHITE_RIGHTS_KING;
-  
-    if ((frObj == W_ROOK && fr == A1) || to == A1)
-      this.rights &= ~WHITE_RIGHTS_QUEEN;
-  
-    if ((frObj == B_ROOK && fr == H8) || to == H8)
-      this.rights &= ~BLACK_RIGHTS_KING;
-  
-    if ((frObj == B_ROOK && fr == A8) || to == A8)
-      this.rights &= ~BLACK_RIGHTS_QUEEN;
-  
-  }
-  
-  this.loHash ^= this.loRights[this.rights & ALL_RIGHTS];
-  this.hiHash ^= this.hiRights[this.rights & ALL_RIGHTS];
   
   //}}}
   //{{{  reset EP
@@ -2127,12 +1935,14 @@ lozBoard.prototype.makeMove = function (move) {
     
     if (frCol == WHITE) {
     
+      var ep = to + 12;
+    
       if (move & MOVE_EPMAKE_MASK) {
     
         this.loHash ^= this.loEP[this.ep];
         this.hiHash ^= this.hiEP[this.ep];
     
-        this.ep = to + 12;
+        this.ep = ep;
     
         this.loHash ^= this.loEP[this.ep];
         this.hiHash ^= this.hiEP[this.ep];
@@ -2140,7 +1950,11 @@ lozBoard.prototype.makeMove = function (move) {
     
       else if (move & MOVE_EPTAKE_MASK) {
     
-        b[to+12] = NULL;
+        b[ep]    = NULL;
+        node.epZ = z[ep];
+        z[ep]    = NO_Z;
+    
+        this.bList[node.epZ] = 0;
     
         this.loHash ^= this.loPieces[1][PAWN-1][to+12];
         this.hiHash ^= this.hiPieces[1][PAWN-1][to+12];
@@ -2185,6 +1999,10 @@ lozBoard.prototype.makeMove = function (move) {
     
         b[H1] = NULL;
         b[F1] = W_ROOK;
+        z[F1] = z[H1];
+        z[H1] = NO_Z;
+    
+        this.wList[z[F1]] = F1;
     
         this.loHash ^= this.loPieces[0][ROOK-1][H1];
         this.hiHash ^= this.hiPieces[0][ROOK-1][H1];
@@ -2203,6 +2021,10 @@ lozBoard.prototype.makeMove = function (move) {
     
         b[A1] = NULL;
         b[D1] = W_ROOK;
+        z[D1] = z[A1];
+        z[A1] = NO_Z;
+    
+        this.wList[z[D1]] = D1;
     
         this.loHash ^= this.loPieces[0][ROOK-1][A1];
         this.hiHash ^= this.hiPieces[0][ROOK-1][A1];
@@ -2220,12 +2042,14 @@ lozBoard.prototype.makeMove = function (move) {
     
     else {
     
+      var ep = to - 12;
+    
       if (move & MOVE_EPMAKE_MASK) {
     
         this.loHash ^= this.loEP[this.ep];
         this.hiHash ^= this.hiEP[this.ep];
     
-        this.ep = to - 12;
+        this.ep = ep;
     
         this.loHash ^= this.loEP[this.ep];
         this.hiHash ^= this.hiEP[this.ep];
@@ -2233,7 +2057,11 @@ lozBoard.prototype.makeMove = function (move) {
     
       else if (move & MOVE_EPTAKE_MASK) {
     
-        b[to-12] = NULL;
+        b[ep]    = NULL;
+        node.epZ = z[ep];
+        z[ep]    = NO_Z;
+    
+        this.wList[node.epZ] = 0;
     
         this.loHash ^= this.loPieces[0][PAWN-1][to-12];
         this.hiHash ^= this.hiPieces[0][PAWN-1][to-12];
@@ -2278,6 +2106,10 @@ lozBoard.prototype.makeMove = function (move) {
     
         b[H8] = NULL;
         b[F8] = B_ROOK;
+        z[F8] = z[H8];
+        z[H8] = NO_Z;
+    
+        this.bList[z[F8]] = F8;
     
         this.loHash ^= this.loPieces[1][ROOK-1][H8];
         this.hiHash ^= this.hiPieces[1][ROOK-1][H8];
@@ -2296,6 +2128,10 @@ lozBoard.prototype.makeMove = function (move) {
     
         b[A8] = NULL;
         b[D8] = B_ROOK;
+        z[D8] = z[A8];
+        z[A8] = NO_Z;
+    
+        this.bList[z[D8]] = D8;
     
         this.loHash ^= this.loPieces[1][ROOK-1][A8];
         this.hiHash ^= this.hiPieces[1][ROOK-1][A8];
@@ -2327,11 +2163,11 @@ lozBoard.prototype.makeMove = function (move) {
   //  repetition is 5 indexes back from the current one and then that
   //  and every other one entry is a possible rep.  Can also check for
   //  50 move rule by testing hi-lo > 100 - it's not perfect because of
-  //  the pawn move reset but it's a type 2 error so safe.
+  //  the pawn move reset but it's a type 2 error, so safe.
   //
   
-  this.rep[this.repHi][0] = this.loHash;
-  this.rep[this.repHi][1] = this.hiHash;
+  this.repLoHash[this.repHi] = this.loHash;
+  this.repHiHash[this.repHi] = this.hiHash;
   
   this.repHi++;
   
@@ -2344,17 +2180,27 @@ lozBoard.prototype.makeMove = function (move) {
 //}}}
 //{{{  .unmakeMove
 
-lozBoard.prototype.unmakeMove = function (move) {
+lozBoard.prototype.unmakeMove = function (node,move) {
 
   var b = this.b;
+  var z = this.z;
 
   var fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
   var to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
   var toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
   var frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  var frCol = frObj & COLOR_MASK;
 
   b[fr] = frObj;
   b[to] = toObj;
+
+  z[fr] = node.frZ;
+  z[to] = node.toZ;
+
+  if (frCol == WHITE)
+    this.wList[node.frZ] = fr;
+  else
+    this.bList[node.frZ] = fr;
 
   //{{{  capture?
   
@@ -2367,11 +2213,15 @@ lozBoard.prototype.unmakeMove = function (move) {
   
     if (toCol == WHITE) {
   
+      this.wList[node.toZ] = to;
+  
       this.wCounts[toPiece]++;
       this.wCount++;
     }
   
     else {
+  
+      this.bList[node.toZ] = to;
   
       this.bCounts[toPiece]++;
       this.bCount++;
@@ -2387,7 +2237,10 @@ lozBoard.prototype.unmakeMove = function (move) {
     
       if (move & MOVE_EPTAKE_MASK) {
     
-        b[to + 12] = B_PAWN;
+        b[to+12] = B_PAWN;
+        z[to+12] = node.epZ;
+    
+        this.bList[node.epZ] = to+12;
     
         this.bCounts[PAWN]++;
         this.bCount++;
@@ -2407,12 +2260,20 @@ lozBoard.prototype.unmakeMove = function (move) {
     
         b[H1] = W_ROOK;
         b[F1] = NULL;
+        z[H1] = z[F1];
+        z[F1] = NO_Z;
+    
+        this.wList[z[H1]] = H1;
       }
     
       else if (move == MOVE_E1C1) {
     
         b[A1] = W_ROOK;
         b[D1] = NULL;
+        z[A1] = z[D1];
+        z[D1] = NO_Z;
+    
+        this.wList[z[A1]] = A1;
       }
     }
     
@@ -2420,7 +2281,10 @@ lozBoard.prototype.unmakeMove = function (move) {
     
       if (move & MOVE_EPTAKE_MASK) {
     
-        b[to - 12] = W_PAWN;
+        b[to-12] = W_PAWN;
+        z[to-12] = node.epZ;
+    
+        this.wList[node.epZ] = to-12;
     
         this.wCounts[PAWN]++;
         this.wCount++;
@@ -2440,12 +2304,20 @@ lozBoard.prototype.unmakeMove = function (move) {
     
         b[H8] = B_ROOK;
         b[F8] = NULL;
+        z[H8] = z[F8];
+        z[F8] = NO_Z;
+    
+        this.bList[z[H8]] = H8;
       }
     
       else if (move == MOVE_E8C8) {
     
         b[A8] = B_ROOK;
         b[D8] = NULL;
+        z[A8] = z[D8];
+        z[D8] = NO_Z;
+    
+        this.bList[z[A8]] = A8;
       }
     }
     
@@ -2470,6 +2342,8 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     var pOffsetDiag1 = WP_OFFSET_DIAG1;
     var pOffsetDiag2 = WP_OFFSET_DIAG2;
     var pPromoteRank = 8;
+    var pList        = this.wList;
+    var pCount       = this.wCount;
   }
   
   else {
@@ -2477,18 +2351,24 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     var pOffsetDiag1 = BP_OFFSET_DIAG1;
     var pOffsetDiag2 = BP_OFFSET_DIAG2;
     var pPromoteRank = 1;
+    var pList        = this.bList;
+    var pCount       = this.bCount;
   }
   
   //}}}
 
-  for (var sq=0; sq<64; sq++) {
+  var next  = 0;
+  var count = 0;
 
-    var fr      = B88[sq];
-    var frObj   = b[fr];
+  while (count < pCount) {
 
-    if (frObj == NULL || turn != (frObj & COLOR_MASK))
+    var fr = pList[next];
+    if (!fr) {
+      next++;
       continue;
+    }
 
+    var frObj   = b[fr];
     var frPiece = frObj & PIECE_MASK;
     var frMove  = (frObj << MOVE_FROBJ_BITS) | (fr << MOVE_FR_BITS);
 
@@ -2559,7 +2439,94 @@ lozBoard.prototype.genQMoves = function(node, turn) {
       
       //}}}
     }
+
+    next++;
+    count++;
   }
+}
+
+//}}}
+//{{{  .isKingAttacked
+
+lozBoard.prototype.isKingAttacked = function(byCol) {
+
+  var b  = this.b;
+  var to = (byCol == WHITE) ? this.bList[0] : this.wList[0];  // king is always at index 0.
+
+  //{{{  queen, bishop, rook
+  
+  var offsets = QUEEN_OFFSETS;
+  var len     = offsets.length;
+  var cwtch   = 0;
+  
+  for (var dir=len; dir--;) {
+  
+    var offset = offsets[dir];
+  
+    for (var slide=1; slide<=8; slide++) {
+  
+      var frObj = b[to + slide*offset];
+  
+      if (frObj == NULL)
+        continue;
+  
+      if ((frObj == EDGE) || (frObj & COLOR_MASK) != byCol) {
+        cwtch++;
+        break;
+      }
+  
+      var frPiece = frObj & PIECE_MASK;
+  
+      if (frPiece == QUEEN || dir <= 3 && frPiece == BISHOP || dir > 3  && frPiece == ROOK)
+        return frObj;
+  
+      break;
+    }
+  }
+  
+  //}}}
+  //{{{  knights
+  
+  var attacker = KNIGHT | byCol;
+  
+  if (b[to + -10] == attacker) return attacker;
+  if (b[to + -23] == attacker) return attacker;
+  if (b[to + -14] == attacker) return attacker;
+  if (b[to + -25] == attacker) return attacker;
+  if (b[to +  10] == attacker) return attacker;
+  if (b[to +  23] == attacker) return attacker;
+  if (b[to +  14] == attacker) return attacker;
+  if (b[to +  25] == attacker) return attacker;
+  
+  //}}}
+
+  if (cwtch == 8)  // this can be used towards king safety?
+    return 0;
+
+  //{{{  pawns
+  
+  if (byCol == BLACK && b[to + WP_OFFSET_DIAG1] == B_PAWN) return B_PAWN;
+  if (byCol == BLACK && b[to + WP_OFFSET_DIAG2] == B_PAWN) return B_PAWN;
+  if (byCol == WHITE && b[to + BP_OFFSET_DIAG1] == W_PAWN) return W_PAWN;
+  if (byCol == WHITE && b[to + BP_OFFSET_DIAG2] == W_PAWN) return W_PAWN;
+  
+  //}}}
+  //{{{  kings
+  
+  var attacker = KING | byCol;
+  
+  if (b[to + -11] == attacker) return attacker;
+  if (b[to + -13] == attacker) return attacker;
+  if (b[to + -12] == attacker) return attacker;
+  if (b[to + -1 ] == attacker) return attacker;
+  if (b[to +  11] == attacker) return attacker;
+  if (b[to +  13] == attacker) return attacker;
+  if (b[to +  12] == attacker) return attacker;
+  if (b[to +  1 ] == attacker) return attacker;
+  
+  //}}}
+
+  return 0;
 }
 
 //}}}
@@ -2799,14 +2766,12 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply) {
 
 lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
 
-  var log   = lozza.log;
   var idx   = this.loHash & this.ttMask;
   var type  = this.ttType[idx];
 
   node.hashMove = 0;
 
   if (type == TT_EMPTY) {
-    log.ttMisses++;
     return undefined;
   }
 
@@ -2814,8 +2779,6 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
   var hi = this.ttHi[idx];
 
   if (lo != this.loHash || hi != this.hiHash) {
-    log.ttMisses++;
-    log.ttCollide++;
     return undefined;
   }
 
@@ -2827,7 +2790,6 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
   node.hashMove = this.ttMove[idx];
 
   if (this.ttDepth[idx] < depth) {
-    log.ttMisses++;
     return undefined;
   }
 
@@ -2840,21 +2802,17 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
     score -= node.ply;
 
   if (type == TT_EXACT) {
-    log.ttHits++;
     return score;
    }
 
   if (type == TT_ALPHA && score <= alpha) {
-    log.ttHits++;
     return score;
   }
 
   if (type == TT_BETA && score >= beta) {
-    log.ttHits++;
     return score;
   }
 
-  log.ttMisses++;
   return undefined;
 }
 
@@ -2903,12 +2861,11 @@ lozBoard.prototype.check = function (turn) {
   loHash ^= this.loEP[this.ep];
   hiHash ^= this.hiEP[this.ep];
 
-  for (var sq88=0; sq88<64; sq88++) {
+  for (var sq=0; sq<144; sq++) {
 
-    var sq  = B88[sq88];
     var obj = this.b[sq];
 
-    if (obj == NULL)
+    if (obj == NULL || obj == EDGE)
       continue;
 
     var piece = obj & PIECE_MASK;
@@ -2935,36 +2892,31 @@ lozBoard.prototype.check = function (turn) {
 
 function lozNode (parentNode) {
 
-  this.ply        = 0;
-  this.root       = false;
-  this.inCheck    = 0;
-
-  this.hashMove   = 0;
-
+  this.ply        = 0;          //  distance from root.
+  this.root       = false;      //  only treir for the root node node[0].
+  this.hashMove   = 0;          //  loaded when we look up the tt.
   this.killer1    = 0;
   this.killer2    = 0;
   this.mateKiller = 0;
-
-  this.childNode  = null;
-  this.parentNode = parentNode;
+  this.childNode  = null;       //  pointer to next node (towards leaf) in tree.
+  this.parentNode = parentNode; //  pointer previous node (towards root) in tree.
 
   if (parentNode) {
     this.grandparentNode = parentNode.parentNode;
     parentNode.childNode = this;
   }
-  else {
+  else
     this.grandparentNode = null;
-  }
 
-  this.numMoves    = 0;
-  this.sortedIndex = 0;
-  this.base        = 0;
+  this.numMoves    = 0;         //  number of pseudo-legal moves for this node.
+  this.sortedIndex = 0;         //  index to next selection-sorted pseudo-legal move.
+  this.base        = 0;         //  move type base (e.g. good capture) - can be used for LMR.
 
   this.moves = Array(MAX_MOVES);
   for (var i=0; i < this.moves.length; i++)
-    this.moves[i] = [0,0];  // [0] = priority, [1] = move.
+    this.moves[i] = [0,0];      // [0] = priority, [1] = move.
 
-  this.C_runningEvalS = 0;
+  this.C_runningEvalS = 0;      // cached before move generation and restored after each unmakeMove.
   this.C_runningEvalE = 0;
   this.C_rights       = 0;
   this.C_ep           = 0;
@@ -2972,14 +2924,22 @@ function lozNode (parentNode) {
   this.C_repHi        = 0;
   this.C_loHash       = 0;
   this.C_hiHash       = 0;
+
+  this.toZ = 0;                 // move to square index (captures) to piece list - cached during make|unmakeMove.
+  this.frZ = 0;                 // move from square index to piece list          - ditto.
+  this.epZ = 0;                 // captured ep pawn index to piece list          - ditto.
 }
 
 //}}}
 //{{{  .cache
+//
+// We cache the board before move generation (those elements not done in unmakeMove)
+// and restore after each unmakeMove.
+//
 
 lozNode.prototype.cache = function() {
 
-  var board = lozza.board;
+  var board = this.board;
 
   this.C_runningEvalS = board.runningEvalS;
   this.C_runningEvalE = board.runningEvalE
@@ -2996,7 +2956,7 @@ lozNode.prototype.cache = function() {
 
 lozNode.prototype.uncache = function() {
 
-  var board = lozza.board;
+  var board = this.board;
 
   board.runningEvalS   = this.C_runningEvalS;
   board.runningEvalE   = this.C_runningEvalE;
@@ -3020,11 +2980,9 @@ lozNode.prototype.init = function() {
   this.killer1      = 0;
   this.killer2      = 0;
   this.mateKiller   = 0;
-
-  this.numMoves     = 0;  // pseudo-legal.
-  this.sortedIndex  = 0;  // the number of moves we've extracted using a simple selection sort.
-
-  this.hashMove     = 0;  // inserted when the TT is probed.
+  this.numMoves     = 0;
+  this.sortedIndex  = 0;
+  this.hashMove     = 0;
   this.base         = 0;
 }
 
@@ -3148,7 +3106,7 @@ lozNode.prototype.addMove = function (move) {
   }
 
   else {
-    var board = lozza.board;
+    var board = this.board;
 
     var to      = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
     var fr      = (move & MOVE_FR_MASK)    >>> MOVE_FR_BITS;
@@ -3222,7 +3180,7 @@ lozNode.prototype.addQPromotion = function (move) {
 //}}}
 //{{{  .addKiller
 
-lozNode.prototype.addKiller = function (depth, score, move) {
+lozNode.prototype.addKiller = function (score, move) {
 
   if (move == this.hashMove)
     return;
@@ -3240,8 +3198,6 @@ lozNode.prototype.addKiller = function (depth, score, move) {
   }
 
   if (score >= MINMATE && score <= MATE) {
-    if (this.mateKiller == move)
-      lozza.log.killHits++;
     this.mateKiller = move;
     if (this.killer1 == move)
       this.killer1 = 0;
@@ -3251,11 +3207,8 @@ lozNode.prototype.addKiller = function (depth, score, move) {
   }
 
   if (this.killer1 == move || this.killer2 == move) {
-    lozza.log.killHits++;
     return;
   }
-
-  lozza.log.killMisses++;
 
   if (this.killer1 == 0) {
     this.killer1 = move;
@@ -3360,8 +3313,6 @@ function lozTest () {
 
 lozTest.prototype.perft = function (spec) {
 
-  lozza.initFromPosition();
-
   lozza.stats.ply = spec.depth;
 
   var moves = this.perftSearch(lozza.rootNode, spec.depth, lozza.board.turn, spec.inner);
@@ -3401,13 +3352,13 @@ lozTest.prototype.perftSearch = function (node, depth, turn, inner) {
 
   while (move = node.getNextMove()) {
 
-    board.makeMove(move);
+    board.makeMove(node,move);
 
     //{{{  legal?
     
-    if (board.isAttacked((board.rights >>> turn+BLACK) & 0xFF, nextTurn)) {
+    if (board.isKingAttacked(nextTurn)) {
     
-       board.unmakeMove(move);
+       board.unmakeMove(node,move);
     
        node.uncache();
     
@@ -3424,7 +3375,7 @@ lozTest.prototype.perftSearch = function (node, depth, turn, inner) {
 
     //{{{  unmake move
     
-    board.unmakeMove(move);
+    board.unmakeMove(node,move);
     
     node.uncache();
     
