@@ -11,9 +11,8 @@ Lozza is a hand-coded Javascript UCI chess engine that can be eaisly be deployed
 This can be done using a batch file and full path names are recommended.
 ```
 "C:\Program Files\nodejs\node.exe "c:\path\to\lozza.js"
-
 ``` 
-Then use the batch file to load Lozza into the user interface. Email me if you get any problems ```op12no2@gmail.com``` or PM ```@xyzzy``` on discord.
+Then use the batch file to load Lozza into the user interface. Email me if you get any problems ```op12no2@gmail.com```.
 
 ## Basic use in a browser
 
