@@ -1,9 +1,13 @@
 
-var VERSION = '1.0';
+var VERSION = '1.1';
 
 //{{{  history
-
 /*
+
+16/07/14 v1.1
+
+20/07/14 50 move draw rule.
+17/07/14 Add K+B|N v K+B|N as insufficient material in eval.
 
 16/07/14 v1.0
 
@@ -418,7 +422,7 @@ Math.seedrandom('Lozza rules OK');  //always generates the same sequence of PRNs
 //{{{  constants
 
 var MAX_PLY   = 100;                // limited by lozza.board.ttDepth.
-var MAX_MOVES = 100;                // reasonable?
+var MAX_MOVES = 220;
 var INFINITY  = 30000;              // limited by lozza.board.ttScore.
 var MATE      = 20000;
 var MINMATE   = MATE - 2*MAX_PLY;
@@ -453,8 +457,8 @@ var MOVE_PROMOTE_MASK  = 0x10000000;
 var MOVE_PROMAS_MASK   = 0x60000000;  // NBRQ.
 var MOVE_SPARE2_MASK   = 0x80000000;
 
-var MOVE_SPECIAL_MASK  = MOVE_CASTLE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK | MOVE_PROMOTE_MASK; // need extra work in make move.
-var KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility, LMR.
+var MOVE_SPECIAL_MASK  = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_EPMAKE_MASK; // need extra work in make move.
+var KEEPER_MASK        = MOVE_CASTLE_MASK | MOVE_PROMOTE_MASK | MOVE_EPTAKE_MASK | MOVE_TOOBJ_MASK;  // futility.
 
 var NULL   = 0x0;
 var PAWN   = 0x1;
@@ -1254,7 +1258,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         
         if (absScore > MINMATE) {
           var units    = 'mate';
-          var uciScore = Math.floor((MATE - absScore - 3) / 2);
+          var uciScore = Math.floor((MATE - absScore + 1) / 2);
           if (uciScore < 0)
             uciScore = 0;
           if (score < 0)
@@ -1329,6 +1333,9 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
   
   //}}}
   //{{{  check for draws
+  
+  if (board.repHi - board.repLo > 100)
+    return CONTEMPT;
   
   for (var i=board.repHi-5; i >= board.repLo; i -= 2) {
   
@@ -2314,6 +2321,14 @@ lozBoard.prototype.makeMove = function (move) {
   
   //}}}
   //{{{  push rep hash
+  //
+  //  Repetitions are cancelled by pawn moves, castling, captures, EP
+  //  and promotions; i.e. moves that are not reversible.  The nearest
+  //  repetition is 5 indexes back from the current one and then that
+  //  and every other one entry is a possible rep.  Can also check for
+  //  50 move rule by testing hi-lo > 100 - it's not perfect because of
+  //  the pawn move reset but it's a type 2 error so safe.
+  //
   
   this.rep[this.repHi][0] = this.loHash;
   this.rep[this.repHi][1] = this.hiHash;
@@ -2321,7 +2336,7 @@ lozBoard.prototype.makeMove = function (move) {
   this.repHi++;
   
   if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece == PAWN)
-    this.repLo = this.repHi
+    this.repLo = this.repHi;
   
   //}}}
 }
@@ -2691,14 +2706,26 @@ lozBoard.prototype.evaluate = function (turn) {
 
   //this.check(turn);
 
+  //{{{  init
+  
   var numPieces = this.wCount + this.bCount;
-
+  
+  var nwB = this.wCounts[BISHOP];
+  var nwN = this.wCounts[KNIGHT];
+  
+  var nbB = this.bCounts[BISHOP];
+  var nbN = this.bCounts[KNIGHT];
+  
+  //}}}
   //{{{  insufficient material?
   
-  if (numPieces == 2)  // KvK.
+  if (numPieces == 2)                                  // K v K.
     return 0;
   
-  if (numPieces == 3 && (this.wCounts[KNIGHT] || this.bCounts[KNIGHT] || this.wCounts[BISHOP] || this.bCounts[BISHOP]))  // KvN or KvB.
+  if (numPieces == 3 && (nwN || nwB || nbN || nbB))    // K v K+N|B.
+    return 0;
+  
+  if (numPieces == 4 && (nwN || nwB) && (nbN || nbB))  // K+N|B v K+N|B.
     return 0;
   
   //}}}
@@ -2710,12 +2737,12 @@ lozBoard.prototype.evaluate = function (turn) {
 
   //{{{  bishop pair
   
-  if (this.wCounts[BISHOP] >= 2) {
+  if (nwB >= 2) {
     evalS += 50;
     evalE += 50;
   }
   
-  if (this.bCounts[BISHOP] >= 2) {
+  if (nbB >= 2) {
     evalS -= 50;
     evalE -= 50;
   }
@@ -2738,6 +2765,9 @@ lozBoard.prototype.rand32 = function () {
 
 //}}}
 //{{{  .ttPut
+//
+// Always replacing alpha/beta entries is slightly worse then below.
+//
 
 lozBoard.prototype.ttPut = function (type,depth,score,move,ply) {
 
@@ -2851,11 +2881,6 @@ lozBoard.prototype.ttInit = function () {
 
   for (var i=0; i < this.ttType.length; i++) {
     this.ttType[i]  = TT_EMPTY;
-    //this.ttMove[i]  = 0;
-    //this.ttLo[i]    = 0;
-    //this.ttHi[i]    = 0;
-    //this.ttScore[i] = 0;
-    //this.ttDepth[i] = 0;
   }
 }
 
@@ -2910,10 +2935,11 @@ lozBoard.prototype.check = function (turn) {
 
 function lozNode (parentNode) {
 
-  this.ply      = 0;
-  this.root     = false;
+  this.ply        = 0;
+  this.root       = false;
+  this.inCheck    = 0;
 
-  this.hashMove = 0;
+  this.hashMove   = 0;
 
   this.killer1    = 0;
   this.killer2    = 0;
@@ -3757,5 +3783,4 @@ lozza.go(spec);
 */
 
 //}}}
-
 
