@@ -1,8 +1,13 @@
 
-var VERSION = '1.3';
+var VERSION = '1.4';
 
 //{{{  history
 /*
+
+08/08/14 v1.4
+
+08/08/14 Better castling rights update.
+08/08/14 Change futility thresholds.
 
 30/07/14 v1.3
 
@@ -532,7 +537,19 @@ var BLACK_RIGHTS_KING  = 0x00000004;
 var BLACK_RIGHTS_QUEEN = 0x00000008;
 var WHITE_RIGHTS       = WHITE_RIGHTS_QUEEN | WHITE_RIGHTS_KING;
 var BLACK_RIGHTS       = BLACK_RIGHTS_QUEEN | BLACK_RIGHTS_KING;
-var ALL_RIGHTS         = BLACK_RIGHTS | WHITE_RIGHTS;
+
+var MASK_RIGHTS = [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, ~8, 15, 15, 15, ~12,15, 15, ~4, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, ~2, 15, 15, 15, ~3, 15, 15, ~1, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                   15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15];
 
 var WP_OFFSET_ORTH  = -12;
 var WP_OFFSET_DIAG1 = -13;
@@ -900,8 +917,8 @@ lozChess.prototype.initFromPosition = function () {
     if (ch == 'q') board.rights |= BLACK_RIGHTS_QUEEN;
   }
   
-  board.loHash ^= board.loRights[board.rights & ALL_RIGHTS];
-  board.hiHash ^= board.hiRights[board.rights & ALL_RIGHTS];
+  board.loHash ^= board.loRights[board.rights];
+  board.hiHash ^= board.hiRights[board.rights];
   
   //}}}
   //{{{  board board
@@ -1530,7 +1547,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK)
   var bestMove       = 0;
   var oAlpha         = alpha;
   var alphaMate      = (alpha <= -MINMATE && alpha >= -MATE) || (alpha >= MINMATE && alpha <= MATE);
-  var futility       = !inCheck && (standPat + 10 + depth*40 < alpha);
+  var futility       = !inCheck && (standPat + 10 + depth*70 < alpha);
   var numLegalMoves  = 0;
   var givesCheck     = undefined;
   var lmrs           = 0;
@@ -2194,30 +2211,16 @@ lozBoard.prototype.makeMove = function (node,move) {
   
   //}}}
   //{{{  clear rights?
-  //
-  // don't be tempted to split this up into black and white
-  // without considering the to == clauses.
-  //
   
-  if (this.rights & ALL_RIGHTS) {
+  if (this.rights) {
   
-    this.loHash ^= this.loRights[this.rights & ALL_RIGHTS];
-    this.hiHash ^= this.hiRights[this.rights & ALL_RIGHTS];
+    this.loHash ^= this.loRights[this.rights];
+    this.hiHash ^= this.hiRights[this.rights];
   
-    if (frObj == W_KING || (frObj == W_ROOK && fr == H1) || to == H1)
-      this.rights &= ~WHITE_RIGHTS_KING;
+    this.rights &= MASK_RIGHTS[fr] & MASK_RIGHTS[to];
   
-    if (frObj == W_KING || (frObj == W_ROOK && fr == A1) || to == A1)
-      this.rights &= ~WHITE_RIGHTS_QUEEN;
-  
-    if (frObj == B_KING || (frObj == B_ROOK && fr == H8) || to == H8)
-      this.rights &= ~BLACK_RIGHTS_KING;
-  
-    if (frObj == B_KING || (frObj == B_ROOK && fr == A8) || to == A8)
-      this.rights &= ~BLACK_RIGHTS_QUEEN;
-  
-    this.loHash ^= this.loRights[this.rights & ALL_RIGHTS];
-    this.hiHash ^= this.hiRights[this.rights & ALL_RIGHTS];
+    this.loHash ^= this.loRights[this.rights];
+    this.hiHash ^= this.hiRights[this.rights];
   }
   
   //}}}
@@ -3199,8 +3202,8 @@ lozBoard.prototype.check = function (turn) {
     hiHash ^= this.hiTurn;
   }
 
-  loHash ^= this.loRights[this.rights & ALL_RIGHTS];
-  hiHash ^= this.hiRights[this.rights & ALL_RIGHTS];
+  loHash ^= this.loRights[this.rights];
+  hiHash ^= this.hiRights[this.rights];
 
   loHash ^= this.loEP[this.ep];
   hiHash ^= this.hiEP[this.ep];
@@ -4053,30 +4056,4 @@ else {
   __jsUCI = true;
   postMessage('info string jsUCI detected');
 }
-
-//{{{  for use with node.js
-
-/*
-
-var spec = {};
-
-spec.board  = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
-spec.turn   = 'w';
-spec.rights = 'KQkq';
-spec.ep     = '-';
-spec.hmc    = 0;
-spec.fmc    = 1;
-spec.id     = 'node test';
-spec.moves = [];
-
-lozza.position(spec);
-
-spec.depth = 12;
-
-lozza.go(spec);
-
-*/
-
-//}}}
-
 
