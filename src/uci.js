@@ -90,6 +90,11 @@ function uciExecLine(line) {
       break;
     }
 
+    case 'et': {
+      evalTests();
+      break;
+    }
+
     case 'dt': {
       drawTests();
       break;

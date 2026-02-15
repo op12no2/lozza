@@ -13,13 +13,13 @@ cat \
   src/iterate.js \
   src/perft.js \
   src/tc.js \
+  src/net.js \
   src/eval.js \
   src/pv.js \
   src/search.js \
   src/qsearch.js \
   src/go.js \
   src/bench.js \
-  src/tune.js \
   src/uci.js \
   src/main.js > lozza.js
   

@@ -1,8 +1,8 @@
 initNodes();
-initPST();
 initZobrist();
 initQpth();
 initLMR();
+initWeights();
 
 const nodeHost = typeof process !== 'undefined' && process.versions?.node;
 
