@@ -1,27 +1,34 @@
 cat \
-  src/z_weights.js \
-  src/a_glob.js \
+  src/const.js \
+  src/weights.js \
   src/utils.js \
-  src/data.js \
-  src/tt.js \
-  src/nodes.js \
-  src/board.js \
-  src/draw.js \
-  src/makemove.js \
-  src/debug.js \
-  src/movegen.js \
-  src/history.js \
+  src/node.js \
   src/iterate.js \
-  src/perft.js \
-  src/tc.js \
-  src/net.js \
-  src/eval.js \
-  src/pv.js \
+  src/go.js \
   src/search.js \
   src/qsearch.js \
-  src/go.js \
-  src/bench.js \
+  src/perft.js \
+  src/pv.js \
+  src/net.js \
+  src/fen.js \
+  src/board.js \
+  src/makemove.js \
+  src/tt.js \
+  src/position.js \
+  src/genmoves.js \
+  src/attacks.js \
+  src/eval.js \
+  src/history.js \
+  src/see.js \
+  src/draw.js \
+  src/fen.js \
+  src/debug.js \
+  src/tc.js \
+  src/data.js \
+  src/tests.js \
   src/uci.js \
-  src/main.js > lozza.js
+  src/init.js \
+  src/main.js \
+    > lozza.js
   
 node lozza uci # check syntax
