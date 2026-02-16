@@ -36,3 +36,21 @@ function checkHash() {
 
 }
 
+function checkAccs(node) {
+
+  const tmp = {acc1: new Int16Array(NET_H1), acc2: new Int16Array(NET_H1)};
+  netSlowRebuild(tmp);
+
+  for (let i = 0; i < NET_H1; i++) {
+    if (node.acc1[i] !== tmp.acc1[i]) {
+      uciSend('info string ACC1 MISMATCH i=' + i + ' got ' + node.acc1[i] + ' expected ' + tmp.acc1[i]);
+      return;
+    }
+    if (node.acc2[i] !== tmp.acc2[i]) {
+      uciSend('info string ACC2 MISMATCH i=' + i + ' got ' + node.acc2[i] + ' expected ' + tmp.acc2[i]);
+      return;
+    }
+  }
+
+}
+

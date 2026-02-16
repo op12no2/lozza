@@ -102,7 +102,7 @@ function uciExecLine(line) {
 
     case 'eval':
     case 'e': {
-      uciSend('eval ' + evaluate());
+      uciSend('eval ' + evaluate(rootNode));
       break;
     }
 

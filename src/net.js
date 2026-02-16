@@ -1,5 +1,5 @@
 
-const NET_H1 = 384;
+const NET_H1 = 256;
 const NET_I = 768;
 const NET_QA = 255;
 const NET_QB = 64;
@@ -12,37 +12,46 @@ const net_h1_b = new Int16Array(NET_H1);
 const net_o_w  = new Int32Array(NET_H1 * 2);
 let net_o_b    = 0;
 
-const net_acc1 = new Int16Array(NET_H1);
-const net_acc2 = new Int16Array(NET_H1);
-
 // lozza piece code -> cwtch net piece index (0-11)
 // WPAWN=1->0, WKNIGHT=2->1, WBISHOP=3->2, WROOK=4->3, WQUEEN=5->4, WKING=6->5
 // BPAWN=9->6, BKNIGHT=10->7, BBISHOP=11->8, BROOK=12->9, BQUEEN=13->10, BKING=14->11
 const NET_PIECE = [0, 0, 1, 2, 3, 4, 5, 0, 0, 6, 7, 8, 9, 10, 11];
 
+const net_base = new Int32Array(15 * 128);
+
 function sq88to64(sq) {
   return (sq >> 4) * 8 + (sq & 7);
 }
 
-function net_base(piece, sq88) {
-  return ((NET_PIECE[piece] << 6) | sq88to64(sq88)) * NET_H1;
+function initNetBase() {
+  for (let piece = 1; piece <= 14; piece++) {
+    for (let sq = 0; sq < 128; sq++) {
+      if (sq & 0x88) continue;
+      net_base[piece * 128 + sq] = ((NET_PIECE[piece] << 6) | sq88to64(sq)) * NET_H1;
+    }
+  }
+}
+
+function getWeightsBuffer() {
+
+  if (typeof Buffer !== 'undefined' && Buffer.from)
+    return Buffer.from(WEIGHTS_B64, 'base64');
+
+  const binStr = atob(WEIGHTS_B64);
+  const bytes  = new Uint8Array(binStr.length);
+  for (let i = 0; i < binStr.length; i++)
+    bytes[i] = binStr.charCodeAt(i);
+  return bytes;
 }
 
 function initWeights() {
 
-  if (typeof process === 'undefined')
-    return;
-
-  const fs   = require('fs');
-  const path = require('path');
-
-  const netPath = path.join(__dirname, 'nets', 'bullet384.bin');
-  const buf     = fs.readFileSync(netPath);
-  const dv      = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  const buf = getWeightsBuffer();
+  const dv  = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
 
   let off = 0;
 
-  // h1 input weights: 768 * 384 int16 (little-endian)
+  // h1 input weights: 768 * NET_H1_SIZE int16 (little-endian)
 
   const numH1W = NET_I * NET_H1;
 
@@ -64,7 +73,7 @@ function initWeights() {
     net_h2_w[fi] = val;
   }
 
-  // h1 biases: 384 int16
+  // h1 biases: NET_H1_SIZE int16
 
   for (let i = 0; i < NET_H1; i++) {
     net_h1_b[i] = dv.getInt16(off, true);
@@ -83,11 +92,14 @@ function initWeights() {
   net_o_b = dv.getInt16(off, true);
 }
 
-function netSlowRebuild() {
+function netSlowRebuild(node) {
+
+  const a1 = node.acc1;
+  const a2 = node.acc2;
 
   for (let i = 0; i < NET_H1; i++) {
-    net_acc1[i] = net_h1_b[i];
-    net_acc2[i] = net_h1_b[i];
+    a1[i] = net_h1_b[i];
+    a2[i] = net_h1_b[i];
   }
 
   for (let sq = 0; sq < 128; sq++) {
@@ -102,19 +114,19 @@ function netSlowRebuild() {
     if (!piece)
       continue;
 
-    const base = net_base(piece, sq);
+    const base = net_base[piece * 128 + sq];
 
     for (let h = 0; h < NET_H1; h++) {
-      net_acc1[h] += net_h1_w[base + h];
-      net_acc2[h] += net_h2_w[base + h];
+      a1[h] += net_h1_w[base + h];
+      a2[h] += net_h2_w[base + h];
     }
   }
 }
 
-function netEval() {
+function netEval(node) {
 
-  const a1 = g_stm === WHITE ? net_acc1 : net_acc2;
-  const a2 = g_stm === WHITE ? net_acc2 : net_acc1;
+  const a1 = g_stm === WHITE ? node.acc1 : node.acc2;
+  const a2 = g_stm === WHITE ? node.acc2 : node.acc1;
 
   const w1 = 0;
   const w2 = NET_H1;
@@ -133,6 +145,106 @@ function netEval() {
   acc = Math.trunc(acc / NET_QAB);
 
   return acc;
+
+}
+
+function netCopyAccs(src, dst) {
+  dst.acc1.set(src.acc1);
+  dst.acc2.set(src.acc2);
+}
+
+function netMove(node, piece, fr, to) {
+
+  const a1 = node.acc1;
+  const a2 = node.acc2;
+
+  const b1 = net_base[piece * 128 + fr];
+  const b2 = net_base[piece * 128 + to];
+
+  for (let i = 0; i < NET_H1; i++) {
+    a1[i] += net_h1_w[b2 + i] - net_h1_w[b1 + i];
+    a2[i] += net_h2_w[b2 + i] - net_h2_w[b1 + i];
+  }
+
+}
+
+function netCapture(node, frPiece, fr, capPiece, to) {
+
+  const a1 = node.acc1;
+  const a2 = node.acc2;
+
+  const b1 = net_base[frPiece * 128 + fr];
+  const b2 = net_base[capPiece * 128 + to];
+  const b3 = net_base[frPiece * 128 + to];
+
+  for (let i = 0; i < NET_H1; i++) {
+    a1[i] += net_h1_w[b3 + i] - net_h1_w[b2 + i] - net_h1_w[b1 + i];
+    a2[i] += net_h2_w[b3 + i] - net_h2_w[b2 + i] - net_h2_w[b1 + i];
+  }
+
+}
+
+function netEpCapture(node, frPawn, fr, to, capPawn, capSq) {
+
+  const a1 = node.acc1;
+  const a2 = node.acc2;
+
+  const b1 = net_base[frPawn * 128 + fr];
+  const b2 = net_base[frPawn * 128 + to];
+  const b3 = net_base[capPawn * 128 + capSq];
+
+  for (let i = 0; i < NET_H1; i++) {
+    a1[i] += net_h1_w[b2 + i] - net_h1_w[b1 + i] - net_h1_w[b3 + i];
+    a2[i] += net_h2_w[b2 + i] - net_h2_w[b1 + i] - net_h2_w[b3 + i];
+  }
+
+}
+
+function netCastle(node, kingPiece, kingFr, kingTo, rookPiece, rookFr, rookTo) {
+
+  const a1 = node.acc1;
+  const a2 = node.acc2;
+
+  const b1 = net_base[kingPiece * 128 + kingFr];
+  const b2 = net_base[kingPiece * 128 + kingTo];
+  const b3 = net_base[rookPiece * 128 + rookFr];
+  const b4 = net_base[rookPiece * 128 + rookTo];
+
+  for (let i = 0; i < NET_H1; i++) {
+    a1[i] += net_h1_w[b2 + i] - net_h1_w[b1 + i] + net_h1_w[b4 + i] - net_h1_w[b3 + i];
+    a2[i] += net_h2_w[b2 + i] - net_h2_w[b1 + i] + net_h2_w[b4 + i] - net_h2_w[b3 + i];
+  }
+
+}
+
+function netPromoPush(node, pawnPiece, fr, to, promPiece) {
+
+  const a1 = node.acc1;
+  const a2 = node.acc2;
+
+  const b1 = net_base[pawnPiece * 128 + fr];
+  const b2 = net_base[promPiece * 128 + to];
+
+  for (let i = 0; i < NET_H1; i++) {
+    a1[i] += net_h1_w[b2 + i] - net_h1_w[b1 + i];
+    a2[i] += net_h2_w[b2 + i] - net_h2_w[b1 + i];
+  }
+
+}
+
+function netPromoCap(node, pawnPiece, fr, to, capPiece, promPiece) {
+
+  const a1 = node.acc1;
+  const a2 = node.acc2;
+
+  const b1 = net_base[pawnPiece * 128 + fr];
+  const b2 = net_base[promPiece * 128 + to];
+  const b3 = net_base[capPiece * 128 + to];
+
+  for (let i = 0; i < NET_H1; i++) {
+    a1[i] += net_h1_w[b2 + i] - net_h1_w[b1 + i] - net_h1_w[b3 + i];
+    a2[i] += net_h2_w[b2 + i] - net_h2_w[b1 + i] - net_h2_w[b3 + i];
+  }
 
 }
 

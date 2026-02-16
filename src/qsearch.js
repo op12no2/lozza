@@ -8,9 +8,10 @@ function qsearch(ply, depth, alpha, beta) {
   }
 
   if (ply >= MAX_PLY)
-    return evaluate();
+    return evaluate(g_ss[ply - 1]);
 
-  const node = g_ss[ply]; 
+  const node = g_ss[ply];
+  const cNode = ply <= MAX_PLY - 2 ? g_ss[ply + 1] : 0;
   node.pvLen = 0;
 
   if (isDraw()) {
@@ -31,7 +32,7 @@ function qsearch(ply, depth, alpha, beta) {
   const nstm = stm ^ BLACK;
   const kix = (stm >>> 3) * 17 + 1;
   const inCheck = ttix >= 0 ? (g_ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
-  const ev = ttix >= 0 ? g_ttEval[ttix] : evaluate();
+  const ev = ttix >= 0 ? g_ttEval[ttix] : evaluate(node);
   const ttMove = ttix >= 0 && isProbablyLegal(g_ttMove[ttix]) && (inCheck || (g_ttMove[ttix] & MOVE_FLAG_NOISY)) ? g_ttMove[ttix] : 0;
 
   let bestScore = -INF;
@@ -62,7 +63,9 @@ function qsearch(ply, depth, alpha, beta) {
         continue;
     }
 
-    make(node, move);
+    if (cNode)
+      netCopyAccs(node, cNode);
+    make(node, move, cNode);
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
       continue;

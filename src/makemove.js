@@ -1,4 +1,4 @@
-function make(node, move) {
+function make(node, move, cNode) {
 
   const b = g_board;
   const pl = g_pieces;
@@ -49,7 +49,13 @@ function make(node, move) {
 
     if (move & MOVE_FLAG_PROMOTE) {
 
+      const promPiece = (move >> PROMOTE_SHIFT) | stm;
+
       if (move & MOVE_FLAG_CAPTURE) {
+
+        if (cNode)
+          netPromoCap(cNode, b[fr], fr, to, b[to], promPiece);
+
         g_loHash ^= g_loPieces[b[to]][to];
         g_hiHash ^= g_hiPieces[b[to]][to];
         const capIdx = px[to];
@@ -61,6 +67,10 @@ function make(node, move) {
         node.undoCaptured = b[to];
         node.undoCapIdx = capIdx;
       }
+      else {
+        if (cNode)
+          netPromoPush(cNode, b[fr], fr, to, promPiece);
+      }
 
       g_loHash ^= g_loPieces[b[fr]][fr];
       g_hiHash ^= g_hiPieces[b[fr]][fr];
@@ -69,7 +79,6 @@ function make(node, move) {
       pl[stmBase + idx] = to;
       px[to] = idx;
 
-      const promPiece = (move >> PROMOTE_SHIFT) | stm;
       g_loHash ^= g_loPieces[promPiece][to];
       g_hiHash ^= g_hiPieces[promPiece][to];
 
@@ -82,6 +91,9 @@ function make(node, move) {
     if (move & MOVE_FLAG_EPCAPTURE) {
 
       const capSq = to - 16 + (stm << 2);
+
+      if (cNode)
+        netEpCapture(cNode, b[fr], fr, to, b[capSq], capSq);
 
       g_loHash ^= g_loPieces[b[capSq]][capSq];
       g_hiHash ^= g_hiPieces[b[capSq]][capSq];
@@ -111,6 +123,17 @@ function make(node, move) {
     }
 
     // castle
+
+    if (cNode) {
+      let rookFrC, rookToC;
+      if (to & 4) {
+        rookFrC = to + 1; rookToC = to - 1;
+      }
+      else {
+        rookFrC = to - 2; rookToC = to + 1;
+      }
+      netCastle(cNode, b[fr], fr, to, ROOK | stm, rookFrC, rookToC);
+    }
 
     g_loHash ^= g_loPieces[b[fr]][fr];
     g_hiHash ^= g_hiPieces[b[fr]][fr];
@@ -158,6 +181,10 @@ function make(node, move) {
   }
 
   if (move & MOVE_FLAG_CAPTURE) {
+
+    if (cNode)
+      netCapture(cNode, b[fr], fr, b[to], to);
+
     g_loHash ^= g_loPieces[b[to]][to];
     g_hiHash ^= g_hiPieces[b[to]][to];
     const capIdx = px[to];
@@ -168,6 +195,10 @@ function make(node, move) {
     pl[oppBase]--;
     node.undoCaptured = b[to];
     node.undoCapIdx = capIdx;
+  }
+  else {
+    if (cNode)
+      netMove(cNode, b[fr], fr, to);
   }
 
   g_loHash ^= g_loPieces[b[fr]][fr];

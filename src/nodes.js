@@ -18,6 +18,8 @@ function nodeStruct() {
   this.undoLoHash = 0;
   this.undoHiHash = 0;
   this.undoHmClock = 0;
+  this.acc1 = new Int16Array(NET_H1);
+  this.acc2 = new Int16Array(NET_H1);
 
 }
 

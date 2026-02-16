@@ -1,6 +1,6 @@
 function bench() {
 
-  const depth = 6;
+  const depth = 8;
 
   let nodes = 0;
   let start = now();

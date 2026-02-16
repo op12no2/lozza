@@ -1,7 +1,6 @@
-function evaluate() {
+function evaluate(node) {
 
-  netSlowRebuild();
-  return netEval();
+  return netEval(node);
 
 }
 
@@ -13,7 +12,7 @@ function evalTests() {
 
     const fen = BENCHFENS[i];
     uciExecLine('position fen ' + fen);
-    const ev = evaluate();
+    const ev = evaluate(rootNode);
     sum += ev;
     uciSend(ev + ' ' + fen);
 

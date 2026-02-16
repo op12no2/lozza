@@ -163,6 +163,8 @@ function position(boardStr, stmStr, rightsStr, epStr, moves) {
       }
     }
   }
+
+  netSlowRebuild(rootNode);
 }
 
 function printBoard() {

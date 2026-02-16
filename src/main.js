@@ -2,6 +2,7 @@ initNodes();
 initZobrist();
 initQpth();
 initLMR();
+initNetBase();
 initWeights();
 
 const nodeHost = typeof process !== 'undefined' && process.versions?.node;

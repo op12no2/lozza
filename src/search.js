@@ -22,13 +22,13 @@ function search(ply, depth, alpha, beta) {
   }
 
   if (ply >= MAX_PLY)
-    return evaluate();
+    return evaluate(g_ss[ply - 1]);
 
-  const node = g_ss[ply]; 
+  const node = g_ss[ply];
   const cNode = ply <= MAX_PLY - 2 ? g_ss[ply + 1] : 0;
-  
+
   node.pvLen = 0;
-  
+
   // mate distance pruning
   const matingScore = MATE - ply;
   if (matingScore < beta) {
@@ -51,7 +51,7 @@ function search(ply, depth, alpha, beta) {
 
   const isPV = beta !== (alpha + 1);
   const ttix = ttGet();
-  
+
   if (!isPV && ttix >= 0 && g_ttDepth[ttix] >= depth) {
     const type = g_ttType[ttix] & TT_TYPE_MASK;
     const score = getAdjustedScore(ply, g_ttScore[ttix]);
@@ -65,7 +65,7 @@ function search(ply, depth, alpha, beta) {
   const kix = (stm >>> 3) * 17 + 1;
   const origAlpha = alpha;
   const inCheck = ttix >= 0 ? (g_ttType[ttix] & TT_INCHECK) !== 0 : isAttacked(g_pieces[kix], nstm);
-  const ev = ttix >= 0 ? g_ttEval[ttix] : evaluate();
+  const ev = ttix >= 0 ? g_ttEval[ttix] : evaluate(node);
   const ttMove = ttix >= 0 && isProbablyLegal(g_ttMove[ttix]) ? g_ttMove[ttix] : 0;
   const playedMoves = node.playedMoves;
 
@@ -78,20 +78,22 @@ function search(ply, depth, alpha, beta) {
   let bestMove = 0;
   let bestScore = -INF;
   let score = 0;
-  
+
   // beta pruning
   if (!isPV && !inCheck && beta < MATEISH && depth <= 8 && (ev - depth * 100) >= beta)
     return ev;
 
   // null move pruning
   if (!isPV && !inCheck && beta < MATEISH && depth > 2 && ev > beta) {
-  
+
     const R = 3;
-  
+
+    if (cNode)
+      netCopyAccs(node, cNode);
     make_null(node);
     score = -search(ply+1, depth-R-1, -beta, -beta+1);
     unmake_null(node);
-  
+
     if (g_finished)
       return 0;
 
@@ -100,7 +102,7 @@ function search(ply, depth, alpha, beta) {
         score = beta;
       return score;
     }
-  
+
   }
 
   initSearch(node, inCheck, ttMove, 0);
@@ -117,7 +119,9 @@ function search(ply, depth, alpha, beta) {
     if (played && !inCheck && depth <= 1 && !noisy && alpha > -MATEISH && ev + 100 < alpha)
       continue;
 
-    make(node, move);
+    if (cNode)
+      netCopyAccs(node, cNode);
+    make(node, move, cNode);
     if (isAttacked(g_pieces[kix], nstm)) {
       unmake(node, move);
       continue;
@@ -125,7 +129,7 @@ function search(ply, depth, alpha, beta) {
 
     playedMoves[played++] = move;
 
-    // late move reductions 
+    // late move reductions
     let R = 0;
     if (depth >= 3 && played > 3) {
       R = g_lmr[depth][played];
@@ -144,7 +148,7 @@ function search(ply, depth, alpha, beta) {
         score = -search(ply + 1, depth - 1 - R, -alpha - 1, -alpha);
         if (!g_finished && score > alpha)
           score = -search(ply + 1, depth - 1, -beta, -alpha);
-      }  
+      }
     }
     else {
       score = -search(ply + 1, depth - 1 - R, -beta, -alpha);
@@ -164,7 +168,7 @@ function search(ply, depth, alpha, beta) {
         alpha = bestScore;
         if (isPV) {
           collectPV(node, cNode, bestMove);
-        }  
+        }
         if (bestScore >= beta) {
           if (!(bestMove & MOVE_FLAG_NOISY)) {
             const bonus = depth * depth;
@@ -173,12 +177,12 @@ function search(ply, depth, alpha, beta) {
               const pm = playedMoves[i];
               if (!(pm & MOVE_FLAG_NOISY)) {
                 updateQpth(playedMoves[i], -bonus);
-              }  
-            }  
-          }  
+              }
+            }
+          }
           ttPut(TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove, ev, inCheck);
           return bestScore;
-        }  
+        }
       }
     }
   }

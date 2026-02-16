@@ -1,4 +1,5 @@
 cat \
+  src/z_weights.js \
   src/a_glob.js \
   src/utils.js \
   src/data.js \
