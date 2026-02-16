@@ -1,5 +1,3 @@
-// init
-
 const nodeHost = (typeof process) != 'undefined';
 
 if (!nodeHost) {
@@ -9,7 +7,6 @@ if (!nodeHost) {
 }
 
 const fs = (nodeHost) ? require('fs') : 0;
-
 
 let silentMode = 0;
 
@@ -151,7 +148,6 @@ function initOnce () {
 }
 
 initOnce();
-
 
 const rootNode = nodes[0];
 

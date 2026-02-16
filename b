@@ -1,4 +1,5 @@
 cat \
+  src/head.js \
   src/const.js \
   src/weights.js \
   src/utils.js \
@@ -21,7 +22,7 @@ cat \
   src/history.js \
   src/see.js \
   src/draw.js \
-  src/fen.js \
+  src/format.js \
   src/debug.js \
   src/tc.js \
   src/data.js \

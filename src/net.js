@@ -1,7 +1,3 @@
-
-
-// net
-
 const net_h1_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // us
 const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
 const net_h1_b      = new Int32Array(NET_H1_SIZE);
@@ -18,11 +14,6 @@ let ueArgs2 = 0;
 let ueArgs3 = 0;
 let ueArgs4 = 0;
 let ueArgs5 = 0;
-
-// netEval
-//
-// squared relu.
-//
 
 function netEval(turn) {
 
@@ -61,16 +52,10 @@ function netEval(turn) {
 
 }
 
-// netLoad
-
-// getWeightsBuffer
-
 function getWeightsBuffer() {
 
-  if (WEIGHTS_B64 === '')
-    return fs.readFileSync(NET_WEIGHTS_FILE);
-
-  const b64 = WEIGHTS_B64.replace(/\s+/g, "");
+  //const b64 = WEIGHTS_B64.replace(/\s+/g, "");
+  const b64 = WEIGHTS_B64;
 
   if (typeof Buffer !== 'undefined' && Buffer.from) {
     return Buffer.from(b64, 'base64');
@@ -86,7 +71,6 @@ function getWeightsBuffer() {
   return bytes;
 
 }
-
 
 function netLoad () {
 
@@ -124,9 +108,6 @@ function netLoad () {
 
 }
 
-
-// netMove
-
 function netMove () {
 
   const frObj = ueArgs0 << 8;
@@ -150,8 +131,6 @@ function netMove () {
   }
 
 }
-
-// netCapture
 
 function netCapture () {
 
@@ -178,8 +157,6 @@ function netCapture () {
   }
 
 }
-
-// netPromote
 
 function netPromote () {
 
@@ -217,8 +194,6 @@ function netPromote () {
 
 }
 
-// netEpCapture
-
 function netEpCapture () {
 
   const pawnObj        = ueArgs0 << 8;
@@ -245,8 +220,6 @@ function netEpCapture () {
   }
 
 }
-
-// netCastle
 
 function netCastle () {
 
@@ -277,8 +250,6 @@ function netCastle () {
 
 }
 
-
-// flipIndex
 //
 // Slow. Only use during init.
 //
@@ -295,6 +266,7 @@ function flipIndex (index) {
 
 }
 
+//
 // bullet2lozza
 //
 // bullet index 0 is a1. Lozza index 0 is a8.

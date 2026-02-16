@@ -1,8 +1,3 @@
-
-
-
-// stats
-
 let statsStartTime = 0;
 let statsNodes     = 0;
 let statsMoveTime  = 0;

@@ -12,7 +12,7 @@ function bench () {
         
     newGame();
     uciExec('position fen ' + fen);
-    uciExec('go depth ' + 8);
+    uciExec('go depth ' + BENCH_DEPTH);
         
     nodes += statsNodes;
       
@@ -73,25 +73,21 @@ function perftTests (maxDepth) {
 
 function evalTests () {
         
+  let sum = 0;
+
   for (let i=0; i < BENCHFENS.length; i++) {
-        
-    uciSend();
         
     const fen = BENCHFENS[i];
         
     newGame();
     uciExec('position fen ' + fen);
-    uciSend(fen, 'fen')
-    uciExec('e');
-        
-    const flippedFen = flipFen(fen);
-        
-    newGame();
-    uciExec('position fen ' + flippedFen);
-    uciSend(flippedFen, 'flipped fen')
-    uciExec('e');
-        
+    const ev = evaluate(bdTurn);
+    uciSend(ev, fen)
+    sum += ev;
+
   }
+
+  uciSend('sum', sum);
 
 }
 

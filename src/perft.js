@@ -33,11 +33,8 @@ function perft (node, depth, turn) {
     
     }
     
-
     totalNodes += perft(node.childNode, depth-1, nextTurn);
 
-    // unmake move
-    
     unmakeMove(node, move);
     
     bdRights = node.rights;

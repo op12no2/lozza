@@ -264,25 +264,13 @@ function uciExec (commands) {
       case 'perft': 
       case 'f': {
         
-        uciExec('b');
+        const depth = uciGetInt(tokens, cmd, 0);
+        const start = now();
+        const nodes = perft(rootNode, depth, bdTurn);
+        const elapsed = now() - start;
+        const nps = nodes / elapsed * 1000 | 0;
         
-        const depth1 = uciGetInt(tokens, 'depth', 0);
-        const depth2 = uciGetInt(tokens, 'to', depth1);
-        const warm = uciGetInt(tokens, 'warm', 0);
-        
-        for (let w=0; w < warm; w++) {
-          for (let depth=depth1; depth <= depth2; depth++) {
-            const nodes = perft(rootNode, depth, bdTurn);
-          }
-        }
-        
-        for (let depth=depth1; depth <= depth2; depth++) {
-          const start = now();
-          const nodes = perft(rootNode, depth, bdTurn);
-          const elapsed = now() - start;
-          const nps = nodes / elapsed * 1000 | 0;
-          uciSend('depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
-        }
+        uciSend('depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
         
         break;
         
@@ -300,11 +288,11 @@ function uciExec (commands) {
 
       case 'board':
       case 'b': {
-        
-        uciSend(formatFen(bdTurn));
-        
+
+        uciSend(formatBoard(bdTurn));
+
         break;
-        
+
       }
 
       case 'bench': 
@@ -344,28 +332,7 @@ function uciExec (commands) {
         
       }
 
-      case 'moves':
-      case 'm': {
-        
-        initNode(rootNode);
-        
-        rootNode.inCheck = 1;
-        
-        let move = 0;
-        
-        genMoves(rootNode, bdTurn);
-        
-        while(move = getNextMove(rootNode))
-          console.log(formatMove(move));
-        
-        initNode(rootNode);
-        
-        break;
-        
-      }
-
       default: {
-        // ?
         
         uciSend('unknown command', cmd);
         

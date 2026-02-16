@@ -206,7 +206,6 @@ function position (bd, turn, rights, ep, moves) {
   
   }
   
-
   initNode(rootNode);
   objHistory.fill(BASE_HISSLIDE);
 

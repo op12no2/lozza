@@ -1,18 +1,17 @@
-// qsearch
-
 function qSearch (node, depth, turn, alpha, beta) {
 
   // check depth
   
   node.pvLen = 0;
+
+  statsNodes++;
   
   if (node.ply > statsSelDepth)
     statsSelDepth = node.ply;
-  
+
   if (node.childNode === null)
     return evaluate(turn);
   
-
   const nextTurn = turn ^ COLOR_MASK;
 
   if (isDraw() !== 0)
@@ -35,8 +34,6 @@ function qSearch (node, depth, turn, alpha, beta) {
   ttUpdateEval(ev);
   cache(node);
   genQMoves(node, turn);
-
-  statsNodes++;
 
   let numLegalMoves = 0;
   let move          = 0;

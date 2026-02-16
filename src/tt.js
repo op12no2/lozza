@@ -1,5 +1,3 @@
-// tt
-
 let ttDefault = 16;  // mb
 let ttSize    = 1;
 let ttMask    = 0;
@@ -12,12 +10,10 @@ let ttMove  = new Uint32Array(ttSize);
 let ttEval  = new Int16Array(ttSize);
 let ttScore = new Int16Array(ttSize);
 // ===
-const ttWidth =      18;
+const ttWidth = 18;
 // ===
 
 let ttHashUsed = 0;
-
-// ttResize
 
 function ttResize(N_MB) {
 
@@ -45,8 +41,6 @@ function ttResize(N_MB) {
   silentMode = sm;
 
 }
-
-// ttPut
 
 function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
 

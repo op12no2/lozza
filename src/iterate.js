@@ -1,6 +1,3 @@
-
-// getNextMove
-
 function getNextMove (node) {
 
   switch (node.stage) {
@@ -97,8 +94,6 @@ function getNextMove (node) {
   }
 }
 
-// rankSlides
-
 function rankSlides (node) {
 
   for (let i=0; i < node.numMoves2; i++) {
@@ -109,26 +104,22 @@ function rankSlides (node) {
 
     const hisScore = objHistory[(frObj << 8) + to];
 
-    if (hisScore === BASE_HISSLIDE) {
+    //if (hisScore === BASE_HISSLIDE) {
 
-      const fr          = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-      const slideScores = SLIDE_SCORES[frObj];
+      //const fr          = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
+      //const slideScores = SLIDE_SCORES[frObj];
 
-      node.ranks2[i] = BASE_SLIDE + slideScores[to] - slideScores[fr];
+      //node.ranks2[i] = BASE_SLIDE + slideScores[to] - slideScores[fr];
 
-    }
+    //}
 
-    else {
+    //else {
 
       node.ranks2[i] = hisScore;
 
-    }
+    //}
   }
 }
-
-
-
-// addSlide
 
 function addSlide (node, move) {
 
@@ -170,8 +161,6 @@ function addSlide (node, move) {
 
 }
 
-// addCastle
-
 function addCastle (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -212,8 +201,6 @@ function addCastle (node, move) {
   }
 
 }
-
-// addCapture
 
 function addCapture (node, move) {
 
@@ -275,8 +262,6 @@ function addCapture (node, move) {
   }
 }
 
-// addPromotion
-
 function addPromotion (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -319,8 +304,6 @@ function addPromotion (node, move) {
 
 }
 
-// addEPTake
-
 function addEPTake (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -336,8 +319,6 @@ function addEPTake (node, move) {
   }
 
 }
-
-// addQMove
 
 function addQMove (node, move) {
 
@@ -375,8 +356,6 @@ function addQMove (node, move) {
 
 }
 
-// addQPromotion
-
 function addQPromotion (node, move) {
 
   addQMove (node, move | (QUEEN-2)  << MOVE_PROMAS_BITS);
@@ -385,8 +364,6 @@ function addQPromotion (node, move) {
   addQMove (node, move | (KNIGHT-2) << MOVE_PROMAS_BITS);
 
 }
-
-// addKiller
 
 function addKiller (node, score, move) {
 

@@ -1,7 +1,3 @@
-
-
-// rootSearch
-
 function rootSearch (node, depth, turn, alpha, beta) {
 
   // check time
@@ -12,7 +8,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     statsTimeOut = 1;
     return 0;
   }
-  
 
   statsNodes++;
 
@@ -180,7 +175,6 @@ function search (node, depth, turn, alpha, beta) {
   if (node.ply > statsSelDepth)
     statsSelDepth = node.ply;
   
-
   const nextTurn = turn ^ COLOR_MASK;
   const pvNode   = (beta !== (alpha + 1)) | 0;
 
@@ -207,13 +201,14 @@ function search (node, depth, turn, alpha, beta) {
   if (isDraw() !== 0)
     return 0;
   
-
   const inCheck = isKingAttacked(nextTurn);
 
   // horizon
   
   if (inCheck === 0 && depth <= 0)
     return qSearch(node, -1, turn, alpha, beta);
+
+  statsNodes++;
   
   depth = Math.max(depth,0);
   
@@ -332,11 +327,8 @@ function search (node, depth, turn, alpha, beta) {
   
   }
   
-
   ttUpdateEval(ev);
   genMoves(node, turn);
-
-  statsNodes++;
 
   while ((move = getNextMove(node)) !== 0) {
 

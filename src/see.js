@@ -1,6 +1,3 @@
-
-// quickSee
-
 const WB_OFFSET_DIAG1 = new Int8Array([-13, 13]);
 const WB_OFFSET_DIAG2 = new Int8Array([-11, 11]);
 

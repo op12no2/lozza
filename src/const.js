@@ -1,6 +1,6 @@
 const BUILD = "9";
 
-const BENCH_DEPTH      = 12;
+const BENCH_DEPTH = 8;
 
 const INT32_MAX =  2147483647;
 const INT32_MIN = -2147483648;
