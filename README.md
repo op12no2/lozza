@@ -8,6 +8,7 @@ Lozza is a Javascript UCI chess engine that can be easily be deployed using a we
 
 The release you use will depend on your requirements/preferences.
 
+- PST - Hand-coded with PeSTO eval. ~2000 Elo.
 - 2 - Hand-coded HCE. ~2700 Elo.
 - 3 to 9 - Hand-coded NNUE. ~2900 to ~3170 Elo.
 - 10 - Experimental C version. ~3230 Elo. Windows binary.
@@ -62,6 +63,7 @@ A sister repo has more browser-based examples for playing and analysing with Loz
 - https://computerchess.org.uk/ccrl/4040 - CCRL rating list
 - https://backscattering.de/chess/uci - UCI protocol
 - https://talkchess.com - Talkchess forums
+- https://www.chessprogramming.org/PeSTO - PeSTO engine
 
 ## Acknowledgements
 
