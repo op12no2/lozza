@@ -13,10 +13,12 @@
 #include "tt.h"
 #include "see.h"
 #include "debug.h"
+#include "pv.h"
 
 int qsearch(const int ply, int alpha, const int beta) {
 
   Node *node = &nodes[ply];
+  node->pv_len = 0;
   const Position *pos = &node->pos;
 
   //debug_verify(1, node, ply);

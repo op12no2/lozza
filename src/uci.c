@@ -42,7 +42,7 @@ bool uci_exec(char *input) {
   const char *cmd = tokens[0];
 
   if (str_eq(cmd, "uci", "")) {
-    printf("id name %s %s\n", "Lozza", "11");
+    printf("id name %s %s\n", "Lozza", BUILD);
     printf("id author op12no2\n");
     printf("option name Hash type spin default %d min 1 max 1024\n", TT_DEFAULT_MB);
     printf("uciok\n");

@@ -20,8 +20,9 @@ typedef struct {
   int in_check;
   move_t tt_move;
   int stage;
-
-
+  int pv_len;
+  move_t pv[MAX_PLY];
+  
 } Node;
 
 extern Node nodes[MAX_PLY];

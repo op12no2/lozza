@@ -4,6 +4,7 @@
 #include "go.h"
 #include "hh.h"
 #include "history.h"
+#include "report.h"
 
 void go(int silent) {
 
@@ -32,9 +33,6 @@ void go(int silent) {
 
       score = search(0, depth, alpha, beta);
 
-      if (!silent)
-        printf("info depth %d score %d\n", depth, score);
-
       if (tc->finished) {
         break;
       }
@@ -52,6 +50,9 @@ void go(int silent) {
       delta += delta;
 
     }
+
+    if (!silent)
+      report(depth);
 
     if (tc->finished)
       break;

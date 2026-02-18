@@ -17,6 +17,7 @@
 #include "hh.h"
 #include "history.h"
 #include "debug.h"
+#include "pv.h"
 
 static int lmr[MAX_PLY][MAX_PLY];
 
@@ -31,6 +32,7 @@ void init_lmr(void) {
 int search(const int ply, int depth, int alpha, const int beta) {
 
   Node *node = &nodes[ply];
+  node->pv_len = 0;
   const Position *pos = &node->pos;
 
   //debug_verify(1, node, ply);
@@ -199,6 +201,9 @@ int search(const int ply, int depth, int alpha, const int beta) {
         if (is_root) {
           tc->best_move = best_move;
           tc->best_score = best_score;
+        }
+        if (is_pv) {
+          collect_pv(node, next_node, best_move);
         }
         if (score >= beta) {
           if (!(best_move & MOVE_FLAG_CAPTURE)) {
