@@ -1,69 +1,29 @@
 # Lozza
 
-Lozza is a Javascript UCI chess engine that can be easily be deployed using a web worker. It can also be used with traditional chess engine user interfaces via Node.
+Lozza is a UCI chess engine. As a command line program it needs a chess user interface to operate within; e.g. CuteChess, Arena etc.
 
-## Releases
+Releases 2 to 9 were written in Javascript and can be easily deployed in web projects.
 
-- https://github.com/op12no2/lozza/releases
+For release 10 onwards, Lozza was translated into C and is available as a binary.
 
-The release you use will depend on your requirements/preferences.
+## Command extensions
 
-- PST - Hand-coded with PeSTO eval. ~2000 Elo.
-- 2 - Hand-coded HCE. ~2700 Elo.
-- 3 to 9 - Hand-coded NNUE. ~2900 to ~3170 Elo.
-- 10 - Experimental C version. ~3230 Elo. Windows binary.
-- 11 - Not released yet. JS/WASM auto-created from my C chess engine [Cwtch](https://github.com/op12no2/cwtch). ~3250 Elo.
+- quit/q - close Lozza.
+- bench/h - get a node count over a collection of searches.
+- eval/e - display an evaluation for the current position.
+- board/b - display the board for the current position.
+- perft/f _d_ - performs a PERFT search to depth _d_ on the current position.
+- pt [_d_] - perform a set of PERFT searches. If _d_ is present depths greater than _d_ are skipped.
+- et - perform a collection of test evaluations.
 
-## Play Lozza online
-
-- https://op12no2.github.io/lozza-ui
-
-## Play Lozza in chess user interfaces
-
-This can be done using a batch file and full path names are recommended.
-```
-"C:\Program Files\nodejs\node.exe "c:\path\to\lozza.js"
-``` 
-Then use the batch file to load Lozza into the user interface. Email me if you get any problems ```op12no2@gmail.com```.
-
-## Basic use in a browser
-
-All you need is ```lozza.js``` from the latest release.  
-
-Here is a little example to do a 10 ply search:-
-
-```Javascript
-const lozza = new Worker('lozza.js');
-const ucioutput = document.getElementById('ucioutput');
-
-lozza.onmessage = function(e) {
-  ucioutput.textContent += e.data + '\n'; // Lozza reponds with text as per UCI 
-};
-
-lozza.postMessage('uci');
-lozza.postMessage('ucinewgame');
-lozza.postMessage('position startpos');
-lozza.postMessage('go depth 10');
-```
-
-Try this example here:-
-
-- https://op12no2.github.io/lozza-ui/ex.htm
-
-## More examples
-
-A sister repo has more browser-based examples for playing and analysing with Lozza.
-
-- https://github.com/op12no2/lozza-ui
+Commands can be given on the command line, for example: ```./lozza ucinewgame "position startpos" b "go depth 10"```.
 
 ## References
 
-- https://nodejs.org - Node
 - https://www.chessprogramming.org/Main_Page - Chess programming wiki
 - https://computerchess.org.uk/ccrl/4040 - CCRL rating list
 - https://backscattering.de/chess/uci - UCI protocol
 - https://talkchess.com - Talkchess forums
-- https://www.chessprogramming.org/PeSTO - PeSTO engine
 
 ## Acknowledgements
 
