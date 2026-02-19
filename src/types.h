@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define BUILD "113foldfix"
+#define BUILD "11stop"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768

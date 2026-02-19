@@ -14,6 +14,7 @@
 #include "net.h"
 #include "bench.h"
 #include "tt.h"
+#include "input.h"
 
 #define MAX_TOKENS 1024
 
@@ -155,10 +156,9 @@ bool uci_exec(char *input) {
     }
     
     init_tc(wtime, winc, btime, binc, max_nodes, move_time, max_depth, moves_to_go);
+    input_set_searching(1);
     go(0);
-  }
-  
-  else if (str_eq(cmd, "stop", "")) {
+    input_set_searching(0);
   }
   
   else if (str_eq(cmd, "quit", "q")) {

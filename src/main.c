@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "uci.h"
@@ -8,6 +9,7 @@
 #include "zobrist.h"
 #include "search.h"
 #include "see.h"
+#include "input.h"
 
 #define INPUT_BUFFER_SIZE 8192
 
@@ -35,18 +37,14 @@ int main(int argc, char *argv[]) {
   // Otherwise run interactive loop
   char input[INPUT_BUFFER_SIZE];
 
-  while (fgets(input, sizeof(input), stdin)) {
+  input_init();
 
-    size_t len = strlen(input);
-    if (len > 0 && input[len - 1] == '\n') {
-      input[len - 1] = '\0';
-    }
-
+  while (input_get(input, sizeof(input))) {
     if (!uci_exec(input)) {
       break;
     }
   }
 
-  return 0;
+  _Exit(0);
 
 }

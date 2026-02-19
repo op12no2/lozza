@@ -10,7 +10,7 @@ TARGET := $(BIN_DIR)/lozza
 # Compiler settings
 CC := clang
 CFLAGS := -Wall -Wextra -O3 -flto -march=native -MMD -MP
-LDFLAGS := -flto -lm
+LDFLAGS := -flto -lm -lpthread
 
 # Windows cross-compile settings
 WIN_CC := clang --target=x86_64-w64-mingw32 -fuse-ld=lld
@@ -21,7 +21,7 @@ WIN_LDFLAGS := -flto
 
 # Debug settings (for valgrind/gdb)
 DEBUG_CFLAGS := -Wall -Wextra -O1 -g -MMD -MP
-DEBUG_LDFLAGS := -lm
+DEBUG_LDFLAGS := -lm -lpthread
 
 # Find all .c files in source directory
 SRCS := $(wildcard $(SRC_DIR)/*.c)
