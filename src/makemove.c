@@ -129,7 +129,10 @@ void make_move(Node *node, const move_t move) {
       all[from_piece] ^= from_bb ^ to_bb;
       colour[stm] ^= from_bb ^ to_bb;
       hash ^= zob_pieces[from_piece][to];
-      pos->ep = (from + to) >> 1;
+      const int opp_pawn = piece_index(PAWN, opp);
+      const uint64_t adj = ((to_bb & NOT_A_FILE) >> 1) | ((to_bb & NOT_H_FILE) << 1);
+      if (all[opp_pawn] & adj)
+        pos->ep = (from + to) >> 1;
       net_move(node, from_piece, from, to);
     }
 

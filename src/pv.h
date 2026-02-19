@@ -1,14 +1,20 @@
 #ifndef PV_H
 #define PV_H
 
+#include <string.h>
 #include "nodes.h"
 
-inline void collect_pv(Node *const this_node, const Node *const next_node, const move_t move) {
+extern move_t pv_table[MAX_PLY][MAX_PLY];
+extern int pv_len[MAX_PLY];
 
-  memcpy(this_node->pv, next_node->pv, (size_t)next_node->pv_len * sizeof(move_t));
+inline void collect_pv(const int ply, const move_t move) {
 
-  this_node->pv_len                  = next_node->pv_len;
-  this_node->pv[this_node->pv_len++] = move;
+  const int next_ply = ply + 1;
+
+  memcpy(pv_table[ply], pv_table[next_ply], (size_t)pv_len[next_ply] * sizeof(move_t));
+
+  pv_len[ply]  = pv_len[next_ply];
+  pv_table[ply][pv_len[ply]++] = move;
 
 }
 

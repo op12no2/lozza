@@ -76,8 +76,15 @@ void position(Node *node, const char *board_fen, const char *stm_str, const char
 
     int file = ep_str[0] - 'a';
     int rank = ep_str[1] - '1';
+    int ep_sq = rank * 8 + file;
 
-    pos->ep = rank * 8 + file;
+    // only set EP if an enemy pawn can actually capture
+    int cap_pawn = piece_index(PAWN, pos->stm);
+    int pawn_rank_sq = ep_sq + (pos->stm == WHITE ? -8 : 8);
+    uint64_t pawn_bb = 1ULL << pawn_rank_sq;
+    uint64_t adj = ((pawn_bb & NOT_A_FILE) >> 1) | ((pawn_bb & NOT_H_FILE) << 1);
+    if (pos->all[cap_pawn] & adj)
+      pos->ep = ep_sq;
 
   }
 

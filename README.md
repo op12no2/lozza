@@ -9,12 +9,12 @@ For release 10 onwards, Lozza was translated into C and is available as a binary
 ## Command extensions
 
 - quit/q - close Lozza.
-- bench/h - get a node count over a collection of searches.
+- bench/h - get a node count and nps over a collection of searches.
 - eval/e - display an evaluation for the current position.
 - board/b - display the board for the current position.
-- perft/f _d_ - performs a PERFT search to depth _d_ on the current position.
+- perft/f _d_ - performs a PERFT search to depth _d_ on the current position and report nps.
 - pt [_d_] - perform a set of PERFT searches. If _d_ is present depths greater than _d_ are skipped.
-- et - perform a collection of test evaluations.
+- et - perform a collection of test evaluations and display evaluation sum.
 
 Commands can be given on the command line, for example: ```./lozza ucinewgame "position startpos" b "go depth 10"```.
 

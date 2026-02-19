@@ -1,16 +1,16 @@
 #include <stdio.h>
 #include "timecontrol.h"
-#include "nodes.h"
+#include "pv.h"
 
 void report(int depth) {
-    
-  const int pv_len = nodes[0].pv_len;
+
+  const int pvl = pv_len[0];
   int next_pv_char = 0;
-  move_t *const pv = nodes[0].pv;
+  move_t *const pv = pv_table[0];
   char pv_str[MAX_PLY * 6 + 1];
   TimeControl *tc = &time_control;
     
-  for (int i=pv_len-1; i >= 0; i--) {
+  for (int i=pvl-1; i >= 0; i--) {
     next_pv_char += format_move(pv[i], &pv_str[next_pv_char]);
     pv_str[next_pv_char++] = ' ';
   }

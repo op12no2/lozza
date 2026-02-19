@@ -51,3 +51,4 @@ debug: clean
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(DEBUG_CFLAGS) $(SRCS) -o $(TARGET) $(DEBUG_LDFLAGS)
 
+-include $(DEPS)
