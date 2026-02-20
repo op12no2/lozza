@@ -86,6 +86,33 @@ int init_weights(void) {
 
 }
 
+void apply_deferred_net(Node *node) {
+
+  const uint8_t *a = node->net_deferred.args;
+
+  switch (node->net_deferred.type) {
+    case NET_OP_MOVE:
+      net_move(node, a[0], a[1], a[2]);
+      break;
+    case NET_OP_CAPTURE:
+      net_capture(node, a[0], a[1], a[2], a[3]);
+      break;
+    case NET_OP_EP_CAPTURE:
+      net_ep_capture(node, a[0], a[1], a[2], a[3], a[4]);
+      break;
+    case NET_OP_CASTLE:
+      net_castle(node, a[0], a[1], a[2], a[3], a[4], a[5]);
+      break;
+    case NET_OP_PROMO_PUSH:
+      net_promo_push(node, a[0], a[1], a[2], a[3]);
+      break;
+    case NET_OP_PROMO_CAPTURE:
+      net_promo_capture(node, a[0], a[1], a[2], a[3], a[4]);
+      break;
+  }
+
+}
+
 void net_slow_rebuild_accs(Node *node) {
 
   int16_t *const restrict a1 = node->accs[0];

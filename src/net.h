@@ -6,6 +6,7 @@
 int init_weights(void);
 int net_eval(Node *node);
 void net_slow_rebuild_accs(Node *node);
+void apply_deferred_net(Node *node);
 void net_move(Node *node, const int piece, const int from, const int to);
 void net_capture(Node *node, const int from_piece, const int from, const int to_piece, const int to);
 void net_ep_capture(Node *node, const int from_pawn, const int from, const int to, const int opp_pawn, const int opp_ep);

@@ -78,10 +78,12 @@ int qsearch(const int ply, int alpha, const int beta) {
     //}
 
     pos_copy(pos, next_pos);
-    memcpy(next_node->accs, node->accs, sizeof(node->accs));
     make_move(next_node, move);
     if (is_attacked(next_pos, bsf(*next_stm_king_ptr), opp))
       continue;
+
+    memcpy(next_node->accs, node->accs, sizeof(node->accs));
+    apply_deferred_net(next_node);
 
     played++;
 

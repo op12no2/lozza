@@ -42,14 +42,11 @@ uint64_t perft(const int depth, const int ply) {
   uint64_t tot_nodes = 0;
   move_t move;
 
-  //debug_verify(1, node, ply);
-
   init_next_search_move(node, in_check, 0);
 
   while ((move = get_next_search_move(node))) {
 
     pos_copy(pos, next_pos);
-    memcpy(next_node->accs, node->accs, sizeof(node->accs));
     make_move(next_node, move);
 
     if (is_attacked(next_pos, bsf(*next_stm_king_ptr), opp))
