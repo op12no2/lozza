@@ -36,7 +36,7 @@ static void *input_loop(void *arg) {
         time_control.finished = 1;
         continue;
       }
-      if (strcmp(buf, "quit") == 0) {
+      if (strcmp(buf, "quit") == 0 || strcmp(buf, "q") == 0) {
         time_control.finished = 1;
       }
     }

@@ -44,6 +44,7 @@ void init_tc(int64_t wtime, int64_t winc, int64_t btime, int64_t binc, int64_t m
   }
 
   tc->start_time = time_ms();
+  tc->finish_time = 0;
 
   if (move_time) {
     tc->finish_time = tc->start_time + move_time;

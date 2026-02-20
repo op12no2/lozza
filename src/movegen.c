@@ -19,12 +19,34 @@ static void gen_pawns_white_quiets(Node *node, const uint64_t targets) {
 
   const uint64_t one = (pawns << 8) & ~occupied;
   uint64_t quiet = one & ~RANK_8 & targets;
-  uint64_t promo = one & RANK_8 & targets;
 
   while (quiet) {
     const int to = bsf(quiet); quiet &= quiet - 1;
     m[n++] = encode_move(to - 8, to, 0);
   }
+
+  // push 2
+
+  uint64_t two = ((one & RANK_3) << 8) & ~occupied & targets;
+
+  while (two) {
+    int to = bsf(two); two &= two - 1;
+    m[n++] = encode_move(to - 16, to, MOVE_FLAG_PAWN2);
+  }
+
+  node->num_moves += n;
+
+}
+
+static void gen_pawns_white_push_promos(Node *node, const uint64_t targets) {
+
+  const Position *pos = &node->pos;
+  const uint64_t pawns = pos->all[WPAWN];
+  const uint64_t occupied = pos->occupied;
+  move_t *m = node->moves + node->num_moves;
+  int n = 0;
+
+  uint64_t promo = ((pawns << 8) & ~occupied) & RANK_8 & targets;
 
   while (promo) {
 
@@ -38,15 +60,6 @@ static void gen_pawns_white_quiets(Node *node, const uint64_t targets) {
 
   }
 
-  // push 2
-
-  uint64_t two = ((one & RANK_3) << 8) & ~occupied & targets;
-  
-  while (two) {
-    int to = bsf(two); two &= two - 1;
-    m[n++] = encode_move(to - 16, to, MOVE_FLAG_PAWN2);
-  }
-  
   node->num_moves += n;
 
 }
@@ -126,12 +139,32 @@ static void gen_pawns_black_quiets(Node *node, const uint64_t targets) {
 
   const uint64_t one = (pawns >> 8) & ~occupied;
   uint64_t quiet = one & ~RANK_1 & targets;
-  uint64_t promo = one & RANK_1 & targets;
 
   while (quiet) {
     const int to = bsf(quiet); quiet &= quiet - 1;
     m[n++]  = encode_move(to + 8, to, 0);
   }
+
+  uint64_t two = ((one & RANK_6) >> 8) & ~occupied & targets;
+
+  while (two) {
+    int to = bsf(two); two &= two - 1;
+    m[n++] = encode_move(to + 16, to, MOVE_FLAG_PAWN2);
+  }
+
+  node->num_moves += n;
+
+}
+
+static void gen_pawns_black_push_promos(Node *node, const uint64_t targets) {
+
+  const Position *pos = &node->pos;
+  const uint64_t pawns = pos->all[BPAWN];
+  const uint64_t occupied = pos->occupied;
+  move_t *m = node->moves + node->num_moves;
+  int n = 0;
+
+  uint64_t promo = ((pawns >> 8) & ~occupied) & RANK_1 & targets;
 
   while (promo) {
 
@@ -145,13 +178,6 @@ static void gen_pawns_black_quiets(Node *node, const uint64_t targets) {
 
   }
 
-  uint64_t two = ((one & RANK_6) >> 8) & ~occupied & targets;
-  
-  while (two) {
-    int to = bsf(two); two &= two - 1;
-    m[n++] = encode_move(to + 16, to, MOVE_FLAG_PAWN2);
-  }
-  
   node->num_moves += n;
 
 }
@@ -233,6 +259,13 @@ static inline void gen_pawns_captures(Node *const node, const uint64_t targets) 
     gen_pawns_white_captures(node, targets);
   else
     gen_pawns_black_captures(node, targets);
+}
+
+static inline void gen_pawns_push_promos(Node *const node, const uint64_t targets) {
+  if (node->pos.stm == WHITE)
+    gen_pawns_white_push_promos(node, targets);
+  else
+    gen_pawns_black_push_promos(node, targets);
 }
 
 static void gen_jumpers(Node *node, const uint64_t *attack_table, const int piece, const uint64_t targets, const uint32_t flags) {
@@ -337,7 +370,7 @@ static void gen_castling(Node *node) {
 
 }
 
-void gen_captures(Node *node) {
+void gen_noisy(Node *node) {
 
   const Position *pos = &node->pos;
   const int stm = pos->stm;
@@ -345,19 +378,22 @@ void gen_captures(Node *node) {
   const uint64_t opp_king_bb = pos->all[piece_index(KING, opp)];
   const uint64_t opp_king_near = king_attacks[bsf(opp_king_bb)];
   const uint64_t enemies = pos->colour[opp] & ~opp_king_bb;
-  uint64_t targets = enemies;
+  uint64_t cap_targets = enemies;
+  uint64_t push_targets = ~pos->occupied;
 
   if (node->in_check) {
     const int our_king_sq = bsf(pos->all[piece_index(KING, stm)]);
-    targets &= all_attacks_inc_edge[our_king_sq];
+    cap_targets &= all_attacks_inc_edge[our_king_sq];
+    push_targets &= all_attacks[our_king_sq];
   }
 
-  gen_pawns_captures(node, targets);
-  gen_jumpers(node, knight_attacks, KNIGHT, targets, MOVE_FLAG_CAPTURE);
-  gen_sliders(node, bishop_attacks, BISHOP, targets, MOVE_FLAG_CAPTURE);
-  gen_sliders(node, rook_attacks, ROOK, targets, MOVE_FLAG_CAPTURE);
-  gen_sliders(node, bishop_attacks, QUEEN, targets, MOVE_FLAG_CAPTURE);
-  gen_sliders(node, rook_attacks, QUEEN, targets, MOVE_FLAG_CAPTURE);
+  gen_pawns_captures(node, cap_targets);
+  gen_pawns_push_promos(node, push_targets);
+  gen_jumpers(node, knight_attacks, KNIGHT, cap_targets, MOVE_FLAG_CAPTURE);
+  gen_sliders(node, bishop_attacks, BISHOP, cap_targets, MOVE_FLAG_CAPTURE);
+  gen_sliders(node, rook_attacks, ROOK, cap_targets, MOVE_FLAG_CAPTURE);
+  gen_sliders(node, bishop_attacks, QUEEN, cap_targets, MOVE_FLAG_CAPTURE);
+  gen_sliders(node, rook_attacks, QUEEN, cap_targets, MOVE_FLAG_CAPTURE);
   gen_jumpers(node, king_attacks, KING, enemies & ~opp_king_near, MOVE_FLAG_CAPTURE);
 
 }

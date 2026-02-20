@@ -54,7 +54,7 @@ static move_t get_next_sorted_move(Node *const node) {
 
 }
 
-void rank_quiets(Node *node) {
+static void rank_quiets(Node *node) {
 
   const uint8_t *board = node->pos.board;
   const move_t *moves = node->moves;
@@ -73,7 +73,7 @@ void rank_quiets(Node *node) {
   }
 }
 
-void rank_captures(Node *node) {
+static void rank_noisy(Node *node) {
 
   const uint8_t *board = node->pos.board;
   const move_t *moves = node->moves;
@@ -85,15 +85,27 @@ void rank_captures(Node *node) {
     const move_t m = moves[i];
     const int from = (m >> 6) & 0x3F;
     const int to = m & 0x3F;
-    const int attacker = board[from] % 6;
-    int victim = board[to];
 
-    if (victim == EMPTY)  // ep
-      victim = 0;
-    else
-      victim %= 6;
+    if (m & MOVE_FLAG_CAPTURE) {
 
-    ranks[i] = (victim << 3) | (5 - attacker);
+      const int attacker = board[from] % 6;
+      int victim = board[to];
+
+      if (victim == EMPTY)  // ep
+        victim = 0;
+      else
+        victim %= 6;
+
+      ranks[i] = (victim << 3) | (5 - attacker);
+
+    }
+    else {
+
+      // non-capture promotion
+      const int promo_piece = (m >> 12) & 0x7;
+      ranks[i] = (promo_piece << 3) | 5;
+
+    }
 
   }
 }
@@ -129,9 +141,9 @@ move_t get_next_search_move(Node *node) {
       node->num_moves = 0;
       node->next_move = 0;
 
-      gen_captures(node);
+      gen_noisy(node);
       remove_tt_move(node);
-      rank_captures(node);
+      rank_noisy(node);
 
     }
 
@@ -206,9 +218,9 @@ move_t get_next_qsearch_move(Node *node) {
       node->num_moves = 0;
       node->next_move = 0;
 
-      gen_captures(node);
+      gen_noisy(node);
       remove_tt_move(node);
-      rank_captures(node);
+      rank_noisy(node);
 
     }
 

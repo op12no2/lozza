@@ -10,7 +10,8 @@ void hh_reset(void) {
 }
 
 void hh_push(uint64_t hash) {
-  hashes[game_ply++] = hash;
+  if (game_ply < MAX_HH)
+    hashes[game_ply++] = hash;
 }
 
 void hh_set_root(void) {
@@ -18,7 +19,9 @@ void hh_set_root(void) {
 }
 
 void hh_store(int search_ply, uint64_t hash) {
-  hashes[root_ply + search_ply] = hash;
+  int idx = root_ply + search_ply;
+  if (idx < MAX_HH)
+    hashes[idx] = hash;
 }
 
 int is_draw(int search_ply, uint64_t hash, int hmc) {
@@ -29,6 +32,8 @@ int is_draw(int search_ply, uint64_t hash, int hmc) {
 
   // current absolute index
   int current = root_ply + search_ply;
+  if (current >= MAX_HH)
+    return 0;
 
   // can only repeat positions since last irreversible move
   int earliest = current - hmc;

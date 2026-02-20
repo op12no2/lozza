@@ -10,6 +10,6 @@
 #define RANK_PROMO (RANK_1 | RANK_8)
 
 void gen_quiets(Node *node);
-void gen_captures(Node *node);
+void gen_noisy(Node *node);
 
 #endif

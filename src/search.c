@@ -206,7 +206,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
           collect_pv(ply, best_move);
         }
         if (score >= beta) {
-          if (!(best_move & MOVE_FLAG_CAPTURE)) {
+          if (!(best_move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE))) {
             const int bonus = depth * depth;
             update_piece_to_history(pos, best_move, bonus);
             for (int i=0; i < played-1; i++) {
@@ -224,7 +224,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
   }
 
   if (played == 0) {
-    return in_check ? (-MATE + ply) : 0;
+    return in_check ? (-MATE + ply) : 0; 
   }
 
   tt_put(pos, (alpha > orig_alpha) ? TT_EXACT : TT_ALPHA, depth, put_adjusted_score(ply, best_score), best_move);
