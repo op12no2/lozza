@@ -27,6 +27,9 @@ int qsearch(const int ply, int alpha, const int beta) {
     return net_eval(node);
   }
 
+  //if (is_mat_draw(pos))
+    //return 0;
+
   const int stm = pos->stm;
   const int opp = stm ^ 1;
   const int stm_king_idx = piece_index(KING, stm);

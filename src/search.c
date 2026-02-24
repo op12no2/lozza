@@ -44,7 +44,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
   // store hash for repetition detection (ply 0 already in hh from position())
   if (ply > 0) {
     hh_store(ply, pos->hash);
-    if (is_draw(ply, pos->hash, pos->hmc)) {
+    if (is_draw(ply, pos->hash, pos->hmc) || is_mat_draw(pos)) {
       return 0;
     }
   }
