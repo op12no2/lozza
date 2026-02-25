@@ -5,6 +5,7 @@
 #include "hh.h"
 #include "history.h"
 #include "report.h"
+#include "nodes.h"
 
 void go(int silent) {
 
@@ -17,6 +18,7 @@ void go(int silent) {
 
   hh_set_root();
   clear_piece_to_history();
+  clear_nodes();
 
   for (int depth=1; depth <= tc->max_depth; depth++) {
 

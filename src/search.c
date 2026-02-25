@@ -209,6 +209,7 @@ int search(const int ply, int depth, int alpha, const int beta) {
         }
         if (score >= beta) {
           if (!(best_move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE))) {
+            update_killer(node, best_move);
             const int bonus = depth * depth;
             update_piece_to_history(pos, best_move, bonus);
             for (int i=0; i < played-1; i++) {

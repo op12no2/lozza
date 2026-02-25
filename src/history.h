@@ -5,6 +5,7 @@
 #include "types.h"
 #include "pos.h"
 #include "move.h"
+#include "nodes.h"
 
 #define MAX_HISTORY 32766
 #define KILLER 32767
@@ -16,5 +17,6 @@ inline void clear_piece_to_history(void) {
 }
 
 void update_piece_to_history(const Position *pos, const move_t move, int bonus);
+void update_killer(Node *node, const move_t move);
 
 #endif

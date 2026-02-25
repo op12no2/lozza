@@ -58,17 +58,26 @@ static void rank_quiets(Node *node) {
 
   const uint8_t *board = node->pos.board;
   const move_t *moves = node->moves;
+  const move_t killer = node->killer;
   int16_t *ranks = node->ranks;
   const int n = node->num_moves;
 
   for (int i=0; i < n; i++) {
 
     const move_t m = moves[i];
-    const int from = (m >> 6) & 0x3F;
-    const int to = m & 0x3F;
-    const int piece = board[from];
+    
+    if (m == killer) {
+      ranks[i] = KILLER;
+    }
+    
+    else {
 
-    ranks[i] = piece_to_history[piece][to];
+      const int from = (m >> 6) & 0x3F;
+      const int to = m & 0x3F;
+      const int piece = board[from];
+    
+      ranks[i] = piece_to_history[piece][to];
+    }
 
   }
 }

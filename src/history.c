@@ -5,6 +5,7 @@
 #include "history.h"
 #include "pos.h"
 #include "move.h"
+#include "nodes.h"
 
 int16_t piece_to_history[12][64];
 
@@ -41,3 +42,10 @@ void update_piece_to_history(const Position *pos, const move_t move, int bonus) 
     age_piece_to_history();
 
 }
+
+void update_killer(Node *node, const move_t move) {
+
+  node->killer = move;
+
+}
+

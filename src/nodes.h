@@ -35,9 +35,12 @@ typedef struct {
   int in_check;
   move_t tt_move;
   int stage;
+  move_t killer;
 
 } Node;
 
 extern Node nodes[MAX_PLY];
+
+void clear_nodes(void);
 
 #endif
