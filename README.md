@@ -9,7 +9,7 @@ For release 10 onwards, Lozza was translated into C and is available as a binary
 ## Command extensions
 
 - quit/q - close Lozza.
-- bench/h - get a node count and nps over a collection of searches.
+- bench/h [_d_] - get a node count and nps over a collection of searches with optional depth _d_, the default being 10 which is quick.
 - eval/e - display an evaluation for the current position.
 - board/b - display the board for the current position.
 - perft/f _d_ - performs a PERFT search to depth _d_ on the current position and report nps.

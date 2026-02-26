@@ -194,7 +194,10 @@ bool uci_exec(char *input) {
   }
 
   else if (str_eq(cmd, "bench", "h")) {
-    bench();
+    int depth = 10;
+    if (ntokens > 1)
+      depth = atoi(tokens[1]);
+    bench(depth);
   }
 
   else {

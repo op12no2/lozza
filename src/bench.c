@@ -71,7 +71,7 @@ static const BenchTest bench_data[] = {
 
 };
 
-void bench (void) {
+void bench (int depth) {
 
   const int num_fens = 50;
   uint64_t start_ms = time_ms();
@@ -83,7 +83,7 @@ void bench (void) {
 
     new_game();
     position(&nodes[0], b->fen, b->stm, b->rights, b->ep, 0, 0, NULL);
-    init_tc(0, 0, 0, 0, 0, 0, 10, 0);
+    init_tc(0, 0, 0, 0, 0, 0, depth, 0);
     go(1);
 
     total_nodes += time_control.nodes;

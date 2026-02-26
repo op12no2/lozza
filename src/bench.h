@@ -1,7 +1,7 @@
 #ifndef BENCH_H
 #define BENCH_H
 
-void bench (void);
+void bench (int depth);
 void eval_tests (void);
 
 #endif
