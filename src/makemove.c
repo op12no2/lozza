@@ -48,24 +48,31 @@ void make_move(Node *node, const move_t move) {
   const int to_piece = board[to];
   const uint64_t from_bb = 1ULL << from;
   const uint64_t to_bb = 1ULL << to;
+  const uint64_t move_bb = from_bb ^ to_bb;
   const uint8_t old_rights = pos->rights;
   uint64_t hash = pos->hash ^ zob_pieces[from_piece][from] ^ zob_ep[pos->ep] ^ zob_rights[old_rights];
 
   pos->ep = 0;
+
+  uint8_t *nd_args = node->net_deferred.args;
 
   if (flags & MOVE_FLAGS_EXTRA) {
 
     if ((flags & MOVE_FLAGS_EXTRA) == MOVE_FLAG_CAPTURE) {  // most common
       board[from] = EMPTY;
       board[to] = from_piece;
-      all[from_piece] ^= from_bb ^ to_bb;
+      all[from_piece] ^= move_bb;
       all[to_piece] ^= to_bb;
-      colour[stm] ^= from_bb ^ to_bb;
+      colour[stm] ^= move_bb;
       colour[opp] ^= to_bb;
       hash ^= zob_pieces[from_piece][to] ^ zob_pieces[to_piece][to];
-      node->net_deferred = (NetDeferred){NET_OP_CAPTURE, {from_piece, from, to_piece, to}};
+      node->net_deferred.type = NET_OP_CAPTURE;
+      nd_args[0] = from_piece;
+      nd_args[1] = from;
+      nd_args[2] = to_piece;
+      nd_args[3] = to;
     }
-    
+
     else if (flags & MOVE_FLAG_EPCAPTURE) {
       const int cap_sq = to + (stm ? 8 : -8);
       const uint64_t cap_bb = 1ULL << cap_sq;
@@ -73,12 +80,17 @@ void make_move(Node *node, const move_t move) {
       board[from] = EMPTY;
       board[to] = from_piece;
       board[cap_sq] = EMPTY;
-      all[from_piece] ^= from_bb ^ to_bb;
+      all[from_piece] ^= move_bb;
       all[cap_piece] ^= cap_bb;
-      colour[stm] ^= from_bb ^ to_bb;
+      colour[stm] ^= move_bb;
       colour[opp] ^= cap_bb;
       hash ^= zob_pieces[from_piece][to] ^ zob_pieces[cap_piece][cap_sq];
-      node->net_deferred = (NetDeferred){NET_OP_EP_CAPTURE, {from_piece, from, to, cap_piece, cap_sq}};
+      node->net_deferred.type = NET_OP_EP_CAPTURE;
+      nd_args[0] = from_piece;
+      nd_args[1] = from;
+      nd_args[2] = to;
+      nd_args[3] = cap_piece;
+      nd_args[4] = cap_sq;
     }
 
     else if ((flags & MOVE_FLAGS_PROMOCAP) == MOVE_FLAGS_PROMOCAP) {
@@ -88,10 +100,15 @@ void make_move(Node *node, const move_t move) {
       all[from_piece] ^= from_bb;
       all[to_piece] ^= to_bb;
       all[promo_piece] ^= to_bb;
-      colour[stm] ^= from_bb ^ to_bb;
+      colour[stm] ^= move_bb;
       colour[opp] ^= to_bb;
       hash ^= zob_pieces[to_piece][to] ^ zob_pieces[promo_piece][to];
-      node->net_deferred = (NetDeferred){NET_OP_PROMO_CAPTURE, {from_piece, from, to, to_piece, promo_piece}};
+      node->net_deferred.type = NET_OP_PROMO_CAPTURE;
+      nd_args[0] = from_piece;
+      nd_args[1] = from;
+      nd_args[2] = to;
+      nd_args[3] = to_piece;
+      nd_args[4] = promo_piece;
     }
 
     else if (flags & MOVE_FLAG_PROMOTE) {
@@ -100,9 +117,13 @@ void make_move(Node *node, const move_t move) {
       board[to] = promo_piece;
       all[from_piece] ^= from_bb;
       all[promo_piece] ^= to_bb;
-      colour[stm] ^= from_bb ^ to_bb;
+      colour[stm] ^= move_bb;
       hash ^= zob_pieces[promo_piece][to];
-      node->net_deferred = (NetDeferred){NET_OP_PROMO_PUSH, {from_piece, from, to, promo_piece}};
+      node->net_deferred.type = NET_OP_PROMO_PUSH;
+      nd_args[0] = from_piece;
+      nd_args[1] = from;
+      nd_args[2] = to;
+      nd_args[3] = promo_piece;
     }
 
     else if (flags & MOVE_FLAG_CASTLE) {
@@ -110,42 +131,55 @@ void make_move(Node *node, const move_t move) {
       const int rt = rook_to[to];
       const uint64_t rf_bb = 1ULL << rf;
       const uint64_t rt_bb = 1ULL << rt;
+      const uint64_t rook_bb = rf_bb ^ rt_bb;
       const int rook_piece = board[rf];
       board[from] = EMPTY;
       board[to] = from_piece;
       board[rf] = EMPTY;
       board[rt] = rook_piece;
-      all[from_piece] ^= from_bb ^ to_bb;
-      all[rook_piece] ^= rf_bb ^ rt_bb;
-      colour[stm] ^= from_bb ^ to_bb ^ rf_bb ^ rt_bb;
+      all[from_piece] ^= move_bb;
+      all[rook_piece] ^= rook_bb;
+      colour[stm] ^= move_bb ^ rook_bb;
       hash ^= zob_pieces[from_piece][to] ^ zob_pieces[rook_piece][rf] ^ zob_pieces[rook_piece][rt];
-      node->net_deferred = (NetDeferred){NET_OP_CASTLE, {from_piece, from, to, rook_piece, rf, rt}};
+      node->net_deferred.type = NET_OP_CASTLE;
+      nd_args[0] = from_piece;
+      nd_args[1] = from;
+      nd_args[2] = to;
+      nd_args[3] = rook_piece;
+      nd_args[4] = rf;
+      nd_args[5] = rt;
     }
 
     else {
       // pawn2
       board[from] = EMPTY;
       board[to] = from_piece;
-      all[from_piece] ^= from_bb ^ to_bb;
-      colour[stm] ^= from_bb ^ to_bb;
+      all[from_piece] ^= move_bb;
+      colour[stm] ^= move_bb;
       hash ^= zob_pieces[from_piece][to];
       const int opp_pawn = piece_index(PAWN, opp);
       const uint64_t adj = ((to_bb & NOT_A_FILE) >> 1) | ((to_bb & NOT_H_FILE) << 1);
       if (all[opp_pawn] & adj)
         pos->ep = (from + to) >> 1;
-      node->net_deferred = (NetDeferred){NET_OP_MOVE, {from_piece, from, to}};
+      node->net_deferred.type = NET_OP_MOVE;
+      nd_args[0] = from_piece;
+      nd_args[1] = from;
+      nd_args[2] = to;
     }
 
   }
-  
+
   else {
     // quiet move
     board[from] = EMPTY;
     board[to] = from_piece;
-    all[from_piece] ^= from_bb ^ to_bb;
-    colour[stm] ^= from_bb ^ to_bb;
+    all[from_piece] ^= move_bb;
+    colour[stm] ^= move_bb;
     hash ^= zob_pieces[from_piece][to];
-    node->net_deferred = (NetDeferred){NET_OP_MOVE, {from_piece, from, to}};
+    node->net_deferred.type = NET_OP_MOVE;
+    nd_args[0] = from_piece;
+    nd_args[1] = from;
+    nd_args[2] = to;
   }
 
   pos->rights &= rights_mask[from] & rights_mask[to];
