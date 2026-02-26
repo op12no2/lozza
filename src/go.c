@@ -58,6 +58,9 @@ void go(int silent) {
 
     if (tc->finished)
       break;
+
+    age_piece_to_history();
+      
   }
 
   format_move(tc->best_move, bm_str);

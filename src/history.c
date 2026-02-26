@@ -9,7 +9,7 @@
 
 int16_t piece_to_history[12][64];
 
-static inline void age_piece_to_history(void) {
+void age_piece_to_history(void) {
   for (int i=0; i < 12; i++) {
     for (int j=0; j < 64; j++) {
       piece_to_history[i][j] /= 2;
@@ -38,8 +38,8 @@ void update_piece_to_history(const Position *pos, const move_t move, int bonus) 
 
   *entry = value;
 
-  if (age_needed)
-    age_piece_to_history();
+  //if (age_needed)
+    //age_piece_to_history();
 
 }
 
