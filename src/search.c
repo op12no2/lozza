@@ -18,6 +18,7 @@
 #include "history.h"
 #include "debug.h"
 #include "pv.h"
+#include "see.h"
 
 static int lmr[MAX_PLY][MAX_PLY];
 
@@ -128,6 +129,10 @@ int search(const int ply, int depth, int alpha, const int beta) {
   while ((move = get_next_search_move(node))) {
 
     const int is_quiet = !(move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTE));
+
+    // see pruning
+    if (!is_quiet && !is_pv && !in_check && played && alpha > -MATEISH && depth <= 2 && !see_ge(pos, move, 0))
+      continue;
 
     // lmp
     if (is_quiet && !is_pv && !in_check && alpha > -MATEISH && depth <= 2 && played > (5 * depth))

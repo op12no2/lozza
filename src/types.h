@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define BUILD "11benchd"
+#define BUILD "11seeprune"
 
 #define NET_H1_SIZE 384
 #define NET_I_SIZE 768
