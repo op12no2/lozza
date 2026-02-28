@@ -9,14 +9,16 @@ TARGET := $(BIN_DIR)/lozza
 
 # Compiler settings
 CC := clang
-CFLAGS := -Wall -Wextra -O3 -flto -march=native -MMD -MP
+BASE_CFLAGS := -Wall -Wextra -O3 -flto -march=native
+CFLAGS := $(BASE_CFLAGS) -MMD -MP
 LDFLAGS := -flto -lm -lpthread
 
 # Windows cross-compile settings
 WIN_CC := clang --target=x86_64-w64-mingw32 -fuse-ld=lld
 WIN_TARGET := $(BIN_DIR)/lozza.exe
 WIN_BUILD_DIR := build-win
-WIN_CFLAGS := -Wall -Wextra -O3 -flto -march=native -MMD -MP
+WIN_BASE_CFLAGS := -Wall -Wextra -O3 -flto -march=native
+WIN_CFLAGS := $(WIN_BASE_CFLAGS) -MMD -MP
 WIN_LDFLAGS := -flto
 
 # Debug settings (for valgrind/gdb)
@@ -60,9 +62,52 @@ $(WIN_BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(WIN_BUILD_DIR)
 $(WIN_BUILD_DIR):
 	mkdir -p $(WIN_BUILD_DIR)
 
+# PGO settings
+PGO_DIR := build-pgo
+PGO_PROFRAW := $(PGO_DIR)/default_%m.profraw
+PGO_PROFDATA := $(PGO_DIR)/merged.profdata
+PGO_WORKLOAD := ./lozza bench 16
+
+WIN_PGO_DIR := build-pgo-win
+WIN_PGO_PROFRAW := $(WIN_PGO_DIR)/default_%m.profraw
+WIN_PGO_PROFDATA := $(WIN_PGO_DIR)/merged.profdata
+WIN_PGO_WORKLOAD := ./lozza.exe bench 16
+
+# PGO build (Linux)
+pgo:
+	@echo "=== PGO Step 1: Instrumented build ==="
+	rm -rf $(PGO_DIR) $(BUILD_DIR) $(TARGET)
+	mkdir -p $(PGO_DIR)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(BASE_CFLAGS) -fprofile-generate=$(PGO_DIR) $(SRCS) -o $(TARGET) $(LDFLAGS)
+	@echo "=== PGO Step 2: Running workload ==="
+	LLVM_PROFILE_FILE="$(PGO_PROFRAW)" $(PGO_WORKLOAD)
+	@echo "=== PGO Step 3: Merging profiles ==="
+	llvm-profdata merge -output=$(PGO_PROFDATA) $(PGO_DIR)/*.profraw
+	@echo "=== PGO Step 4: Optimized build ==="
+	$(CC) $(BASE_CFLAGS) -fprofile-use=$(PGO_PROFDATA) $(SRCS) -o $(TARGET) $(LDFLAGS)
+	rm -rf $(PGO_DIR)
+	@echo "=== PGO build complete ==="
+
+# PGO build (Windows cross-compile, runs .exe via WSL2)
+pgo-win:
+	@echo "=== PGO Step 1: Instrumented build ==="
+	rm -rf $(WIN_PGO_DIR) $(WIN_BUILD_DIR) $(WIN_TARGET)
+	mkdir -p $(WIN_PGO_DIR)
+	mkdir -p $(WIN_BUILD_DIR)
+	$(WIN_CC) $(WIN_BASE_CFLAGS) -fprofile-generate=$(WIN_PGO_DIR) $(SRCS) -o $(WIN_TARGET) $(WIN_LDFLAGS)
+	@echo "=== PGO Step 2: Running workload ==="
+	LLVM_PROFILE_FILE="$(WIN_PGO_PROFRAW)" $(WIN_PGO_WORKLOAD)
+	@echo "=== PGO Step 3: Merging profiles ==="
+	llvm-profdata merge -output=$(WIN_PGO_PROFDATA) $(WIN_PGO_DIR)/*.profraw
+	@echo "=== PGO Step 4: Optimized build ==="
+	$(WIN_CC) $(WIN_BASE_CFLAGS) -fprofile-use=$(WIN_PGO_PROFDATA) $(SRCS) -o $(WIN_TARGET) $(WIN_LDFLAGS)
+	rm -rf $(WIN_PGO_DIR)
+	@echo "=== PGO build complete ==="
+
 # Clean
 clean:
-	rm -rf $(BUILD_DIR) $(WIN_BUILD_DIR) $(TARGET) $(WIN_TARGET)
+	rm -rf $(BUILD_DIR) $(WIN_BUILD_DIR) $(PGO_DIR) $(WIN_PGO_DIR) $(TARGET) $(WIN_TARGET)
 
 # Rebuild
 rebuild: clean all
