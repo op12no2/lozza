@@ -1,7 +1,6 @@
 ### todo
 
 - iir (fails - why?) 
-- use delta pruning in qs (see fails)
 - use mat draw in qs
 - futility
 - output buckets
@@ -17,9 +16,12 @@
 
 ### things to try 
 
+- try delta pruning in qs (see_ge fails)
 - sort captures using see
 - reduce bad captures in lmr (see)
 - reduce good captures in lmr (see)
+- reduce captures in lmr
+- lmr if in check
 - compare uci bm and nodes[0].pv[0] - are they ever different? if not simplify
 - change tc check quantise to 4095
 - experiment with promote ranking in rank_noisy()
@@ -42,24 +44,3 @@
 - try R = 0.75 + ln(depth) * ln(moves_played) / 2.25
 - board is currently undefined on time up - sprt fixing that
 
-### sprt on hetzner epyc 7502p server
-
-```
-./bin/sync.sh # copy to server
-ssh root@epyc
-
-tmux new -s sprt
-./bin/sprt.sh | tee sprt.log; bash
-
-# detach (make sure tmux pane is focused)
-ctrl-b d
-
-# later...
-ssh root@epyc
-tmux ls
-tmux attach -t sprt # works after finish (b/c of `; bash`)
-tail -f sprt.log # or just tail sprt.log if finished
-
-# optional cleanup
-tmux kill-session -t sprt
-```
