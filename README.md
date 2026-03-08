@@ -44,6 +44,14 @@ A sister repo has more browser-based examples for playing and analysing with Loz
 
 - https://github.com/op12no2/lozza-ui
 
+## Lozza's net
+
+Lozza's net was booted from ```quiet_labeled.epd``` and ```lichess-big3-resolved.epd```, then iteratively improved through six generations of self play and training; initially using a diy trainer and more recently with ```bullet```. Currently it's a simple quantised 768->(256*2)->1 squared ReLU architecture, trained on about 600M positions. It's embeded into ```lozza.js``` as a single line of code towards the end of the file.
+
+## Limitations
+
+Lozza does not support the ```stop``` command or multi-threading.
+
 ## References
 
 - https://nodejs.org - Node
@@ -51,6 +59,7 @@ A sister repo has more browser-based examples for playing and analysing with Loz
 - https://computerchess.org.uk/ccrl/4040 - CCRL rating list
 - https://backscattering.de/chess/uci - UCI protocol
 - https://talkchess.com - Talkchess forums
+- https://discord.gg/pntchvGU - Engine Programming Discord
 
 ## Acknowledgements
 
