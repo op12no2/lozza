@@ -147,7 +147,3 @@ function initOnce () {
 
 }
 
-initOnce();
-
-const rootNode = nodes[0];
-

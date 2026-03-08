@@ -1,4 +1,4 @@
-const BUILD = "9";
+const BUILD = "11";
 
 const BENCH_DEPTH = 8;
 
@@ -333,4 +333,6 @@ const SLIDE_SCORES = [
 ];
   
 const ALIGNED = Array(144);
-  
+
+let WEIGHTS_B64;
+

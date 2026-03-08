@@ -252,7 +252,7 @@ function uciExec (commands) {
       case 'uci': {
         
         uciSend('id name Lozza', BUILD);
-        uciSend('id author op12no2');
+        uciSend('id author Colin Jenkins');
         uciSend('option name Hash type spin default', ttDefault, 'min 1 max 1024');
         uciSend('option name MultiPV type spin default 1 min 1 max 5');
         uciSend('uciok');

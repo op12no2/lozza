@@ -1,7 +1,6 @@
 cat \
   src/head.js \
   src/const.js \
-  src/weights.js \
   src/utils.js \
   src/node.js \
   src/iterate.js \
@@ -11,7 +10,6 @@ cat \
   src/perft.js \
   src/pv.js \
   src/net.js \
-  src/fen.js \
   src/board.js \
   src/makemove.js \
   src/tt.js \
@@ -29,6 +27,7 @@ cat \
   src/tests.js \
   src/uci.js \
   src/init.js \
+  src/weights.js \
   src/main.js \
     > lozza.js
   
