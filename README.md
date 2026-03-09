@@ -1,6 +1,6 @@
 # Lozza
 
-Lozza is a Javascript UCI chess engine that can be eaisly be deployed using a web worker. It can also be used with traditional chess user interfaces via Node. The source is hand-coded and easily tweakable.
+Lozza is a Javascript UCI chess engine that can be eaisly be deployed using a web worker. It can also be used with traditional chess user interfaces via Node. The source is hand-coded and easily tweaked.
 
 ## Play Lozza online
 
@@ -56,7 +56,7 @@ Lozza does not support the ```stop``` command or multi-threading.
 
 You can either edit ```lozza.js``` directly or clone/download the repo and edit the individual files in ```src```. The root of the repo has a little script ```b``` to concatenate them into ```lozza.js```. There is also a script to do SPRT testing called ```sprt```.
 
-## creating your own net
+## Creating your own net
 
 Use ```bullet``` to train a 768->(N*2)->1 `SqrRelu` net and set ```NET_H1_SIZE``` to ```N``` in ```const.js```. See ```lozza.rs``` for an example. Use the following command to write the weights to ```weights.js```:-
 ```
