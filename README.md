@@ -58,7 +58,7 @@ You can either edit ```lozza.js``` directly or clone/download the repo and edit 
 
 ## creating your own net
 
-Use ```bullet``` to train a 768->(N*2)->1 `SqrRelu` net and set NET_H1_SIZE to N in ```const.js```. Use the following command to write the weights to ```weights.js```:-
+Use ```bullet``` to train a 768->(N*2)->1 `SqrRelu` net and set ```NET_H1_SIZE``` to ```N``` in ```const.js```. See ```lozza.rs``` for an example. Use the following command to write the weights to ```weights.js```:-
 ```
 echo "WEIGHTS_B64 = \"$(base64 -w 0 mynet.bin)\";" > src/weights.js
 
