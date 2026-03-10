@@ -1,3 +1,6 @@
+initOnce();
+const rootNode = nodes[0];
+
 if (nodeHost && process.argv.length > 2) {
   for (let i=2; i < process.argv.length; i++)
     uciExec(process.argv[i]);

@@ -11,8 +11,8 @@ function bench (depth) {
 
     const fen = BENCHFENS[i];
 
-    if (nodeHost)
-      process.stdout.write(i.toString() + '\r');
+    //if (nodeHost)
+      //process.stdout.write(i.toString() + '\r');
 
     newGame();
     uciExec('position fen ' + fen);
@@ -26,7 +26,7 @@ function bench (depth) {
   const nps = nodes/elapsed * 1000 | 0;
   
   silentMode = 0;
-  
+
   uciSend('nodes', nodes, 'time', elapsed, 'nps', nps);
 
 }
