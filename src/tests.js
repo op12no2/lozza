@@ -1,18 +1,22 @@
-function bench () { 
-        
+function bench (depth) {
+
+  depth = depth || BENCH_DEPTH;
+
+  silentMode = 1;
+
   let nodes = 0;
   let start = now();
-        
+
   for (let i=0; i < BENCHFENS.length; i++) {
-        
+
     const fen = BENCHFENS[i];
-        
+
     if (nodeHost)
       process.stdout.write(i.toString() + '\r');
-        
+
     newGame();
     uciExec('position fen ' + fen);
-    uciExec('go depth ' + BENCH_DEPTH);
+    uciExec('go depth ' + depth);
         
     nodes += statsNodes;
       
@@ -20,7 +24,9 @@ function bench () {
         
   const elapsed = now() - start;
   const nps = nodes/elapsed * 1000 | 0;
-        
+  
+  silentMode = 0;
+  
   uciSend('nodes', nodes, 'time', elapsed, 'nps', nps);
 
 }

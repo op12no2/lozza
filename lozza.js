@@ -4157,21 +4157,25 @@ const PERFTFENS = [
   ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
 ];
 
-function bench () { 
-        
+function bench (depth) {
+
+  depth = depth || BENCH_DEPTH;
+
+  silentMode = 1;
+
   let nodes = 0;
   let start = now();
-        
+
   for (let i=0; i < BENCHFENS.length; i++) {
-        
+
     const fen = BENCHFENS[i];
-        
+
     if (nodeHost)
       process.stdout.write(i.toString() + '\r');
-        
+
     newGame();
     uciExec('position fen ' + fen);
-    uciExec('go depth ' + BENCH_DEPTH);
+    uciExec('go depth ' + depth);
         
     nodes += statsNodes;
       
@@ -4179,7 +4183,9 @@ function bench () {
         
   const elapsed = now() - start;
   const nps = nodes/elapsed * 1000 | 0;
-        
+  
+  silentMode = 0;
+  
   uciSend('nodes', nodes, 'time', elapsed, 'nps', nps);
 
 }
@@ -4547,10 +4553,10 @@ function uciExec (commands) {
 
       }
 
-      case 'bench': 
+      case 'bench':
       case 'h': {
-        
-        bench();
+
+        bench(uciGetInt(tokens, cmd, 0));
         break;
         
       }

@@ -295,10 +295,10 @@ function uciExec (commands) {
 
       }
 
-      case 'bench': 
+      case 'bench':
       case 'h': {
-        
-        bench();
+
+        bench(uciGetInt(tokens, cmd, 0));
         break;
         
       }
