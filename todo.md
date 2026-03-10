@@ -21,3 +21,4 @@
 - simplify move ranking - defer to move iterator
 - try pv move first
 - use int16 for weights and accs like cwtch
+- sprt using fastchess to see if 3rep is working
