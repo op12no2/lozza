@@ -1,6 +1,6 @@
 function isDraw () {
 
-  if (repHi - repLo > 100)
+  if (repHi - repLo >= 100)
     return 1;
 
   for (let i=repHi-5; i >= repLo; i -= 2) {

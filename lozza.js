@@ -2398,7 +2398,7 @@ function makeMoveA (node, move) {
   // and promotions; i.e. moves that are not reversible.  The nearest
   // repetition is 5 indexes back from the current one and then that
   // and every other one entry is a possible rep.  Can also check for
-  // 50 move rule by testing hi-lo > 100 - it's not perfect because of
+  // 50 move rule by testing hi-lo >= 100 - it's not perfect because of
   // the pawn move reset but it's a type 2 error, so safe.
   //
   
@@ -3838,7 +3838,7 @@ function quickSee (turn, move) {
 
 function isDraw () {
 
-  if (repHi - repLo > 100)
+  if (repHi - repLo >= 100)
     return 1;
 
   for (let i=repHi-5; i >= repLo; i -= 2) {
