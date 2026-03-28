@@ -1,4 +1,3 @@
-#!/usr/bin/node
 "use strict"
 
 const BUILD = "11";
