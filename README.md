@@ -54,16 +54,16 @@ Lozza does not support the ```stop``` command or multi-threading.
 
 ## Tweaking Lozza
 
-You can either edit ```lozza.js``` directly or clone/download the repo and edit the individual files in ```src```. The root of the repo has a little script ```b``` to concatenate them into ```lozza.js```. There is also a script to do SPRT testing called ```sprt```.
+You can either edit ```lozza.js``` directly or clone/download the repo and edit the individual files in ```src```. The root of the repo has a little script ```src/build``` to concatenate them into ```lozza.js```. There is also a script to do SPRT testing in ```bin/sprt```.
 
 ## Creating your own net
 
-Use ```bullet``` to train a 768->(N*2)->1 `SqrRelu` net and set ```NET_H1_SIZE``` to ```N``` in ```const.js```. See ```lozza.rs``` for an example. Use the following command to write the weights to ```weights.js```:-
+Use ```bullet``` to train a 768->(N*2)->1 `SqrRelu` net and set ```NET_H1_SIZE``` to ```N``` in ```src/const.js```. See ```src/bullet.rs``` for an example. Use the following command to write the weights to ```src/weights.js```:-
 ```
 echo "WEIGHTS_B64 = \"$(base64 -w 0 mynet.bin)\";" > src/weights.js
 
 ```
-If you change the activation function, tweak ```netEval``` ```in net.js``` to suit.
+If you change the activation function, tweak ```netEval``` ```in src/net.js``` to suit.
 
 ## References
 
