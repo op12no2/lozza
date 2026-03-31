@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+if [ "$#" -ne 1 ]; then
+  echo "usage: serialise_net <mynet>.bin"
+  exit 1
+fi
+
+echo "WEIGHTS_B64 = \"$(base64 -w 0 $1)\";" > src/weights.js
+

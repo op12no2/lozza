@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+t=src/bullet.rs
+
+if [ "$#" -ne 0 ]; then
+  echo "usage: train"
+  exit 1
+fi
+
+cp $t ../bullet/examples/simple.rs
+cd ../bullet
+cargo r -r --example simple

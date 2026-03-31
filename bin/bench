@@ -1,3 +1,11 @@
+#!/bin/bash
+set -e
+
+if [ "$#" -ne 0 ]; then
+  echo "usage: bench"
+  exit 1
+fi
+
 node lozza "bench $1"
 node releases/lozza "bench $1"
 

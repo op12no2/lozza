@@ -1,1 +1,9 @@
+#!/bin/bash
+set -e
+
+if [ "$#" -ne 0 ]; then
+  echo "usage: makebin"
+  exit 1
+fi
+
 bun build ./lozza.js --compile --target=bun-windows-x64-modern --outfile releases/lozza11.exe

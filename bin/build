@@ -1,3 +1,11 @@
+#!/bin/bash
+set -e
+
+if [ "$#" -ne 0 ]; then
+  echo "usage: build"
+  exit 1
+fi
+
 cat \
   src/head.js \
   src/const.js \
