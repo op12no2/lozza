@@ -56,7 +56,7 @@ Lozza does not support the ```stop``` command or multi-threading.
 
 ## Tweaking Lozza
 
-You can either edit ```lozza.js``` directly or clone/download the repo and edit the individual files in ```src```. The root of the repo has a little script ```src/build``` to concatenate them into ```lozza.js```. There is also a script to do SPRT testing in ```bin/sprt```.
+You can either edit ```lozza.js``` directly or clone/download the repo and edit the individual files in ```src```. There is a little script ```bin/build``` to concatenate them into ```lozza.js```. There is also a script to do SPRT testing in ```bin/sprt```.
 
 ## Creating your own net
 
