@@ -2,7 +2,7 @@
 
 Lozza is a Javascript UCI chess engine that can be eaisly be deployed using a web worker. It can also be used with traditional chess user interfaces via Node. 
 
-The source is hand-coded (human readable, no wasm) and easily tweakable.
+Other then the network weights, the source is hand-coded and easily tweakable.
 
 ## Play Lozza online
 
