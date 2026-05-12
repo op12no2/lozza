@@ -1,4 +1,3 @@
-#!/usr/bin/node
 "use strict"
 
 const BUILD = "11";
@@ -7,8 +6,6 @@ const BENCH_DEPTH = 8;
 
 const INT32_MAX =  2147483647;
 const INT32_MIN = -2147483648;
-
-//const UINT32_MAX = 4294967295;
 
 const NET_QA      = 255;
 const NET_QB      = 64;
@@ -280,61 +277,6 @@ const UMAP = Object.seal({
   5:  'Q',
   6:  'K'
 });
-  
-/*
-const RANK2W = new Uint8Array([
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-]);
-  
-const RANK2B = new Uint8Array([
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-]);
-  
-const CENTRE = new Uint8Array([
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-]);
-  
-const SLIDE_SCORES = [
-  NULL144,
-  RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
-  NULL144,
-  NULL144,
-  RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE
-];
-*/
   
 const ALIGNED = Array(144);
 
@@ -1026,7 +968,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
       continue;
     
     }
-    
 
     makeMoveB();
 
@@ -1051,7 +992,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     else if (doLMR !== 0 && numLegalMoves > 4) {
       R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
-    
 
     const nullWindow = (numLegalMoves > 1 || R) | 0;
 
@@ -1069,7 +1009,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     
     uncacheA(node);
     uncacheB(node);
-    
 
     if (statsTimeOut !== 0)
       return 0;
@@ -1129,7 +1068,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     return bestScore;
   }
   
-
 }
 
 // search
@@ -1198,7 +1136,6 @@ function search (node, depth, turn, alpha, beta) {
   
   if (pvNode === 0 && score !== TTSCORE_UNKNOWN)
     return score;
-  
 
   const doBeta = ((pvNode === 0 && inCheck === 0 && beta < MINMATE)) | 0;
 
@@ -1237,7 +1174,6 @@ function search (node, depth, turn, alpha, beta) {
       //return qs;
     //}
   //}
-  
 
   node.inCheck = inCheck;
   node.ev      = ev;
@@ -1285,8 +1221,8 @@ function search (node, depth, turn, alpha, beta) {
   const doFP   = (inCheck === 0 && depth <= 4) | 0;
   const doLMR  = (inCheck === 0 && depth >= 3) | 0;
   const doLMP  = (pvNode === 0 && inCheck === 0 && depth <= 2) | 0;
-  const doIIR  = (node.hashMove === 0 && pvNode !== 0 && depth > 3) | 0;
-
+  const doIIR  = (inCheck === 0 && node.hashMove === 0 && depth > 3) | 0;
+  
   let bestScore     = -INF;
   let move          = 0;
   let bestMove      = 0;
@@ -1318,7 +1254,6 @@ function search (node, depth, turn, alpha, beta) {
     
     if (doFP !== 0 && prune !== 0 && (ev + Math.imul(depth, 120)) < alpha)
       continue;
-    
 
     makeMoveA(node, move);
 
@@ -1333,7 +1268,6 @@ function search (node, depth, turn, alpha, beta) {
       continue;
     
     }
-    
 
     makeMoveB();
 
@@ -1354,7 +1288,6 @@ function search (node, depth, turn, alpha, beta) {
       R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
     
-
     const nullWindow = ((pvNode !== 0 && numLegalMoves > 1) || R) | 0;
 
     score = alpha;
@@ -1372,7 +1305,6 @@ function search (node, depth, turn, alpha, beta) {
     uncacheA(node);
     uncacheB(node);
     
-
     if (statsTimeOut !== 0)
       return 0;
 
@@ -1424,7 +1356,6 @@ function search (node, depth, turn, alpha, beta) {
     }
   
   }
-  
 
   if (bestScore > oAlpha) {
     ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, ev);

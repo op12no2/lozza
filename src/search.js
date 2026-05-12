@@ -49,7 +49,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
       continue;
     
     }
-    
 
     makeMoveB();
 
@@ -74,7 +73,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     else if (doLMR !== 0 && numLegalMoves > 4) {
       R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
-    
 
     const nullWindow = (numLegalMoves > 1 || R) | 0;
 
@@ -92,7 +90,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     
     uncacheA(node);
     uncacheB(node);
-    
 
     if (statsTimeOut !== 0)
       return 0;
@@ -152,7 +149,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     return bestScore;
   }
   
-
 }
 
 // search
@@ -221,7 +217,6 @@ function search (node, depth, turn, alpha, beta) {
   
   if (pvNode === 0 && score !== TTSCORE_UNKNOWN)
     return score;
-  
 
   const doBeta = ((pvNode === 0 && inCheck === 0 && beta < MINMATE)) | 0;
 
@@ -260,7 +255,6 @@ function search (node, depth, turn, alpha, beta) {
       //return qs;
     //}
   //}
-  
 
   node.inCheck = inCheck;
   node.ev      = ev;
@@ -308,8 +302,8 @@ function search (node, depth, turn, alpha, beta) {
   const doFP   = (inCheck === 0 && depth <= 4) | 0;
   const doLMR  = (inCheck === 0 && depth >= 3) | 0;
   const doLMP  = (pvNode === 0 && inCheck === 0 && depth <= 2) | 0;
-  const doIIR  = (node.hashMove === 0 && pvNode !== 0 && depth > 3) | 0;
-
+  const doIIR  = (inCheck === 0 && node.hashMove === 0 && depth > 3) | 0;
+  
   let bestScore     = -INF;
   let move          = 0;
   let bestMove      = 0;
@@ -341,7 +335,6 @@ function search (node, depth, turn, alpha, beta) {
     
     if (doFP !== 0 && prune !== 0 && (ev + Math.imul(depth, 120)) < alpha)
       continue;
-    
 
     makeMoveA(node, move);
 
@@ -356,7 +349,6 @@ function search (node, depth, turn, alpha, beta) {
       continue;
     
     }
-    
 
     makeMoveB();
 
@@ -377,7 +369,6 @@ function search (node, depth, turn, alpha, beta) {
       R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
     
-
     const nullWindow = ((pvNode !== 0 && numLegalMoves > 1) || R) | 0;
 
     score = alpha;
@@ -395,7 +386,6 @@ function search (node, depth, turn, alpha, beta) {
     uncacheA(node);
     uncacheB(node);
     
-
     if (statsTimeOut !== 0)
       return 0;
 
@@ -447,7 +437,6 @@ function search (node, depth, turn, alpha, beta) {
     }
   
   }
-  
 
   if (bestScore > oAlpha) {
     ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
