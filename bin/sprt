@@ -15,7 +15,7 @@ ensure_shebang() {
 rm -f sprt.pgn 
 
 e1=./lozza.js
-e2=./releases/lozza9.js
+e2=./releases/lozza.js
 
 ensure_shebang "$e1"
 ensure_shebang "$e2"

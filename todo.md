@@ -9,15 +9,13 @@
 - tablebases support
 - dfrc support
 - history pruning
-- change sprt to fastchess
 - merge rootSearch and search
 
 ### things to try 
 
+- more iproving
 - lmr formulas from cwtch
 - iir condition from cwtch
 - don't check for time up every nodes++
 - lazy accumulator update like cwtch
 - simplify move ranking - defer to move iterator
-- try pv move first
-- sprt using fastchess to see if 3rep is working
