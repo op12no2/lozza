@@ -72,7 +72,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     }
     
     else if (doLMR !== 0 && numLegalMoves > 4) {
-      R = LMR_LOOKUP[(depth << 7) + numPrunes];
+      R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
     
 
@@ -374,7 +374,7 @@ function search (node, depth, turn, alpha, beta) {
     }
     
     else if (doLMR !== 0 && numLegalMoves > 4) {
-      R = LMR_LOOKUP[(depth << 7) + numPrunes];
+      R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
     
 

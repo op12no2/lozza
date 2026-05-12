@@ -1060,7 +1060,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     }
     
     else if (doLMR !== 0 && numLegalMoves > 4) {
-      R = LMR_LOOKUP[(depth << 7) + numPrunes];
+      R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
     
 
@@ -1362,7 +1362,7 @@ function search (node, depth, turn, alpha, beta) {
     }
     
     else if (doLMR !== 0 && numLegalMoves > 4) {
-      R = LMR_LOOKUP[(depth << 7) + numPrunes];
+      R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
     
 
@@ -4682,7 +4682,7 @@ function initOnce () {
   
   for (let p=0; p < MAX_PLY; p++) {
     for (let m=0; m < MAX_MOVES; m++) {
-      LMR_LOOKUP[(p << 7) + m] = (1 + p/5 + m/20) | 0;
+      LMR_LOOKUP[(p << 8) + m] = (1 + p/5 + m/20) | 0;
     }
   }
   
