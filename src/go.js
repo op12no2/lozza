@@ -6,6 +6,7 @@ function go (maxPly) {
   let score       = 0;
   let delta       = 0;
   let depth       = 0;
+  let reported    = 0;
 
   multiPVMoves = [];
 
@@ -34,28 +35,30 @@ function go (maxPly) {
       
       if (score <= alpha) {
         // upper bound
-        
+
         beta  = Math.min(INF, ((alpha + beta) / 2) | 0);
         alpha = Math.max(-INF, alpha - delta);
-        
-        report('upperbound', score, depth);
-        
+
+        report(score, depth, 'upperbound');
+        reported = 1;
+
         if (!statsMaxNodes)
           statsBestMove = 0;
-        
+
       }
-      
+
       else if (score >= beta) {
         // lower bound
-        
+
         beta = Math.min(INF, beta + delta);
-        
-        report('lowerbound', score, depth);
-        
+
+        report(score, depth, 'lowerbound');
+        reported = 1;
+
         depth = Math.max(1, depth-1);
-        
+
       }
-      
+
       else {
         // exact
 
@@ -72,27 +75,12 @@ function go (maxPly) {
         }
 
 
-        if (multiPV > 1) {
-
+        if (multiPV > 1)
           reportMultiPV(depth);
+        else
+          report(score, depth, '');
 
-        }
-
-        else if (Math.abs(score) > MINMATE) {
-
-          let mateScore = (MATE - Math.abs(score)) / 2 | 0;
-          if (score < 0)
-            mateScore = -mateScore;
-
-          report('mate', mateScore, depth);
-
-        }
-
-        else {
-
-          report('cp', score, depth);
-
-        }
+        reported = 1;
 
         if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes)
           statsTimeOut = 1;
@@ -107,6 +95,9 @@ function go (maxPly) {
       break;
     
   }
+
+  if (reported === 0)
+    report(statsBestScore, depth || 1, '');
 
   bestMoveStr = formatMove(statsBestMove);
 

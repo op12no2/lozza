@@ -9,7 +9,7 @@ function collectPV(node, move) {
 
 }
 
-function report (units, value, depth) {
+function report (score, depth, bound) {
 
   let pvStr = 'pv';
   for (let i=rootNode.pvLen-1; i >= 0; i--)
@@ -20,7 +20,21 @@ function report (units, value, depth) {
   const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
 
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
-  const scoreStr = 'score ' + units + ' ' + value;
+
+  let scoreStr;
+  if (Math.abs(score) > MINMATE) {
+    let mateScore = (MATE - Math.abs(score)) / 2 | 0;
+    if (score < 0)
+      mateScore = -mateScore;
+    scoreStr = 'score mate ' + mateScore;
+  }
+  else {
+    scoreStr = 'score cp ' + score;
+  }
+
+  if (bound)
+    scoreStr += ' ' + bound;
+
   const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
