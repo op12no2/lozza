@@ -1,3 +1,4 @@
+#!/usr/bin/node
 "use strict"
 
 const BUILD = "11";
@@ -1593,11 +1594,15 @@ function perft (node, depth, turn) {
 function collectPV(node, move) {
 
   const cNode = node.childNode;
+  const src   = cNode.pv;
+  const dst   = node.pv;
+  const len   = cNode.pvLen;
 
-  node.pv.set(cNode.pv.subarray(0, cNode.pvLen), 0);
+  for (let i = 0; i < len; i++)
+    dst[i] = src[i];
 
-  node.pvLen            = cNode.pvLen;
-  node.pv[node.pvLen++] = move;
+  dst[len]   = move;
+  node.pvLen = len + 1;
 
 }
 
