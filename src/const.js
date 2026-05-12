@@ -5,8 +5,6 @@ const BENCH_DEPTH = 8;
 const INT32_MAX =  2147483647;
 const INT32_MIN = -2147483648;
 
-const UINT32_MAX = 4294967295;
-
 const NET_QA      = 255;
 const NET_QB      = 64;
 const NET_QAB     = NET_QA * NET_QB;
@@ -40,7 +38,7 @@ const TT_EXACT = 1;
 const TT_BETA  = 2;
 const TT_ALPHA = 3;
 
-const BASE_HASH       = UINT32_MAX;
+const BASE_HASH       = INT32_MAX;
 const BASE_PROMOTES   = BASE_HASH       - 1000;
 const BASE_GOODTAKES  = BASE_PROMOTES   - 1000;
 const BASE_EVENTAKES  = BASE_GOODTAKES  - 1000;
@@ -50,8 +48,7 @@ const BASE_MYKILLERS  = BASE_MATEKILLER - 1000;
 const BASE_GPKILLERS  = BASE_MYKILLERS  - 1000;
 const BASE_CASTLING   = BASE_GPKILLERS  - 1000;
 const BASE_BADTAKES   = BASE_CASTLING   - 1000;
-const BASE_HISSLIDE   = (UINT32_MAX >>> 1) - 10000;
-const BASE_SLIDE      = 100;
+const BASE_HISSLIDE   = 0;
 const BASE_PRUNABLE   = BASE_BADTAKES;
 
 const MOVE_TO_BITS     = 0;
@@ -278,59 +275,6 @@ const UMAP = Object.seal({
   5:  'Q',
   6:  'K'
 });
-  
-const RANK2W = new Uint8Array([
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-]);
-  
-const RANK2B = new Uint8Array([
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-]);
-  
-const CENTRE = new Uint8Array([
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-]);
-  
-const SLIDE_SCORES = [
-  NULL144,
-  RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
-  NULL144,
-  NULL144,
-  RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE
-];
   
 const ALIGNED = Array(144);
 

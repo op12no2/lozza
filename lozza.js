@@ -8,7 +8,7 @@ const BENCH_DEPTH = 8;
 const INT32_MAX =  2147483647;
 const INT32_MIN = -2147483648;
 
-const UINT32_MAX = 4294967295;
+//const UINT32_MAX = 4294967295;
 
 const NET_QA      = 255;
 const NET_QB      = 64;
@@ -43,7 +43,7 @@ const TT_EXACT = 1;
 const TT_BETA  = 2;
 const TT_ALPHA = 3;
 
-const BASE_HASH       = UINT32_MAX;
+const BASE_HASH       = INT32_MAX;
 const BASE_PROMOTES   = BASE_HASH       - 1000;
 const BASE_GOODTAKES  = BASE_PROMOTES   - 1000;
 const BASE_EVENTAKES  = BASE_GOODTAKES  - 1000;
@@ -53,8 +53,7 @@ const BASE_MYKILLERS  = BASE_MATEKILLER - 1000;
 const BASE_GPKILLERS  = BASE_MYKILLERS  - 1000;
 const BASE_CASTLING   = BASE_GPKILLERS  - 1000;
 const BASE_BADTAKES   = BASE_CASTLING   - 1000;
-const BASE_HISSLIDE   = (UINT32_MAX >>> 1) - 10000;
-const BASE_SLIDE      = 100;
+const BASE_HISSLIDE   = 0;
 const BASE_PRUNABLE   = BASE_BADTAKES;
 
 const MOVE_TO_BITS     = 0;
@@ -282,6 +281,7 @@ const UMAP = Object.seal({
   6:  'K'
 });
   
+/*
 const RANK2W = new Uint8Array([
   0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
   0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
@@ -334,6 +334,7 @@ const SLIDE_SCORES = [
   NULL144,
   RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE
 ];
+*/
   
 const ALIGNED = Array(144);
 
@@ -361,9 +362,9 @@ function nodeStruct () {
   this.grandparentNode = null;
 
   this.moves  = new Uint32Array(MAX_MOVES);
-  this.ranks  = new Uint32Array(MAX_MOVES);
+  this.ranks  = new Int32Array(MAX_MOVES);
   this.moves2 = new Uint32Array(MAX_MOVES);
-  this.ranks2 = new Uint32Array(MAX_MOVES);
+  this.ranks2 = new Int32Array(MAX_MOVES);
 
   this.killer1     = 0;
   this.killer2     = 0;
@@ -471,7 +472,7 @@ function getNextMove (node) {
         const next  = node.next;
         const num   = node.numMoves;
       
-        let maxR = -INF;
+        let maxR = INT32_MIN;
         let maxI = 0;
       
         for (let i=next; i < num; i++) {
@@ -517,7 +518,7 @@ function getNextMove (node) {
         const next  = node.next;
         const num   = node.numMoves2;
       
-        let maxR = -INF;
+        let maxR = INT32_MIN;
         let maxI = 0;
       
         for (let i=next; i < num; i++) {
@@ -561,20 +562,8 @@ function rankSlides (node) {
 
     const hisScore = objHistory[(frObj << 8) + to];
 
-    //if (hisScore === BASE_HISSLIDE) {
+    node.ranks2[i] = hisScore;
 
-      //const fr          = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-      //const slideScores = SLIDE_SCORES[frObj];
-
-      //node.ranks2[i] = BASE_SLIDE + slideScores[to] - slideScores[fr];
-
-    //}
-
-    //else {
-
-      node.ranks2[i] = hisScore;
-
-    //}
   }
 }
 

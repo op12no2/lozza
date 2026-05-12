@@ -14,7 +14,7 @@ function getNextMove (node) {
         const next  = node.next;
         const num   = node.numMoves;
       
-        let maxR = -INF;
+        let maxR = INT32_MIN;
         let maxI = 0;
       
         for (let i=next; i < num; i++) {
@@ -60,7 +60,7 @@ function getNextMove (node) {
         const next  = node.next;
         const num   = node.numMoves2;
       
-        let maxR = -INF;
+        let maxR = INT32_MIN;
         let maxI = 0;
       
         for (let i=next; i < num; i++) {
@@ -104,20 +104,8 @@ function rankSlides (node) {
 
     const hisScore = objHistory[(frObj << 8) + to];
 
-    //if (hisScore === BASE_HISSLIDE) {
+    node.ranks2[i] = hisScore;
 
-      //const fr          = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-      //const slideScores = SLIDE_SCORES[frObj];
-
-      //node.ranks2[i] = BASE_SLIDE + slideScores[to] - slideScores[fr];
-
-    //}
-
-    //else {
-
-      node.ranks2[i] = hisScore;
-
-    //}
   }
 }
 

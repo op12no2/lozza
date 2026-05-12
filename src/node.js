@@ -8,9 +8,9 @@ function nodeStruct () {
   this.grandparentNode = null;
 
   this.moves  = new Uint32Array(MAX_MOVES);
-  this.ranks  = new Uint32Array(MAX_MOVES);
+  this.ranks  = new Int32Array(MAX_MOVES);
   this.moves2 = new Uint32Array(MAX_MOVES);
-  this.ranks2 = new Uint32Array(MAX_MOVES);
+  this.ranks2 = new Int32Array(MAX_MOVES);
 
   this.killer1     = 0;
   this.killer2     = 0;
