@@ -2,7 +2,7 @@
 
 Lozza is a Javascript UCI chess engine that can be easily be deployed using a web worker. It can also be used with traditional chess user interfaces via Node. 
 
-Other then the network weights, the source is hand-coded and easily tweakable.
+Other than the network weights, the source is hand-coded and easily tweakable.
 
 ## Play Lozza online
 
@@ -48,7 +48,7 @@ A sister repo has more browser-based examples for playing and analysing with Loz
 
 ## Lozza's net
 
-Lozza's net was booted from ```quiet_labeled.epd``` and ```lichess-big3-resolved.epd```, then iteratively improved through six generations of self play and training; initially using a diy trainer and more recently with ```bullet```. Currently it's a simple quantised 768->(256*2)->1 squared ReLU architecture, trained on about 600M positions. It's embeded into ```lozza.js``` as a single line of code towards the end of the file.
+Lozza's net was booted from ```quiet_labeled.epd``` and ```lichess-big3-resolved.epd```, then iteratively improved through several generations of self play and training; initially using a diy trainer and more recently with ```bullet```. Currently it's a simple quantised 768->(256*2)->1 squared ReLU architecture, trained on about 600M positions. It's embeded into ```lozza.js``` as a single line of code towards the end of the file.
 
 ## Limitations
 
