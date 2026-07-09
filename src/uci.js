@@ -317,6 +317,27 @@ function uciExec (commands) {
         
       }
 
+      case 'datagen':
+      case 'dg': {
+
+        if (!nodeHost) {
+          uciSend('info datagen needs node');
+          break;
+        }
+
+        const target = Math.floor(parseFloat(tokens[2]));
+
+        if (tokens.length !== 3 || !(target > 0)) {
+          uciSend('usage: datagen <directory> <positions>');
+          break;
+        }
+
+        datagen(tokens[1], target);
+
+        break;
+
+      }
+
       case 'net':
       case 'n': {
         

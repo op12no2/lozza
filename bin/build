@@ -33,6 +33,7 @@ cat \
   src/tc.js \
   src/data.js \
   src/tests.js \
+  src/datagen.js \
   src/uci.js \
   src/init.js \
   src/weights.js \
