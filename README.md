@@ -2,7 +2,7 @@
 
 Lozza is a UCI chess engine written in Javascript. It's easily deployed using a web worker and can also be used with traditional chess user interfaces like Cutechess and Arena.
 
-# Project constraints
+## Project constraints
 
 - Hand-coded Javascript (so easily tweakable).
 - No use of LLMs.
