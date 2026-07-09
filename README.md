@@ -2,12 +2,6 @@
 
 Lozza is a UCI chess engine written in Javascript. It's easily deployed using a web worker and can also be used with traditional chess user interfaces like Cutechess and Arena.
 
-## Project constraints
-
-- Hand-coded Javascript (so easily tweakable).
-- No use of LLMs (for design or implementation).
-- No WASM.
-
 ## Basic use in a browser
 
 All you need is ```lozza.js``` from the latest release.  
@@ -38,9 +32,9 @@ This can be done using Node and a batch file; full path names are recommended.
 
 Then use the batch file to load Lozza into the user interface. Email me if you get any problems ```op12no2@gmail.com```.
 
-Node is also a nice way to exercise Lozza from the command line:-
-
 Alternatively use the Linux and Windows binaries in the latest release.
+
+Node is also a nice way to exercise Lozza from the command line:-
 
 ```
 Node lozza.js
