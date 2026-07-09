@@ -184,26 +184,29 @@ function position (bd, turn, rights, ep, moves) {
   bList.set(bList2);
   
   // ue
-  
-  net_h1_a.set(net_h1_b);
-  net_h2_a.set(net_h1_b);
-  
+
+  const a1 = rootNode.net_h1_a;
+  const a2 = rootNode.net_h2_a;
+
+  a1.set(net_h1_b);
+  a2.set(net_h1_b);
+
   for (let sq=0; sq < 64; sq++) {
-  
+
     const fr    = B88[sq];
     const frObj = bdB[fr];
-  
+
     if (frObj === 0)
       continue;
-  
+
     const off1 = IMAP[(frObj << 8) + fr];
-  
+
     for (let h=0; h < NET_H1_SIZE; h++) {
       const idx1 = off1 + h;
-      net_h1_a[h] += net_h1_w_flat[idx1];
-      net_h2_a[h] += net_h2_w_flat[idx1];
+      a1[h] += net_h1_w_flat[idx1];
+      a2[h] += net_h2_w_flat[idx1];
     }
-  
+
   }
   
   initNode(rootNode);

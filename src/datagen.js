@@ -207,13 +207,20 @@ function dgLegalMoves (out) {
 
 // dgPlayMove
 //
-// Make a move permanently at the root.
+// Make a move permanently at the root.  The accumulator update lands
+// in the child node, so resolve it there and pull it back to the root.
 //
 
 function dgPlayMove (move) {
 
+  const child = rootNode.childNode;
+
   makeMoveA(rootNode, move);
-  makeMoveB();
+
+  resolveAccs(child);
+
+  rootNode.net_h1_a.set(child.net_h1_a);
+  rootNode.net_h2_a.set(child.net_h2_a);
 
   bdTurn ^= COLOR_MASK;
 

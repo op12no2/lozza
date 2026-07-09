@@ -87,7 +87,7 @@ function evalTests () {
         
     newGame();
     uciExec('position fen ' + fen);
-    const ev = evaluate(bdTurn);
+    const ev = evaluate(rootNode, bdTurn);
     uciSend(ev, fen)
     sum += ev;
 

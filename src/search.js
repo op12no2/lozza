@@ -28,7 +28,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
   score = ttGet(node, depth, alpha, beta);  // load hash move and hash eval
 
   node.inCheck = inCheck;
-  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   ttUpdateEval(node.ev);
   cache(node);
@@ -39,18 +39,16 @@ function rootSearch (node, depth, turn, alpha, beta) {
     makeMoveA(node, move);
 
     // legal?
-    
-    if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
-    
-      unmakeMove(node, move);
-    
-      uncacheA(node);
-    
-      continue;
-    
-    }
 
-    makeMoveB();
+    if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
+
+      unmakeMove(node, move);
+
+      uncacheA(node);
+
+      continue;
+
+    }
 
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
@@ -85,11 +83,10 @@ function rootSearch (node, depth, turn, alpha, beta) {
       score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
 
     // unmake move
-    
+
     unmakeMove(node, move);
-    
+
     uncacheA(node);
-    uncacheB(node);
 
     if (statsTimeOut !== 0)
       return 0;
@@ -223,7 +220,7 @@ function search (node, depth, turn, alpha, beta) {
   let R = 0;
   let E = 0;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   // improving
   
@@ -259,34 +256,39 @@ function search (node, depth, turn, alpha, beta) {
   node.inCheck = inCheck;
   node.ev      = ev;
 
+  resolveAccs(node);  // may not have happened via evaluate(); children resolve from our accumulators
+
   cache(node);
 
   // NMP
-  
+
   //const isPawnEG = (wCount == wCounts[PAWN]+1 && bCount == bCounts[PAWN]+1) | 0;
-  
+
   if (doBeta !== 0 && depth > 2 && ev > beta) {
-  
+
     R = 3 + improving;
-  
+
     loHash ^= loEP[bdEp];
     hiHash ^= hiEP[bdEp];
-  
+
     bdEp = 0;
-  
+
     loHash ^= loEP[bdEp];
     hiHash ^= hiEP[bdEp];
-  
+
     loHash ^= loTurn;
     hiHash ^= hiTurn;
-  
+
     repLo = repHi;
-  
+
+    node.childNode.net_h1_a.set(node.net_h1_a);  // null move; same position for the child
+    node.childNode.net_h2_a.set(node.net_h2_a);
+    node.childNode.accsDirty = 0;
+
     score = -search(node.childNode, depth-R-1, nextTurn, -beta, -beta+1);
-  
+
     uncacheA(node);
-    //uncacheB(node);
-  
+
     if (score >= beta) {
       if (score > MINMATE)
         score = beta;
@@ -339,18 +341,16 @@ function search (node, depth, turn, alpha, beta) {
     makeMoveA(node, move);
 
     // legal
-    
-    if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
-    
-      unmakeMove(node, move);
-    
-      uncacheA(node);
-    
-      continue;
-    
-    }
 
-    makeMoveB();
+    if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
+
+      unmakeMove(node, move);
+
+      uncacheA(node);
+
+      continue;
+
+    }
 
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
@@ -380,12 +380,11 @@ function search (node, depth, turn, alpha, beta) {
       score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
 
     // unmake move
-    
+
     unmakeMove(node, move);
-    
+
     uncacheA(node);
-    uncacheB(node);
-    
+
     if (statsTimeOut !== 0)
       return 0;
 

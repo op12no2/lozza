@@ -1,5 +1,5 @@
 
-function evaluate (turn) {
+function evaluate (node, turn) {
 
   // init
   
@@ -49,7 +49,7 @@ function evaluate (turn) {
   if (numPieces === 4 && wNumQueens !== 0 && bNumQueens !== 0)
     return 0;
 
-  return netEval(turn);
+  return netEval(node, turn);
 
 }
 

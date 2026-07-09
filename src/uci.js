@@ -279,7 +279,7 @@ function uciExec (commands) {
       case 'eval':
       case 'e': {
         
-        const e = netEval(bdTurn);
+        const e = netEval(rootNode, bdTurn);
         uciSend(e);
         
         break;

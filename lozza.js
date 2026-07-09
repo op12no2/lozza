@@ -328,8 +328,10 @@ function nodeStruct () {
   this.loHash = 0;
   this.hiHash = 0;
 
-  this.net_h1_a = new Int32Array(NET_H1_SIZE);
-  this.net_h2_a = new Int32Array(NET_H1_SIZE);
+  this.net_h1_a  = new Int32Array(NET_H1_SIZE);
+  this.net_h2_a  = new Int32Array(NET_H1_SIZE);
+  this.net_a     = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]];
+  this.accsDirty = 0;
 
   this.toZ = 0;
   this.frZ = 0;
@@ -358,9 +360,16 @@ function initNode (node) {
   node.frZ = 0;
   node.epZ = 0;
 
+  node.accsDirty = 0;
+
 }
 
 // cache
+//
+// The accumulators are not cached/uncached; each node owns the
+// accumulators for its position, written lazily by resolveAccs()
+// in net.js.
+//
 
 function cache (node) {
 
@@ -370,9 +379,6 @@ function cache (node) {
   node.repHi  = repHi;
   node.loHash = loHash;
   node.hiHash = hiHash;
-
-  node.net_h1_a.set(net_h1_a);
-  node.net_h2_a.set(net_h2_a);
 
 }
 
@@ -386,15 +392,6 @@ function uncacheA (node) {
   repHi    = node.repHi;
   loHash   = node.loHash;
   hiHash   = node.hiHash;
-
-}
-
-// uncacheB
-
-function uncacheB (node) {
-
-  net_h1_a.set(node.net_h1_a);
-  net_h2_a.set(node.net_h2_a);
 
 }
 
@@ -947,7 +944,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
   score = ttGet(node, depth, alpha, beta);  // load hash move and hash eval
 
   node.inCheck = inCheck;
-  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   ttUpdateEval(node.ev);
   cache(node);
@@ -958,18 +955,16 @@ function rootSearch (node, depth, turn, alpha, beta) {
     makeMoveA(node, move);
 
     // legal?
-    
-    if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
-    
-      unmakeMove(node, move);
-    
-      uncacheA(node);
-    
-      continue;
-    
-    }
 
-    makeMoveB();
+    if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
+
+      unmakeMove(node, move);
+
+      uncacheA(node);
+
+      continue;
+
+    }
 
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
@@ -1004,11 +999,10 @@ function rootSearch (node, depth, turn, alpha, beta) {
       score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
 
     // unmake move
-    
+
     unmakeMove(node, move);
-    
+
     uncacheA(node);
-    uncacheB(node);
 
     if (statsTimeOut !== 0)
       return 0;
@@ -1142,7 +1136,7 @@ function search (node, depth, turn, alpha, beta) {
   let R = 0;
   let E = 0;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   // improving
   
@@ -1178,34 +1172,39 @@ function search (node, depth, turn, alpha, beta) {
   node.inCheck = inCheck;
   node.ev      = ev;
 
+  resolveAccs(node);  // may not have happened via evaluate(); children resolve from our accumulators
+
   cache(node);
 
   // NMP
-  
+
   //const isPawnEG = (wCount == wCounts[PAWN]+1 && bCount == bCounts[PAWN]+1) | 0;
-  
+
   if (doBeta !== 0 && depth > 2 && ev > beta) {
-  
+
     R = 3 + improving;
-  
+
     loHash ^= loEP[bdEp];
     hiHash ^= hiEP[bdEp];
-  
+
     bdEp = 0;
-  
+
     loHash ^= loEP[bdEp];
     hiHash ^= hiEP[bdEp];
-  
+
     loHash ^= loTurn;
     hiHash ^= hiTurn;
-  
+
     repLo = repHi;
-  
+
+    node.childNode.net_h1_a.set(node.net_h1_a);  // null move; same position for the child
+    node.childNode.net_h2_a.set(node.net_h2_a);
+    node.childNode.accsDirty = 0;
+
     score = -search(node.childNode, depth-R-1, nextTurn, -beta, -beta+1);
-  
+
     uncacheA(node);
-    //uncacheB(node);
-  
+
     if (score >= beta) {
       if (score > MINMATE)
         score = beta;
@@ -1258,18 +1257,16 @@ function search (node, depth, turn, alpha, beta) {
     makeMoveA(node, move);
 
     // legal
-    
-    if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
-    
-      unmakeMove(node, move);
-    
-      uncacheA(node);
-    
-      continue;
-    
-    }
 
-    makeMoveB();
+    if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
+
+      unmakeMove(node, move);
+
+      uncacheA(node);
+
+      continue;
+
+    }
 
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
@@ -1299,12 +1296,11 @@ function search (node, depth, turn, alpha, beta) {
       score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
 
     // unmake move
-    
+
     unmakeMove(node, move);
-    
+
     uncacheA(node);
-    uncacheB(node);
-    
+
     if (statsTimeOut !== 0)
       return 0;
 
@@ -1380,7 +1376,7 @@ function qSearch (node, depth, turn, alpha, beta) {
     statsSelDepth = node.ply;
 
   if (node.childNode === null)
-    return evaluate(turn);
+    return evaluate(node, turn);
   
   const nextTurn = turn ^ COLOR_MASK;
 
@@ -1392,7 +1388,7 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (score !== TTSCORE_UNKNOWN)
     return score;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   if (ev >= beta)
     return ev;
@@ -1400,6 +1396,8 @@ function qSearch (node, depth, turn, alpha, beta) {
     alpha = ev;
 
   node.inCheck = 0;  // but not used
+
+  resolveAccs(node);  // may not have happened via evaluate(); children resolve from our accumulators
 
   ttUpdateEval(ev);
   cache(node);
@@ -1434,19 +1432,16 @@ function qSearch (node, depth, turn, alpha, beta) {
     }
     
 
-    makeMoveB();
-
     numLegalMoves++;
 
     score = -qSearch(node.childNode, depth-1, nextTurn, -beta, -alpha);
 
     // unmake move
-    
+
     unmakeMove(node, move);
-    
+
     uncacheA(node);
-    uncacheB(node);
-    
+
 
     if (score > alpha) {
       if (score >= beta) {
@@ -1597,9 +1592,6 @@ const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
 const net_h1_b      = new Int32Array(NET_H1_SIZE);
 const net_o_w       = new Int32Array(NET_H1_SIZE*2);
 let   net_o_b       = 0;
-const net_h1_a      = new Int32Array(NET_H1_SIZE);
-const net_h2_a      = new Int32Array(NET_H1_SIZE);
-const net_a         = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
 
 let ueFunc  = myround;
 let ueArgs0 = 0;
@@ -1609,10 +1601,36 @@ let ueArgs3 = 0;
 let ueArgs4 = 0;
 let ueArgs5 = 0;
 
-function netEval(turn) {
+// resolveAccs
+//
+// Each node owns the accumulators for its position but they are not
+// written by makeMoveA(); it just flags the child dirty and leaves the
+// pending update in ueFunc/ueArgs*.  The first thing that needs the
+// accumulators calls this and the ue* func writes them from the parent's
+// in one fused pass (node = parent + delta); there is no copy and
+// nothing to restore on unmake.  Nodes that return before their resolve
+// point (tt cutoffs, draws, hash eval stand pats etc) never pay for the
+// update at all.  The globals are always valid here because a node
+// resolves before making any moves of its own.
+//
+
+function resolveAccs (node) {
+
+  if (node.accsDirty === 0)
+    return;
+
+  node.accsDirty = 0;
+
+  ueFunc(node);
+
+}
+
+function netEval(node, turn) {
+
+  resolveAccs(node);
 
   const w  = net_o_w;
-  const a  = net_a[turn >>> 3];
+  const a  = node.net_a[turn >>> 3];
   const a1 = a[0];
   const a2 = a[1];
   const N  = NET_H1_SIZE | 0;
@@ -1702,7 +1720,7 @@ function netLoad () {
 
 }
 
-function netMove () {
+function netMove (node) {
 
   const frObj = ueArgs0 << 8;
   const from  = ueArgs1 | 0;
@@ -1710,7 +1728,11 @@ function netMove () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -1719,14 +1741,14 @@ function netMove () {
   let p2 = map[frObj + to]   | 0;
 
   while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p2] - h2w[p1];
+    d1[h] = s1[h] + h1w[p2] - h1w[p1];
+    d2[h] = s2[h] + h2w[p2] - h2w[p1];
     h++; p1++; p2++;
   }
 
 }
 
-function netCapture () {
+function netCapture (node) {
 
   const frObj = ueArgs0 << 8;
   const fr    = ueArgs1 | 0;
@@ -1735,7 +1757,11 @@ function netCapture () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -1745,14 +1771,14 @@ function netCapture () {
   let p3 = map[frObj + to] | 0;
 
   while (h < N) {
-    h1a[h] += h1w[p3] - h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p3] - h2w[p2] - h2w[p1];
+    d1[h] = s1[h] + h1w[p3] - h1w[p2] - h1w[p1];
+    d2[h] = s2[h] + h2w[p3] - h2w[p2] - h2w[p1];
     h++; p1++; p2++; p3++;
   }
 
 }
 
-function netPromote () {
+function netPromote (node) {
 
   const pawnObj    = ueArgs0 << 8;
   const pawnFr     = ueArgs1 | 0;
@@ -1762,7 +1788,11 @@ function netPromote () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -1773,22 +1803,22 @@ function netPromote () {
   if (captureObj !== 0) {
     let p3 = map[captureObj + pawnTo] | 0;
     while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-      h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+      d1[h] = s1[h] + h1w[p2] - h1w[p1] - h1w[p3];
+      d2[h] = s2[h] + h2w[p2] - h2w[p1] - h2w[p3];
       h++; p1++; p2++; p3++;
     }
   }
   else {
     while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1];
-      h2a[h] += h2w[p2] - h2w[p1];
+      d1[h] = s1[h] + h1w[p2] - h1w[p1];
+      d2[h] = s2[h] + h2w[p2] - h2w[p1];
       h++; p1++; p2++;
     }
   }
 
 }
 
-function netEpCapture () {
+function netEpCapture (node) {
 
   const pawnObj        = ueArgs0 << 8;
   const pawnFr         = ueArgs1 | 0;
@@ -1798,7 +1828,11 @@ function netEpCapture () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -1808,14 +1842,14 @@ function netEpCapture () {
   let p3 = map[pawnCaptureObj + ep] | 0;
 
   while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+    d1[h] = s1[h] + h1w[p2] - h1w[p1] - h1w[p3];
+    d2[h] = s2[h] + h2w[p2] - h2w[p1] - h2w[p3];
     h++; p1++; p2++; p3++;
   }
 
 }
 
-function netCastle () {
+function netCastle (node) {
 
   const kingObj = ueArgs0 << 8;
   const kingFr  = ueArgs1 | 0;
@@ -1826,7 +1860,11 @@ function netCastle () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -1837,8 +1875,8 @@ function netCastle () {
   let p4 = map[rookObj + rookTo] | 0;
 
   while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
+    d1[h] = s1[h] + h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
+    d2[h] = s2[h] + h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
     h++; p1++; p2++; p3++; p4++;
   }
 
@@ -2005,9 +2043,11 @@ function makeMoveA (node, move) {
   
   node.frZ = z[fr];
   node.toZ = z[to];
-  
+
   z[fr] = NO_Z;
   z[to] = node.frZ;
+
+  node.childNode.accsDirty = 1;  // resolved lazily; see resolveAccs() in net.js
   
   loHash ^= loObjPieces[(frObj << 8) + fr];
   hiHash ^= hiObjPieces[(frObj << 8) + fr];
@@ -2340,18 +2380,6 @@ function makeMoveA (node, move) {
   if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece === PAWN)
     repLo = repHi;
   
-
-}
-
-// makeMoveB
-//
-// If the ue* data is moved into nodes, this could be deferred and
-// done in evaluate().
-//
-
-function makeMoveB  () {
-
-  ueFunc();
 
 }
 
@@ -2855,26 +2883,29 @@ function position (bd, turn, rights, ep, moves) {
   bList.set(bList2);
   
   // ue
-  
-  net_h1_a.set(net_h1_b);
-  net_h2_a.set(net_h1_b);
-  
+
+  const a1 = rootNode.net_h1_a;
+  const a2 = rootNode.net_h2_a;
+
+  a1.set(net_h1_b);
+  a2.set(net_h1_b);
+
   for (let sq=0; sq < 64; sq++) {
-  
+
     const fr    = B88[sq];
     const frObj = bdB[fr];
-  
+
     if (frObj === 0)
       continue;
-  
+
     const off1 = IMAP[(frObj << 8) + fr];
-  
+
     for (let h=0; h < NET_H1_SIZE; h++) {
       const idx1 = off1 + h;
-      net_h1_a[h] += net_h1_w_flat[idx1];
-      net_h2_a[h] += net_h2_w_flat[idx1];
+      a1[h] += net_h1_w_flat[idx1];
+      a2[h] += net_h2_w_flat[idx1];
     }
-  
+
   }
   
   initNode(rootNode);
@@ -3662,7 +3693,7 @@ function isAttacked (to, byCol) {
 }
 
 
-function evaluate (turn) {
+function evaluate (node, turn) {
 
   // init
   
@@ -3712,7 +3743,7 @@ function evaluate (turn) {
   if (numPieces === 4 && wNumQueens !== 0 && bNumQueens !== 0)
     return 0;
 
-  return netEval(turn);
+  return netEval(node, turn);
 
 }
 
@@ -3850,7 +3881,9 @@ function formatMove (move) {
 
 }
 
-function boardCheck (turn) {
+function boardCheck (node, turn) {
+
+  resolveAccs(node);  // node may still be lazy at verify points
 
   const a1 = new Int32Array(NET_H1_SIZE);
   const a2 = new Int32Array(NET_H1_SIZE);
@@ -3916,10 +3949,10 @@ function boardCheck (turn) {
   }
   
   for (let i=0; i < NET_H1_SIZE; i++) {
-    if (a1[i] !== net_h1_a[i])
-      console.log('****** A1', i, a1[i], net_h1_a[i]);
-    if (a2[i] !== net_h2_a[i])
-      console.log('****** A2', i, a2[i], net_h2_a[i]);
+    if (a1[i] !== node.net_h1_a[i])
+      console.log('****** A1', i, a1[i], node.net_h1_a[i]);
+    if (a2[i] !== node.net_h2_a[i])
+      console.log('****** A2', i, a2[i], node.net_h2_a[i]);
   }
 
 }
@@ -4176,7 +4209,7 @@ function evalTests () {
         
     newGame();
     uciExec('position fen ' + fen);
-    const ev = evaluate(bdTurn);
+    const ev = evaluate(rootNode, bdTurn);
     uciSend(ev, fen)
     sum += ev;
 
@@ -4395,13 +4428,20 @@ function dgLegalMoves (out) {
 
 // dgPlayMove
 //
-// Make a move permanently at the root.
+// Make a move permanently at the root.  The accumulator update lands
+// in the child node, so resolve it there and pull it back to the root.
 //
 
 function dgPlayMove (move) {
 
+  const child = rootNode.childNode;
+
   makeMoveA(rootNode, move);
-  makeMoveB();
+
+  resolveAccs(child);
+
+  rootNode.net_h1_a.set(child.net_h1_a);
+  rootNode.net_h2_a.set(child.net_h2_a);
 
   bdTurn ^= COLOR_MASK;
 
@@ -4896,7 +4936,7 @@ function uciExec (commands) {
       case 'eval':
       case 'e': {
         
-        const e = netEval(bdTurn);
+        const e = netEval(rootNode, bdTurn);
         uciSend(e);
         
         break;

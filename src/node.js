@@ -32,8 +32,10 @@ function nodeStruct () {
   this.loHash = 0;
   this.hiHash = 0;
 
-  this.net_h1_a = new Int32Array(NET_H1_SIZE);
-  this.net_h2_a = new Int32Array(NET_H1_SIZE);
+  this.net_h1_a  = new Int32Array(NET_H1_SIZE);
+  this.net_h2_a  = new Int32Array(NET_H1_SIZE);
+  this.net_a     = [[this.net_h1_a, this.net_h2_a], [this.net_h2_a, this.net_h1_a]];
+  this.accsDirty = 0;
 
   this.toZ = 0;
   this.frZ = 0;
@@ -62,9 +64,16 @@ function initNode (node) {
   node.frZ = 0;
   node.epZ = 0;
 
+  node.accsDirty = 0;
+
 }
 
 // cache
+//
+// The accumulators are not cached/uncached; each node owns the
+// accumulators for its position, written lazily by resolveAccs()
+// in net.js.
+//
 
 function cache (node) {
 
@@ -74,9 +83,6 @@ function cache (node) {
   node.repHi  = repHi;
   node.loHash = loHash;
   node.hiHash = hiHash;
-
-  node.net_h1_a.set(net_h1_a);
-  node.net_h2_a.set(net_h2_a);
 
 }
 
@@ -90,15 +96,6 @@ function uncacheA (node) {
   repHi    = node.repHi;
   loHash   = node.loHash;
   hiHash   = node.hiHash;
-
-}
-
-// uncacheB
-
-function uncacheB (node) {
-
-  net_h1_a.set(node.net_h1_a);
-  net_h2_a.set(node.net_h2_a);
 
 }
 

@@ -18,9 +18,11 @@ function makeMoveA (node, move) {
   
   node.frZ = z[fr];
   node.toZ = z[to];
-  
+
   z[fr] = NO_Z;
   z[to] = node.frZ;
+
+  node.childNode.accsDirty = 1;  // resolved lazily; see resolveAccs() in net.js
   
   loHash ^= loObjPieces[(frObj << 8) + fr];
   hiHash ^= hiObjPieces[(frObj << 8) + fr];
@@ -353,18 +355,6 @@ function makeMoveA (node, move) {
   if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece === PAWN)
     repLo = repHi;
   
-
-}
-
-// makeMoveB
-//
-// If the ue* data is moved into nodes, this could be deferred and
-// done in evaluate().
-//
-
-function makeMoveB  () {
-
-  ueFunc();
 
 }
 

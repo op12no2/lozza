@@ -1,4 +1,6 @@
-function boardCheck (turn) {
+function boardCheck (node, turn) {
+
+  resolveAccs(node);  // node may still be lazy at verify points
 
   const a1 = new Int32Array(NET_H1_SIZE);
   const a2 = new Int32Array(NET_H1_SIZE);
@@ -64,10 +66,10 @@ function boardCheck (turn) {
   }
   
   for (let i=0; i < NET_H1_SIZE; i++) {
-    if (a1[i] !== net_h1_a[i])
-      console.log('****** A1', i, a1[i], net_h1_a[i]);
-    if (a2[i] !== net_h2_a[i])
-      console.log('****** A2', i, a2[i], net_h2_a[i]);
+    if (a1[i] !== node.net_h1_a[i])
+      console.log('****** A1', i, a1[i], node.net_h1_a[i]);
+    if (a2[i] !== node.net_h2_a[i])
+      console.log('****** A2', i, a2[i], node.net_h2_a[i]);
   }
 
 }

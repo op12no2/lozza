@@ -10,7 +10,7 @@ function qSearch (node, depth, turn, alpha, beta) {
     statsSelDepth = node.ply;
 
   if (node.childNode === null)
-    return evaluate(turn);
+    return evaluate(node, turn);
   
   const nextTurn = turn ^ COLOR_MASK;
 
@@ -22,7 +22,7 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (score !== TTSCORE_UNKNOWN)
     return score;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   if (ev >= beta)
     return ev;
@@ -30,6 +30,8 @@ function qSearch (node, depth, turn, alpha, beta) {
     alpha = ev;
 
   node.inCheck = 0;  // but not used
+
+  resolveAccs(node);  // may not have happened via evaluate(); children resolve from our accumulators
 
   ttUpdateEval(ev);
   cache(node);
@@ -64,19 +66,16 @@ function qSearch (node, depth, turn, alpha, beta) {
     }
     
 
-    makeMoveB();
-
     numLegalMoves++;
 
     score = -qSearch(node.childNode, depth-1, nextTurn, -beta, -alpha);
 
     // unmake move
-    
+
     unmakeMove(node, move);
-    
+
     uncacheA(node);
-    uncacheB(node);
-    
+
 
     if (score > alpha) {
       if (score >= beta) {

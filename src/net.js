@@ -3,9 +3,6 @@ const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
 const net_h1_b      = new Int32Array(NET_H1_SIZE);
 const net_o_w       = new Int32Array(NET_H1_SIZE*2);
 let   net_o_b       = 0;
-const net_h1_a      = new Int32Array(NET_H1_SIZE);
-const net_h2_a      = new Int32Array(NET_H1_SIZE);
-const net_a         = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
 
 let ueFunc  = myround;
 let ueArgs0 = 0;
@@ -15,10 +12,36 @@ let ueArgs3 = 0;
 let ueArgs4 = 0;
 let ueArgs5 = 0;
 
-function netEval(turn) {
+// resolveAccs
+//
+// Each node owns the accumulators for its position but they are not
+// written by makeMoveA(); it just flags the child dirty and leaves the
+// pending update in ueFunc/ueArgs*.  The first thing that needs the
+// accumulators calls this and the ue* func writes them from the parent's
+// in one fused pass (node = parent + delta); there is no copy and
+// nothing to restore on unmake.  Nodes that return before their resolve
+// point (tt cutoffs, draws, hash eval stand pats etc) never pay for the
+// update at all.  The globals are always valid here because a node
+// resolves before making any moves of its own.
+//
+
+function resolveAccs (node) {
+
+  if (node.accsDirty === 0)
+    return;
+
+  node.accsDirty = 0;
+
+  ueFunc(node);
+
+}
+
+function netEval(node, turn) {
+
+  resolveAccs(node);
 
   const w  = net_o_w;
-  const a  = net_a[turn >>> 3];
+  const a  = node.net_a[turn >>> 3];
   const a1 = a[0];
   const a2 = a[1];
   const N  = NET_H1_SIZE | 0;
@@ -108,7 +131,7 @@ function netLoad () {
 
 }
 
-function netMove () {
+function netMove (node) {
 
   const frObj = ueArgs0 << 8;
   const from  = ueArgs1 | 0;
@@ -116,7 +139,11 @@ function netMove () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -125,14 +152,14 @@ function netMove () {
   let p2 = map[frObj + to]   | 0;
 
   while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p2] - h2w[p1];
+    d1[h] = s1[h] + h1w[p2] - h1w[p1];
+    d2[h] = s2[h] + h2w[p2] - h2w[p1];
     h++; p1++; p2++;
   }
 
 }
 
-function netCapture () {
+function netCapture (node) {
 
   const frObj = ueArgs0 << 8;
   const fr    = ueArgs1 | 0;
@@ -141,7 +168,11 @@ function netCapture () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -151,14 +182,14 @@ function netCapture () {
   let p3 = map[frObj + to] | 0;
 
   while (h < N) {
-    h1a[h] += h1w[p3] - h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p3] - h2w[p2] - h2w[p1];
+    d1[h] = s1[h] + h1w[p3] - h1w[p2] - h1w[p1];
+    d2[h] = s2[h] + h2w[p3] - h2w[p2] - h2w[p1];
     h++; p1++; p2++; p3++;
   }
 
 }
 
-function netPromote () {
+function netPromote (node) {
 
   const pawnObj    = ueArgs0 << 8;
   const pawnFr     = ueArgs1 | 0;
@@ -168,7 +199,11 @@ function netPromote () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -179,22 +214,22 @@ function netPromote () {
   if (captureObj !== 0) {
     let p3 = map[captureObj + pawnTo] | 0;
     while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-      h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+      d1[h] = s1[h] + h1w[p2] - h1w[p1] - h1w[p3];
+      d2[h] = s2[h] + h2w[p2] - h2w[p1] - h2w[p3];
       h++; p1++; p2++; p3++;
     }
   }
   else {
     while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1];
-      h2a[h] += h2w[p2] - h2w[p1];
+      d1[h] = s1[h] + h1w[p2] - h1w[p1];
+      d2[h] = s2[h] + h2w[p2] - h2w[p1];
       h++; p1++; p2++;
     }
   }
 
 }
 
-function netEpCapture () {
+function netEpCapture (node) {
 
   const pawnObj        = ueArgs0 << 8;
   const pawnFr         = ueArgs1 | 0;
@@ -204,7 +239,11 @@ function netEpCapture () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -214,14 +253,14 @@ function netEpCapture () {
   let p3 = map[pawnCaptureObj + ep] | 0;
 
   while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+    d1[h] = s1[h] + h1w[p2] - h1w[p1] - h1w[p3];
+    d2[h] = s2[h] + h2w[p2] - h2w[p1] - h2w[p3];
     h++; p1++; p2++; p3++;
   }
 
 }
 
-function netCastle () {
+function netCastle (node) {
 
   const kingObj = ueArgs0 << 8;
   const kingFr  = ueArgs1 | 0;
@@ -232,7 +271,11 @@ function netCastle () {
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const parent = node.parentNode;
+
+  const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+  const d1 = node.net_h1_a,   d2 = node.net_h2_a;
 
   const N = NET_H1_SIZE | 0;
 
@@ -243,8 +286,8 @@ function netCastle () {
   let p4 = map[rookObj + rookTo] | 0;
 
   while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
+    d1[h] = s1[h] + h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
+    d2[h] = s2[h] + h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
     h++; p1++; p2++; p3++; p4++;
   }
 
