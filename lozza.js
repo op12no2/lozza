@@ -1587,10 +1587,17 @@ function reportMultiPV (depth) {
   }
 }
 
-const net_h1_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // us
-const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
+//
+// The weights are i16 in the .bin file so Int16Array storage is exact and
+// halves the working set (and thus cache pressure) vs Int32Array.  The
+// accumulators stay Int32Array; unclipped squared ReLU means their values
+// have no hard i16 guarantee.
+//
+
+const net_h1_w_flat = new Int16Array(NET_I_SIZE * NET_H1_SIZE);  // us
+const net_h2_w_flat = new Int16Array(NET_I_SIZE * NET_H1_SIZE);  // them
 const net_h1_b      = new Int32Array(NET_H1_SIZE);
-const net_o_w       = new Int32Array(NET_H1_SIZE*2);
+const net_o_w       = new Int16Array(NET_H1_SIZE*2);
 let   net_o_b       = 0;
 
 let ueFunc  = myround;
