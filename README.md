@@ -30,13 +30,15 @@ lozza.postMessage('go depth 10');
 
 ## Play Lozza in chess user interfaces
 
-This can be done using a batch file and full path names are recommended.
+This can be done using Node and a batch file; full path names are recommended.
+
 ```
 "C:\Program Files\nodejs\node.exe "c:\path\to\lozza.js"
 ``` 
+
 Then use the batch file to load Lozza into the user interface. Email me if you get any problems ```op12no2@gmail.com```.
 
-Node is also a nice way to exercise Lozza fromt eh command line:-
+Node is also a nice way to exercise Lozza from the command line:-
 
 Alternatively use the Linux and Windows binaries in the latest release.
 
