@@ -12,6 +12,7 @@ const net_o_w       = new Int16Array(NET_H1_SIZE*2);
 let   net_o_b       = 0;
 
 let ueFunc  = myround;
+let ueKind  = 0;       // 1 = netMove, 2 = netCapture, 0 = the rest; see netEval()
 let ueArgs0 = 0;
 let ueArgs1 = 0;
 let ueArgs2 = 0;
@@ -45,29 +46,106 @@ function resolveAccs (node) {
 
 function netEval(node, turn) {
 
-  resolveAccs(node);
+  const w = net_o_w;
+  const N = NET_H1_SIZE | 0;
 
-  const w  = net_o_w;
-  const a  = node.net_a[turn >>> 3];
-  const a1 = a[0];
-  const a2 = a[1];
-  const N  = NET_H1_SIZE | 0;
+  let e = 0 | 0;
 
-  let e  = 0 | 0;
-  let p1 = 0 | 0;
-  let p2 = N | 0;
+  if (node.accsDirty !== 0 && ueKind !== 0) {
 
-  while (p1 < N) {
+    //
+    // Fused resolve + eval for the two common cases (netMove/netCapture);
+    // one pass writes the accumulators and does the output layer, instead
+    // of streaming them twice.  relu(x)^2 === Math.imul(x,x) & ~(x >> 31),
+    // bit-identical to the two-pass form.
+    //
 
-    const x1 = a1[p1] | 0;
-    const x2 = a2[p1] | 0;
+    node.accsDirty = 0;
 
-    const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
-    const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
+    const map = IMAP;
+    const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
 
-    e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0;
+    const parent = node.parentNode;
 
-    p1++; p2++;
+    const s1 = parent.net_h1_a, s2 = parent.net_h2_a;
+    const d1 = node.net_h1_a,   d2 = node.net_h2_a;
+
+    let q1 = turn === WHITE ? 0 : N;  // us/them net_o_w offsets by pov
+    let q2 = N - q1;
+
+    let h = 0;
+
+    if (ueKind === 1) {
+
+      let p1 = map[(ueArgs0 << 8) + ueArgs1] | 0;
+      let p2 = map[(ueArgs0 << 8) + ueArgs2] | 0;
+
+      while (h < N) {
+
+        const v1 = s1[h] + h1w[p2] - h1w[p1];
+        const v2 = s2[h] + h2w[p2] - h2w[p1];
+
+        d1[h] = v1;
+        d2[h] = v2;
+
+        e = (e + Math.imul(w[q1], Math.imul(v1, v1) & ~(v1 >> 31))
+               + Math.imul(w[q2], Math.imul(v2, v2) & ~(v2 >> 31))) | 0;
+
+        h++; p1++; p2++; q1++; q2++;
+
+      }
+
+    }
+
+    else {
+
+      let p1 = map[(ueArgs0 << 8) + ueArgs1] | 0;
+      let p2 = map[(ueArgs2 << 8) + ueArgs3] | 0;
+      let p3 = map[(ueArgs0 << 8) + ueArgs3] | 0;
+
+      while (h < N) {
+
+        const v1 = s1[h] + h1w[p3] - h1w[p2] - h1w[p1];
+        const v2 = s2[h] + h2w[p3] - h2w[p2] - h2w[p1];
+
+        d1[h] = v1;
+        d2[h] = v2;
+
+        e = (e + Math.imul(w[q1], Math.imul(v1, v1) & ~(v1 >> 31))
+               + Math.imul(w[q2], Math.imul(v2, v2) & ~(v2 >> 31))) | 0;
+
+        h++; p1++; p2++; p3++; q1++; q2++;
+
+      }
+
+    }
+
+  }
+
+  else {
+
+    resolveAccs(node);
+
+    const a  = node.net_a[turn >>> 3];
+    const a1 = a[0];
+    const a2 = a[1];
+
+    let p1 = 0 | 0;
+    let p2 = N | 0;
+
+    while (p1 < N) {
+
+      const x1 = a1[p1] | 0;
+      const x2 = a2[p1] | 0;
+
+      const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
+      const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
+
+      e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0;
+
+      p1++; p2++;
+
+    }
 
   }
 

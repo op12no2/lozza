@@ -73,6 +73,7 @@ function makeMoveA (node, move) {
     }
   
     ueFunc  = netCapture;
+    ueKind  = 2;
     ueArgs0 = frObj;
     ueArgs1 = fr;
     ueArgs2 = toObj;
@@ -83,6 +84,7 @@ function makeMoveA (node, move) {
   else {
   
     ueFunc  = netMove;
+    ueKind  = 1;
     ueArgs0 = frObj;
     ueArgs1 = fr;
     ueArgs2 = to;
@@ -110,6 +112,7 @@ function makeMoveA (node, move) {
       if ((move & MOVE_EPMAKE_MASK) !== 0) {
     
         ueFunc  = netMove;
+        ueKind  = 1;
         ueArgs0 = frObj;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -126,6 +129,7 @@ function makeMoveA (node, move) {
       else if ((move & MOVE_EPTAKE_MASK) !== 0) {
     
         ueFunc  = netEpCapture;
+        ueKind  = 0;
         ueArgs0 = frObj;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -151,6 +155,7 @@ function makeMoveA (node, move) {
         b[to]     = WHITE | pro;
     
         ueFunc  = netPromote;
+        ueKind  = 0;
         ueArgs0 = W_PAWN;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -170,6 +175,7 @@ function makeMoveA (node, move) {
       else if (move === MOVE_E1G1) {
     
         ueFunc  = netCastle;
+        ueKind  = 0;
         ueArgs0 = W_KING;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -194,6 +200,7 @@ function makeMoveA (node, move) {
       else if (move === MOVE_E1C1) {
     
         ueFunc  = netCastle;
+        ueKind  = 0;
         ueArgs0 = W_KING;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -223,6 +230,7 @@ function makeMoveA (node, move) {
       if ((move & MOVE_EPMAKE_MASK) !== 0) {
     
         ueFunc  = netMove;
+        ueKind  = 1;
         ueArgs0 = frObj;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -239,6 +247,7 @@ function makeMoveA (node, move) {
       else if ((move & MOVE_EPTAKE_MASK) !== 0) {
     
         ueFunc  = netEpCapture;
+        ueKind  = 0;
         ueArgs0 = frObj;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -264,6 +273,7 @@ function makeMoveA (node, move) {
         b[to]     = BLACK | pro;
     
         ueFunc  = netPromote;
+        ueKind  = 0;
         ueArgs0 = B_PAWN;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -283,6 +293,7 @@ function makeMoveA (node, move) {
       else if (move === MOVE_E8G8) {
     
         ueFunc  = netCastle;
+        ueKind  = 0;
         ueArgs0 = B_KING;
         ueArgs1 = fr;
         ueArgs2 = to;
@@ -307,6 +318,7 @@ function makeMoveA (node, move) {
       else if (move === MOVE_E8C8) {
     
         ueFunc  = netCastle;
+        ueKind  = 0;
         ueArgs0 = B_KING;
         ueArgs1 = fr;
         ueArgs2 = to;
