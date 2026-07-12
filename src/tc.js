@@ -6,6 +6,8 @@ let statsTimeOut   = 0;
 let statsSelDepth  = 0;
 let statsBestMove  = 0;
 let statsBestScore = 0;
+let statsStop      = 0;
+let statsSearching = 0;
 
 let multiPV      = 1;
 let multiPVMoves = [];
@@ -23,11 +25,20 @@ function initStats () {
   statsBestMove  = 0;
   statsBestScore = 0;
 
+  // statsStop not reset here - see go()
+
 }
 
 // checkTime
 
 function checkTime () {
+
+  if (statsStop) {
+
+    statsTimeOut = 1;
+    return;
+
+  }
 
   if (statsBestMove && statsMoveTime > 0 && ((now() - statsStartTime) >= statsMoveTime))
 

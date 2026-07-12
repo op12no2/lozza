@@ -798,7 +798,7 @@ function addKiller (node, score, move) {
 
 }
 
-function go (maxPly) {
+async function go (maxPly) {
 
   let bestMoveStr = '';
   let alpha       = 0;
@@ -809,6 +809,13 @@ function go (maxPly) {
   let reported    = 0;
 
   multiPVMoves = [];
+
+  while (statsSearching)
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+  statsTimeOut   = 0;
+  statsStop      = 0;
+  statsSearching = 1;
 
   for (let ply=1; ply <= maxPly; ply++) {
     // id
@@ -888,18 +895,34 @@ function go (maxPly) {
         break;
 
       }
-      
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      if (statsStop) {
+        statsTimeOut = 1;
+        break;
+      }
+
     }
-    
+
     if (statsTimeOut)
       break;
-    
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    if (statsStop) {
+      statsTimeOut = 1;
+      break;
+    }
+
   }
 
   if (reported === 0)
     report(statsBestScore, depth || 1, '');
 
   bestMoveStr = formatMove(statsBestMove);
+
+  statsSearching = 0;
 
   uciSend('bestmove', bestMoveStr);
 
@@ -4062,6 +4085,8 @@ let statsTimeOut   = 0;
 let statsSelDepth  = 0;
 let statsBestMove  = 0;
 let statsBestScore = 0;
+let statsStop      = 0;
+let statsSearching = 0;
 
 let multiPV      = 1;
 let multiPVMoves = [];
@@ -4079,11 +4104,20 @@ function initStats () {
   statsBestMove  = 0;
   statsBestScore = 0;
 
+  // statsStop not reset here - see go()
+
 }
 
 // checkTime
 
 function checkTime () {
+
+  if (statsStop) {
+
+    statsTimeOut = 1;
+    return;
+
+  }
 
   if (statsBestMove && statsMoveTime > 0 && ((now() - statsStartTime) >= statsMoveTime))
 
@@ -4217,7 +4251,7 @@ const PERFTFENS = [
   ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
 ];
 
-function bench (depth) {
+async function bench (depth) {
 
   depth = depth || BENCH_DEPTH;
 
@@ -4234,11 +4268,11 @@ function bench (depth) {
       //process.stdout.write(i.toString() + '\r');
 
     newGame();
-    uciExec('position fen ' + fen);
-    uciExec('go depth ' + depth);
-        
+    await uciExec('position fen ' + fen);
+    await uciExec('go depth ' + depth);
+
     nodes += statsNodes;
-      
+
   }
         
   const elapsed = now() - start;
@@ -4550,7 +4584,7 @@ function dgPlayMove (move) {
 // positions written; 0 means the game was discarded.
 //
 
-function dgPlayGame (fd) {
+async function dgPlayGame (fd) {
 
   const buf = dgGameBuf;
 
@@ -4603,7 +4637,7 @@ function dgPlayGame (fd) {
 
     statsMaxNodes = DG_SEARCH_NODES;
 
-    go(MAX_PLY);
+    await go(MAX_PLY);
 
     let best = statsBestMove;
 
@@ -4693,7 +4727,7 @@ function dgEta (ms) {
 
 // datagen
 
-function datagen (directory, targetPositions) {
+async function datagen (directory, targetPositions) {
 
   dgSeedRng();
 
@@ -4724,7 +4758,7 @@ function datagen (directory, targetPositions) {
 
   while (totalPositions < targetPositions) {
 
-    totalPositions += dgPlayGame(fd);
+    totalPositions += await dgPlayGame(fd);
     totalGames++;
 
     const timeNow = Date.now();
@@ -4824,7 +4858,7 @@ function uciGetArr (tokens, key, to) {
 
 // uciExec
 
-function uciExec (commands) {
+async function uciExec (commands) {
 
   const cmdList = commands.split('\n');
 
@@ -4856,7 +4890,10 @@ function uciExec (commands) {
       case 'position':
       case 'p': {
         // position
-        
+
+        if (statsSearching)
+          statsStop = 1;
+
         if (ttSize == 1) {
           uciSend('info do a ucinewgame or setoption name hash command first');
           break;
@@ -4894,7 +4931,10 @@ function uciExec (commands) {
       case 'go':
       case 'g': {
         // go
-        
+
+        if (statsSearching)
+          statsStop = 1;
+
         if (ttSize == 1) {
           uciSend('info do a ucinewgame or setoption name hash command first');
           break;
@@ -4956,7 +4996,7 @@ function uciExec (commands) {
             statsMoveTime = 1;
         }
         
-        go(depth);
+        await go(depth);
         break;
         
       }
@@ -4998,9 +5038,12 @@ function uciExec (commands) {
       }
 
       case 'stop': {
-        
+
+        if (statsSearching)
+          statsStop = 1;
+
         break;
-        
+
       }
 
       case 'uci': {
@@ -5052,7 +5095,7 @@ function uciExec (commands) {
       case 'bench':
       case 'h': {
 
-        bench(uciGetInt(tokens, cmd, 0));
+        await bench(uciGetInt(tokens, cmd, 0));
         break;
         
       }
@@ -5086,7 +5129,7 @@ function uciExec (commands) {
           break;
         }
 
-        datagen(tokens[1], target);
+        await datagen(tokens[1], target);
 
         break;
 
@@ -5273,9 +5316,11 @@ initOnce();
 const rootNode = nodes[0];
 
 if (nodeHost && process.argv.length > 2) {
-  for (let i=2; i < process.argv.length; i++)
-    uciExec(process.argv[i]);
-  process.exit(0);
+  (async () => {
+    for (let i=2; i < process.argv.length; i++)
+      await uciExec(process.argv[i]);
+    process.exit(0);
+  })();
 }
 
 if (nodeHost) {

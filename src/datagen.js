@@ -232,7 +232,7 @@ function dgPlayMove (move) {
 // positions written; 0 means the game was discarded.
 //
 
-function dgPlayGame (fd) {
+async function dgPlayGame (fd) {
 
   const buf = dgGameBuf;
 
@@ -285,7 +285,7 @@ function dgPlayGame (fd) {
 
     statsMaxNodes = DG_SEARCH_NODES;
 
-    go(MAX_PLY);
+    await go(MAX_PLY);
 
     let best = statsBestMove;
 
@@ -375,7 +375,7 @@ function dgEta (ms) {
 
 // datagen
 
-function datagen (directory, targetPositions) {
+async function datagen (directory, targetPositions) {
 
   dgSeedRng();
 
@@ -406,7 +406,7 @@ function datagen (directory, targetPositions) {
 
   while (totalPositions < targetPositions) {
 
-    totalPositions += dgPlayGame(fd);
+    totalPositions += await dgPlayGame(fd);
     totalGames++;
 
     const timeNow = Date.now();

@@ -1,4 +1,4 @@
-function go (maxPly) {
+async function go (maxPly) {
 
   let bestMoveStr = '';
   let alpha       = 0;
@@ -9,6 +9,13 @@ function go (maxPly) {
   let reported    = 0;
 
   multiPVMoves = [];
+
+  while (statsSearching)
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+  statsTimeOut   = 0;
+  statsStop      = 0;
+  statsSearching = 1;
 
   for (let ply=1; ply <= maxPly; ply++) {
     // id
@@ -88,18 +95,34 @@ function go (maxPly) {
         break;
 
       }
-      
+
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      if (statsStop) {
+        statsTimeOut = 1;
+        break;
+      }
+
     }
-    
+
     if (statsTimeOut)
       break;
-    
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    if (statsStop) {
+      statsTimeOut = 1;
+      break;
+    }
+
   }
 
   if (reported === 0)
     report(statsBestScore, depth || 1, '');
 
   bestMoveStr = formatMove(statsBestMove);
+
+  statsSearching = 0;
 
   uciSend('bestmove', bestMoveStr);
 

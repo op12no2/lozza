@@ -70,7 +70,7 @@ function uciGetArr (tokens, key, to) {
 
 // uciExec
 
-function uciExec (commands) {
+async function uciExec (commands) {
 
   const cmdList = commands.split('\n');
 
@@ -102,7 +102,10 @@ function uciExec (commands) {
       case 'position':
       case 'p': {
         // position
-        
+
+        if (statsSearching)
+          statsStop = 1;
+
         if (ttSize == 1) {
           uciSend('info do a ucinewgame or setoption name hash command first');
           break;
@@ -140,7 +143,10 @@ function uciExec (commands) {
       case 'go':
       case 'g': {
         // go
-        
+
+        if (statsSearching)
+          statsStop = 1;
+
         if (ttSize == 1) {
           uciSend('info do a ucinewgame or setoption name hash command first');
           break;
@@ -202,7 +208,7 @@ function uciExec (commands) {
             statsMoveTime = 1;
         }
         
-        go(depth);
+        await go(depth);
         break;
         
       }
@@ -244,9 +250,12 @@ function uciExec (commands) {
       }
 
       case 'stop': {
-        
+
+        if (statsSearching)
+          statsStop = 1;
+
         break;
-        
+
       }
 
       case 'uci': {
@@ -298,7 +307,7 @@ function uciExec (commands) {
       case 'bench':
       case 'h': {
 
-        bench(uciGetInt(tokens, cmd, 0));
+        await bench(uciGetInt(tokens, cmd, 0));
         break;
         
       }
@@ -332,7 +341,7 @@ function uciExec (commands) {
           break;
         }
 
-        datagen(tokens[1], target);
+        await datagen(tokens[1], target);
 
         break;
 
