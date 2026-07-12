@@ -46,7 +46,7 @@ Lozza's net was booted from ```quiet_labeled.epd``` and ```lichess-big3-resolved
 
 ## Limitations
 
-Lozza does not support the ```stop``` command or multi-threading.
+Lozza does not support multi-threading.
 
 ## Tweaking Lozza
 

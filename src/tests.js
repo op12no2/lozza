@@ -1,4 +1,4 @@
-function bench (depth) {
+async function bench (depth) {
 
   depth = depth || BENCH_DEPTH;
 
@@ -15,9 +15,9 @@ function bench (depth) {
       //process.stdout.write(i.toString() + '\r');
 
     newGame();
-    uciExec('position fen ' + fen);
-    uciExec('go depth ' + depth);
-        
+    await uciExec('position fen ' + fen);
+    await uciExec('go depth ' + depth);
+
     nodes += statsNodes;
       
   }

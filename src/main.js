@@ -2,9 +2,11 @@ initOnce();
 const rootNode = nodes[0];
 
 if (nodeHost && process.argv.length > 2) {
-  for (let i=2; i < process.argv.length; i++)
-    uciExec(process.argv[i]);
-  process.exit(0);
+  (async () => {
+    for (let i=2; i < process.argv.length; i++)
+      await uciExec(process.argv[i]);
+    process.exit(0);
+  })();
 }
 
 if (nodeHost) {
