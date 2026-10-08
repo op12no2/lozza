@@ -6,7 +6,7 @@ Lozza was primarily created for use in browsers, but can also be used with tradi
 
 ## Basic use in a browser
 
-All you need is ```lozza.js``` from the latest release (not the repo).  
+All you need is ```lozza.js``` from one of the [releases](https://github.com/op12no2/lozza/wiki/Release-overview) (not the repo).  
 
 Here is a little example to do a 10 ply search:-
 
@@ -42,9 +42,7 @@ A sister repo has more browser-based examples for playing and analysing with Loz
 
 ## Play Lozza offline in chess user interfaces
 
-The most straightfoward way is to use one of the binaries from the latest release. 
-
-Alternatively install [Node](https://nodejs.org/en) or [Bun](https://bun.com) and use ```lozza.js``` via a batch file; for example:
+Use [Node](https://nodejs.org/en) or [Bun](https://bun.com) and use ```lozza.js``` via a batch file; for example:
 
 ```
 "c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
@@ -59,8 +57,6 @@ option name MultiPV type spin default 1 min 1 max 500
 
 ## Running Lozza from the command line
 
-Again, use one of the binaries from the latest release or for example:-
-
 ```
 node lozza.js
 ```
@@ -69,7 +65,6 @@ Commands can be given as arguments:-
 
 ```
 node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
-./lozza-win-x64.exe ucinewgame "position startpos" board quit
 ```
 
 There is also an online console:-
@@ -88,10 +83,6 @@ There is also an online console:-
 - pt - run a sequence of perft searches.
 - et - run a sequence of evaluations.
 
-## Development notes
-
-If you clone the repo with the intention of tweaking Lozza or you want to load the weights from ```quantised.bin```, you need to be aware of the build process in ```build.sh```. This is a script that creates ```./lozza.js``` from ```src/*.js``` (contingent on ```quantised.bin```) and ```./releases/lozza.js``` which has the weights from ```quantised.bin``` inlined into it. It also creates binaries in ```./releases``` but you can remove that section. The version that reads ```quantised.bin``` (```./lozza.js```) is what I use for development and is what is in the root of the repo. The version in ```./releases``` is what I ship. ```build.sh``` will run natively on Linux and macOS but will need to run in WSL or git bash etc on Windows.  
- 
 ## References
 
 - https://nodejs.org - Node
@@ -103,3 +94,4 @@ If you clone the repo with the intention of tweaking Lozza or you want to load t
 ## Acknowledgements
 
 - https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
+- https://github.com/jw1912/bullet - bullet network trainer.
