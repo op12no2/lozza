@@ -2,11 +2,11 @@
 
 A UCI Javascript chess engine.
 
-Lozza was primarily created for use in browsers, but can also be used with traditional chess user interfaces (see below). 
+Lozza was primarily created for use in web pages, but from v1.13 onwards can also be used on the command line via Node. 
 
-## Basic use in a browser
+## Basic use in a web page
 
-All you need is ```lozza.js``` from one of the [releases](https://github.com/op12no2/lozza/wiki/Release-overview) (not the repo).  
+There are a many [releases](https://github.com/op12no2/lozza/wiki/Release-overview) you can choose from with varying properties and strength. All you need is the corresponding ```lozza.js``` from the release Assets section.  
 
 Here is a little example to do a 10 ply search:-
 
@@ -24,64 +24,16 @@ lozza.postMessage('position startpos');
 lozza.postMessage('go depth 10');        // 10 ply search
 ```
 
-Try this example here:-
+Try this example [here](https://op12no2.github.io/lozza-ui/ex.htm) and there are more examples [here](https://github.com/op12no2/lozza-ui).
 
-- https://op12no2.github.io/lozza-ui/ex.htm
+## Command line use
 
-Note that Lozza must be fired up in a web worker.
-
-## More examples
-
-A sister repo has more browser-based examples for playing and analysing with Lozza.
-
-- https://github.com/op12no2/lozza-ui
-
-## Play Lozza online
-
-- https://op12no2.github.io/lozza-ui
-
-## Play Lozza offline in chess user interfaces
-
-Use [Node](https://nodejs.org/en) or [Bun](https://bun.com) with ```lozza.js``` via a batch file; for example:
+For example:-
 
 ```
-"c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
+node lozza.js 
+node lozza.js uci ucinewgame "position startpos" "go depth 10" quit 
 ```
-
-## UCI options
-
-```
-option name Hash type spin default 16 min 1 max 1024 
-option name MultiPV type spin default 1 min 1 max 500 
-```
-
-## Running Lozza from the command line
-
-```
-node lozza.js
-```
-
-Commands can be given as arguments:-
-
-```
-node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
-```
-
-There is also an online console:-
-
-- https://op12no2.github.io/lozza-ui/console.htm
-
-## Custom commands
-
-- quit - close Lozza.
-- board - display the board for the current position.
-- moves - display the moves for the current position.
-- eval - display the evaluation for the current position.
-- net - display network attributes.
-- bench - run a sequence of searches returning the toal node count and nps.
-- perft depth <d> - run a perft search from the current position using depth <d>.
-- pt - run a sequence of perft searches.
-- et - run a sequence of evaluations.
 
 ## References
 
