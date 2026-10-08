@@ -42,7 +42,7 @@ A sister repo has more browser-based examples for playing and analysing with Loz
 
 ## Play Lozza offline in chess user interfaces
 
-Use [Node](https://nodejs.org/en) or [Bun](https://bun.com) and use ```lozza.js``` via a batch file; for example:
+Use [Node](https://nodejs.org/en) or [Bun](https://bun.com) with ```lozza.js``` via a batch file; for example:
 
 ```
 "c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
