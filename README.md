@@ -4,8 +4,6 @@ A UCI Javascript chess engine.
 
 Lozza was primarily created for use in web pages, but from v1.13 can also be used on the command line via Node. 
 
-Recent versions have become little projects in their own right with differing development ideas; this keeps it fun for me, rather then endlessly grinding on the same code. Version 12 is no-holds-barred and version 11 is tightly constrained for example (both in development); as noted in the [release overview](https://github.com/op12no2/lozza/wiki/Release-overview). As a result, successive versions are not necessarily increasingly stronger. Pick a version that suits your requirements.
-
 ## Basic use in a web page
 
 All you need is a ```lozza.js``` from a [release's](https://github.com/op12no2/lozza/wiki/Release-overview) Assets section.  
