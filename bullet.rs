@@ -1,40 +1,62 @@
-
 const OUTPUT_DIR: &str = "/home/xyzzy/lozza/nets/farm1";
 const SB: usize = 500;
 const L1: usize = 256;
 const WDL: f32 = 0.4;
+const SCALE: i32 = 400;
+const QA: i16 = 255;
+const QB: i16 = 64;
 
 const DATA_FILES: [&str; 1] = [
-    "/home/xyzzy/lozza/data/gen4567.bullet",
+    "/home/xyzzy/lozza/data/gen7.vf",
 ];
 
+// (768 -> L1)x2 -> 1, squared relu, trained from viriformat data written by
+// lozza's datagen. the saved net is l0w, l0b, l1w, l1b as little endian i16,
+// the layout netLoad reads.
+
 use bullet_lib::{
-    nn::{optimiser, Activation},
+    game::inputs::Chess768,
+    nn::optimiser::AdamW,
     trainer::{
-        default::{
-            inputs, loader, outputs, Loss, TrainerBuilder,
-        },
+        save::SavedFormat,
         schedule::{lr, wdl, TrainingSchedule, TrainingSteps},
         settings::LocalSettings,
+    },
+    value::{
+        loader::viribinpack::{Filter, ViriBinpackLoader, ViriFilter},
+        ValueTrainerBuilder,
     },
 };
 
 fn main() {
 
-    let mut trainer = TrainerBuilder::default()
-        .quantisations(&[255, 64])
-        .optimiser(optimiser::RAdam)
-        .loss_fn(Loss::SigmoidMSE)
-        .input(inputs::Chess768)
-        .output_buckets(outputs::Single)
-        .feature_transformer(L1)
-        .activate(Activation::SqrReLU)
-        .add_layer(1)
-        .build();
+    // AdamW's default params clip weights to [-1.98, 1.98], so every quantised
+    // weight fits in i16 with room to spare
+
+    let mut trainer = ValueTrainerBuilder::default()
+        .dual_perspective()
+        .optimiser(AdamW)
+        .inputs(Chess768)
+        .save_format(&[
+            SavedFormat::id("l0w").round().quantise::<i16>(QA),
+            SavedFormat::id("l0b").round().quantise::<i16>(QA),
+            SavedFormat::id("l1w").round().quantise::<i16>(QB),
+            SavedFormat::id("l1b").round().quantise::<i16>(QA * QB),
+        ])
+        .loss_fn(|output, target| output.sigmoid().squared_error(target))
+        .build(|builder, stm_inputs, ntm_inputs| {
+            let l0 = builder.new_affine("l0", 768, L1);
+            let l1 = builder.new_affine("l1", 2 * L1, 1);
+
+            let stm_hidden = l0.forward(stm_inputs).sqrrelu();
+            let ntm_hidden = l0.forward(ntm_inputs).sqrrelu();
+
+            l1.forward(stm_hidden.concat(ntm_hidden))
+        });
 
     let schedule = TrainingSchedule {
         net_id: "lozza".to_string(),
-        eval_scale: 400.0,
+        eval_scale: SCALE as f32,
         steps: TrainingSteps {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
@@ -59,17 +81,24 @@ fn main() {
         save_rate: 10,
     };
 
-    //trainer.set_optimiser_params(optimiser::AdamWParams::default());
-
     let settings = LocalSettings {
         threads: 4,
         test_set: None,
-        output_directory: &OUTPUT_DIR,
+        output_directory: OUTPUT_DIR,
         batch_queue_size: 64,
     };
 
-    let data_loader = loader::DirectSequentialDataLoader::new(&DATA_FILES);
+    // the default filter skips the opening (ply < 16), positions in check,
+    // tactical moves and positions with fewer than 4 pieces. max_eval is set
+    // below lozza's mate scores (MINMATE 30000); the default 31339 lets them
+    // through
+
+    let filter = Filter {
+        max_eval: 30000,
+        ..Filter::default()
+    };
+
+    let data_loader = ViriBinpackLoader::new_concat_multiple(&DATA_FILES, 1024, 4, ViriFilter::Builtin(filter));
 
     trainer.run(&schedule, &settings, &data_loader);
 }
-

@@ -2,7 +2,7 @@
 // https://github.com/op12no2/lozza
 //
 
-const WEIGHTS_B64 = "";
+const WEIGHTS_B64 = netWeights();  // the net, see netWeights() at the end
 
 const BUILD = "11.0";
 
@@ -4472,6 +4472,463 @@ const PERFTFENS = [
 
 // uciSend
 
+// datagen
+//
+// Self play data generation in viriformat, mirroring cwtch's
+// src/datagen.c so files from both engines can be mixed.  Node
+// only.  Use bin/datagen to run multiple processes.
+//
+
+const DG_RANDOM_PLIES   = 10;
+const DG_SEARCH_NODES   = 5000;
+const DG_DRAW_SCORE     = 10;
+const DG_DRAW_COUNT     = 10;
+const DG_DRAW_PLY       = 40;
+const DG_MAX_GAME_MOVES = 512;
+const DG_REPORT_SECS    = 10;
+const DG_FILE_PREFIX    = 'data';
+
+// viriformat constants
+
+const VIRI_TYPE_EP     = 1;
+const VIRI_TYPE_CASTLE = 2;
+const VIRI_TYPE_PROMO  = 3;
+
+const VIRI_WDL_BLACK_WIN = 0;
+const VIRI_WDL_DRAW      = 1;
+const VIRI_WDL_WHITE_WIN = 2;
+
+const dgLegal   = new Uint32Array(MAX_MOVES);
+const dgGameBuf = new Uint8Array(32 + DG_MAX_GAME_MOVES * 4 + 4);
+
+// rng (splitmix32, local to datagen, seeded per process)
+
+let dgSeed = 0;
+
+function dgSeedRng () {
+
+  dgSeed = (Date.now() ^ Math.imul(process.pid, 0x9E3779B9)) | 0;
+
+  if (dgSeed === 0)
+    dgSeed = 1;
+
+}
+
+function dgRand () {
+
+  dgSeed = (dgSeed + 0x9E3779B9) | 0;
+
+  let z = dgSeed;
+
+  z = Math.imul(z ^ (z >>> 16), 0x21F0AAAD);
+  z = Math.imul(z ^ (z >>> 15), 0x735A2D97);
+  z = z ^ (z >>> 15);
+
+  return z >>> 0;
+
+}
+
+// dgTo64
+//
+// 144 board square to viriformat square; a1=0, h8=63.
+//
+
+function dgTo64 (sq) {
+
+  return ((RANK[sq] - 1) << 3) | (FILE[sq] - 1);
+
+}
+
+// dgPackBoard
+//
+// viriformat PackedBoard from the current global board into buf[0..31].
+// The wdl byte (30) is patched in at the end of the game.
+//
+
+function dgPackBoard (buf, fullmove) {
+
+  buf.fill(0, 0, 32);
+
+  let occLo = 0;
+  let occHi = 0;
+  let idx   = 0;
+
+  for (let i=0; i < 64; i++) {
+    // a1, b1, ..., h8
+
+    const sq  = B88[((7 - (i >>> 3)) << 3) | (i & 7)];
+    const obj = bdB[sq];
+
+    if (obj === 0)
+      continue;
+
+    if (i < 32)
+      occLo |= 1 << i;
+    else
+      occHi |= 1 << (i - 32);
+
+    let type = (obj & PIECE_MASK) - 1;  // PNBRQK = 0-5
+
+    if (type === ROOK - 1) {
+      // unmoved rook = 6
+      if (sq === SQH1 && (bdRights & WHITE_RIGHTS_KING)  !== 0) type = 6;
+      if (sq === SQA1 && (bdRights & WHITE_RIGHTS_QUEEN) !== 0) type = 6;
+      if (sq === SQH8 && (bdRights & BLACK_RIGHTS_KING)  !== 0) type = 6;
+      if (sq === SQA8 && (bdRights & BLACK_RIGHTS_QUEEN) !== 0) type = 6;
+    }
+
+    const nibble  = (((obj & COLOR_MASK) >>> 3) << 3) | type;
+    const byteIdx = 8 + (idx >>> 1);
+
+    if ((idx & 1) !== 0)
+      buf[byteIdx] |= nibble << 4;
+    else
+      buf[byteIdx] = nibble;
+
+    idx++;
+
+  }
+
+  // bytes 0-7 occupancy
+
+  buf[0] = occLo         & 0xFF;
+  buf[1] = (occLo >>> 8)  & 0xFF;
+  buf[2] = (occLo >>> 16) & 0xFF;
+  buf[3] = (occLo >>> 24) & 0xFF;
+  buf[4] = occHi          & 0xFF;
+  buf[5] = (occHi >>> 8)  & 0xFF;
+  buf[6] = (occHi >>> 16) & 0xFF;
+  buf[7] = (occHi >>> 24) & 0xFF;
+
+  // byte 24 stm and ep
+
+  const ep = bdEp !== 0 ? dgTo64(bdEp) : 64;
+
+  buf[24] = ((bdTurn >>> 3) << 7) | ep;
+
+  // byte 25 halfmove clock (see the rep comment in makemove.js)
+
+  buf[25] = Math.min(repHi - repLo, 255);
+
+  // bytes 26-27 fullmove; viriformat derives the ply from it, (fullmove - 1) * 2,
+  // so 0 underflows
+
+  buf[26] = fullmove        & 0xFF;
+  buf[27] = (fullmove >>> 8) & 0xFF;
+
+  // bytes 28-29 eval (0), byte 30 wdl (patched later), byte 31 extra (0)
+
+}
+
+// dgMoveToViri
+
+function dgMoveToViri (move) {
+
+  const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
+  let   to = (move & MOVE_TO_MASK) >>> MOVE_TO_BITS;
+
+  let type  = 0;
+  let promo = 0;
+
+  if ((move & MOVE_EPTAKE_MASK) !== 0)
+    type = VIRI_TYPE_EP;
+
+  else if ((move & MOVE_CASTLE_MASK) !== 0) {
+    // king takes rook
+    type = VIRI_TYPE_CASTLE;
+    if      (to === G1) to = H1;
+    else if (to === C1) to = A1;
+    else if (to === G8) to = H8;
+    else if (to === C8) to = A8;
+  }
+
+  else if ((move & MOVE_PROMOTE_MASK) !== 0) {
+    type  = VIRI_TYPE_PROMO;
+    promo = (move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS;  // NBRQ = 0-3
+  }
+
+  return dgTo64(fr) | (dgTo64(to) << 6) | (promo << 12) | (type << 14);
+
+}
+
+// dgLegalMoves
+
+function dgLegalMoves (out) {
+
+  const node     = rootNode;
+  const turn     = bdTurn;
+  const nextTurn = turn ^ COLOR_MASK;
+
+  node.inCheck = isKingAttacked(nextTurn);
+
+  cache(node);
+  genMoves(node, turn);
+
+  let n    = 0;
+  let move = 0;
+
+  while ((move = getNextMove(node)) !== 0) {
+
+    makeMoveA(node, move);
+
+    if ((move & MOVE_LEGAL_MASK) !== 0 || isKingAttacked(nextTurn) === 0)
+      out[n++] = move;
+
+    unmakeMove(node, move);
+
+    uncacheA(node);
+
+  }
+
+  return n;
+
+}
+
+// dgPlayMove
+//
+// Make a move permanently at the root.  The accumulator update lands
+// in the child node, so resolve it there and pull it back to the root.
+//
+
+function dgPlayMove (move) {
+
+  const child = rootNode.childNode;
+
+  makeMoveA(rootNode, move);
+  makeMoveB(rootNode);
+
+  netUpdate(child);
+
+  rootNode.acc1.set(child.acc1);
+  rootNode.acc2.set(child.acc2);
+
+  bdTurn ^= COLOR_MASK;
+
+}
+
+// dgPlayGame
+//
+// Play one game and write it to fd.  Returns the number of scored
+// positions written; 0 means the game was discarded.
+//
+
+function dgPlayGame (fd) {
+
+  const buf = dgGameBuf;
+
+  newGame();
+  position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', 'w', 'KQkq', '-', []);
+
+  // random opening; + 0 or 1 extra ply to randomise stm
+
+  const numRandom = DG_RANDOM_PLIES + (dgRand() & 1);
+
+  for (let i=0; i < numRandom; i++) {
+
+    const n = dgLegalMoves(dgLegal);
+
+    if (n === 0)
+      return 0;
+
+    dgPlayMove(dgLegal[dgRand() % n]);
+
+  }
+
+  if (isDraw() !== 0)
+    return 0;
+
+  // save the starting position (after random plies)
+
+  dgPackBoard(buf, 1 + (numRandom >>> 1));  // from startpos, white to move
+
+  // scored play
+
+  let numEntries = 0;
+  let drawCount  = 0;
+  let wdl        = VIRI_WDL_DRAW;
+
+  for (let ply=0; ply < DG_MAX_GAME_MOVES; ply++) {
+
+    const stm     = bdTurn;
+    const inCheck = isKingAttacked(stm ^ COLOR_MASK);
+    const n       = dgLegalMoves(dgLegal);
+
+    if (n === 0) {
+      if (inCheck !== 0)
+        wdl = stm === WHITE ? VIRI_WDL_BLACK_WIN : VIRI_WDL_WHITE_WIN;
+      break;
+    }
+
+    // search
+
+    initStats();
+
+    statsMaxNodes = DG_SEARCH_NODES;
+
+    go(MAX_PLY, 0);
+
+    let best = statsBestMove;
+
+    const score = statsBestScore;
+
+    if (best === 0)
+      best = dgLegal[0];
+
+    const whiteScore = stm === WHITE ? score : -score;
+
+    // record move + score
+
+    const viri = dgMoveToViri(best);
+    const off  = 32 + numEntries * 4;
+
+    buf[off]   = viri            & 0xFF;
+    buf[off+1] = (viri >>> 8)    & 0xFF;
+    buf[off+2] = whiteScore      & 0xFF;
+    buf[off+3] = (whiteScore >> 8) & 0xFF;
+
+    numEntries++;
+
+    // adjudication
+
+    if (Math.abs(score) <= DG_DRAW_SCORE)
+      drawCount++;
+    else
+      drawCount = 0;
+
+    if (drawCount >= DG_DRAW_COUNT && ply >= DG_DRAW_PLY) {
+      wdl = VIRI_WDL_DRAW;
+      break;
+    }
+
+    // play the move
+
+    dgPlayMove(best);
+
+    // draw checks
+
+    if (isDraw() !== 0) {
+      wdl = VIRI_WDL_DRAW;
+      break;
+    }
+
+  }
+
+  if (numEntries === 0)
+    return 0;
+
+  buf[30] = wdl;
+
+  // terminator
+
+  let len = 32 + numEntries * 4;
+
+  buf[len]   = 0;
+  buf[len+1] = 0;
+  buf[len+2] = 0;
+  buf[len+3] = 0;
+
+  len += 4;
+
+  fs.writeSync(fd, buf, 0, len);
+
+  return numEntries;
+
+}
+
+// dgEta
+
+function dgEta (ms) {
+
+  const s = ms / 1000 | 0;
+  const d = s / 86400 | 0;
+  const h = (s % 86400) / 3600 | 0;
+  const m = (s % 3600) / 60 | 0;
+
+  const mm = (m < 10 ? '0' : '') + m;
+
+  if (d > 0)
+    return d + 'd ' + (h < 10 ? '0' : '') + h + ':' + mm;
+
+  return h + ':' + mm;
+
+}
+
+// datagen
+
+function datagen (directory, targetPositions) {
+
+  dgSeedRng();
+
+  // 'wx' fails if the file exists, so a name clash picks another name rather
+  // than truncating earlier data
+
+  let filename = '';
+  let fd       = -1;
+
+  for (let tries=0; fd < 0 && tries < 100; tries++) {
+
+    filename = directory + '/' + DG_FILE_PREFIX + dgRand() + '.vf';
+
+    try {
+      fd = fs.openSync(filename, 'wx');
+    }
+    catch (e) {
+      if (e.code !== 'EEXIST') {
+        console.log('error: cannot open ' + filename);
+        return;
+      }
+    }
+
+  }
+
+  if (fd < 0) {
+    console.log('error: no free filename in ' + directory);
+    return;
+  }
+
+  console.log('datagen: writing to ' + filename + ', target ' + targetPositions + ' positions');
+
+  silentMode = 1;
+
+  const startTime = Date.now();
+
+  let totalPositions = 0;
+  let totalGames     = 0;
+  let lastReport     = startTime;
+
+  // stop once the target position count is reached; the current game always
+  // completes, so the final file slightly overshoots the target.
+
+  while (totalPositions < targetPositions) {
+
+    totalPositions += dgPlayGame(fd);
+    totalGames++;
+
+    const timeNow = Date.now();
+
+    if (timeNow - lastReport >= DG_REPORT_SECS * 1000) {
+
+      const elapsed   = timeNow - startTime;
+      const pps       = elapsed ? (totalPositions * 1000 / elapsed | 0) : 0;
+      const remaining = Math.max(targetPositions - totalPositions, 0);
+      const etaMs     = pps ? (remaining * 1000 / pps) : 0;
+      const pct       = (100 * totalPositions / targetPositions).toFixed(1);
+
+      console.log('datagen: ' + totalPositions + '/' + targetPositions + ' positions (' + pct + '%) ' + totalGames + ' games ' + pps + ' pos/s [' + dgEta(etaMs) + ' left]');
+
+      lastReport = timeNow;
+
+    }
+
+  }
+
+  silentMode = 0;
+
+  fs.closeSync(fd);
+
+  console.log('datagen: done. ' + totalPositions + ' positions ' + totalGames + ' games written to ' + filename);
+
+}
 function uciSend () {
 
   if (silentMode)
@@ -4767,6 +5224,27 @@ function uciExec (commands, canYield) {
         
         break;
         
+      }
+
+      case 'datagen':
+      case 'dg': {
+
+        if (!nodeHost) {
+          uciSend('info datagen needs node');
+          break;
+        }
+
+        const target = Math.floor(parseFloat(tokens[2]));
+
+        if (tokens.length !== 3 || !(target > 0)) {
+          uciSend('usage: datagen <directory> <positions>');
+          break;
+        }
+
+        datagen(tokens[1], target);
+
+        break;
+
       }
 
       case 'eval':
@@ -5310,4 +5788,14 @@ if (nodeHost) {
 
 function netWasm() {
   return "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";
+}
+
+// netWeights
+//
+// The net, base64 of the quantised.bin bullet writes, put here by
+// embed.sh. '' reads NET_WEIGHTS_FILE instead, the dev version.
+//
+
+function netWeights() {
+  return "";
 }
