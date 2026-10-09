@@ -1183,10 +1183,10 @@ function rootSearch (node, depth, turn, alpha, beta) {
     score = alpha;
 
     if (nullWindow !== 0)
-      score = -search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha);
+      score = 0 - search(node.childNode, depth+E-R-1, nextTurn, 0-alpha-1, 0-alpha);
 
     if (statsTimeOut === 0 && (nullWindow === 0 || score > alpha))
-      score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
+      score = 0 - search(node.childNode, depth+E-1, nextTurn, 0-beta, 0-alpha);
 
     // unmake move
     
@@ -1230,7 +1230,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
     else {
       if ((move & MOVE_NOISY_MASK) === 0)
-        addHistory(-depth, move);
+        addHistory(0 - depth, move);
     }
   }
 
@@ -1390,7 +1390,7 @@ function search (node, depth, turn, alpha, beta) {
   
     repLo = repHi;
   
-    score = -search(node.childNode, depth-R-1, nextTurn, -beta, -beta+1);
+    score = 0 - search(node.childNode, depth-R-1, nextTurn, 0-beta, 1-beta);
   
     uncacheA(node);
     //uncacheB(node);
@@ -1499,10 +1499,10 @@ function search (node, depth, turn, alpha, beta) {
     score = alpha;
 
     if (nullWindow !== 0)
-      score = -search(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha);
+      score = 0 - search(node.childNode, depth+E-R-1, nextTurn, 0-alpha-1, 0-alpha);
 
     if (statsTimeOut === 0 && (nullWindow === 0 || score > alpha))
-      score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
+      score = 0 - search(node.childNode, depth+E-1, nextTurn, 0-beta, 0-alpha);
 
     // unmake move
     
@@ -1544,7 +1544,7 @@ function search (node, depth, turn, alpha, beta) {
 
     else {
       if ((move & MOVE_NOISY_MASK) === 0)
-        addHistory(-depth, move);
+        addHistory(0 - depth, move);
     }
   }
 
@@ -1649,7 +1649,7 @@ function qSearch (node, depth, turn, alpha, beta) {
 
     numLegalMoves++;
 
-    score = -qSearch(node.childNode, depth-1, nextTurn, -beta, -alpha);
+    score = 0 - qSearch(node.childNode, depth-1, nextTurn, 0-beta, 0-alpha);
 
     // unmake move
     
