@@ -4,9 +4,9 @@
 
 const WEIGHTS_B64 = "";
 
-const BUILD = "9.0";
+const BUILD = "11.0";
 
-const BENCH_DEPTH      = 12;
+const BENCH_DEPTH = 12;
 
 const INT32_MAX =  2147483647;
 const INT32_MIN = -2147483648;
@@ -340,7 +340,7 @@ const FILE = new Uint8Array([
   
   const ALIGNED = Array(144);
   
-  const NET_WEIGHTS_FILE = './quantised.bin';  // ignore - only relevant for dev version
+  const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/sqrrelu256.bin';  // ignore - only relevant for dev version
   // utilities
 
 // seal
@@ -5054,6 +5054,7 @@ const rootNode = nodes[0];
 if (nodeHost && process.argv.length > 2) {
   for (let i=2; i < process.argv.length; i++)
     uciExec(process.argv[i]);
+  process.exit();
 }
 
 // stdio
