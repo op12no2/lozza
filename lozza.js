@@ -4475,7 +4475,6 @@ function uciExec (commands, canYield) {
     switch (cmd) {
 
       case 'isready': {
-        // isready
         
         uciSend('readyok');
         
@@ -4485,11 +4484,9 @@ function uciExec (commands, canYield) {
 
       case 'position':
       case 'p': {
-        // position
         
         if (ttSize == 1) {
-          uciSend('info do a ucinewgame or setoption name hash command first');
-          break;
+          newGame();
         }
         
         let bd     = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
@@ -4516,25 +4513,20 @@ function uciExec (commands, canYield) {
         }
         
         position(bd, turn, rights, ep, moves);
-        
         break;
         
       }
 
       case 'go':
       case 'g': {
-        // go
         
         if (ttSize == 1) {
-          uciSend('info do a ucinewgame or setoption name hash command first');
-          break;
+          newGame();
         }
         
         if (bdB[0] !== EDGE) {
-          uciSend('info do a position command first');
-          break;
+          position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR','w','KQkq','-',[]);
         }
-        
         
         initStats();
         
@@ -4597,7 +4589,6 @@ function uciExec (commands, canYield) {
 
       case 'ucinewgame':
       case 'u': {
-        // ucinewgame
         
         newGame();
         
@@ -4607,7 +4598,6 @@ function uciExec (commands, canYield) {
 
       case 'setoption':
       case 'o': {
-        // setoption
         
         const opt = uciGetStr(tokens, 'name', '').toLowerCase();
         
@@ -4633,7 +4623,6 @@ function uciExec (commands, canYield) {
 
       case 'quit':
       case 'q': {
-        // quit
         
         process.exit();
         
@@ -4642,14 +4631,12 @@ function uciExec (commands, canYield) {
       }
 
       case 'stop': {
-        // stop
         
         break;
         
       }
 
       case 'uci': {
-        // uci
         
         if (WEIGHTS_B64 == '')
           uciSend('id name Lozza', BUILD, '(dev)');
@@ -4665,7 +4652,6 @@ function uciExec (commands, canYield) {
       }
 
       case 'perft': {
-        // perft
         
         uciExec('b');
         
@@ -4693,7 +4679,6 @@ function uciExec (commands, canYield) {
 
       case 'eval':
       case 'e': {
-        // eval
         
         const e = netEval(bdTurn);
         
@@ -4705,7 +4690,6 @@ function uciExec (commands, canYield) {
 
       case 'board':
       case 'b': {
-        // board
         
         uciSend(formatFen(bdTurn));
         
@@ -4714,7 +4698,6 @@ function uciExec (commands, canYield) {
       }
 
       case 'bench': {
-        // bench
         
         silentMode = 1;
         
@@ -4737,7 +4720,6 @@ function uciExec (commands, canYield) {
           }
         
         }
-        
         
         let nodes = 0;
         let start = now();
@@ -4769,7 +4751,6 @@ function uciExec (commands, canYield) {
       }
 
       case 'qb': {
-        // quick bench
         
         uciExec('bench warm 0');
         
@@ -4778,7 +4759,6 @@ function uciExec (commands, canYield) {
       }
 
       case 'pt': {
-        // perft tests
         
         let n = uciGetInt(tokens, 'n', PERFTFENS.length);
         
@@ -4833,7 +4813,6 @@ function uciExec (commands, canYield) {
       }
 
       case 'et': {
-        // eval tests
         
         for (let i=0; i < BENCHFENS.length; i++) {
         
@@ -4861,7 +4840,6 @@ function uciExec (commands, canYield) {
 
       case 'net':
       case 'n': {
-        // network
         
         if (WEIGHTS_B64 == '') {
           uciSend('weights file', NET_WEIGHTS_FILE);
@@ -4880,7 +4858,6 @@ function uciExec (commands, canYield) {
 
       case 'moves':
       case 'm': {
-        // moves
         
         initNode(rootNode);
         
@@ -4900,7 +4877,6 @@ function uciExec (commands, canYield) {
       }
 
       default: {
-        // ?
         
         uciSend('unknown command', cmd);
         
