@@ -15,7 +15,7 @@ fastchess=$data/fastchess
 book=$data/4moves_noob.epd
 pgn=sprt.pgn
 rounds=10000
-sprt="-sprt elo0=0 elo1=5 alpha=0.05 beta=0.1 model=normalized"
+sprt="-sprt elo0=-5 elo1=0 alpha=0.05 beta=0.1 model=normalized"
 concurrency=16
 
 tc=10+0.1

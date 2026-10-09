@@ -1007,7 +1007,8 @@ async function go (maxPly, canYield) {
         // upper bound
         
         beta  = Math.min(INF, ((alpha + beta) / 2) | 0);
-        alpha = Math.max(-INF, alpha - delta);
+        alpha = Math.abs(score) > MINMATE ? -INF : Math.max(-INF, alpha - delta);
+        depth = ply;  // undo any fail high reductions
         
         report('upperbound', score, depth);
         
@@ -1019,11 +1020,12 @@ async function go (maxPly, canYield) {
       else if (score >= beta) {
         // lower bound
         
-        beta = Math.min(INF, beta + delta);
+        beta = Math.abs(score) > MINMATE ? INF : Math.min(INF, beta + delta);
         
         report('lowerbound', score, depth);
         
-        depth = Math.max(1, depth-1);
+        if (Math.abs(score) <= MINMATE)
+          depth = Math.max(1, depth-1);
         
       }
       
@@ -1051,7 +1053,7 @@ async function go (maxPly, canYield) {
 
         else if (Math.abs(score) > MINMATE) {
 
-          let mateScore = (MATE - Math.abs(score)) / 2 | 0;
+          let mateScore = (MATE - Math.abs(score) + 1) / 2 | 0;
           if (score < 0)
             mateScore = -mateScore;
 
@@ -1439,14 +1441,25 @@ function search (node, depth, turn, alpha, beta) {
     
     const prune = (numLegalMoves > 0 && node.base <= BASE_PRUNABLE && alpha > -MINMATE) | 0;
     
-    if (doLMP !== 0 && prune !== 0 && numPrunes > Math.imul(depth, 5))
-      continue;
-    
-    if (doFP !== 0 && prune !== 0 && (ev + Math.imul(depth, 120)) < alpha)
-      continue;
-    
-
     makeMoveA(node, move);
+
+    // don't prune moves that give check
+
+    if (isKingAttacked(turn) === 0) {
+
+      if ((doLMP !== 0 && prune !== 0 && numPrunes > Math.imul(depth, 5)) ||
+          (doFP  !== 0 && prune !== 0 && (ev + Math.imul(depth, 120)) < alpha)) {
+
+        unmakeMove(node, move);
+
+        uncacheA(node);
+
+        continue;
+
+      }
+
+    }
+
 
     // legal
     
@@ -2067,84 +2080,44 @@ const objHistory = new Uint32Array(15 * 256);
 
 // zobrists
 
-// prng
-//
-// https://en.wikipedia.org/wiki/Mersenne_Twister
-//
+let rand32Seed = 1234567890;
 
-let twisterList  = new Uint32Array(624);
-let twisterIndex = 0;
-
-function twisterInit(seed) {
-
-  const mt = twisterList;
-
-  mt[0] = seed >>> 0;
-
-  for (let i = 1; i < 624; i++) {
-    mt[i] = (0x6C078965 * (mt[i - 1] ^ (mt[i - 1] >>> 30)) + i) >>> 0;
-  }
+function rand32() {
+  rand32Seed ^= rand32Seed << 13;
+  rand32Seed ^= rand32Seed >>> 17;
+  rand32Seed ^= rand32Seed << 5;
+  let x = rand32Seed;
+  x = Math.imul(x ^ (x >>> 16), 0x7feb352d);
+  x = Math.imul(x ^ (x >>> 15), 0x846ca68b);
+  x ^= x >>> 16;
+  return x >>> 0;
 }
 
-function twisterFill() {
-
-  const mt = twisterList;
-
-  for (let i = 0; i < 624; i++) {
-    let y = (mt[i] & 0x80000000) + (mt[(i + 1) % 624] & 0x7FFFFFFF);
-    mt[i] = mt[(i + 397) % 624] ^ (y >>> 1);
-    if (y % 2 !== 0) {
-      mt[i] ^= 0x9908B0DF;
-    }
-  }
-}
-
-function twisterRand() {
-
-  const mt = twisterList;
-
-  if (twisterIndex === 0)
-    twisterFill();
-
-  let y = mt[twisterIndex];
-  y ^= y >>> 11;
-  y ^= (y << 7)  & 0x9D2C5680;
-  y ^= (y << 15) & 0xEFC60000;
-  y ^= y >>> 18;
-
-  twisterIndex = (twisterIndex + 1) % 624;
-
-  return y >>> 0;
-}
-
-twisterInit(0x9E3779B9);
-
-
-let loTurn = twisterRand();
-let hiTurn = twisterRand();
+let loTurn = rand32();
+let hiTurn = rand32();
 
 const loObjPieces = new Int32Array(15 * 256);
 const hiObjPieces = new Int32Array(15 * 256);
 
 for (let i=0; i < 15 * 256; i++) {
-  loObjPieces[i] = twisterRand();
-  hiObjPieces[i] = twisterRand();
+  loObjPieces[i] = rand32();
+  hiObjPieces[i] = rand32();
 }
 
 const loRights = new Int32Array(16);
 const hiRights = new Int32Array(16);
 
 for (let i=0; i < 16; i++) {
-  loRights[i] = twisterRand();
-  hiRights[i] = twisterRand();
+  loRights[i] = rand32();
+  hiRights[i] = rand32();
 }
 
 const loEP = new Int32Array(144);
 const hiEP = new Int32Array(144);
 
 for (let i=0; i < 144; i++) {
-  loEP[i] = twisterRand();
-  hiEP[i] = twisterRand();
+  loEP[i] = rand32();
+  hiEP[i] = rand32();
 }
 
 // tt
@@ -4383,10 +4356,7 @@ function uciSend () {
   if (silentMode)
     return;
 
-  var s = '';
-
-  for (var i = 0; i < arguments.length; i++)
-    s += arguments[i] + ' ';
+  const s = Array.prototype.join.call(arguments, ' ');
 
   //fs.writeSync(1, s + '\n');
 
@@ -4605,8 +4575,6 @@ function uciExec (commands, canYield) {
 
           const mb = Math.max(uciGetInt(tokens, 'value', ttDefault), 1);
 
-          console.log(mb);
-
           ttResize(mb);
 
         }
@@ -4624,7 +4592,10 @@ function uciExec (commands, canYield) {
       case 'quit':
       case 'q': {
         
-        process.exit();
+        if (nodeHost)
+          process.exit();
+        else
+          close();
         
         break;
         
@@ -4859,18 +4830,39 @@ function uciExec (commands, canYield) {
       case 'moves':
       case 'm': {
         
-        initNode(rootNode);
+        // legal moves on one line, or checkmate/stalemate if there are none
         
-        rootNode.inCheck = 1;
+        const nextTurn = bdTurn ^ COLOR_MASK;
+        const inCheck  = isKingAttacked(nextTurn);
+        const legal    = [];
         
         let move = 0;
         
+        initNode(rootNode);
+        cache(rootNode);
+        
+        rootNode.inCheck = inCheck;
+        
         genMoves(rootNode, bdTurn);
         
-        while(move = getNextMove(rootNode))
-          console.log(formatMove(move));
+        while ((move = getNextMove(rootNode)) !== 0) {
+        
+          makeMoveA(rootNode, move);
+        
+          if ((move & MOVE_LEGAL_MASK) !== 0 || isKingAttacked(nextTurn) === 0)
+            legal.push(formatMove(move));
+        
+          unmakeMove(rootNode, move);
+          uncacheA(rootNode);
+        
+        }
         
         initNode(rootNode);
+        
+        if (legal.length)
+          uciSend(legal.join(' '));
+        else
+          uciSend(inCheck ? 'checkmate' : 'stalemate');
         
         break;
         
