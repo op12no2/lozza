@@ -28,7 +28,7 @@ hash=16
 rm -f $pgn
 
 $fastchess \
-  -engine name=dev cmd=node args=lozza.js \
+  -engine name=coal cmd=node args=lozza.js \
   -engine name=cand cmd=node args=releases/lozza.js \
   -each proto=uci tc=$tc timemargin=$timemargin option.Hash=$hash \
   -rounds $rounds -repeat \
