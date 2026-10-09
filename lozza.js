@@ -398,8 +398,8 @@ function nodeStruct () {
   this.loHash = 0;
   this.hiHash = 0;
 
-  this.net_h1_a = new Int32Array(NET_H1_SIZE);
-  this.net_h2_a = new Int32Array(NET_H1_SIZE);
+  this.net_h1_a = new NetArray(NET_H1_SIZE);
+  this.net_h2_a = new NetArray(NET_H1_SIZE);
 
   this.toZ = 0;
   this.frZ = 0;
@@ -1742,14 +1742,97 @@ function collectPV(node, move) {
 
 // net
 
-const net_h1_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // us
-const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
-const net_h1_b      = new Int32Array(NET_H1_SIZE);
-const net_o_w       = new Int32Array(NET_H1_SIZE*2);
+// The weights and accumulators are int16 and live in one block of memory.
+// Where WebAssembly with SIMD is available the updates and the output layer
+// run in the small wasm module in netWasm(), built from wasm/nnue.c, else
+// in plain js. Both give identical results. Each weights table has a row of
+// zeros at NET_ZERO_ROW for a missing feature, see netApply.
+
+const NET_WASM     = 1;  // 0 to always use the js
+const NET_ZERO_ROW = NET_I_SIZE * NET_H1_SIZE;
+const NET_W_SIZE   = NET_ZERO_ROW + NET_H1_SIZE;
+
+const NET_BASE  = 2 * 65536;  // the wasm module's stack is below this
+const NET_H1_AT = NET_BASE;
+const NET_H2_AT = NET_H1_AT + 2 * NET_W_SIZE;
+const NET_B_AT  = NET_H2_AT + 2 * NET_W_SIZE;
+const NET_O_AT  = NET_B_AT  + 2 * NET_H1_SIZE;
+const NET_A1_AT = NET_O_AT  + 4 * NET_H1_SIZE;
+const NET_A2_AT = NET_A1_AT + 2 * NET_H1_SIZE;
+const NET_SIZE  = NET_A2_AT + 2 * NET_H1_SIZE;
+
+let netWasmOn = 0;
+let wasmOut   = null;
+let wasmApply = null;
+
+const netBuffer = netMemory();
+
+// the js is faster with int32 arrays, wasm needs int16 views of its memory
+
+const NetArray = netWasmOn ? Int16Array : Int32Array;
+
+function netView (at, n) {
+  return netWasmOn ? new Int16Array(netBuffer, at, n) : new Int32Array(n);
+}
+
+const net_h1_w_flat = netView(NET_H1_AT, NET_W_SIZE);  // us
+const net_h2_w_flat = netView(NET_H2_AT, NET_W_SIZE);  // them
+const net_h1_b      = netView(NET_B_AT,  NET_H1_SIZE);
+const net_o_w       = netView(NET_O_AT,  NET_H1_SIZE*2);
 let   net_o_b       = 0;
-const net_h1_a      = new Int32Array(NET_H1_SIZE);
-const net_h2_a      = new Int32Array(NET_H1_SIZE);
+const net_h1_a      = netView(NET_A1_AT, NET_H1_SIZE);
+const net_h2_a      = netView(NET_A2_AT, NET_H1_SIZE);
 const net_a         = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
+const net_a_at      = [[NET_A1_AT, NET_A2_AT], [NET_A2_AT, NET_A1_AT]];
+
+// netMemory
+//
+// The wasm module's memory if the host can run it, else null.
+//
+
+function netMemory () {
+
+  if (NET_WASM && typeof WebAssembly === 'object') {
+    try {
+      const b64  = netWasm();
+      const bin  = atob(b64);
+      const code = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++)
+        code[i] = bin.charCodeAt(i);
+      if (WebAssembly.validate(code)) {
+        const memory   = new WebAssembly.Memory({initial: Math.ceil(NET_SIZE / 65536)});
+        const instance = new WebAssembly.Instance(new WebAssembly.Module(code), {env: {memory: memory}});
+        if (instance.exports.__heap_base.value <= NET_BASE) {
+          netWasmOn = 1;
+          wasmOut   = instance.exports.out;
+          wasmApply = instance.exports.apply;
+          return memory.buffer;
+        }
+      }
+    }
+    catch (e) {
+      netWasmOn = 0;
+    }
+  }
+
+  return null;
+
+}
+
+// netApply
+//
+// Both accumulators plus rows a1, a2 less rows s1, s2 in wasm, given as
+// offsets into the weights tables; NET_ZERO_ROW for none.
+//
+
+function netApply (a1, a2, s1, s2) {
+
+  wasmApply(NET_A1_AT, NET_A2_AT, NET_A1_AT, NET_A2_AT,
+            NET_H1_AT + 2 * a1, NET_H1_AT + 2 * a2, NET_H1_AT + 2 * s1, NET_H1_AT + 2 * s2,
+            NET_H2_AT + 2 * a1, NET_H2_AT + 2 * a2, NET_H2_AT + 2 * s1, NET_H2_AT + 2 * s2,
+            NET_H1_SIZE);
+
+}
 
 let ueFunc  = myround;
 let ueArgs0 = 0;
@@ -1766,27 +1849,37 @@ let ueArgs5 = 0;
 
 function netEval(turn) {
 
-  const w  = net_o_w;
-  const a  = net_a[turn >>> 3];
-  const a1 = a[0];
-  const a2 = a[1];
-  const N  = NET_H1_SIZE | 0;
+  let e = 0 | 0;
 
-  let e  = 0 | 0;
-  let p1 = 0 | 0;
-  let p2 = N | 0;
+  if (netWasmOn) {
+    const at = net_a_at[turn >>> 3];
+    e = wasmOut(at[0], at[1], NET_O_AT, NET_O_AT + 2 * NET_H1_SIZE, NET_H1_SIZE, 0, 0) | 0;
+  }
 
-  while (p1 < N) {
+  else {
 
-    const x1 = a1[p1] | 0;
-    const x2 = a2[p1] | 0;
+    const w  = net_o_w;
+    const a  = net_a[turn >>> 3];
+    const a1 = a[0];
+    const a2 = a[1];
+    const N  = NET_H1_SIZE | 0;
 
-    const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
-    const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
+    let p1 = 0 | 0;
+    let p2 = N | 0;
 
-    e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0;
+    while (p1 < N) {
 
-    p1++; p2++;
+      const x1 = a1[p1] | 0;
+      const x2 = a2[p1] | 0;
+
+      const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
+      const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
+
+      e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0;
+
+      p1++; p2++;
+
+    }
 
   }
 
@@ -1873,6 +1966,11 @@ function netMove () {
   const from  = ueArgs1 | 0;
   const to    = ueArgs2 | 0;
 
+  if (netWasmOn) {
+    netApply(IMAP[frObj + to], NET_ZERO_ROW, IMAP[frObj + from], NET_ZERO_ROW);
+    return;
+  }
+
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
   const h1a = net_h1_a, h2a = net_h2_a;
@@ -1899,6 +1997,11 @@ function netCapture () {
   const fr    = ueArgs1 | 0;
   const toObj = ueArgs2 << 8;
   const to    = ueArgs3 | 0;
+
+  if (netWasmOn) {
+    netApply(IMAP[frObj + to], NET_ZERO_ROW, IMAP[frObj + fr], IMAP[toObj + to]);
+    return;
+  }
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
@@ -1928,6 +2031,11 @@ function netPromote () {
   const pawnTo     = ueArgs2 | 0;
   const captureObj = ueArgs3 << 8;
   const promoteObj = ueArgs4 << 8;
+
+  if (netWasmOn) {
+    netApply(IMAP[promoteObj + pawnTo], NET_ZERO_ROW, IMAP[pawnObj + pawnFr], captureObj !== 0 ? IMAP[captureObj + pawnTo] : NET_ZERO_ROW);
+    return;
+  }
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
@@ -1967,6 +2075,11 @@ function netEpCapture () {
   const pawnCaptureObj = ueArgs3 << 8;
   const ep             = ueArgs4 | 0;
 
+  if (netWasmOn) {
+    netApply(IMAP[pawnObj + pawnTo], NET_ZERO_ROW, IMAP[pawnObj + pawnFr], IMAP[pawnCaptureObj + ep]);
+    return;
+  }
+
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
   const h1a = net_h1_a, h2a = net_h2_a;
@@ -1996,6 +2109,11 @@ function netCastle () {
   const rookObj = ueArgs3 << 8;
   const rookFr  = ueArgs4 | 0;
   const rookTo  = ueArgs5 | 0;
+
+  if (netWasmOn) {
+    netApply(IMAP[kingObj + kingTo], IMAP[rookObj + rookTo], IMAP[kingObj + kingFr], IMAP[rookObj + rookFr]);
+    return;
+  }
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
@@ -5182,5 +5300,11 @@ if (nodeHost) {
 
 }
 
+// netWasm
+//
+// The nnue kernels, base64 of the wasm wasm/build.sh makes from wasm/nnue.c.
+//
 
-
+function netWasm() {
+  return "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";
+}
