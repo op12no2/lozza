@@ -253,118 +253,106 @@ const FILE = new Uint8Array([
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   
-  const NULL144 = new Uint8Array(144);
+const NULL144 = new Uint8Array(144);
   
-  const MAP = Object.seal({
-    'p': B_PAWN,
-    'n': B_KNIGHT,
-    'b': B_BISHOP,
-    'r': B_ROOK,
-    'q': B_QUEEN,
-    'k': B_KING,
-    'P': W_PAWN,
-    'N': W_KNIGHT,
-    'B': W_BISHOP,
-    'R': W_ROOK,
-    'Q': W_QUEEN,
-    'K': W_KING
-  });
+const MAP = Object.seal({
+  'p': B_PAWN,
+  'n': B_KNIGHT,
+  'b': B_BISHOP,
+  'r': B_ROOK,
+  'q': B_QUEEN,
+  'k': B_KING,
+  'P': W_PAWN,
+  'N': W_KNIGHT,
+  'B': W_BISHOP,
+  'R': W_ROOK,
+  'Q': W_QUEEN,
+  'K': W_KING
+});
   
-  const UMAP = Object.seal({
-    9:  'p',
-    10: 'n',
-    11: 'b',
-    12: 'r',
-    13: 'q',
-    14: 'k',
-    1:  'P',
-    2:  'N',
-    3:  'B',
-    4:  'R',
-    5:  'Q',
-    6:  'K'
-  });
+const UMAP = Object.seal({
+  9:  'p',
+  10: 'n',
+  11: 'b',
+  12: 'r',
+  13: 'q',
+  14: 'k',
+  1:  'P',
+  2:  'N',
+  3:  'B',
+  4:  'R',
+  5:  'Q',
+  6:  'K'
+});
   
-  const RANK2W = new Uint8Array([
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-    0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-    0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-    0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-    0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-    0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-    0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-  ]);
+const RANK2W = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
+  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
+  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
   
-  const RANK2B = new Uint8Array([
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-    0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-    0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-    0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-    0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-    0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-    0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-  ]);
+const RANK2B = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
+  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
+  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
   
-  const CENTRE = new Uint8Array([
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-    0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-    0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-    0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-    0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-    0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-    0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-    0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-  ]);
+const CENTRE = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
   
-  const SLIDE_SCORES = [
-    NULL144,
-    RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
-    NULL144,
-    NULL144,
-    RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE
-  ];
+const SLIDE_SCORES = [
+  NULL144,
+  RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
+  NULL144,
+  NULL144,
+  RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE
+];
   
-  const ALIGNED = Array(144);
+const ALIGNED = Array(144);
   
-  const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/sqrrelu256.bin';  // ignore - only relevant for dev version
-  // utilities
-
-// seal
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/sqrrelu256.bin';  // ignore - only relevant for dev version
 
 function seal (o) {
   Object.seal(o);
 }
 
-// myround
-
 function myround(x) {
   return Math.sign(x) * Math.round(Math.abs(x));
 }
 
-// now
-
 function now() {
   return performance.now() | 0;
 }
-
-
-// nodes
-
-// nodeStruct
 
 function nodeStruct (ply) {
 
@@ -420,9 +408,6 @@ function nodeStruct (ply) {
 
 }
 
-
-// initNode
-
 function initNode (node) {
 
   node.killer1    = 0;
@@ -440,8 +425,6 @@ function initNode (node) {
 
 }
 
-// cache
-
 function cache (node) {
 
   node.rights = bdRights;
@@ -453,8 +436,6 @@ function cache (node) {
 
 }
 
-// uncacheA
-
 function uncacheA (node) {
 
   bdRights = node.rights;
@@ -465,8 +446,6 @@ function uncacheA (node) {
   hiHash   = node.hiHash;
 
 }
-
-// getNextMove
 
 function getNextMove (node) {
 
@@ -564,8 +543,6 @@ function getNextMove (node) {
   }
 }
 
-// rankSlides
-
 function rankSlides (node) {
 
   for (let i=0; i < node.numMoves2; i++) {
@@ -592,8 +569,6 @@ function rankSlides (node) {
     }
   }
 }
-
-// addSlide
 
 function addSlide (node, move) {
 
@@ -635,8 +610,6 @@ function addSlide (node, move) {
 
 }
 
-// addCastle
-
 function addCastle (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -677,8 +650,6 @@ function addCastle (node, move) {
   }
 
 }
-
-// addCapture
 
 function addCapture (node, move) {
 
@@ -740,8 +711,6 @@ function addCapture (node, move) {
   }
 }
 
-// addPromotion
-
 function addPromotion (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -784,8 +753,6 @@ function addPromotion (node, move) {
 
 }
 
-// addEPTake
-
 function addEPTake (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -801,8 +768,6 @@ function addEPTake (node, move) {
   }
 
 }
-
-// addQMove
 
 function addQMove (node, move) {
 
@@ -840,8 +805,6 @@ function addQMove (node, move) {
 
 }
 
-// addQPromotion
-
 function addQPromotion (node, move) {
 
   addQMove (node, move | (QUEEN-2)  << MOVE_PROMAS_BITS);
@@ -850,8 +813,6 @@ function addQPromotion (node, move) {
   addQMove (node, move | (KNIGHT-2) << MOVE_PROMAS_BITS);
 
 }
-
-// addKiller
 
 function addKiller (node, score, move) {
 
@@ -901,10 +862,6 @@ function addKiller (node, score, move) {
 
 }
 
-
-
-// report
-
 function report (units, value, depth) {
 
   let pvStr = 'pv';
@@ -922,8 +879,6 @@ function report (units, value, depth) {
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 
 }
-
-// reportMultiPV
 
 function reportMultiPV (depth) {
 
@@ -1095,8 +1050,6 @@ async function go (maxPly, canYield) {
 
 }
 
-// rootSearch
-
 function rootSearch (node, depth, turn, alpha, beta) {
 
   // check time
@@ -1107,7 +1060,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     statsTimeOut = 1;
     return 0;
   }
-  
 
   statsNodes++;
 
@@ -1149,7 +1101,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
       continue;
     
     }
-    
 
     makeMoveB(node);
 
@@ -1174,7 +1125,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     else if (doLMR !== 0 && numLegalMoves > 4) {
       R = LMR_LOOKUP[(depth << 7) + numPrunes];
     }
-    
 
     const nullWindow = (numLegalMoves > 1 || R) | 0;
 
@@ -1189,9 +1139,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     // unmake move
     
     unmakeMove(node, move);
-    
     uncacheA(node);
-    
 
     if (statsTimeOut !== 0)
       return 0;
@@ -1250,11 +1198,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
     return bestScore;
   }
-  
-
 }
-
-// search
 
 function search (node, depth, turn, alpha, beta) {
 
@@ -1274,7 +1218,6 @@ function search (node, depth, turn, alpha, beta) {
   if (node.ply > statsSelDepth)
     statsSelDepth = node.ply;
   
-
   const nextTurn = turn ^ COLOR_MASK;
   const pvNode   = (beta !== (alpha + 1)) | 0;
 
@@ -1310,7 +1253,6 @@ function search (node, depth, turn, alpha, beta) {
     return qSearch(node, -1, turn, alpha, beta);
   
   depth = Math.max(depth,0);
-  
 
   let score = 0;
 
@@ -1359,7 +1301,6 @@ function search (node, depth, turn, alpha, beta) {
       //return qs;
     //}
   //}
-  
 
   node.inCheck = inCheck;
   node.ev      = ev;
@@ -1402,7 +1343,6 @@ function search (node, depth, turn, alpha, beta) {
     if (statsTimeOut !== 0)
       return 0;
   }
-  
 
   const oAlpha = alpha;
   const doFP   = (inCheck === 0 && depth <= 4) | 0;
@@ -1426,7 +1366,6 @@ function search (node, depth, turn, alpha, beta) {
     depth -= 1;
   
   }
-  
 
   ttUpdateEval(ev);
   genMoves(node, turn);
@@ -1449,7 +1388,6 @@ function search (node, depth, turn, alpha, beta) {
           (doFP  !== 0 && prune !== 0 && (ev + Math.imul(depth, 120)) < alpha)) {
 
         unmakeMove(node, move);
-
         uncacheA(node);
 
         continue;
@@ -1458,19 +1396,16 @@ function search (node, depth, turn, alpha, beta) {
 
     }
 
-
     // legal
     
     if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
     
       unmakeMove(node, move);
-    
       uncacheA(node);
     
       continue;
     
     }
-    
 
     makeMoveB(node);
 
@@ -1490,7 +1425,6 @@ function search (node, depth, turn, alpha, beta) {
     else if (doLMR !== 0 && numLegalMoves > 4) {
       R = LMR_LOOKUP[(depth << 7) + numPrunes];
     }
-    
 
     const nullWindow = ((pvNode !== 0 && numLegalMoves > 1) || R) | 0;
 
@@ -1507,7 +1441,6 @@ function search (node, depth, turn, alpha, beta) {
     unmakeMove(node, move);
     
     uncacheA(node);
-    
 
     if (statsTimeOut !== 0)
       return 0;
@@ -1561,7 +1494,6 @@ function search (node, depth, turn, alpha, beta) {
   
   }
   
-
   if (bestScore > oAlpha) {
     ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
     return bestScore;
@@ -1572,8 +1504,6 @@ function search (node, depth, turn, alpha, beta) {
   }
 
 }
-
-// qsearch
 
 function qSearch (node, depth, turn, alpha, beta) {
 
@@ -1587,7 +1517,6 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (node.childNode === null)
     return evaluate(node, turn);
   
-
   const nextTurn = turn ^ COLOR_MASK;
 
   if (isDraw() !== 0)
@@ -1634,14 +1563,12 @@ function qSearch (node, depth, turn, alpha, beta) {
     if (isKingAttacked(nextTurn) !== 0) {
     
       unmakeMove(node, move);
-    
       uncacheA(node);
     
       continue;
     
     }
     
-
     makeMoveB(node);
 
     numLegalMoves++;
@@ -1651,7 +1578,6 @@ function qSearch (node, depth, turn, alpha, beta) {
     // unmake move
     
     unmakeMove(node, move);
-    
     uncacheA(node);
     
 
@@ -1704,7 +1630,6 @@ function perft (node, depth, turn) {
       continue;
     
     }
-    
 
     totalNodes += perft(node.childNode, depth-1, nextTurn);
 
@@ -1715,7 +1640,6 @@ function perft (node, depth, turn) {
     bdRights = node.rights;
     bdEp     = node.ep;
     
-
   }
 
   return totalNodes;
@@ -1734,7 +1658,6 @@ function collectPV(node, move) {
   node.pv[node.pvLen++] = move;
 
 }
-
 
 // net
 
@@ -1770,8 +1693,6 @@ let wasmCapture = null;
 let netChild = null;  // the node makeMoveB notes the move's rows on
 
 const netBuffer = netMemory();
-
-// the js is faster with int32 arrays, wasm needs int16 views of its memory
 
 function netView (at, n) {
   return netWasmOn ? new Int16Array(netBuffer, at, n) : new Int32Array(n);
@@ -2005,10 +1926,6 @@ function netEval(node, turn) {
 
 }
 
-// netLoad
-
-// getWeightsBuffer
-
 function getWeightsBuffer() {
 
   if (WEIGHTS_B64 === '')
@@ -2030,7 +1947,6 @@ function getWeightsBuffer() {
   return bytes;
 
 }
-
 
 function netLoad () {
 
@@ -2068,9 +1984,6 @@ function netLoad () {
 
 }
 
-
-// netMove
-
 function netMove () {
 
   const frObj = ueArgs0 << 8;
@@ -2080,8 +1993,6 @@ function netMove () {
   netNote(IMAP[frObj + to], NET_ZERO_ROW, IMAP[frObj + from], NET_ZERO_ROW);
 
 }
-
-// netCapture
 
 function netCapture () {
 
@@ -2093,8 +2004,6 @@ function netCapture () {
   netNote(IMAP[frObj + to], NET_ZERO_ROW, IMAP[frObj + fr], IMAP[toObj + to]);
 
 }
-
-// netPromote
 
 function netPromote () {
 
@@ -2108,8 +2017,6 @@ function netPromote () {
 
 }
 
-// netEpCapture
-
 function netEpCapture () {
 
   const pawnObj        = ueArgs0 << 8;
@@ -2121,8 +2028,6 @@ function netEpCapture () {
   netNote(IMAP[pawnObj + pawnTo], NET_ZERO_ROW, IMAP[pawnObj + pawnFr], IMAP[pawnCaptureObj + ep]);
 
 }
-
-// netCastle
 
 function netCastle () {
 
@@ -2136,7 +2041,6 @@ function netCastle () {
   netNote(IMAP[kingObj + kingTo], IMAP[rookObj + rookTo], IMAP[kingObj + kingFr], IMAP[rookObj + rookFr]);
 
 }
-
 
 // flipIndex
 //
@@ -2174,7 +2078,6 @@ function bullet2lozza (index) {
   return lozzaIndex;
 
 }
-
 
 // board
 
@@ -2254,12 +2157,10 @@ let ttMove  = new Uint32Array(ttSize);
 let ttEval  = new Int16Array(ttSize);
 let ttScore = new Int16Array(ttSize);
 // ===
-const ttWidth =      18;
+const ttWidth = 18;
 // ===
 
 let ttHashUsed = 0;
-
-// ttResize
 
 function ttResize(N_MB) {
 
@@ -2288,8 +2189,6 @@ function ttResize(N_MB) {
 
 }
 
-// ttPut
-
 function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
 
   const idx = loHash & ttMask;
@@ -2317,8 +2216,6 @@ function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
     ttMove[idx] = move & MOVE_CLEAN_MASK;
 
 }
-
-// ttGet
 
 function ttGet (node, depth, alpha, beta) {
 
@@ -2371,8 +2268,6 @@ function ttGet (node, depth, alpha, beta) {
 
 }
 
-// ttUpdateEval
-
 function ttUpdateEval (ev) {
 
   const idx = loHash & ttMask;
@@ -2382,8 +2277,6 @@ function ttUpdateEval (ev) {
 
 }
 
-// ttInit
-
 function ttInit () {
 
   ttType.fill(TT_EMPTY);
@@ -2392,8 +2285,6 @@ function ttInit () {
   ttHashUsed = 0;
 
 }
-
-// ttValidate
 
 function ttValidate (move) {
 
@@ -2415,7 +2306,6 @@ function ttValidate (move) {
 
 }
 
-
 // hash
 
 let loHash = 0;
@@ -2427,9 +2317,6 @@ let repHi = 0;
 const repLoHash = new Int32Array(1024);
 const repHiHash = new Int32Array(1024);
 
-
-// newGame
-
 function newGame() {
 
   if (ttSize == 1)
@@ -2438,8 +2325,6 @@ function newGame() {
   ttInit();
 
 }
-
-// position
 
 function position (bd, turn, rights, ep, moves) {
 
@@ -2655,8 +2540,6 @@ function position (bd, turn, rights, ep, moves) {
 
 }
 
-// genMoves
-
 function genMoves (node, turn) {
 
   node.stage     = 0;
@@ -2718,7 +2601,6 @@ function genMoves (node, turn) {
     }
   
   }
-  
 
   let next   = 0;
   let count  = 0;
@@ -3061,8 +2943,6 @@ function genMoves (node, turn) {
   }
 }
 
-// genQMoves
-
 function genQMoves (node, turn) {
 
   node.stage     = 0;
@@ -3099,7 +2979,6 @@ function genQMoves (node, turn) {
     var CAPTURE     = IS_WNK;
   
   }
-  
 
   let next  = 0;
   let count = 0;
@@ -3370,8 +3249,6 @@ function genQMoves (node, turn) {
   }
 
 }
-
-// makeMoveA
 
 function makeMoveA (node, move) {
 
@@ -3726,7 +3603,6 @@ function makeMoveA (node, move) {
   
   if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece === PAWN)
     repLo = repHi;
-  
 
 }
 
@@ -3742,8 +3618,6 @@ function makeMoveB (node) {
   ueFunc();
 
 }
-
-// unmakeMove
 
 function unmakeMove (node, move) {
 
@@ -3888,8 +3762,6 @@ function unmakeMove (node, move) {
 
 }
 
-// isKingAttacked
-
 function isKingAttacked (byCol) {
 
   const list = wbList[(byCol ^ COLOUR_MASK) >>> 3];
@@ -3897,8 +3769,6 @@ function isKingAttacked (byCol) {
   return isAttacked(list[0], byCol);
 
 }
-
-// isAttacked
 
 function isAttacked (to, byCol) {
 
@@ -3956,8 +3826,6 @@ function isAttacked (to, byCol) {
   return 0;
 
 }
-
-// evaluate
 
 function evaluate (node, turn) {
 
@@ -4054,8 +3922,6 @@ function quickSee (turn, move) {
 
 }
 
-// addHistory
-
 function addHistory (bonus, move) {
 
   const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
@@ -4064,8 +3930,6 @@ function addHistory (bonus, move) {
   objHistory[(frObj << 8) + to] += bonus;
 
 }
-
-// isDraw
 
 function isDraw () {
 
@@ -4096,8 +3960,6 @@ function isDraw () {
   return 0;
 
 }
-
-// formatFen
 
 function formatFen (turn) {
 
@@ -4155,8 +4017,6 @@ function formatFen (turn) {
   return fen;
 
 }
-
-// formatMove
 
 function formatMove (move) {
 
@@ -4224,8 +4084,6 @@ function flipFen (fen) {
 
   return newFen;
 };
-
-// boardCheck
 
 function boardCheck (turn) {
 
@@ -4302,7 +4160,6 @@ function boardCheck (turn) {
 
 }
 
-
 // stats
 
 let statsStartTime = 0;
@@ -4317,8 +4174,6 @@ let statsBestScore = 0;
 let multiPV      = 1;
 let multiPVMoves = [];
 
-// initStats
-
 function initStats () {
 
   statsStartTime = now();
@@ -4332,8 +4187,6 @@ function initStats () {
 
 }
 
-// checkTime
-
 function checkTime () {
 
   if (statsBestMove && statsMoveTime > 0 && ((now() - statsStartTime) >= statsMoveTime))
@@ -4345,8 +4198,6 @@ function checkTime () {
     statsTimeOut = 1;
 
 }
-
-
 
 const BENCHFENS = [
 
@@ -4469,8 +4320,6 @@ const PERFTFENS = [
   ['fen r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1   w kq   -  0 1', 6, 706045033, 'jvm-2     '],
   ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
 ];
-
-// uciSend
 
 // datagen
 //
@@ -4620,8 +4469,6 @@ function dgPackBoard (buf, fullmove) {
 
 }
 
-// dgMoveToViri
-
 function dgMoveToViri (move) {
 
   const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
@@ -4650,8 +4497,6 @@ function dgMoveToViri (move) {
   return dgTo64(fr) | (dgTo64(to) << 6) | (promo << 12) | (type << 14);
 
 }
-
-// dgLegalMoves
 
 function dgLegalMoves (out) {
 
@@ -4835,8 +4680,6 @@ function dgPlayGame (fd) {
 
 }
 
-// dgEta
-
 function dgEta (ms) {
 
   const s = ms / 1000 | 0;
@@ -4852,8 +4695,6 @@ function dgEta (ms) {
   return h + ':' + mm;
 
 }
-
-// datagen
 
 function datagen (directory, targetPositions) {
 
@@ -4929,6 +4770,7 @@ function datagen (directory, targetPositions) {
   console.log('datagen: done. ' + totalPositions + ' positions ' + totalGames + ' games written to ' + filename);
 
 }
+
 function uciSend () {
 
   if (silentMode)
@@ -4945,8 +4787,6 @@ function uciSend () {
 
 }
 
-// uciGetInt
-
 function uciGetInt (tokens, key, def) {
 
   for (let i=0; i < tokens.length; i++)
@@ -4957,8 +4797,6 @@ function uciGetInt (tokens, key, def) {
   return def;
 
 }
-
-// uciGetStr
 
 function uciGetStr (tokens, key, def) {
 
@@ -4972,8 +4810,6 @@ function uciGetStr (tokens, key, def) {
   return def;
 
 }
-
-// uciGetArr
 
 function uciGetArr (tokens, key, to) {
 
@@ -5479,7 +5315,6 @@ function uciExec (commands, canYield) {
 
 }
 
-
 // init
 
 const nodeHost = (typeof process) != 'undefined';
@@ -5597,8 +5432,6 @@ const fs = (nodeHost) ? require('fs') : 0;
 const nodes = Array(MAX_PLY);
 
 let silentMode = 0;
-
-// initOnce
 
 function initOnce () {
 
@@ -5739,9 +5572,7 @@ function initOnce () {
 
 initOnce();
 
-
 const rootNode = nodes[0];
-
 
 if (nodeHost && process.argv.length > 2) {
   for (let i=2; i < process.argv.length; i++)

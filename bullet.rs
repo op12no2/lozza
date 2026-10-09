@@ -1,5 +1,5 @@
-const OUTPUT_DIR: &str = "/home/xyzzy/lozza/nets/farm1";
-const SB: usize = 500;
+const OUTPUT_DIR: &str = "/home/xyzzy/lozza/nets/gen7_256";
+const SB: usize = 200;
 const L1: usize = 256;
 const WDL: f32 = 0.4;
 const SCALE: i32 = 400;
@@ -63,8 +63,8 @@ fn main() {
             start_superbatch: 1,
             end_superbatch: SB,
         },
-        //wdl_scheduler: wdl::ConstantWDL { value: WDL },
-        wdl_scheduler: wdl::LinearWDL { start: 0.0, end: WDL },
+        wdl_scheduler: wdl::ConstantWDL { value: WDL },
+        //wdl_scheduler: wdl::LinearWDL { start: 0.0, end: WDL },
         //lr_scheduler: lr::StepLR {
         //    start: 0.001,
         //    gamma: 0.3,
@@ -78,7 +78,7 @@ fn main() {
             },
             warmup_batches: 200,
         },
-        save_rate: 10,
+        save_rate: SB,
     };
 
     let settings = LocalSettings {
