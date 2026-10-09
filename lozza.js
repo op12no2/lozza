@@ -366,7 +366,7 @@ function now() {
 
 // nodeStruct
 
-function nodeStruct () {
+function nodeStruct (ply) {
 
   this.ply             = 0;
   this.childNode       = null;
@@ -398,8 +398,18 @@ function nodeStruct () {
   this.loHash = 0;
   this.hiHash = 0;
 
-  this.net_h1_a = new NetArray(NET_H1_SIZE);
-  this.net_h2_a = new NetArray(NET_H1_SIZE);
+  // this position's accumulators, valid or the parent's plus the rows noted
+  // by makeMoveB; the root's are the globals the position refresh builds
+
+  this.acc1At   = ply ? NET_NODES_AT + ply * 4 * NET_H1_SIZE : NET_A1_AT;
+  this.acc2At   = this.acc1At + 2 * NET_H1_SIZE;
+  this.acc1     = ply ? netView(this.acc1At, NET_H1_SIZE) : net_h1_a;
+  this.acc2     = ply ? netView(this.acc2At, NET_H1_SIZE) : net_h2_a;
+  this.netState = NET_VALID;
+  this.netA1    = NET_ZERO_ROW;
+  this.netA2    = NET_ZERO_ROW;
+  this.netS1    = NET_ZERO_ROW;
+  this.netS2    = NET_ZERO_ROW;
 
   this.toZ = 0;
   this.frZ = 0;
@@ -441,9 +451,6 @@ function cache (node) {
   node.loHash = loHash;
   node.hiHash = hiHash;
 
-  node.net_h1_a.set(net_h1_a);
-  node.net_h2_a.set(net_h2_a);
-
 }
 
 // uncacheA
@@ -456,15 +463,6 @@ function uncacheA (node) {
   repHi    = node.repHi;
   loHash   = node.loHash;
   hiHash   = node.hiHash;
-
-}
-
-// uncacheB
-
-function uncacheB (node) {
-
-  net_h1_a.set(node.net_h1_a);
-  net_h2_a.set(node.net_h2_a);
 
 }
 
@@ -1130,7 +1128,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
   score = ttGet(node, depth, alpha, beta);  // load hash move and hash eval
 
   node.inCheck = inCheck;
-  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   ttUpdateEval(node.ev);
   cache(node);
@@ -1153,7 +1151,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     }
     
 
-    makeMoveB();
+    makeMoveB(node);
 
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
@@ -1193,7 +1191,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     unmakeMove(node, move);
     
     uncacheA(node);
-    uncacheB(node);
     
 
     if (statsTimeOut !== 0)
@@ -1330,7 +1327,7 @@ function search (node, depth, turn, alpha, beta) {
   let R = 0;
   let E = 0;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   // improving
   
@@ -1390,10 +1387,11 @@ function search (node, depth, turn, alpha, beta) {
   
     repLo = repHi;
   
+    netNull(node.childNode);
+  
     score = 0 - search(node.childNode, depth-R-1, nextTurn, 0-beta, 1-beta);
   
     uncacheA(node);
-    //uncacheB(node);
   
     if (score >= beta) {
       if (score > MINMATE)
@@ -1474,7 +1472,7 @@ function search (node, depth, turn, alpha, beta) {
     }
     
 
-    makeMoveB();
+    makeMoveB(node);
 
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
@@ -1509,7 +1507,6 @@ function search (node, depth, turn, alpha, beta) {
     unmakeMove(node, move);
     
     uncacheA(node);
-    uncacheB(node);
     
 
     if (statsTimeOut !== 0)
@@ -1588,7 +1585,7 @@ function qSearch (node, depth, turn, alpha, beta) {
     statsSelDepth = node.ply;
   
   if (node.childNode === null)
-    return evaluate(turn);
+    return evaluate(node, turn);
   
 
   const nextTurn = turn ^ COLOR_MASK;
@@ -1601,7 +1598,7 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (score !== TTSCORE_UNKNOWN)
     return score;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   if (ev >= beta)
     return ev;
@@ -1645,7 +1642,7 @@ function qSearch (node, depth, turn, alpha, beta) {
     }
     
 
-    makeMoveB();
+    makeMoveB(node);
 
     numLegalMoves++;
 
@@ -1656,7 +1653,6 @@ function qSearch (node, depth, turn, alpha, beta) {
     unmakeMove(node, move);
     
     uncacheA(node);
-    uncacheB(node);
     
 
     if (score > alpha) {
@@ -1759,17 +1755,23 @@ const NET_B_AT  = NET_H2_AT + 2 * NET_W_SIZE;
 const NET_O_AT  = NET_B_AT  + 2 * NET_H1_SIZE;
 const NET_A1_AT = NET_O_AT  + 4 * NET_H1_SIZE;
 const NET_A2_AT = NET_A1_AT + 2 * NET_H1_SIZE;
-const NET_SIZE  = NET_A2_AT + 2 * NET_H1_SIZE;
+const NET_NODES_AT = NET_A2_AT + 2 * NET_H1_SIZE;  // a pair per node, see nodeStruct
+const NET_SIZE  = NET_NODES_AT + MAX_PLY * 4 * NET_H1_SIZE;
+
+const NET_VALID = 0;  // node.netState
+const NET_DELTA = 1;
 
 let netWasmOn = 0;
 let wasmOut   = null;
 let wasmApply = null;
+let wasmQuiet = null;
+let wasmCapture = null;
+
+let netChild = null;  // the node makeMoveB notes the move's rows on
 
 const netBuffer = netMemory();
 
 // the js is faster with int32 arrays, wasm needs int16 views of its memory
-
-const NetArray = netWasmOn ? Int16Array : Int32Array;
 
 function netView (at, n) {
   return netWasmOn ? new Int16Array(netBuffer, at, n) : new Int32Array(n);
@@ -1782,8 +1784,6 @@ const net_o_w       = netView(NET_O_AT,  NET_H1_SIZE*2);
 let   net_o_b       = 0;
 const net_h1_a      = netView(NET_A1_AT, NET_H1_SIZE);
 const net_h2_a      = netView(NET_A2_AT, NET_H1_SIZE);
-const net_a         = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
-const net_a_at      = [[NET_A1_AT, NET_A2_AT], [NET_A2_AT, NET_A1_AT]];
 
 // netMemory
 //
@@ -1806,6 +1806,8 @@ function netMemory () {
           netWasmOn = 1;
           wasmOut   = instance.exports.out;
           wasmApply = instance.exports.apply;
+          wasmQuiet = instance.exports.quiet;
+          wasmCapture = instance.exports.capture;
           return memory.buffer;
         }
       }
@@ -1819,18 +1821,93 @@ function netMemory () {
 
 }
 
-// netApply
+// netNote
 //
-// Both accumulators plus rows a1, a2 less rows s1, s2 in wasm, given as
-// offsets into the weights tables; NET_ZERO_ROW for none.
+// The rows a move adds, a1 and a2, and removes, s1 and s2, as offsets into
+// the weights tables; NET_ZERO_ROW for none.
 //
 
-function netApply (a1, a2, s1, s2) {
+function netNote (a1, a2, s1, s2) {
 
-  wasmApply(NET_A1_AT, NET_A2_AT, NET_A1_AT, NET_A2_AT,
-            NET_H1_AT + 2 * a1, NET_H1_AT + 2 * a2, NET_H1_AT + 2 * s1, NET_H1_AT + 2 * s2,
-            NET_H2_AT + 2 * a1, NET_H2_AT + 2 * a2, NET_H2_AT + 2 * s1, NET_H2_AT + 2 * s2,
-            NET_H1_SIZE);
+  const node = netChild;
+
+  node.netState = NET_DELTA;
+  node.netA1    = a1;
+  node.netA2    = a2;
+  node.netS1    = s1;
+  node.netS2    = s2;
+
+}
+
+// netNull
+//
+// A null move's child has the same accumulators as its parent.
+//
+
+function netNull (node) {
+
+  netChild = node;
+  netNote(NET_ZERO_ROW, NET_ZERO_ROW, NET_ZERO_ROW, NET_ZERO_ROW);
+
+}
+
+// netUpdate
+//
+// Bring the node's accumulators up to date from its parent's, and the
+// parent's first if need be. The root's are always valid.
+//
+
+function netUpdate (node) {
+
+  if (node.netState === NET_VALID)
+    return;
+
+  const parent = node.parentNode;
+
+  netUpdate(parent);
+
+  const a1 = node.netA1, a2 = node.netA2, s1 = node.netS1, s2 = node.netS2;
+
+  node.netState = NET_VALID;
+
+  if (netWasmOn) {
+    wasmApply(node.acc1At, node.acc2At, parent.acc1At, parent.acc2At,
+              NET_H1_AT + 2 * a1, NET_H1_AT + 2 * a2, NET_H1_AT + 2 * s1, NET_H1_AT + 2 * s2,
+              NET_H2_AT + 2 * a1, NET_H2_AT + 2 * a2, NET_H2_AT + 2 * s1, NET_H2_AT + 2 * s2,
+              NET_H1_SIZE);
+    return;
+  }
+
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = node.acc1, h2a = node.acc2;
+  const p1a = parent.acc1, p2a = parent.acc2;
+
+  const N = NET_H1_SIZE | 0;
+
+  let h  = 0;
+  let q1 = a1 | 0, q2 = a2 | 0, r1 = s1 | 0, r2 = s2 | 0;
+
+  if (a2 !== NET_ZERO_ROW) {
+    while (h < N) {
+      h1a[h] = p1a[h] + h1w[q1] + h1w[q2] - h1w[r1] - h1w[r2];
+      h2a[h] = p2a[h] + h2w[q1] + h2w[q2] - h2w[r1] - h2w[r2];
+      h++; q1++; q2++; r1++; r2++;
+    }
+  }
+  else if (s2 !== NET_ZERO_ROW) {
+    while (h < N) {
+      h1a[h] = p1a[h] + h1w[q1] - h1w[r1] - h1w[r2];
+      h2a[h] = p2a[h] + h2w[q1] - h2w[r1] - h2w[r2];
+      h++; q1++; r1++; r2++;
+    }
+  }
+  else {
+    while (h < N) {
+      h1a[h] = p1a[h] + h1w[q1] - h1w[r1];
+      h2a[h] = p2a[h] + h2w[q1] - h2w[r1];
+      h++; q1++; r1++;
+    }
+  }
 
 }
 
@@ -1844,24 +1921,58 @@ let ueArgs5 = 0;
 
 // netEval
 //
-// squared relu.
+// squared relu. A move with one row added, so not a castle, is the usual
+// case and in wasm its update is fused with the output layer.
 //
 
-function netEval(turn) {
+function netEval(node, turn) {
 
   let e = 0 | 0;
 
   if (netWasmOn) {
-    const at = net_a_at[turn >>> 3];
-    e = wasmOut(at[0], at[1], NET_O_AT, NET_O_AT + 2 * NET_H1_SIZE, NET_H1_SIZE, 0, 0) | 0;
+
+    // acc1 is the side to move's when white is to move
+
+    const N  = NET_H1_SIZE | 0;
+    const o1 = turn ? NET_O_AT + 2 * N : NET_O_AT;
+    const o2 = turn ? NET_O_AT : NET_O_AT + 2 * N;
+
+    if (node.netState === NET_DELTA && node.netA2 === NET_ZERO_ROW) {
+
+      const parent = node.parentNode;
+
+      netUpdate(parent);
+
+      const a1 = node.netA1, s1 = node.netS1, s2 = node.netS2;
+
+      if (s2 === NET_ZERO_ROW)
+        e = wasmQuiet(node.acc1At, node.acc2At, parent.acc1At, parent.acc2At,
+                      NET_H1_AT + 2 * a1, NET_H1_AT + 2 * s1, NET_H2_AT + 2 * a1, NET_H2_AT + 2 * s1,
+                      o1, o2, N, 0, 0) | 0;
+      else
+        e = wasmCapture(node.acc1At, node.acc2At, parent.acc1At, parent.acc2At,
+                        NET_H1_AT + 2 * a1, NET_H1_AT + 2 * s1, NET_H1_AT + 2 * s2,
+                        NET_H2_AT + 2 * a1, NET_H2_AT + 2 * s1, NET_H2_AT + 2 * s2,
+                        o1, o2, N, 0, 0) | 0;
+
+      node.netState = NET_VALID;
+
+    }
+
+    else {
+      netUpdate(node);
+      e = wasmOut(node.acc1At, node.acc2At, o1, o2, N, 0, 0) | 0;
+    }
+
   }
 
   else {
 
+    netUpdate(node);
+
     const w  = net_o_w;
-    const a  = net_a[turn >>> 3];
-    const a1 = a[0];
-    const a2 = a[1];
+    const a1 = turn ? node.acc2 : node.acc1;
+    const a2 = turn ? node.acc1 : node.acc2;
     const N  = NET_H1_SIZE | 0;
 
     let p1 = 0 | 0;
@@ -1966,26 +2077,7 @@ function netMove () {
   const from  = ueArgs1 | 0;
   const to    = ueArgs2 | 0;
 
-  if (netWasmOn) {
-    netApply(IMAP[frObj + to], NET_ZERO_ROW, IMAP[frObj + from], NET_ZERO_ROW);
-    return;
-  }
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[frObj + from] | 0;
-  let p2 = map[frObj + to]   | 0;
-
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p2] - h2w[p1];
-    h++; p1++; p2++;
-  }
+  netNote(IMAP[frObj + to], NET_ZERO_ROW, IMAP[frObj + from], NET_ZERO_ROW);
 
 }
 
@@ -1998,27 +2090,7 @@ function netCapture () {
   const toObj = ueArgs2 << 8;
   const to    = ueArgs3 | 0;
 
-  if (netWasmOn) {
-    netApply(IMAP[frObj + to], NET_ZERO_ROW, IMAP[frObj + fr], IMAP[toObj + to]);
-    return;
-  }
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[frObj + fr] | 0;
-  let p2 = map[toObj + to] | 0;
-  let p3 = map[frObj + to] | 0;
-
-  while (h < N) {
-    h1a[h] += h1w[p3] - h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p3] - h2w[p2] - h2w[p1];
-    h++; p1++; p2++; p3++;
-  }
+  netNote(IMAP[frObj + to], NET_ZERO_ROW, IMAP[frObj + fr], IMAP[toObj + to]);
 
 }
 
@@ -2032,36 +2104,7 @@ function netPromote () {
   const captureObj = ueArgs3 << 8;
   const promoteObj = ueArgs4 << 8;
 
-  if (netWasmOn) {
-    netApply(IMAP[promoteObj + pawnTo], NET_ZERO_ROW, IMAP[pawnObj + pawnFr], captureObj !== 0 ? IMAP[captureObj + pawnTo] : NET_ZERO_ROW);
-    return;
-  }
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[pawnObj    + pawnFr] | 0;
-  let p2 = map[promoteObj + pawnTo] | 0;
-
-  if (captureObj !== 0) {
-    let p3 = map[captureObj + pawnTo] | 0;
-    while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-      h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
-      h++; p1++; p2++; p3++;
-    }
-  }
-  else {
-    while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1];
-      h2a[h] += h2w[p2] - h2w[p1];
-      h++; p1++; p2++;
-    }
-  }
+  netNote(IMAP[promoteObj + pawnTo], NET_ZERO_ROW, IMAP[pawnObj + pawnFr], captureObj !== 0 ? IMAP[captureObj + pawnTo] : NET_ZERO_ROW);
 
 }
 
@@ -2075,27 +2118,7 @@ function netEpCapture () {
   const pawnCaptureObj = ueArgs3 << 8;
   const ep             = ueArgs4 | 0;
 
-  if (netWasmOn) {
-    netApply(IMAP[pawnObj + pawnTo], NET_ZERO_ROW, IMAP[pawnObj + pawnFr], IMAP[pawnCaptureObj + ep]);
-    return;
-  }
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[pawnObj        + pawnFr] | 0;
-  let p2 = map[pawnObj        + pawnTo] | 0;
-  let p3 = map[pawnCaptureObj + ep] | 0;
-
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
-    h++; p1++; p2++; p3++;
-  }
+  netNote(IMAP[pawnObj + pawnTo], NET_ZERO_ROW, IMAP[pawnObj + pawnFr], IMAP[pawnCaptureObj + ep]);
 
 }
 
@@ -2110,28 +2133,7 @@ function netCastle () {
   const rookFr  = ueArgs4 | 0;
   const rookTo  = ueArgs5 | 0;
 
-  if (netWasmOn) {
-    netApply(IMAP[kingObj + kingTo], IMAP[rookObj + rookTo], IMAP[kingObj + kingFr], IMAP[rookObj + rookFr]);
-    return;
-  }
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[kingObj + kingFr] | 0;
-  let p2 = map[kingObj + kingTo] | 0;
-  let p3 = map[rookObj + rookFr] | 0;
-  let p4 = map[rookObj + rookTo] | 0;
-
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
-    h++; p1++; p2++; p3++; p4++;
-  }
+  netNote(IMAP[kingObj + kingTo], IMAP[rookObj + rookTo], IMAP[kingObj + kingFr], IMAP[rookObj + rookFr]);
 
 }
 
@@ -3730,12 +3732,13 @@ function makeMoveA (node, move) {
 
 // makeMoveB
 //
-// If the ue* data is moved into nodes, this could be deferred and
-// done in evaluate().
+// Note the rows the move changes on the child; its accumulators are
+// brought up to date when needed, see netUpdate.
 //
 
-function makeMoveB  () {
+function makeMoveB (node) {
 
+  netChild = node.childNode;
   ueFunc();
 
 }
@@ -3956,7 +3959,7 @@ function isAttacked (to, byCol) {
 
 // evaluate
 
-function evaluate (turn) {
+function evaluate (node, turn) {
 
   // init
   
@@ -4006,7 +4009,7 @@ function evaluate (turn) {
   if (numPieces === 4 && wNumQueens !== 0 && bNumQueens !== 0)
     return 0;
 
-  return netEval(turn);
+  return netEval(node, turn);
 
 }
 
@@ -4769,7 +4772,7 @@ function uciExec (commands, canYield) {
       case 'eval':
       case 'e': {
         
-        const e = netEval(bdTurn);
+        const e = netEval(rootNode, bdTurn);
         
         uciSend(e);
         
@@ -5159,7 +5162,7 @@ function initOnce () {
   // init nodes
   
   for (let i=0; i < nodes.length; i++) {
-    nodes[i] = new nodeStruct();
+    nodes[i] = new nodeStruct(i);
     seal(nodes[i]);
     nodes[i].ply = i;
   }
