@@ -4,35 +4,17 @@ A UCI Javascript chess engine.
 
 Lozza was primarily created for use in web pages, but from v1.13 can also be used on the command line via Node. 
 
-## Basic use in a web page
+## Web use
 
-All you need is a ```lozza.js``` from a [release's](https://github.com/op12no2/lozza/wiki/Release-overview) Assets section.  
+All you need is ```lozza.js``` from a [release's](https://github.com/op12no2/lozza/wiki/Release-overview) Assets section.  
 
-Here is a little example to do a 10 ply search:-
-
-```Javascript
-var lozza = new Worker('lozza.js');      
-
-lozza.onmessage = function (e) {
-  $('#dump').append(e.data);             // assuming jquery and a div called #dump
-                                         // parse messages from here as required
-};
-
-lozza.postMessage('uci');                // lozza uses the uci communication protocol
-lozza.postMessage('ucinewgame');         // reset tt
-lozza.postMessage('position startpos');
-lozza.postMessage('go depth 10');        // 10 ply search
-```
-
-Try this example [here](https://op12no2.github.io/lozza-ui/ex.htm) and there are more examples [here](https://github.com/op12no2/lozza-ui).
+This [repo](https://github.com/op12no2/ has lots of examples and also specifies the command repertoire.
 
 ## Command line use
 
-For example:-
-
 ```
-node lozza.js 
-node lozza.js uci ucinewgame "position startpos" "go depth 10" quit 
+node lozza.js                                       # interactive, quit to close 
+node lozza.js uci "position startpos" "go depth 10" # execute commands then quit 
 ```
 
 ## References
