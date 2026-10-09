@@ -4604,6 +4604,13 @@ function dgPlayGame (fd) {
       break;
     }
 
+    // draws, after mate and stalemate: a mate on the 100th halfmove is still a mate
+
+    if (isDraw() !== 0) {
+      wdl = VIRI_WDL_DRAW;
+      break;
+    }
+
     // search
 
     initStats();
@@ -4648,13 +4655,6 @@ function dgPlayGame (fd) {
     // play the move
 
     dgPlayMove(best);
-
-    // draw checks
-
-    if (isDraw() !== 0) {
-      wdl = VIRI_WDL_DRAW;
-      break;
-    }
 
   }
 
