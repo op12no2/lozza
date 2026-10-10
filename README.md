@@ -8,7 +8,7 @@ Lozza was primarily created for use in web pages, but from v1.13 can also be use
 
 All you need is ```lozza.js``` from a [release's](https://github.com/op12no2/lozza/wiki/Release-overview) Assets section.  
 
-This [repo](https://github.com/op12no2/lozza-ui) has lots of examples and also specifies the command repertoire.
+The [lozza-ui repo](https://github.com/op12no2/lozza-ui) has lots of examples that you can use to get started and play around with in your browser. It also specifies the command repertoire.
 
 ## Command line use
 
