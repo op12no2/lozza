@@ -908,7 +908,11 @@ function addKiller (node, score, move) {
 
 // report
 
+let reportedMove = 0;  // the first move of the last pv sent
+
 function report (units, value, depth) {
+
+  reportedMove = rootNode.pvLen > 0 ? rootNode.pv[rootNode.pvLen-1] : 0;
 
   let pvStr = 'pv';
   for (let i=rootNode.pvLen-1; i >= 0; i--)
@@ -923,6 +927,32 @@ function report (units, value, depth) {
   const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
+
+}
+
+// reportScore
+//
+// Report an exact score at the root, as a mate distance in moves if it's a
+// mate score.
+//
+
+function reportScore (score, depth) {
+
+  if (Math.abs(score) > MINMATE) {
+
+    let mateScore = (MATE - Math.abs(score) + 1) / 2 | 0;
+    if (score < 0)
+      mateScore = -mateScore;
+
+    report('mate', mateScore, depth);
+
+  }
+
+  else {
+
+    report('cp', score, depth);
+
+  }
 
 }
 
@@ -1050,19 +1080,9 @@ async function go (maxPly, canYield) {
 
         }
 
-        else if (Math.abs(score) > MINMATE) {
-
-          let mateScore = (MATE - Math.abs(score)) / 2 | 0;
-          if (score < 0)
-            mateScore = -mateScore;
-
-          report('mate', mateScore, depth);
-
-        }
-
         else {
 
-          report('cp', score, depth);
+          reportScore(score, depth);
 
         }
 
@@ -1086,7 +1106,19 @@ async function go (maxPly, canYield) {
     
   }
 
-  bestMoveStr = formatMove(statsBestMove);
+  // a move that became best in an iteration that then ran out of time has not
+  // been reported yet; report it so that the last pv starts with the bestmove
+
+  const pvMove = rootNode.pvLen > 0 ? rootNode.pv[rootNode.pvLen-1] : 0;
+
+  if (multiPV === 1 && statsBestMove !== 0 && statsBestMove !== reportedMove && pvMove === statsBestMove)
+    reportScore(statsBestScore, depth);
+
+  // after a fail low statsBestMove is 0, so fall back to the last exact result
+
+  const bestMove = statsBestMove || (multiPVMoves.length ? multiPVMoves[0].move : 0);
+
+  bestMoveStr = formatMove(bestMove);
 
   uciSend('bestmove', bestMoveStr);
 
@@ -3619,7 +3651,7 @@ function makeMoveA (node, move) {
   // and promotions; i.e. moves that are not reversible.  The nearest
   // repetition is 5 indexes back from the current one and then that
   // and every other one entry is a possible rep.  Can also check for
-  // 50 move rule by testing hi-lo > 100 - it's not perfect because of
+  // 50 move rule by testing hi-lo >= 100 - it's not perfect because of
   // the pawn move reset but it's a type 2 error, so safe.
   //
   
@@ -3972,7 +4004,7 @@ function addHistory (bonus, move) {
 
 function isDraw () {
 
-  if (repHi - repLo > 100)
+  if (repHi - repLo >= 100)
     return 1;
 
   for (let i=repHi-5; i >= repLo; i -= 2) {
