@@ -1,5 +1,4 @@
 {
-  // lozza.js is built from src/ by build.sh - edit src/ instead
   "files.readonlyInclude": {
     "lozza.js": true,
     "examples/lozza.js": true,
