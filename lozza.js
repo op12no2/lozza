@@ -4774,7 +4774,8 @@ function uciExec (commands, canYield) {
         
           const fen = BENCHFENS[i];
         
-          process.stdout.write(i.toString() + '\r');
+          if (nodeHost)
+            process.stdout.write(i.toString() + '\r');
         
           newGame();
           uciExec('position fen ' + fen);

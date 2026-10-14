@@ -11,8 +11,9 @@ All you need is ```lozza.js``` from a [release's](https://github.com/op12no2/loz
 Examples:-
 
 - [Hello world](https://op12no2.github.io/lozza/examples/hello_world.html)
+- [Stop](https://op12no2.github.io/lozza/examples/stop.html)
 
-If you would like to try the latest pre-release, use `./examples/lozza.js` which has the net embedded like release versions.
+If you would like to try the latest pre-release, use `./examples/lozza.js` which has the net embedded like release versions and is up to date with all commits.
 
 ## Command line use
 

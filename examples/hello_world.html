@@ -7,8 +7,8 @@
 <style>
   body {
     font-family: system-ui, sans-serif;
-    max-width: 60em;
-    margin: 2em auto;
+    max-width: 90%;
+    margin: auto;
     padding: 0 1em;
   }
   pre, code, textarea, input {
@@ -16,7 +16,7 @@
     font-size: 14px;
   }
   pre {
-    background: #f4f4f4;
+    background: #ffffff;
     padding: 1em;
     overflow-x: auto;
   }
@@ -43,13 +43,12 @@ lozza.onmessage = function(e) {
 };
 
 lozza.postMessage('uci');
-lozza.postMessage('bench warm 0');
 lozza.postMessage('ucinewgame');
 lozza.postMessage('position startpos');
 lozza.postMessage('board');
 lozza.postMessage('eval');
 lozza.postMessage('go depth 8');
-lozza.postMessage('go movetime 1000')
+lozza.postMessage('go movetime 100')
 
 </script>
 
