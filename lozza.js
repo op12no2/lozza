@@ -2,11 +2,11 @@
 // https://github.com/op12no2/lozza
 //
 
-const WEIGHTS_B64 = "";
+const WEIGHTS_B64 = getWeights();
 
-const BUILD = "9.0";
+const BUILD = "11.0";
 
-const BENCH_DEPTH      = 12;
+const BENCH_DEPTH = 12;
 
 const INT32_MAX =  2147483647;
 const INT32_MIN = -2147483648;
@@ -340,8 +340,9 @@ const FILE = new Uint8Array([
   
   const ALIGNED = Array(144);
   
-  const NET_WEIGHTS_FILE = './quantised.bin';  // ignore - only relevant for dev version
-  // utilities
+  const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/sqrrelu256.bin';  // ignore - only relevant for dev version
+
+// utilities
 
 // seal
 
@@ -962,8 +963,14 @@ function reportMultiPV (depth) {
 }
 
 // go
+//
+// When canYield is set (commands from stdin/onmessage), go yields to the
+// host after each rootSearch so stop/isready/quit can be picked up from
+// the command queue. When not set (bench etc.) there are no awaits so go
+// runs synchronously as before.
+//
 
-function go (maxPly) {
+async function go (maxPly, canYield) {
 
   let bestMoveStr = '';
   let alpha       = 0;
@@ -1066,9 +1073,15 @@ function go (maxPly) {
 
       }
       
+      if (canYield && await checkStop())
+        break;
+      
     }
     
     if (statsTimeOut)
+      break;
+    
+    if (canYield && await checkStop())
       break;
     
   }
@@ -4236,7 +4249,7 @@ function checkTime () {
 
 }
 
-
+// bench fedns from https://github.com/AndyGrant/Ethereal
 
 const BENCHFENS = [
 
@@ -4433,8 +4446,12 @@ function uciGetArr (tokens, key, to) {
 }
 
 // uciExec
+//
+// canYield is only set by uciDrain. A go then returns its promise so the
+// drain waits for the search to finish before running the next command.
+//
 
-function uciExec (commands) {
+function uciExec (commands, canYield) {
 
   const cmdList = commands.split('\n');
 
@@ -4468,8 +4485,7 @@ function uciExec (commands) {
         // position
         
         if (ttSize == 1) {
-          uciSend('info do a ucinewgame or setoption name hash command first');
-          break;
+          newGame();
         }
         
         let bd     = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
@@ -4506,13 +4522,11 @@ function uciExec (commands) {
         // go
         
         if (ttSize == 1) {
-          uciSend('info do a ucinewgame or setoption name hash command first');
-          break;
+          newGame();
         }
         
         if (bdB[0] !== EDGE) {
-          uciSend('info do a position command first');
-          break;
+          position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR','w','KQkq','-',[]);
         }
         
         
@@ -4566,7 +4580,10 @@ function uciExec (commands) {
             statsMoveTime = 1;
         }
         
-        go(depth);
+        if (canYield)
+          return go(depth, 1);
+        
+        go(depth, 0);
         
         break;
         
@@ -4592,7 +4609,8 @@ function uciExec (commands) {
 
           const mb = Math.max(uciGetInt(tokens, 'value', ttDefault), 1);
 
-          console.log(mb);
+          if (nodeHost)
+            console.log(mb);
 
           ttResize(mb);
 
@@ -4690,7 +4708,8 @@ function uciExec (commands) {
         
       }
 
-      case 'bench': {
+      case 'bench': 
+      case 'h': {
         // bench
         
         silentMode = 1;
@@ -4868,7 +4887,7 @@ function uciExec (commands) {
         genMoves(rootNode, bdTurn);
         
         while(move = getNextMove(rootNode))
-          console.log(formatMove(move));
+          uciSend(formatMove(move));
         
         initNode(rootNode);
         
@@ -4896,8 +4915,112 @@ const nodeHost = (typeof process) != 'undefined';
 
 if (!nodeHost) {
   onmessage = function(e) {
-    uciExec(e.data);
+    uciQueue(e.data);
   }
+}
+
+// command queue
+//
+// All incoming commands go through cmdQueue and are run in order by uciDrain.
+// While a search is in progress go yields after each rootSearch and
+// pollQueue handles stop, isready and quit; everything else waits until
+// the search finishes.
+//
+
+const cmdQueue = [];
+
+let cmdBusy    = 0;
+let stdinEnded = 0;
+
+function uciQueue (commands) {
+
+  const cmdList = commands.split('\n');
+
+  for (let c=0; c < cmdList.length; c++) {
+    const cmdStr = cmdList[c].trim();
+    if (cmdStr)
+      cmdQueue.push(cmdStr);
+  }
+
+  if (!cmdBusy)
+    uciDrain();
+
+}
+
+async function uciDrain () {
+
+  cmdBusy = 1;
+
+  while (cmdQueue.length)
+    await uciExec(cmdQueue.shift(), 1);
+
+  cmdBusy = 0;
+
+  if (stdinEnded)
+    process.exit();
+
+}
+
+function pollQueue () {
+
+  for (let c=0; c < cmdQueue.length; c++) {
+
+    const cmd = cmdQueue[c].split(/\s+/)[0];
+
+    if (cmd == 'stop') {  // stop based an idea by @InSys, extended with a command queue
+      // anything after the stop runs after bestmove has been sent
+      statsTimeOut = 1;
+      cmdQueue.splice(c, 1);
+      return;
+    }
+
+    if (cmd == 'isready' || cmd == 'quit' || cmd == 'q')
+      uciExec(cmd);
+    else
+      continue;
+
+    cmdQueue.splice(c--, 1);
+
+  }
+
+}
+
+// yieldToHost
+//
+// Must be a macrotask so stdin/onmessage events can run. In a web worker
+// setTimeout(0) gets clamped to 4ms when nested, so use a MessageChannel.
+//
+
+const yieldChannel = nodeHost ? null : new MessageChannel();
+
+let yieldResolve = null;
+
+if (!nodeHost)
+  yieldChannel.port1.onmessage = function() { yieldResolve(); };
+
+function yieldToHost () {
+
+  return new Promise(function(resolve) {
+    if (nodeHost)
+      setImmediate(resolve);
+    else {
+      yieldResolve = resolve;
+      yieldChannel.port2.postMessage(0);
+    }
+  });
+
+}
+
+// checkStop
+
+async function checkStop () {
+
+  await yieldToHost();
+
+  pollQueue();
+
+  return statsTimeOut;
+
 }
 
 const fs = (nodeHost) ? require('fs') : 0;
@@ -5062,19 +5185,33 @@ if (nodeHost) {
 
   process.stdin.setEncoding('utf8');
 
+  let stdinBuf = '';  // partial line carried over between chunks
+
   process.stdin.on('readable', function() {
     const chunk = process.stdin.read();
     process.stdin.resume();
     if (chunk !== null) {
-      uciExec(chunk);
+      stdinBuf += chunk;
+      const nl = stdinBuf.lastIndexOf('\n');
+      if (nl >= 0) {
+        uciQueue(stdinBuf.slice(0, nl));
+        stdinBuf = stdinBuf.slice(nl + 1);
+      }
     }
   });
 
   process.stdin.on('end', function() {
-    process.exit();
+    // let any queued commands (inc. a running search) finish first
+    stdinEnded = 1;
+    if (stdinBuf)
+      uciQueue(stdinBuf);
+    if (!cmdBusy)
+      process.exit();
   });
 
 }
 
-
+function getWeights() {
+  return '';
+}
 

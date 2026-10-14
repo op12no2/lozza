@@ -2,46 +2,21 @@
 
 A UCI Javascript chess engine.
 
-Lozza was primarily created for use in browsers, but more recent versioins can be used from the command line via Node. 
+Lozza was primarily created for use in web pages, but more recent versions can also be used on the command line via Node. 
 
-## Basic use in a browser
+## Web use
 
-All you need is ```lozza.js``` from the latest release.  
+All you need is ```lozza.js``` from a [release's](https://github.com/op12no2/lozza/wiki/Release-overview) Assets section.  
 
-Here is a little example to do a 10 ply search:-
+Examples:-
 
-```Javascript
-var lozza = new Worker('lozza.js');      
+- [Hello world](examples/hello_world.js)
 
-lozza.onmessage = function (e) {
-  $('#dump').append(e.data);             // assuming jquery and a div called #dump
-                                         // parse messages from here as required
-};
-
-lozza.postMessage('uci');                // lozza uses the uci communication protocol
-lozza.postMessage('ucinewgame');         // reset tt
-lozza.postMessage('position startpos');
-lozza.postMessage('go depth 10');        // 10 ply search
-```
-
-Note that Lozza must be fired up in a web worker.
-
-## More examples
-
-- https://github.com/op12no2/lozza-ui
-
-## UCI options
+## Command line use
 
 ```
-option name Hash type spin default 16 min 1 max 1024 
-option name MultiPV type spin default 1 min 1 max 500 
-```
-
-## Running Lozza from the command line
-
-```
-node lozza.js
-node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
+node lozza.js                                            # interactive, quit to close 
+node lozza.js uci "position startpos" "go depth 10 quit" # execute commands then quit 
 ```
 
 ## References
@@ -55,3 +30,4 @@ node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
 ## Acknowledgements
 
 - https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
+- https://github.com/jw1912/bullet - bullet network trainer.
