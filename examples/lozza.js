@@ -2,8 +2,6 @@
 // https://github.com/op12no2/lozza
 //
 
-const WEIGHTS_B64 = getWeights();
-
 const BUILD = "11.0";
 
 const BENCH_DEPTH = 12;
@@ -251,121 +249,112 @@ const FILE = new Uint8Array([
   0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
   0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  
-  const NULL144 = new Uint8Array(144);
-  
-  const MAP = Object.seal({
-    'p': B_PAWN,
-    'n': B_KNIGHT,
-    'b': B_BISHOP,
-    'r': B_ROOK,
-    'q': B_QUEEN,
-    'k': B_KING,
-    'P': W_PAWN,
-    'N': W_KNIGHT,
-    'B': W_BISHOP,
-    'R': W_ROOK,
-    'Q': W_QUEEN,
-    'K': W_KING
-  });
-  
-  const UMAP = Object.seal({
-    9:  'p',
-    10: 'n',
-    11: 'b',
-    12: 'r',
-    13: 'q',
-    14: 'k',
-    1:  'P',
-    2:  'N',
-    3:  'B',
-    4:  'R',
-    5:  'Q',
-    6:  'K'
-  });
-  
-  const RANK2W = new Uint8Array([
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-    0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-    0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-    0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-    0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-    0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-    0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-  ]);
-  
-  const RANK2B = new Uint8Array([
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-    0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-    0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-    0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-    0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
-    0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
-    0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-  ]);
-  
-  const CENTRE = new Uint8Array([
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-    0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-    0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-    0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-    0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
-    0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
-    0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
-    0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
-    0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
-  ]);
-  
-  const SLIDE_SCORES = [
-    NULL144,
-    RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
-    NULL144,
-    NULL144,
-    RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE
-  ];
-  
-  const ALIGNED = Array(144);
-  
-  const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/sqrrelu256.bin';  // ignore - only relevant for dev version
+0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-// utilities
+const NULL144 = new Uint8Array(144);
 
-// seal
+const MAP = Object.seal({
+  'p': B_PAWN,
+  'n': B_KNIGHT,
+  'b': B_BISHOP,
+  'r': B_ROOK,
+  'q': B_QUEEN,
+  'k': B_KING,
+  'P': W_PAWN,
+  'N': W_KNIGHT,
+  'B': W_BISHOP,
+  'R': W_ROOK,
+  'Q': W_QUEEN,
+  'K': W_KING
+});
+
+const UMAP = Object.seal({
+  9:  'p',
+  10: 'n',
+  11: 'b',
+  12: 'r',
+  13: 'q',
+  14: 'k',
+  1:  'P',
+  2:  'N',
+  3:  'B',
+  4:  'R',
+  5:  'Q',
+  6:  'K'
+});
+
+const RANK2W = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
+  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
+  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
+
+const RANK2B = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 5, 10, 15, 20, 20, 15, 10, 5, 0, 0,
+  0, 0, 6, 12, 18, 24, 24, 18, 12, 6, 0, 0,
+  0, 0, 7, 14, 21, 28, 28, 21, 14, 7, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
+
+const CENTRE = new Uint8Array([
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 4, 8,  12, 16, 16, 12, 8,  4, 0, 0,
+  0, 0, 3, 6,  9,  12, 12, 9,  6,  3, 0, 0,
+  0, 0, 2, 4,  6,  8,  8,  6,  4,  2, 0, 0,
+  0, 0, 1, 2,  3,  4,  4,  3,  2,  1, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0,
+  0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0, 0
+]);
+
+const SLIDE_SCORES = [
+  NULL144,
+  RANK2W, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE,
+  NULL144,
+  NULL144,
+  RANK2B, CENTRE, CENTRE, CENTRE, CENTRE, CENTRE
+];
+
+const ALIGNED = Array(144);
+
+const nodeHost = (typeof process) != 'undefined';
+
+const fs = (nodeHost) ? require('fs') : 0;
 
 function seal (o) {
   Object.seal(o);
 }
 
-// myround
-
 function myround(x) {
   return Math.sign(x) * Math.round(Math.abs(x));
 }
-
-// now
 
 function now() {
   return performance.now() | 0;
 }
 
-
-// nodes
-
-// nodeStruct
+const nodes = Array(MAX_PLY);
 
 function nodeStruct () {
 
@@ -411,9 +400,6 @@ function nodeStruct () {
 
 }
 
-
-// initNode
-
 function initNode (node) {
 
   node.killer1    = 0;
@@ -431,8 +417,6 @@ function initNode (node) {
 
 }
 
-// cache
-
 function cache (node) {
 
   node.rights = bdRights;
@@ -447,8 +431,6 @@ function cache (node) {
 
 }
 
-// uncacheA
-
 function uncacheA (node) {
 
   bdRights = node.rights;
@@ -460,16 +442,12 @@ function uncacheA (node) {
 
 }
 
-// uncacheB
-
 function uncacheB (node) {
 
   net_h1_a.set(node.net_h1_a);
   net_h2_a.set(node.net_h2_a);
 
 }
-
-// getNextMove
 
 function getNextMove (node) {
 
@@ -567,8 +545,6 @@ function getNextMove (node) {
   }
 }
 
-// rankSlides
-
 function rankSlides (node) {
 
   for (let i=0; i < node.numMoves2; i++) {
@@ -595,8 +571,6 @@ function rankSlides (node) {
     }
   }
 }
-
-// addSlide
 
 function addSlide (node, move) {
 
@@ -638,8 +612,6 @@ function addSlide (node, move) {
 
 }
 
-// addCastle
-
 function addCastle (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -680,8 +652,6 @@ function addCastle (node, move) {
   }
 
 }
-
-// addCapture
 
 function addCapture (node, move) {
 
@@ -743,8 +713,6 @@ function addCapture (node, move) {
   }
 }
 
-// addPromotion
-
 function addPromotion (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -787,8 +755,6 @@ function addPromotion (node, move) {
 
 }
 
-// addEPTake
-
 function addEPTake (node, move) {
 
   const m = move & MOVE_CLEAN_MASK;
@@ -804,8 +770,6 @@ function addEPTake (node, move) {
   }
 
 }
-
-// addQMove
 
 function addQMove (node, move) {
 
@@ -843,8 +807,6 @@ function addQMove (node, move) {
 
 }
 
-// addQPromotion
-
 function addQPromotion (node, move) {
 
   addQMove (node, move | (QUEEN-2)  << MOVE_PROMAS_BITS);
@@ -853,8 +815,6 @@ function addQPromotion (node, move) {
   addQMove (node, move | (KNIGHT-2) << MOVE_PROMAS_BITS);
 
 }
-
-// addKiller
 
 function addKiller (node, score, move) {
 
@@ -904,9 +864,8 @@ function addKiller (node, score, move) {
 
 }
 
-
-
-// report
+let multiPV      = 1;
+let multiPVMoves = [];
 
 let reportedMove = 0;  // the first move of the last pv sent
 
@@ -930,12 +889,6 @@ function report (units, value, depth) {
 
 }
 
-// reportScore
-//
-// Report an exact score at the root, as a mate distance in moves if it's a
-// mate score.
-//
-
 function reportScore (score, depth) {
 
   if (Math.abs(score) > MINMATE) {
@@ -955,8 +908,6 @@ function reportScore (score, depth) {
   }
 
 }
-
-// reportMultiPV
 
 function reportMultiPV (depth) {
 
@@ -1073,7 +1024,6 @@ async function go (maxPly, canYield) {
           });
         }
 
-
         if (multiPV > 1) {
 
           reportMultiPV(depth);
@@ -1124,8 +1074,6 @@ async function go (maxPly, canYield) {
 
 }
 
-// rootSearch
-
 function rootSearch (node, depth, turn, alpha, beta) {
 
   // check time
@@ -1137,7 +1085,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     return 0;
   }
   
-
   statsNodes++;
 
   const nextTurn = turn ^ COLOR_MASK;
@@ -1179,7 +1126,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     
     }
     
-
     makeMoveB();
 
     numLegalMoves++;
@@ -1204,7 +1150,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
       R = LMR_LOOKUP[(depth << 7) + numPrunes];
     }
     
-
     const nullWindow = (numLegalMoves > 1 || R) | 0;
 
     score = alpha;
@@ -1222,7 +1167,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     uncacheA(node);
     uncacheB(node);
     
-
     if (statsTimeOut !== 0)
       return 0;
 
@@ -1281,10 +1225,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     return bestScore;
   }
   
-
 }
-
-// search
 
 function search (node, depth, turn, alpha, beta) {
 
@@ -1304,7 +1245,6 @@ function search (node, depth, turn, alpha, beta) {
   if (node.ply > statsSelDepth)
     statsSelDepth = node.ply;
   
-
   const nextTurn = turn ^ COLOR_MASK;
   const pvNode   = (beta !== (alpha + 1)) | 0;
 
@@ -1331,7 +1271,6 @@ function search (node, depth, turn, alpha, beta) {
   if (isDraw() !== 0)
     return 0;
   
-
   const inCheck = isKingAttacked(nextTurn);
 
   // horizon
@@ -1341,7 +1280,6 @@ function search (node, depth, turn, alpha, beta) {
   
   depth = Math.max(depth,0);
   
-
   let score = 0;
 
   // try tt
@@ -1351,7 +1289,6 @@ function search (node, depth, turn, alpha, beta) {
   if (pvNode === 0 && score !== TTSCORE_UNKNOWN)
     return score;
   
-
   const doBeta = ((pvNode === 0 && inCheck === 0 && beta < MINMATE)) | 0;
 
   let R = 0;
@@ -1390,7 +1327,6 @@ function search (node, depth, turn, alpha, beta) {
     //}
   //}
   
-
   node.inCheck = inCheck;
   node.ev      = ev;
 
@@ -1432,7 +1368,6 @@ function search (node, depth, turn, alpha, beta) {
       return 0;
   }
   
-
   const oAlpha = alpha;
   const doFP   = (inCheck === 0 && depth <= 4) | 0;
   const doLMR  = (inCheck === 0 && depth >= 3) | 0;
@@ -1456,7 +1391,6 @@ function search (node, depth, turn, alpha, beta) {
   
   }
   
-
   ttUpdateEval(ev);
   genMoves(node, turn);
 
@@ -1474,7 +1408,6 @@ function search (node, depth, turn, alpha, beta) {
     if (doFP !== 0 && prune !== 0 && (ev + Math.imul(depth, 120)) < alpha)
       continue;
     
-
     makeMoveA(node, move);
 
     // legal
@@ -1489,7 +1422,6 @@ function search (node, depth, turn, alpha, beta) {
     
     }
     
-
     makeMoveB();
 
     numLegalMoves++;
@@ -1509,7 +1441,6 @@ function search (node, depth, turn, alpha, beta) {
       R = LMR_LOOKUP[(depth << 7) + numPrunes];
     }
     
-
     const nullWindow = ((pvNode !== 0 && numLegalMoves > 1) || R) | 0;
 
     score = alpha;
@@ -1527,7 +1458,6 @@ function search (node, depth, turn, alpha, beta) {
     uncacheA(node);
     uncacheB(node);
     
-
     if (statsTimeOut !== 0)
       return 0;
 
@@ -1580,7 +1510,6 @@ function search (node, depth, turn, alpha, beta) {
   
   }
   
-
   if (bestScore > oAlpha) {
     ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
     return bestScore;
@@ -1591,8 +1520,6 @@ function search (node, depth, turn, alpha, beta) {
   }
 
 }
-
-// qsearch
 
 function qSearch (node, depth, turn, alpha, beta) {
 
@@ -1606,7 +1533,6 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (node.childNode === null)
     return evaluate(turn);
   
-
   const nextTurn = turn ^ COLOR_MASK;
 
   if (isDraw() !== 0)
@@ -1645,7 +1571,6 @@ function qSearch (node, depth, turn, alpha, beta) {
     if (quickSee(turn, move) < 0)
       continue;
     
-
     makeMoveA(node, move);
 
     // legal?
@@ -1660,7 +1585,6 @@ function qSearch (node, depth, turn, alpha, beta) {
     
     }
     
-
     makeMoveB();
 
     numLegalMoves++;
@@ -1674,7 +1598,6 @@ function qSearch (node, depth, turn, alpha, beta) {
     uncacheA(node);
     uncacheB(node);
     
-
     if (score > alpha) {
       if (score >= beta) {
         ttPut(TT_BETA, 0, beta, 0, node.ply, alpha, beta, ev);
@@ -1725,7 +1648,6 @@ function perft (node, depth, turn) {
     
     }
     
-
     totalNodes += perft(node.childNode, depth-1, nextTurn);
 
     // unmake move
@@ -1735,14 +1657,78 @@ function perft (node, depth, turn) {
     bdRights = node.rights;
     bdEp     = node.ep;
     
-
   }
 
   return totalNodes;
 
 }
 
-// collectPV
+const PERFTFENS = [
+  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 2, 400,       'cpw-pos1-2'],
+  ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w Q    -  0 1', 3, 4729,      'castling-2'],
+  ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w K    -  0 1', 3, 4686,      'castling-3'],
+  ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w -    -  0 1', 3, 4522,      'castling-4'],
+  ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b kq   -  0 1', 3, 4893,      'castling-5'],
+  ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b q    -  0 1', 3, 4729,      'castling-6'],
+  ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b k    -  0 1', 3, 4686,      'castling-7'],
+  ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b -    -  0 1', 3, 4522,      'castling-8'],
+  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 0, 1,         'cpw-pos1-0'],
+  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 1, 20,        'cpw-pos1-1'],
+  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 3, 8902,      'cpw-pos1-3'],
+  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 4, 197281,    'cpw-pos1-4'],
+  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 5, 4865609,   'cpw-pos1-5'],
+  ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq -  0 1', 1, 42,        'cpw-pos5-1'],
+  ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq -  0 1', 2, 1352,      'cpw-pos5-2'],
+  ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq -  0 1', 3, 53392,     'cpw-pos5-3'],
+  ['fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1', 1, 48,        'cpw-pos2-1'],
+  ['fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1', 2, 2039,      'cpw-pos2-2'],
+  ['fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1', 3, 97862,     'cpw-pos2-3'],
+  ['fen 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8                         w -    -  0 1', 5, 674624,    'cpw-pos3-5'],
+  ['fen n1n5/PPPk4/8/8/8/8/4Kppp/5N1N                           b -    -  0 1', 1, 24,        'prom-1    '],
+  ['fen 8/5bk1/8/2Pp4/8/1K6/8/8                                 w -    d6 0 1', 6, 824064,    'ccc-1     '],
+  ['fen 8/8/1k6/8/2pP4/8/5BK1/8                                 b -    d3 0 1', 6, 824064,    'ccc-2     '],
+  ['fen 8/8/1k6/2b5/2pP4/8/5K2/8                                b -    d3 0 1', 6, 1440467,   'ccc-3     '],
+  ['fen 8/5k2/8/2Pp4/2B5/1K6/8/8                                w -    d6 0 1', 6, 1440467,   'ccc-4     '],
+  ['fen 5k2/8/8/8/8/8/8/4K2R                                    w K    -  0 1', 6, 661072,    'ccc-5     '],
+  ['fen 4k2r/8/8/8/8/8/8/5K2                                    b k    -  0 1', 6, 661072,    'ccc-6     '],
+  ['fen 3k4/8/8/8/8/8/8/R3K3                                    w Q    -  0 1', 6, 803711,    'ccc-7     '],
+  ['fen r3k3/8/8/8/8/8/8/3K4                                    b q    -  0 1', 6, 803711,    'ccc-8     '],
+  ['fen r3k2r/1b4bq/8/8/8/8/7B/R3K2R                            w KQkq -  0 1', 4, 1274206,   'ccc-9     '],
+  ['fen r3k2r/7b/8/8/8/8/1B4BQ/R3K2R                            b KQkq -  0 1', 4, 1274206,   'ccc-10    '],
+  ['fen r3k2r/8/3Q4/8/8/5q2/8/R3K2R                             b KQkq -  0 1', 4, 1720476,   'ccc-11    '],
+  ['fen r3k2r/8/5Q2/8/8/3q4/8/R3K2R                             w KQkq -  0 1', 4, 1720476,   'ccc-12    '],
+  ['fen 2K2r2/4P3/8/8/8/8/8/3k4                                 w -    -  0 1', 6, 3821001,   'ccc-13    '],
+  ['fen 3K4/8/8/8/8/8/4p3/2k2R2                                 b -    -  0 1', 6, 3821001,   'ccc-14    '],
+  ['fen 8/8/1P2K3/8/2n5/1q6/8/5k2                               b -    -  0 1', 5, 1004658,   'ccc-15    '],
+  ['fen 5K2/8/1Q6/2N5/8/1p2k3/8/8                               w -    -  0 1', 5, 1004658,   'ccc-16    '],
+  ['fen 4k3/1P6/8/8/8/8/K7/8                                    w -    -  0 1', 6, 217342,    'ccc-17    '],
+  ['fen 8/k7/8/8/8/8/1p6/4K3                                    b -    -  0 1', 6, 217342,    'ccc-18    '],
+  ['fen 8/P1k5/K7/8/8/8/8/8                                     w -    -  0 1', 6, 92683,     'ccc-19    '],
+  ['fen 8/8/8/8/8/k7/p1K5/8                                     b -    -  0 1', 6, 92683,     'ccc-20    '],
+  ['fen K1k5/8/P7/8/8/8/8/8                                     w -    -  0 1', 6, 2217,      'ccc-21    '],
+  ['fen 8/8/8/8/8/p7/8/k1K5                                     b -    -  0 1', 6, 2217,      'ccc-22    '],
+  ['fen 8/k1P5/8/1K6/8/8/8/8                                    w -    -  0 1', 7, 567584,    'ccc-23    '],
+  ['fen 8/8/8/8/1k6/8/K1p5/8                                    b -    -  0 1', 7, 567584,    'ccc-24    '],
+  ['fen 8/8/2k5/5q2/5n2/8/5K2/8                                 b -    -  0 1', 4, 23527,     'ccc-25    '],
+  ['fen 8/5k2/8/5N2/5Q2/2K5/8/8                                 w -    -  0 1', 4, 23527,     'ccc-26    '],
+  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 6, 119060324, 'cpw-pos1-6'],
+  ['fen 8/p7/8/1P6/K1k3p1/6P1/7P/8                              w -    -  0 1', 8, 8103790,   'jvm-7     '],
+  ['fen n1n5/PPPk4/8/8/8/8/4Kppp/5N1N                           b -    -  0 1', 6, 71179139,  'jvm-8     '],
+  ['fen r3k2r/p6p/8/B7/1pp1p3/3b4/P6P/R3K2R                     w KQkq -  0 1', 6, 77054993,  'jvm-9     '],
+  ['fen 8/5p2/8/2k3P1/p3K3/8/1P6/8                              b -    -  0 1', 8, 64451405,  'jvm-11    '],
+  ['fen r3k2r/pb3p2/5npp/n2p4/1p1PPB2/6P1/P2N1PBP/R3K2R         w KQkq -  0 1', 5, 29179893,  'jvm-12    '],
+  ['fen 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8                         w -    -  0 1', 7, 178633661, 'jvm-10    '],
+  ['fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1', 5, 193690690, 'jvm-6     '],
+  ['fen 8/2pkp3/8/RP3P1Q/6B1/8/2PPP3/rb1K1n1r                   w -    -  0 1', 6, 181153194, 'ob1       '],
+  ['fen rnbqkb1r/ppppp1pp/7n/4Pp2/8/8/PPPP1PPP/RNBQKBNR         w KQkq f6 0 1', 6, 244063299, 'jvm-5     '],
+  ['fen 8/2ppp3/8/RP1k1P1Q/8/8/2PPP3/rb1K1n1r                   w -    -  0 1', 6, 205552081, 'ob2       '],
+  ['fen 8/8/3q4/4r3/1b3n2/8/3PPP2/2k1K2R                        w K    -  0 1', 6, 207139531, 'ob3       '],
+  ['fen 4r2r/RP1kP1P1/3P1P2/8/8/3ppp2/1p4p1/4K2R                b K    -  0 1', 6, 314516438, 'ob4       '],
+  ['fen r3k2r/8/8/8/3pPp2/8/8/R3K1RR                            b KQkq e3 0 1', 6, 485647607, 'jvm-1     '],
+  ['fen 8/3K4/2p5/p2b2r1/5k2/8/8/1q6                            b -    -  0 1', 7, 493407574, 'jvm-4     '],
+  ['fen r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1   w kq   -  0 1', 6, 706045033, 'jvm-2     '],
+  ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
+];
 
 function collectPV(node, move) {
 
@@ -1754,9 +1740,6 @@ function collectPV(node, move) {
   node.pv[node.pvLen++] = move;
 
 }
-
-
-// net
 
 const net_h1_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // us
 const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
@@ -1774,11 +1757,6 @@ let ueArgs2 = 0;
 let ueArgs3 = 0;
 let ueArgs4 = 0;
 let ueArgs5 = 0;
-
-// netEval
-//
-// squared relu.
-//
 
 function netEval(turn) {
 
@@ -1817,9 +1795,8 @@ function netEval(turn) {
 
 }
 
-// netLoad
-
-// getWeightsBuffer
+const WEIGHTS_B64 = getWeights();
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/sqrrelu256.bin';  // ignore - only relevant for dev version
 
 function getWeightsBuffer() {
 
@@ -1842,7 +1819,6 @@ function getWeightsBuffer() {
   return bytes;
 
 }
-
 
 function netLoad () {
 
@@ -1879,160 +1855,6 @@ function netLoad () {
   net_o_b = dataView[offset];
 
 }
-
-
-// netMove
-
-function netMove () {
-
-  const frObj = ueArgs0 << 8;
-  const from  = ueArgs1 | 0;
-  const to    = ueArgs2 | 0;
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[frObj + from] | 0;
-  let p2 = map[frObj + to]   | 0;
-
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p2] - h2w[p1];
-    h++; p1++; p2++;
-  }
-
-}
-
-// netCapture
-
-function netCapture () {
-
-  const frObj = ueArgs0 << 8;
-  const fr    = ueArgs1 | 0;
-  const toObj = ueArgs2 << 8;
-  const to    = ueArgs3 | 0;
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[frObj + fr] | 0;
-  let p2 = map[toObj + to] | 0;
-  let p3 = map[frObj + to] | 0;
-
-  while (h < N) {
-    h1a[h] += h1w[p3] - h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p3] - h2w[p2] - h2w[p1];
-    h++; p1++; p2++; p3++;
-  }
-
-}
-
-// netPromote
-
-function netPromote () {
-
-  const pawnObj    = ueArgs0 << 8;
-  const pawnFr     = ueArgs1 | 0;
-  const pawnTo     = ueArgs2 | 0;
-  const captureObj = ueArgs3 << 8;
-  const promoteObj = ueArgs4 << 8;
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[pawnObj    + pawnFr] | 0;
-  let p2 = map[promoteObj + pawnTo] | 0;
-
-  if (captureObj !== 0) {
-    let p3 = map[captureObj + pawnTo] | 0;
-    while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-      h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
-      h++; p1++; p2++; p3++;
-    }
-  }
-  else {
-    while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1];
-      h2a[h] += h2w[p2] - h2w[p1];
-      h++; p1++; p2++;
-    }
-  }
-
-}
-
-// netEpCapture
-
-function netEpCapture () {
-
-  const pawnObj        = ueArgs0 << 8;
-  const pawnFr         = ueArgs1 | 0;
-  const pawnTo         = ueArgs2 | 0;
-  const pawnCaptureObj = ueArgs3 << 8;
-  const ep             = ueArgs4 | 0;
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[pawnObj        + pawnFr] | 0;
-  let p2 = map[pawnObj        + pawnTo] | 0;
-  let p3 = map[pawnCaptureObj + ep] | 0;
-
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
-    h++; p1++; p2++; p3++;
-  }
-
-}
-
-// netCastle
-
-function netCastle () {
-
-  const kingObj = ueArgs0 << 8;
-  const kingFr  = ueArgs1 | 0;
-  const kingTo  = ueArgs2 | 0;
-  const rookObj = ueArgs3 << 8;
-  const rookFr  = ueArgs4 | 0;
-  const rookTo  = ueArgs5 | 0;
-
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
-
-  const N = NET_H1_SIZE | 0;
-
-  let h  = 0;
-  let p1 = map[kingObj + kingFr] | 0;
-  let p2 = map[kingObj + kingTo] | 0;
-  let p3 = map[rookObj + rookFr] | 0;
-  let p4 = map[rookObj + rookTo] | 0;
-
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
-    h++; p1++; p2++; p3++; p4++;
-  }
-
-}
-
 
 // flipIndex
 //
@@ -2071,8 +1893,147 @@ function bullet2lozza (index) {
 
 }
 
+function netMove () {
 
-// board
+  const frObj = ueArgs0 << 8;
+  const from  = ueArgs1 | 0;
+  const to    = ueArgs2 | 0;
+
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const N = NET_H1_SIZE | 0;
+
+  let h  = 0;
+  let p1 = map[frObj + from] | 0;
+  let p2 = map[frObj + to]   | 0;
+
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1];
+    h2a[h] += h2w[p2] - h2w[p1];
+    h++; p1++; p2++;
+  }
+
+}
+
+function netCapture () {
+
+  const frObj = ueArgs0 << 8;
+  const fr    = ueArgs1 | 0;
+  const toObj = ueArgs2 << 8;
+  const to    = ueArgs3 | 0;
+
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const N = NET_H1_SIZE | 0;
+
+  let h  = 0;
+  let p1 = map[frObj + fr] | 0;
+  let p2 = map[toObj + to] | 0;
+  let p3 = map[frObj + to] | 0;
+
+  while (h < N) {
+    h1a[h] += h1w[p3] - h1w[p2] - h1w[p1];
+    h2a[h] += h2w[p3] - h2w[p2] - h2w[p1];
+    h++; p1++; p2++; p3++;
+  }
+
+}
+
+function netPromote () {
+
+  const pawnObj    = ueArgs0 << 8;
+  const pawnFr     = ueArgs1 | 0;
+  const pawnTo     = ueArgs2 | 0;
+  const captureObj = ueArgs3 << 8;
+  const promoteObj = ueArgs4 << 8;
+
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const N = NET_H1_SIZE | 0;
+
+  let h  = 0;
+  let p1 = map[pawnObj    + pawnFr] | 0;
+  let p2 = map[promoteObj + pawnTo] | 0;
+
+  if (captureObj !== 0) {
+    let p3 = map[captureObj + pawnTo] | 0;
+    while (h < N) {
+      h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
+      h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+      h++; p1++; p2++; p3++;
+    }
+  }
+  else {
+    while (h < N) {
+      h1a[h] += h1w[p2] - h1w[p1];
+      h2a[h] += h2w[p2] - h2w[p1];
+      h++; p1++; p2++;
+    }
+  }
+
+}
+
+function netEpCapture () {
+
+  const pawnObj        = ueArgs0 << 8;
+  const pawnFr         = ueArgs1 | 0;
+  const pawnTo         = ueArgs2 | 0;
+  const pawnCaptureObj = ueArgs3 << 8;
+  const ep             = ueArgs4 | 0;
+
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const N = NET_H1_SIZE | 0;
+
+  let h  = 0;
+  let p1 = map[pawnObj        + pawnFr] | 0;
+  let p2 = map[pawnObj        + pawnTo] | 0;
+  let p3 = map[pawnCaptureObj + ep] | 0;
+
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
+    h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
+    h++; p1++; p2++; p3++;
+  }
+
+}
+
+function netCastle () {
+
+  const kingObj = ueArgs0 << 8;
+  const kingFr  = ueArgs1 | 0;
+  const kingTo  = ueArgs2 | 0;
+  const rookObj = ueArgs3 << 8;
+  const rookFr  = ueArgs4 | 0;
+  const rookTo  = ueArgs5 | 0;
+
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const h1a = net_h1_a, h2a = net_h2_a;
+
+  const N = NET_H1_SIZE | 0;
+
+  let h  = 0;
+  let p1 = map[kingObj + kingFr] | 0;
+  let p2 = map[kingObj + kingTo] | 0;
+  let p3 = map[rookObj + rookFr] | 0;
+  let p4 = map[rookObj + rookTo] | 0;
+
+  while (h < N) {
+    h1a[h] += h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
+    h2a[h] += h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
+    h++; p1++; p2++; p3++; p4++;
+  }
+
+}
 
 const bdB = new Uint8Array(144);    // pieces
 const bdZ = new Uint8Array(144);    // pointers to w|bList
@@ -2094,9 +2055,15 @@ let bCount = 0;
 
 const objHistory = new Uint32Array(15 * 256);
 
-// zobrists
+function addHistory (bonus, move) {
 
-// prng
+  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+
+  objHistory[(frObj << 8) + to] += bonus;
+
+}
+
 //
 // https://en.wikipedia.org/wiki/Mersenne_Twister
 //
@@ -2148,7 +2115,6 @@ function twisterRand() {
 
 twisterInit(0x9E3779B9);
 
-
 let loTurn = twisterRand();
 let hiTurn = twisterRand();
 
@@ -2176,8 +2142,6 @@ for (let i=0; i < 144; i++) {
   hiEP[i] = twisterRand();
 }
 
-// tt
-
 let ttDefault = 16;  // mb
 let ttSize    = 1;
 let ttMask    = 0;
@@ -2189,13 +2153,9 @@ let ttDepth = new Int8Array(ttSize);
 let ttMove  = new Uint32Array(ttSize);
 let ttEval  = new Int16Array(ttSize);
 let ttScore = new Int16Array(ttSize);
-// ===
-const ttWidth =      18;
-// ===
+const ttWidth = 18;
 
 let ttHashUsed = 0;
-
-// ttResize
 
 function ttResize(N_MB) {
 
@@ -2224,8 +2184,6 @@ function ttResize(N_MB) {
 
 }
 
-// ttPut
-
 function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
 
   const idx = loHash & ttMask;
@@ -2253,8 +2211,6 @@ function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
     ttMove[idx] = move & MOVE_CLEAN_MASK;
 
 }
-
-// ttGet
 
 function ttGet (node, depth, alpha, beta) {
 
@@ -2307,8 +2263,6 @@ function ttGet (node, depth, alpha, beta) {
 
 }
 
-// ttUpdateEval
-
 function ttUpdateEval (ev) {
 
   const idx = loHash & ttMask;
@@ -2318,8 +2272,6 @@ function ttUpdateEval (ev) {
 
 }
 
-// ttInit
-
 function ttInit () {
 
   ttType.fill(TT_EMPTY);
@@ -2328,8 +2280,6 @@ function ttInit () {
   ttHashUsed = 0;
 
 }
-
-// ttValidate
 
 function ttValidate (move) {
 
@@ -2351,9 +2301,6 @@ function ttValidate (move) {
 
 }
 
-
-// hash
-
 let loHash = 0;
 let hiHash = 0;
 
@@ -2363,9 +2310,6 @@ let repHi = 0;
 const repLoHash = new Int32Array(1024);
 const repHiHash = new Int32Array(1024);
 
-
-// newGame
-
 function newGame() {
 
   if (ttSize == 1)
@@ -2374,8 +2318,6 @@ function newGame() {
   ttInit();
 
 }
-
-// position
 
 function position (bd, turn, rights, ep, moves) {
 
@@ -2506,7 +2448,6 @@ function position (bd, turn, rights, ep, moves) {
   loHash ^= loEP[bdEp];
   hiHash ^= hiEP[bdEp];
   
-
   repLo = 0;
   repHi = 0;
 
@@ -2585,13 +2526,10 @@ function position (bd, turn, rights, ep, moves) {
   
   }
   
-
   initNode(rootNode);
   objHistory.fill(BASE_HISSLIDE);
 
 }
-
-// genMoves
 
 function genMoves (node, turn) {
 
@@ -2655,7 +2593,6 @@ function genMoves (node, turn) {
   
   }
   
-
   let next   = 0;
   let count  = 0;
   let to     = 0;
@@ -2735,7 +2672,6 @@ function genMoves (node, turn) {
         else if (toObj === 0 && to === bdEp)
           addEPTake(node, frMove | to | MOVE_EPTAKE_MASK);
         
-        
         break;
         
       }
@@ -2997,8 +2933,6 @@ function genMoves (node, turn) {
   }
 }
 
-// genQMoves
-
 function genQMoves (node, turn) {
 
   node.stage     = 0;
@@ -3036,7 +2970,6 @@ function genQMoves (node, turn) {
   
   }
   
-
   let next  = 0;
   let count = 0;
   let to    = 0;
@@ -3103,7 +3036,6 @@ function genQMoves (node, turn) {
         else if (toObj === 0 && to === bdEp)
           addQMove(node, MOVE_EPTAKE_MASK | frMove | to);
         
-        
         break;
         
       }
@@ -3306,8 +3238,6 @@ function genQMoves (node, turn) {
   }
 
 }
-
-// makeMoveA
 
 function makeMoveA (node, move) {
 
@@ -3407,7 +3337,6 @@ function makeMoveA (node, move) {
   loHash ^= loEP[bdEp];
   hiHash ^= hiEP[bdEp];
   
-
   if ((move & MOVE_SPECIAL_MASK) !== 0) {
     // ikky stuff
     
@@ -3663,7 +3592,6 @@ function makeMoveA (node, move) {
   if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece === PAWN)
     repLo = repHi;
   
-
 }
 
 // makeMoveB
@@ -3677,8 +3605,6 @@ function makeMoveB  () {
   ueFunc();
 
 }
-
-// unmakeMove
 
 function unmakeMove (node, move) {
 
@@ -3724,7 +3650,6 @@ function unmakeMove (node, move) {
   
   }
   
-
   if ((move & MOVE_SPECIAL_MASK) !== 0) {
     // ikky stuff
     
@@ -3823,8 +3748,6 @@ function unmakeMove (node, move) {
 
 }
 
-// isKingAttacked
-
 function isKingAttacked (byCol) {
 
   const list = wbList[(byCol ^ COLOUR_MASK) >>> 3];
@@ -3832,8 +3755,6 @@ function isKingAttacked (byCol) {
   return isAttacked(list[0], byCol);
 
 }
-
-// isAttacked
 
 function isAttacked (to, byCol) {
 
@@ -3864,7 +3785,6 @@ function isAttacked (to, byCol) {
   const knight = KNIGHT | byCol;
   const king   = KING   | byCol;
   
-
   // knights
   
   if (b[to + -10] === knight) return 1;
@@ -3887,12 +3807,9 @@ function isAttacked (to, byCol) {
   fr = to + 13; while (b[fr] === 0) fr += 13; if (BQ[b[fr]] !== 0) return 1;
   fr = to - 13; while (b[fr] === 0) fr -= 13; if (BQ[b[fr]] !== 0) return 1;
   
-
   return 0;
 
 }
-
-// evaluate
 
 function evaluate (turn) {
 
@@ -3948,8 +3865,6 @@ function evaluate (turn) {
 
 }
 
-// quickSee
-
 const WB_OFFSET_DIAG1 = new Int8Array([-13, 13]);
 const WB_OFFSET_DIAG2 = new Int8Array([-11, 11]);
 
@@ -3989,19 +3904,6 @@ function quickSee (turn, move) {
 
 }
 
-// addHistory
-
-function addHistory (bonus, move) {
-
-  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-
-  objHistory[(frObj << 8) + to] += bonus;
-
-}
-
-// isDraw
-
 function isDraw () {
 
   if (repHi - repLo >= 100)
@@ -4031,8 +3933,6 @@ function isDraw () {
   return 0;
 
 }
-
-// formatFen
 
 function formatFen (turn) {
 
@@ -4091,29 +3991,6 @@ function formatFen (turn) {
 
 }
 
-// formatMove
-
-function formatMove (move) {
-
-  let moveStr = 'NULL';
-
-  if (move !== 0) {
-
-    const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-    const to = (move & MOVE_TO_MASK) >>> MOVE_TO_BITS;
-
-    moveStr = COORDS[fr] + COORDS[to];
-
-    if ((move & MOVE_PROMOTE_MASK) !== 0)
-      moveStr = moveStr + PROMOTES[(move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS];
-
-  }
-
-  return moveStr;
-
-}
-
-// flipFen
 //
 // flipFen is slow. Only use for init/test.
 //
@@ -4160,7 +4037,25 @@ function flipFen (fen) {
   return newFen;
 };
 
-// boardCheck
+function formatMove (move) {
+
+  let moveStr = 'NULL';
+
+  if (move !== 0) {
+
+    const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
+    const to = (move & MOVE_TO_MASK) >>> MOVE_TO_BITS;
+
+    moveStr = COORDS[fr] + COORDS[to];
+
+    if ((move & MOVE_PROMOTE_MASK) !== 0)
+      moveStr = moveStr + PROMOTES[(move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS];
+
+  }
+
+  return moveStr;
+
+}
 
 function boardCheck (turn) {
 
@@ -4234,11 +4129,7 @@ function boardCheck (turn) {
       console.log('****** A2', i, a2[i], net_h2_a[i]);
   }
   
-
 }
-
-
-// stats
 
 let statsStartTime = 0;
 let statsNodes     = 0;
@@ -4248,11 +4139,6 @@ let statsTimeOut   = 0;
 let statsSelDepth  = 0;
 let statsBestMove  = 0;
 let statsBestScore = 0;
-
-let multiPV      = 1;
-let multiPVMoves = [];
-
-// initStats
 
 function initStats () {
 
@@ -4267,8 +4153,6 @@ function initStats () {
 
 }
 
-// checkTime
-
 function checkTime () {
 
   if (statsBestMove && statsMoveTime > 0 && ((now() - statsStartTime) >= statsMoveTime))
@@ -4281,7 +4165,7 @@ function checkTime () {
 
 }
 
-// bench fedns from https://github.com/AndyGrant/Ethereal
+// bench fens from https://github.com/AndyGrant/Ethereal
 
 const BENCHFENS = [
 
@@ -4338,74 +4222,7 @@ const BENCHFENS = [
 "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93"
 ];
 
-const PERFTFENS = [
-  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 2, 400,       'cpw-pos1-2'],
-  ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w Q    -  0 1', 3, 4729,      'castling-2'],
-  ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w K    -  0 1', 3, 4686,      'castling-3'],
-  ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w -    -  0 1', 3, 4522,      'castling-4'],
-  ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b kq   -  0 1', 3, 4893,      'castling-5'],
-  ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b q    -  0 1', 3, 4729,      'castling-6'],
-  ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b k    -  0 1', 3, 4686,      'castling-7'],
-  ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b -    -  0 1', 3, 4522,      'castling-8'],
-  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 0, 1,         'cpw-pos1-0'],
-  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 1, 20,        'cpw-pos1-1'],
-  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 3, 8902,      'cpw-pos1-3'],
-  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 4, 197281,    'cpw-pos1-4'],
-  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 5, 4865609,   'cpw-pos1-5'],
-  ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq -  0 1', 1, 42,        'cpw-pos5-1'],
-  ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq -  0 1', 2, 1352,      'cpw-pos5-2'],
-  ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq -  0 1', 3, 53392,     'cpw-pos5-3'],
-  ['fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1', 1, 48,        'cpw-pos2-1'],
-  ['fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1', 2, 2039,      'cpw-pos2-2'],
-  ['fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1', 3, 97862,     'cpw-pos2-3'],
-  ['fen 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8                         w -    -  0 1', 5, 674624,    'cpw-pos3-5'],
-  ['fen n1n5/PPPk4/8/8/8/8/4Kppp/5N1N                           b -    -  0 1', 1, 24,        'prom-1    '],
-  ['fen 8/5bk1/8/2Pp4/8/1K6/8/8                                 w -    d6 0 1', 6, 824064,    'ccc-1     '],
-  ['fen 8/8/1k6/8/2pP4/8/5BK1/8                                 b -    d3 0 1', 6, 824064,    'ccc-2     '],
-  ['fen 8/8/1k6/2b5/2pP4/8/5K2/8                                b -    d3 0 1', 6, 1440467,   'ccc-3     '],
-  ['fen 8/5k2/8/2Pp4/2B5/1K6/8/8                                w -    d6 0 1', 6, 1440467,   'ccc-4     '],
-  ['fen 5k2/8/8/8/8/8/8/4K2R                                    w K    -  0 1', 6, 661072,    'ccc-5     '],
-  ['fen 4k2r/8/8/8/8/8/8/5K2                                    b k    -  0 1', 6, 661072,    'ccc-6     '],
-  ['fen 3k4/8/8/8/8/8/8/R3K3                                    w Q    -  0 1', 6, 803711,    'ccc-7     '],
-  ['fen r3k3/8/8/8/8/8/8/3K4                                    b q    -  0 1', 6, 803711,    'ccc-8     '],
-  ['fen r3k2r/1b4bq/8/8/8/8/7B/R3K2R                            w KQkq -  0 1', 4, 1274206,   'ccc-9     '],
-  ['fen r3k2r/7b/8/8/8/8/1B4BQ/R3K2R                            b KQkq -  0 1', 4, 1274206,   'ccc-10    '],
-  ['fen r3k2r/8/3Q4/8/8/5q2/8/R3K2R                             b KQkq -  0 1', 4, 1720476,   'ccc-11    '],
-  ['fen r3k2r/8/5Q2/8/8/3q4/8/R3K2R                             w KQkq -  0 1', 4, 1720476,   'ccc-12    '],
-  ['fen 2K2r2/4P3/8/8/8/8/8/3k4                                 w -    -  0 1', 6, 3821001,   'ccc-13    '],
-  ['fen 3K4/8/8/8/8/8/4p3/2k2R2                                 b -    -  0 1', 6, 3821001,   'ccc-14    '],
-  ['fen 8/8/1P2K3/8/2n5/1q6/8/5k2                               b -    -  0 1', 5, 1004658,   'ccc-15    '],
-  ['fen 5K2/8/1Q6/2N5/8/1p2k3/8/8                               w -    -  0 1', 5, 1004658,   'ccc-16    '],
-  ['fen 4k3/1P6/8/8/8/8/K7/8                                    w -    -  0 1', 6, 217342,    'ccc-17    '],
-  ['fen 8/k7/8/8/8/8/1p6/4K3                                    b -    -  0 1', 6, 217342,    'ccc-18    '],
-  ['fen 8/P1k5/K7/8/8/8/8/8                                     w -    -  0 1', 6, 92683,     'ccc-19    '],
-  ['fen 8/8/8/8/8/k7/p1K5/8                                     b -    -  0 1', 6, 92683,     'ccc-20    '],
-  ['fen K1k5/8/P7/8/8/8/8/8                                     w -    -  0 1', 6, 2217,      'ccc-21    '],
-  ['fen 8/8/8/8/8/p7/8/k1K5                                     b -    -  0 1', 6, 2217,      'ccc-22    '],
-  ['fen 8/k1P5/8/1K6/8/8/8/8                                    w -    -  0 1', 7, 567584,    'ccc-23    '],
-  ['fen 8/8/8/8/1k6/8/K1p5/8                                    b -    -  0 1', 7, 567584,    'ccc-24    '],
-  ['fen 8/8/2k5/5q2/5n2/8/5K2/8                                 b -    -  0 1', 4, 23527,     'ccc-25    '],
-  ['fen 8/5k2/8/5N2/5Q2/2K5/8/8                                 w -    -  0 1', 4, 23527,     'ccc-26    '],
-  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 6, 119060324, 'cpw-pos1-6'],
-  ['fen 8/p7/8/1P6/K1k3p1/6P1/7P/8                              w -    -  0 1', 8, 8103790,   'jvm-7     '],
-  ['fen n1n5/PPPk4/8/8/8/8/4Kppp/5N1N                           b -    -  0 1', 6, 71179139,  'jvm-8     '],
-  ['fen r3k2r/p6p/8/B7/1pp1p3/3b4/P6P/R3K2R                     w KQkq -  0 1', 6, 77054993,  'jvm-9     '],
-  ['fen 8/5p2/8/2k3P1/p3K3/8/1P6/8                              b -    -  0 1', 8, 64451405,  'jvm-11    '],
-  ['fen r3k2r/pb3p2/5npp/n2p4/1p1PPB2/6P1/P2N1PBP/R3K2R         w KQkq -  0 1', 5, 29179893,  'jvm-12    '],
-  ['fen 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8                         w -    -  0 1', 7, 178633661, 'jvm-10    '],
-  ['fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1', 5, 193690690, 'jvm-6     '],
-  ['fen 8/2pkp3/8/RP3P1Q/6B1/8/2PPP3/rb1K1n1r                   w -    -  0 1', 6, 181153194, 'ob1       '],
-  ['fen rnbqkb1r/ppppp1pp/7n/4Pp2/8/8/PPPP1PPP/RNBQKBNR         w KQkq f6 0 1', 6, 244063299, 'jvm-5     '],
-  ['fen 8/2ppp3/8/RP1k1P1Q/8/8/2PPP3/rb1K1n1r                   w -    -  0 1', 6, 205552081, 'ob2       '],
-  ['fen 8/8/3q4/4r3/1b3n2/8/3PPP2/2k1K2R                        w K    -  0 1', 6, 207139531, 'ob3       '],
-  ['fen 4r2r/RP1kP1P1/3P1P2/8/8/3ppp2/1p4p1/4K2R                b K    -  0 1', 6, 314516438, 'ob4       '],
-  ['fen r3k2r/8/8/8/3pPp2/8/8/R3K1RR                            b KQkq e3 0 1', 6, 485647607, 'jvm-1     '],
-  ['fen 8/3K4/2p5/p2b2r1/5k2/8/8/1q6                            b -    -  0 1', 7, 493407574, 'jvm-4     '],
-  ['fen r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1   w kq   -  0 1', 6, 706045033, 'jvm-2     '],
-  ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
-];
-
-// uciSend
+let silentMode = 0;
 
 function uciSend () {
 
@@ -4426,8 +4243,6 @@ function uciSend () {
 
 }
 
-// uciGetInt
-
 function uciGetInt (tokens, key, def) {
 
   for (let i=0; i < tokens.length; i++)
@@ -4438,8 +4253,6 @@ function uciGetInt (tokens, key, def) {
   return def;
 
 }
-
-// uciGetStr
 
 function uciGetStr (tokens, key, def) {
 
@@ -4453,8 +4266,6 @@ function uciGetStr (tokens, key, def) {
   return def;
 
 }
-
-// uciGetArr
 
 function uciGetArr (tokens, key, to) {
 
@@ -4477,7 +4288,6 @@ function uciGetArr (tokens, key, to) {
 
 }
 
-// uciExec
 //
 // canYield is only set by uciDrain. A go then returns its promise so the
 // drain waits for the search to finish before running the next command.
@@ -4560,7 +4370,6 @@ function uciExec (commands, canYield) {
         if (bdB[0] !== EDGE) {
           position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR','w','KQkq','-',[]);
         }
-        
         
         initStats();
         
@@ -4766,7 +4575,6 @@ function uciExec (commands, canYield) {
         
         }
         
-        
         let nodes = 0;
         let start = now();
         
@@ -4941,17 +4749,6 @@ function uciExec (commands, canYield) {
 
 }
 
-
-// init
-
-const nodeHost = (typeof process) != 'undefined';
-
-if (!nodeHost) {
-  onmessage = function(e) {
-    uciQueue(e.data);
-  }
-}
-
 // command queue
 //
 // All incoming commands go through cmdQueue and are run in order by uciDrain.
@@ -5044,8 +4841,6 @@ function yieldToHost () {
 
 }
 
-// checkStop
-
 async function checkStop () {
 
   await yieldToHost();
@@ -5055,14 +4850,6 @@ async function checkStop () {
   return statsTimeOut;
 
 }
-
-const fs = (nodeHost) ? require('fs') : 0;
-
-const nodes = Array(MAX_PLY);
-
-let silentMode = 0;
-
-// initOnce
 
 function initOnce () {
 
@@ -5198,14 +4985,17 @@ function initOnce () {
   
   }
   
-
 }
 
 initOnce();
 
-
 const rootNode = nodes[0];
 
+if (!nodeHost) {
+  onmessage = function(e) {
+    uciQueue(e.data);
+  }
+}
 
 if (nodeHost && process.argv.length > 2) {
   for (let i=2; i < process.argv.length; i++)

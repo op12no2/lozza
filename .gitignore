@@ -1,4 +1,4 @@
 releases/
-config.json
-sprt.pgn
-
+/config.json
+/sprt.pgn
+/lozza.js

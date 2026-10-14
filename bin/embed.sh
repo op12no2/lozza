@@ -1,12 +1,11 @@
 #!/bin/bash
 
-# embed a net in the given lozza as base64 in getWeights(), run from anywhere:
-# use: ./embed.sh <net> <lozza>
-
 set -e
 
+cd "$(dirname "$0")/.."
+
 if [ "$#" -lt 2 ] || [ "$#" -gt 2 ]; then
-  echo "usage: ./embed.sh <net> <lozza>"
+  echo "usage: ./bin/embed.sh <net> <lozza>"
   exit 1
 fi
 

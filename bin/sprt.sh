@@ -2,7 +2,7 @@
 
 set -e
 
-cd "$(dirname "$0")/"
+cd "$(dirname "$0")/.."
 
 if pgrep -f "fastchess -engine" > /dev/null; then
   echo "a match is already running"
@@ -12,9 +12,6 @@ fi
 timemargin=200
 data=/mnt/d/chess_data
 book=$data/4moves_noob.epd
-
-# fastchess is built from source next to lozza; to update it:
-#   git -C ../fastchess pull && make -C ../fastchess -j8
 
 fastchess=../fastchess/fastchess
 
