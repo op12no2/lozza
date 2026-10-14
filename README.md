@@ -1,6 +1,6 @@
 # Lozza
 
-A UCI Javascript chess engine.
+A UCI chess engine written in Javascript.
 
 Lozza was primarily created for use in web pages, but more recent versions can also be used on the command line via Node. 
 
