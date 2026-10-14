@@ -10,7 +10,7 @@ All you need is ```lozza.js``` from a [release's](https://github.com/op12no2/loz
 
 Examples:-
 
-- [Hello world](examples/hello_world.js)
+- [Hello world](examples/hello_world.html)
 
 ## Command line use
 
