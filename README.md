@@ -24,21 +24,7 @@ lozza.postMessage('position startpos');
 lozza.postMessage('go depth 10');        // 10 ply search
 ```
 
-Try this example here:-
-
-- https://op12no2.github.io/lozza-ui/ex.htm
-
 Note that Lozza must be fired up in a web worker.
-
-## More examples
-
-A sister repo has more browser-based examples for playing and analysing with Lozza.
-
-- https://github.com/op12no2/lozza-ui
-
-## Play Lozza online
-
-- https://op12no2.github.io/lozza-ui
 
 ## Play Lozza offline in chess user interfaces
 
@@ -57,25 +43,6 @@ option name Hash type spin default 16 min 1 max 1024
 option name MultiPV type spin default 1 min 1 max 500 
 ```
 
-## Running Lozza from the command line
-
-Again, use one of the binaries from the latest release or for example:-
-
-```
-node lozza.js
-```
-
-Commands can be given as arguments:-
-
-```
-node lozza.js uci ucinewgame "position startpos" "go depth 10" quit
-./lozza-win-x64.exe ucinewgame "position startpos" board quit
-```
-
-There is also an online console:-
-
-- https://op12no2.github.io/lozza-ui/console.htm
-
 ## Custom commands
 
 - quit - close Lozza.
@@ -88,10 +55,6 @@ There is also an online console:-
 - pt - run a sequence of perft searches.
 - et - run a sequence of evaluations.
 
-## Development notes
-
-If you clone the repo with the intention of tweaking Lozza or you want to load the weights from ```quantised.bin```, you need to be aware of the build process in ```build.sh```. This is a script that creates ```./lozza.js``` from ```src/*.js``` (contingent on ```quantised.bin```) and ```./releases/lozza.js``` which has the weights from ```quantised.bin``` inlined into it. It also creates binaries in ```./releases``` but you can remove that section. The version that reads ```quantised.bin``` (```./lozza.js```) is what I use for development and is what is in the root of the repo. The version in ```./releases``` is what I ship. ```build.sh``` will run natively on Linux and macOS but will need to run in WSL or git bash etc on Windows.  
- 
 ## References
 
 - https://nodejs.org - Node
