@@ -12,7 +12,7 @@ Examples:-
 
 - [Hello world](https://op12no2.github.io/lozza/examples/hello_world.html)
 
-If you would like to try the latest pre-release, use './examples/lozza.js' which has the net embedded like release versions.
+If you would like to try the latest pre-release, use `./examples/lozza.js` which has the net embedded like release versions.
 
 ## Command line use
 
