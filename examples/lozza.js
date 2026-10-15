@@ -2,7 +2,7 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "11.0";
+const BUILD = "12.0";
 
 const BENCH_DEPTH = 12;
 
