@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline use</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 90%;
+    margin: auto;
+    padding: 0 1em;
+  }
+  pre, code, textarea, input {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  pre {
+    background: #ffffff;
+    padding: 1em;
+    overflow-x: auto;
+  }
+  #ucioutput {
+    height: 100%;
+    overflow-y: auto;
+    white-space: pre;
+  }
+  table {
+    border-collapse: collapse;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  td {
+    padding: 0.2em 1em 0.2em 0;
+    vertical-align: top;
+  }
+</style>
+</head>
+<body>
+
+<h1>Offline</h1>
+
+<p>Lozza needs no server once it's loaded, since the net is embedded in <code>lozza.js</code>, so a page using it can work with no connection at all. This page registers a service worker (<code>offline-sw.js</code>) that caches the page and <code>lozza.js</code> on the first visit. Later visits are served from the cache, while a fresh copy is fetched in the background for next time, so a new <code>lozza.js</code> is picked up on the visit after it's published. To try it, load this page once, go offline (airplane mode, or DevTools &gt; Network &gt; Offline) and reload. Service workers need https or localhost.</p>
+
+<table>
+  <tr><td>network</td><td id="online"></td></tr>
+  <tr><td>service worker</td><td id="sw"></td></tr>
+  <tr><td>cached files</td><td id="cached"></td></tr>
+</table>
+
+<p>
+  <button id="go">go depth 10</button>
+  <button id="remove">remove offline copy</button>
+</p>
+
+<pre id="ucioutput"></pre>
+
+<script>
+
+const CACHE = 'lozza-offline'; // must match offline-sw.js
+
+//
+// status
+//
+
+function showOnline () {
+  document.getElementById('online').textContent = navigator.onLine ? 'online' : 'offline';
+}
+
+async function showStatus () {
+
+  const swEl     = document.getElementById('sw');
+  const cachedEl = document.getElementById('cached');
+
+  if (!('serviceWorker' in navigator)) {
+    swEl.textContent = 'not available (needs https or localhost)';
+    return;
+  }
+
+  const reg = await navigator.serviceWorker.getRegistration('offline.html');
+
+  if (!reg)
+    swEl.textContent = 'not registered';
+  else if (navigator.serviceWorker.controller)
+    swEl.textContent = 'active, this page is served by it';
+  else
+    swEl.textContent = 'registered, installing...';
+
+  const cache = await caches.open(CACHE);
+  const keys  = await cache.keys();
+  const lines = [];
+
+  for (const req of keys) {
+    const r = await cache.match(req);
+    const size = (await r.blob()).size;
+    lines.push(new URL(req.url).pathname.split('/').pop() + ' (' + size.toLocaleString() + ' bytes, ' + (r.headers.get('last-modified') || 'no date') + ')');
+  }
+
+  cachedEl.textContent = lines.length ? lines.join('\n') : 'none';
+  cachedEl.style.whiteSpace = 'pre';
+
+}
+
+window.addEventListener('online',  showOnline);
+window.addEventListener('offline', showOnline);
+
+showOnline();
+
+if ('serviceWorker' in navigator) {
+
+  // scope limited to this page, so the other examples are not affected
+
+  navigator.serviceWorker.register('offline-sw.js', {scope: 'offline.html'}).then(showStatus);
+
+  navigator.serviceWorker.addEventListener('controllerchange', showStatus);
+
+}
+
+showStatus();
+
+document.getElementById('remove').onclick = async function () {
+
+  const reg = await navigator.serviceWorker.getRegistration('offline.html');
+
+  if (reg)
+    await reg.unregister();
+
+  await caches.delete(CACHE);
+
+  showStatus();
+
+};
+
+//
+// engine; used exactly as when online
+//
+
+const lozza     = new Worker('lozza.js');
+const ucioutput = document.getElementById('ucioutput');
+
+lozza.onmessage = function(e) {
+  ucioutput.textContent += e.data + '\n'; // lozza reponds with text as per UCI
+  ucioutput.scrollTop = ucioutput.scrollHeight;
+};
+
+lozza.postMessage('uci');
+
+document.getElementById('go').onclick = function () {
+  lozza.postMessage('position startpos');
+  lozza.postMessage('go depth 10');
+};
+
+</script>
+
+</body>
+</html>

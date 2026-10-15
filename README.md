@@ -15,6 +15,8 @@ Examples:-
 - [Promise wrapper](https://op12no2.github.io/lozza/examples/promise.html)
 - [Multi PV analysis](https://op12no2.github.io/lozza/examples/analysis.html)
 - [Loading via CDN](https://op12no2.github.io/lozza/examples/cdn.html)
+- [Play Lozza](https://op12no2.github.io/lozza/examples/play.html)
+- [Offline use](https://op12no2.github.io/lozza/examples/offline.html)
 
 If you would like to try the latest development Lozza, use `./examples/lozza.js` which has the net embedded like release versions and is up to date with all commits. 
 
