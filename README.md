@@ -42,4 +42,5 @@ node lozza.js uci "position startpos" "go depth 10 quit" # execute commands then
 ## Acknowledgements
 
 - https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
-- https://github.com/jw1912/bullet - bullet network trainer.
+- https://github.com/jw1912/bullet - bullet network trainer
+- https://github.com/Disservin/fastchess - fastchess game runner

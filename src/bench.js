@@ -54,3 +54,75 @@ const BENCHFENS = [
 "3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
 "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93"
 ];
+
+function bench(depth, warm) {
+
+  silentMode = 1;
+
+  // warmup
+        
+  for (let w=0; w < warm; w++) {
+        
+    for (var i=0; i < BENCHFENS.length; i++) {
+        
+      const fen = BENCHFENS[i];
+        
+      newGame();
+      uciExec('position fen ' + fen);
+      uciExec('id bench' + i);
+      uciExec('go depth ' + depth);
+        
+    }
+        
+  }
+        
+  let nodes = 0;
+  let start = now();
+        
+  for (let i=0; i < BENCHFENS.length; i++) {
+        
+    const fen = BENCHFENS[i];
+        
+    if (nodeHost)
+      process.stdout.write(i.toString() + '\r');
+        
+    newGame();
+    uciExec('position fen ' + fen);
+    uciExec('id bench' + i);
+    uciExec('go depth ' + depth);
+        
+    nodes += statsNodes;
+        
+  }
+        
+  silentMode = 0;
+        
+  const elapsed = now() - start;
+  const nps = nodes/elapsed * 1000 | 0;
+        
+  uciSend('warm', warm, 'depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
+
+}
+
+function et() {
+  
+  for (let i=0; i < BENCHFENS.length; i++) {
+        
+    uciSend();
+        
+    const fen = BENCHFENS[i];
+        
+    newGame();
+    uciExec('position fen ' + fen);
+    uciSend(fen, 'fen')
+    uciExec('e');
+        
+    const flippedFen = flipFen(fen);
+        
+    newGame();
+    uciExec('position fen ' + flippedFen);
+    uciSend(flippedFen, 'flipped fen')
+    uciExec('e');
+        
+  }
+}

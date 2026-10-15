@@ -114,3 +114,53 @@ const PERFTFENS = [
   ['fen r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1   w kq   -  0 1', 6, 706045033, 'jvm-2     '],
   ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
 ];
+
+function pt(n) {
+
+  silentMode = 1;
+        
+  const t1 = now();
+        
+  let errors = 0;
+  let tot    = 0;
+        
+  for (let i=0; i < n; i++) {
+        
+    const p = PERFTFENS[i];
+        
+    const fen   = p[0];
+    const depth = p[1];
+    const moves = p[2];
+    const id    = p[3];
+        
+    newGame();
+    uciExec('position ' + fen);
+        
+    const nodes = perft(rootNode, depth, bdTurn);
+        
+    tot += nodes;
+        
+    const t2     = now();
+    const sec    = Math.round((t2-t1)/100)/10;
+    const secStr = sec.toString().padStart(6, ' ');
+        
+    let diff = nodes - moves;
+        
+    if (diff) {
+      errors += Math.abs(diff);
+      diff = '\x1b[1m' + diff + '\x1b[0m';
+    }
+        
+    silentMode = 0;
+    uciSend(secStr, id, fen, depth, diff, nodes, moves);
+    silentMode = 1;
+  }
+        
+  silentMode = 0;
+    
+  const elapsed = now() - t1;
+  const nps = tot/elapsed * 1000 | 0;
+        
+  uciSend('errors', errors, 'nodes', tot, 'nps', nps);
+
+}

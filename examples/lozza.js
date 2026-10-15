@@ -1804,6 +1804,56 @@ const PERFTFENS = [
   ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
 ];
 
+function pt(n) {
+
+  silentMode = 1;
+        
+  const t1 = now();
+        
+  let errors = 0;
+  let tot    = 0;
+        
+  for (let i=0; i < n; i++) {
+        
+    const p = PERFTFENS[i];
+        
+    const fen   = p[0];
+    const depth = p[1];
+    const moves = p[2];
+    const id    = p[3];
+        
+    newGame();
+    uciExec('position ' + fen);
+        
+    const nodes = perft(rootNode, depth, bdTurn);
+        
+    tot += nodes;
+        
+    const t2     = now();
+    const sec    = Math.round((t2-t1)/100)/10;
+    const secStr = sec.toString().padStart(6, ' ');
+        
+    let diff = nodes - moves;
+        
+    if (diff) {
+      errors += Math.abs(diff);
+      diff = '\x1b[1m' + diff + '\x1b[0m';
+    }
+        
+    silentMode = 0;
+    uciSend(secStr, id, fen, depth, diff, nodes, moves);
+    silentMode = 1;
+  }
+        
+  silentMode = 0;
+    
+  const elapsed = now() - t1;
+  const nps = tot/elapsed * 1000 | 0;
+        
+  uciSend('errors', errors, 'nodes', tot, 'nps', nps);
+
+}
+
 function collectPV(node, move) {
 
   const cNode = node.childNode;
@@ -4296,6 +4346,78 @@ const BENCHFENS = [
 "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93"
 ];
 
+function bench(depth, warm) {
+
+  silentMode = 1;
+
+  // warmup
+        
+  for (let w=0; w < warm; w++) {
+        
+    for (var i=0; i < BENCHFENS.length; i++) {
+        
+      const fen = BENCHFENS[i];
+        
+      newGame();
+      uciExec('position fen ' + fen);
+      uciExec('id bench' + i);
+      uciExec('go depth ' + depth);
+        
+    }
+        
+  }
+        
+  let nodes = 0;
+  let start = now();
+        
+  for (let i=0; i < BENCHFENS.length; i++) {
+        
+    const fen = BENCHFENS[i];
+        
+    if (nodeHost)
+      process.stdout.write(i.toString() + '\r');
+        
+    newGame();
+    uciExec('position fen ' + fen);
+    uciExec('id bench' + i);
+    uciExec('go depth ' + depth);
+        
+    nodes += statsNodes;
+        
+  }
+        
+  silentMode = 0;
+        
+  const elapsed = now() - start;
+  const nps = nodes/elapsed * 1000 | 0;
+        
+  uciSend('warm', warm, 'depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
+
+}
+
+function et() {
+  
+  for (let i=0; i < BENCHFENS.length; i++) {
+        
+    uciSend();
+        
+    const fen = BENCHFENS[i];
+        
+    newGame();
+    uciExec('position fen ' + fen);
+    uciSend(fen, 'fen')
+    uciExec('e');
+        
+    const flippedFen = flipFen(fen);
+        
+    newGame();
+    uciExec('position fen ' + flippedFen);
+    uciSend(flippedFen, 'flipped fen')
+    uciExec('e');
+        
+  }
+}
+
 let silentMode = 0;
 
 function uciSend () {
@@ -4383,7 +4505,6 @@ function uciExec (commands, canYield) {
     switch (cmd) {
 
       case 'isready': {
-        // isready
         
         uciSend('readyok');
         
@@ -4393,7 +4514,6 @@ function uciExec (commands, canYield) {
 
       case 'position':
       case 'p': {
-        // position
         
         if (ttSize == 1) {
           newGame();
@@ -4430,7 +4550,6 @@ function uciExec (commands, canYield) {
 
       case 'go':
       case 'g': {
-        // go
         
         if (ttSize == 1) {
           newGame();
@@ -4501,7 +4620,6 @@ function uciExec (commands, canYield) {
 
       case 'ucinewgame':
       case 'u': {
-        // ucinewgame
         
         newGame();
         
@@ -4511,7 +4629,6 @@ function uciExec (commands, canYield) {
 
       case 'setoption':
       case 'o': {
-        // setoption
         
         const opt = uciGetStr(tokens, 'name', '').toLowerCase();
         
@@ -4535,7 +4652,6 @@ function uciExec (commands, canYield) {
 
       case 'quit':
       case 'q': {
-        // quit
         
         process.exit();
         
@@ -4544,14 +4660,12 @@ function uciExec (commands, canYield) {
       }
 
       case 'stop': {
-        // stop
         
         break;
         
       }
 
       case 'uci': {
-        // uci
         
         if (WEIGHTS_B64 == '')
           uciSend('id name Lozza', BUILD, '(dev)');
@@ -4567,7 +4681,6 @@ function uciExec (commands, canYield) {
       }
 
       case 'perft': {
-        // perft
         
         uciExec('b');
         
@@ -4595,7 +4708,6 @@ function uciExec (commands, canYield) {
 
       case 'eval':
       case 'e': {
-        // eval
         
         const e = netEval(bdTurn);
         
@@ -4607,7 +4719,6 @@ function uciExec (commands, canYield) {
 
       case 'board':
       case 'b': {
-        // board
         
         uciSend(formatFen(bdTurn));
         
@@ -4617,62 +4728,17 @@ function uciExec (commands, canYield) {
 
       case 'bench': 
       case 'h': {
-        // bench
-        
-        silentMode = 1;
         
         const depth = uciGetInt(tokens, 'depth', BENCH_DEPTH);
         const warm  = uciGetInt(tokens, 'warm', 1);
         
-        // warmup
-        
-        for (let w=0; w < warm; w++) {
-        
-          for (var i=0; i < BENCHFENS.length; i++) {
-        
-            const fen = BENCHFENS[i];
-        
-            newGame();
-            uciExec('position fen ' + fen);
-            uciExec('id bench' + i);
-            uciExec('go depth ' + depth);
-        
-          }
-        
-        }
-        
-        let nodes = 0;
-        let start = now();
-        
-        for (let i=0; i < BENCHFENS.length; i++) {
-        
-          const fen = BENCHFENS[i];
-        
-          if (nodeHost)
-            process.stdout.write(i.toString() + '\r');
-        
-          newGame();
-          uciExec('position fen ' + fen);
-          uciExec('id bench' + i);
-          uciExec('go depth ' + depth);
-        
-          nodes += statsNodes;
-        
-        }
-        
-        silentMode = 0;
-        
-        const elapsed = now() - start;
-        const nps = nodes/elapsed * 1000 | 0;
-        
-        uciSend('warm', warm, 'depth', depth, 'nodes', nodes, 'time', elapsed, 'nps', nps);
-        
+        bench (depth, warm);
+
         break;
         
       }
 
       case 'qb': {
-        // quick bench
         
         uciExec('bench warm 0');
         
@@ -4681,90 +4747,24 @@ function uciExec (commands, canYield) {
       }
 
       case 'pt': {
-        // perft tests
         
         let n = uciGetInt(tokens, 'n', PERFTFENS.length);
-        
-        silentMode = 1;
-        
-        const t1 = now();
-        
-        let errors = 0;
-        let tot    = 0;
-        
-        for (let i=0; i < n; i++) {
-        
-          const p = PERFTFENS[i];
-        
-          const fen   = p[0];
-          const depth = p[1];
-          const moves = p[2];
-          const id    = p[3];
-        
-          newGame();
-          uciExec('position ' + fen);
-        
-          const nodes = perft(rootNode, depth, bdTurn);
-        
-          tot += nodes;
-        
-          const t2     = now();
-          const sec    = Math.round((t2-t1)/100)/10;
-          const secStr = sec.toString().padStart(6, ' ');
-        
-          let diff = nodes - moves;
-        
-          if (diff) {
-            errors += Math.abs(diff);
-            diff = '\x1b[1m' + diff + '\x1b[0m';
-          }
-        
-          silentMode = 0;
-          uciSend(secStr, id, fen, depth, diff, nodes, moves);
-          silentMode = 1;
-        }
-        
-        silentMode = 0;
-        
-        const elapsed = now() - t1;
-        const nps = tot/elapsed * 1000 | 0;
-        
-        uciSend('errors', errors, 'nodes', tot, 'nps', nps);
-        
+        pt(n);
+
         break;
         
       }
 
       case 'et': {
-        // eval tests
         
-        for (let i=0; i < BENCHFENS.length; i++) {
-        
-          uciSend();
-        
-          const fen = BENCHFENS[i];
-        
-          newGame();
-          uciExec('position fen ' + fen);
-          uciSend(fen, 'fen')
-          uciExec('e');
-        
-          const flippedFen = flipFen(fen);
-        
-          newGame();
-          uciExec('position fen ' + flippedFen);
-          uciSend(flippedFen, 'flipped fen')
-          uciExec('e');
-        
-        }
-        
+        et();
+
         break;
         
       }
 
       case 'net':
       case 'n': {
-        // network
         
         if (WEIGHTS_B64 == '') {
           uciSend('weights file', NET_WEIGHTS_FILE);
@@ -4783,7 +4783,6 @@ function uciExec (commands, canYield) {
 
       case 'moves':
       case 'm': {
-        // moves
         
         const moves = legalMoves();
         
