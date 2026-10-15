@@ -2,7 +2,7 @@
 
 A UCI chess engine written in Javascript.
 
-Lozza was primarily created for use in web pages, but more recent versions can also be used on the command line via Node. 
+Lozza was primarily created for use in web pages, but [more recent versions](https://github.com/op12no2/lozza/wiki/Release-overview) can also be used on the command line via Node. 
 
 ## Web use
 
