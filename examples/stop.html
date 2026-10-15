@@ -33,6 +33,8 @@
 
 <p>Lozza runs single-threaded in a Web Worker, yet still responds to <code>stop</code> during a search. This example starts <code>go infinite</code> and sends <code>stop</code> a second later. Lozza replies with <code>bestmove</code>, then answers the <code>uci</code> command that was queued behind <code>stop</code>.</p>
 
+<p>At high depths <code>stop</code> can take a while, as it's only checked between iterative deepening iterations. For an immediate stop use <code>worker.terminate()</code> and create a new worker; the hash is lost and there's a short startup delay.</p>
+
 <pre id="ucioutput"></pre>
 
 <script>

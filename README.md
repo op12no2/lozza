@@ -22,6 +22,8 @@ If you would like to try the latest development Lozza, use `./examples/lozza.js`
 
 Note that development and release versions can also be accessed via CDN as per the example above.
 
+If your site uses a bundler (Vite, webpack etc.), put ```lozza.js``` in its static folder (e.g. ```public/```) so it's copied as-is, and start it with ```new Worker('/lozza.js')```.
+
 ## Command line use
 
 ```
