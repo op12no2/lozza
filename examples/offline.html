@@ -38,7 +38,7 @@
 </head>
 <body>
 
-<h1>Offline</h1>
+<h1>Offline use</h1>
 
 <p>Lozza needs no server once it's loaded, since the net is embedded in <code>lozza.js</code>, so a page using it can work with no connection at all. This page registers a service worker (<code>offline-sw.js</code>) that caches the page and <code>lozza.js</code> on the first visit. Later visits are served from the cache, while a fresh copy is fetched in the background for next time, so a new <code>lozza.js</code> is picked up on the visit after it's published. To try it, load this page once, go offline (airplane mode, or DevTools &gt; Network &gt; Offline) and reload. Service workers need https or localhost.</p>
 
