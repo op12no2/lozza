@@ -1,6 +1,6 @@
 function formatMove (move) {
 
-  let moveStr = 'NULL';
+  let moveStr = '0000';  // UCI null move
 
   if (move !== 0) {
 

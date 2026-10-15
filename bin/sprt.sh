@@ -32,8 +32,7 @@ affinity=$(seq -s, 2 2 30)
 
 # options:
 #   --tc stc|ltc|vltc  time control and hash (default stc)
-#   --cand <file>      the baseline engine (default lozzacand.js, the last good version from
-#                      bin/release.sh); e.g. --cand dist/lozza-9.0/lozza.js
+#   --cand <file>      the baseline engine (default releases/lozza.js) e.g. --cand releases/9.0/lozza.js
 # any other args go to fastchess
 
 coal=lozza.js

@@ -15,6 +15,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
   const oAlpha   = alpha;
   const inCheck  = isKingAttacked(nextTurn);
   const doLMR    = (depth >= 3) | 0;
+  const excluded = multiPVExcluded.length;  // MultiPV lines already found this iteration
 
   let numLegalMoves = 0;
   let numPrunes     = 0;
@@ -35,6 +36,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
   genMoves(node, turn);
 
   while ((move = getNextMove(node)) !== 0) {
+
+    if (excluded !== 0 && multiPVExcluded.includes(move))
+      continue;
 
     makeMoveA(node, move);
 
@@ -112,7 +116,8 @@ function rootSearch (node, depth, turn, alpha, beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
             addHistory(Math.imul(Math.imul(depth, depth), depth), bestMove);
-          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INF);
+          if (excluded === 0)
+            ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INF);
           return bestScore;
         }
 
@@ -131,7 +136,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
   // update tt etc
   
-  if (numLegalMoves === 1)
+  if (numLegalMoves === 1 && excluded === 0)
     statsTimeOut = 1;  // only one legal move so don't waste any more time
   
   if (numLegalMoves === 0) {
@@ -139,6 +144,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
     statsBestMove = 0;
     statsBestScore = 0;
   }
+  
+  if (excluded !== 0)
+    return bestScore;  // not a search of the whole position so don't store it
   
   if (bestScore > oAlpha) {
     ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);

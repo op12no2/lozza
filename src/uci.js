@@ -5,12 +5,7 @@ function uciSend () {
   if (silentMode)
     return;
 
-  var s = '';
-
-  for (var i = 0; i < arguments.length; i++)
-    s += arguments[i] + ' ';
-
-  //fs.writeSync(1, s + '\n');
+  let s = Array.from(arguments).join(' ');
 
   if (nodeHost)
     console.log(s);

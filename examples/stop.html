@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stop</title>
+<title>Stop command</title>
 <style>
   body {
     font-family: system-ui, sans-serif;
@@ -30,6 +30,8 @@
 <body>
 
 <h1>Stop</h1>
+
+<p>Lozza runs single-threaded in a Web Worker, yet still responds to <code>stop</code> during a search. This example starts <code>go infinite</code> and sends <code>stop</code> a second later. Lozza replies with <code>bestmove</code>, then answers the <code>uci</code> command that was queued behind <code>stop</code>.</p>
 
 <pre id="ucioutput"></pre>
 

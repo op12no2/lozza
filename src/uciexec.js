@@ -160,9 +160,6 @@ function uciExec (commands, canYield) {
 
           const mb = Math.max(uciGetInt(tokens, 'value', ttDefault), 1);
 
-          if (nodeHost)
-            console.log(mb);
-
           ttResize(mb);
 
         }
@@ -429,18 +426,10 @@ function uciExec (commands, canYield) {
       case 'm': {
         // moves
         
-        initNode(rootNode);
+        const moves = legalMoves();
         
-        rootNode.inCheck = 1;
-        
-        let move = 0;
-        
-        genMoves(rootNode, bdTurn);
-        
-        while(move = getNextMove(rootNode))
-          uciSend(formatMove(move));
-        
-        initNode(rootNode);
+        for (let i=0; i < moves.length; i++)
+          uciSend(formatMove(moves[i]));
         
         break;
         
@@ -456,5 +445,39 @@ function uciExec (commands, canYield) {
       }
     }
   }
+
+}
+
+function legalMoves () {
+
+  // the legal moves in the current position, using the same legality test as rootSearch
+
+  const moves    = [];
+  const nextTurn = bdTurn ^ COLOR_MASK;
+
+  let move = 0;
+
+  initNode(rootNode);
+
+  rootNode.inCheck = isKingAttacked(nextTurn);
+
+  cache(rootNode);
+  genMoves(rootNode, bdTurn);
+
+  while ((move = getNextMove(rootNode)) !== 0) {
+
+    makeMoveA(rootNode, move);
+
+    if ((move & MOVE_LEGAL_MASK) !== 0 || isKingAttacked(nextTurn) === 0)
+      moves.push(move);
+
+    unmakeMove(rootNode, move);
+    uncacheA(rootNode);
+
+  }
+
+  initNode(rootNode);
+
+  return moves;
 
 }

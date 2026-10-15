@@ -2,7 +2,7 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "11.0";
+const BUILD = "12.0";
 
 const BENCH_DEPTH = 12;
 
@@ -864,12 +864,29 @@ function addKiller (node, score, move) {
 
 }
 
-let multiPV      = 1;
-let multiPVMoves = [];
+let multiPV         = 1;
+let multiPVLines    = [];  // {depth, move, score, pv, pvLen} from the last complete iteration, best first
+let multiPVExcluded = [];  // root moves rootSearch skips (lines already found this iteration)
 
 let reportedMove = 0;  // the first move of the last pv sent
 
-function report (units, value, depth) {
+function uciScore (score) {
+
+  if (Math.abs(score) > MINMATE) {
+
+    let mateScore = (MATE - Math.abs(score) + 1) / 2 | 0;
+    if (score < 0)
+      mateScore = -mateScore;
+
+    return 'score mate ' + mateScore;
+
+  }
+
+  return 'score cp ' + score;
+
+}
+
+function report (scoreStr, depth) {
 
   reportedMove = rootNode.pvLen > 0 ? rootNode.pv[rootNode.pvLen-1] : 0;
 
@@ -882,7 +899,6 @@ function report (units, value, depth) {
   const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
 
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
-  const scoreStr = 'score ' + units + ' ' + value;
   const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
@@ -891,55 +907,30 @@ function report (units, value, depth) {
 
 function reportScore (score, depth) {
 
-  if (Math.abs(score) > MINMATE) {
-
-    let mateScore = (MATE - Math.abs(score) + 1) / 2 | 0;
-    if (score < 0)
-      mateScore = -mateScore;
-
-    report('mate', mateScore, depth);
-
-  }
-
-  else {
-
-    report('cp', score, depth);
-
-  }
+  report(uciScore(score), depth);
 
 }
 
-function reportMultiPV (depth) {
+function reportMultiPV (lines) {
 
   const tim     = now() - statsStartTime;
   const nps     = (statsNodes * 1000) / tim | 0;
   const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
 
-  const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
   const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
 
-  const n = Math.min(multiPV, multiPVMoves.length);
+  const n = lines.length;
 
   for (let i = 0; i < n; i++) {
 
-    const entry = multiPVMoves[i];
+    const entry    = lines[i];
+    const depthStr = 'depth ' + entry.depth + ' seldepth ' + statsSelDepth;
 
     let pvStr = 'pv';
     for (let j = entry.pvLen - 1; j >= 0; j--)
       pvStr += ' ' + formatMove(entry.pv[j]);
 
-    let scoreStr;
-    if (Math.abs(entry.score) > MINMATE) {
-      let mateScore = (MATE - Math.abs(entry.score)) / 2 | 0;
-      if (entry.score < 0)
-        mateScore = -mateScore;
-      scoreStr = 'score mate ' + mateScore;
-    }
-    else {
-      scoreStr = 'score cp ' + entry.score;
-    }
-
-    uciSend('info', depthStr, 'multipv', (i + 1), scoreStr, nodeStr, hashStr, pvStr);
+    uciSend('info', depthStr, 'multipv', (i + 1), uciScore(entry.score), nodeStr, hashStr, pvStr);
   }
 }
 
@@ -953,107 +944,142 @@ function reportMultiPV (depth) {
 
 async function go (maxPly, canYield) {
 
+  // MultiPV: each iteration searches the root once per line, excluding the
+  // moves of the lines already found in that iteration; each line has its
+  // own aspiration window based on its score from the previous iteration
+
+  const numLines = multiPV > 1 ? Math.max(1, Math.min(multiPV, legalMoves().length)) : 1;
+
   let bestMoveStr = '';
   let alpha       = 0;
   let beta        = 0;
   let score       = 0;
   let delta       = 0;
   let depth       = 0;
+  let iterDepth   = 0;  // reported depth; depth itself may be reduced after a fail high
+  let iterLines   = []; // lines found so far in the current iteration
 
-  multiPVMoves = [];
+  multiPVLines    = []; // lines from the last complete iteration
+  multiPVExcluded = [];
 
   for (let ply=1; ply <= maxPly; ply++) {
     // id
-    
-    alpha = -INF;
-    beta  = INF;
-    delta = 10;
-    depth = ply;
-    
-    if (ply >= 4) {
-      alpha = Math.max(-INF, score - delta);
-      beta  = Math.min(INF,  score + delta);
-    }
-    
-    while (1) {
-      // asp
-      
-      score = rootSearch(rootNode, depth, bdTurn, alpha, beta);
-      
-      if (statsTimeOut)
-        break;
-      
-      delta += delta/2 | 0;
-      
-      if (score <= alpha) {
-        // upper bound
-        
-        beta  = Math.min(INF, ((alpha + beta) / 2) | 0);
-        alpha = Math.max(-INF, alpha - delta);
-        
-        report('upperbound', score, depth);
-        
-        if (!statsMaxNodes)
-          statsBestMove = 0;
-        
-      }
-      
-      else if (score >= beta) {
-        // lower bound
-        
-        beta = Math.min(INF, beta + delta);
-        
-        report('lowerbound', score, depth);
-        
-        depth = Math.max(1, depth-1);
-        
-      }
-      
-      else {
-        // exact
 
-        // track for MultiPV
+    iterLines = [];
+    multiPVExcluded = [];
 
-        if (statsBestMove) {
-          multiPVMoves = multiPVMoves.filter(m => m.move !== statsBestMove);
-          multiPVMoves.unshift({
+    for (let pvIdx=0; pvIdx < numLines; pvIdx++) {
+      // multipv line
+
+      alpha = -INF;
+      beta  = INF;
+      delta = 10;
+      depth = ply;
+      iterDepth = ply;
+
+      if (numLines > 1 && pvIdx < multiPVLines.length)
+        score = multiPVLines[pvIdx].score;
+
+      if (ply >= 4) {
+        alpha = Math.max(-INF, score - delta);
+        beta  = Math.min(INF,  score + delta);
+      }
+
+      while (1) {
+        // asp
+
+        score = rootSearch(rootNode, depth, bdTurn, alpha, beta);
+
+        if (statsTimeOut)
+          break;
+
+        delta += delta/2 | 0;
+
+        if (score <= alpha) {
+          // upper bound
+
+          beta  = Math.min(INF, ((alpha + beta) / 2) | 0);
+          alpha = Math.max(-INF, alpha - delta);
+
+          if (numLines === 1)
+            report(uciScore(score) + ' upperbound', iterDepth);
+
+          if (!statsMaxNodes && pvIdx === 0)
+            statsBestMove = 0;
+
+        }
+
+        else if (score >= beta) {
+          // lower bound
+
+          beta = Math.min(INF, beta + delta);
+
+          if (numLines === 1)
+            report(uciScore(score) + ' lowerbound', iterDepth);
+
+          depth = Math.max(1, depth-1);
+
+        }
+
+        else {
+          // exact
+
+          iterLines.push({
+            depth: iterDepth,
             move:  statsBestMove,
             score: score,
             pv:    rootNode.pv.slice(0, rootNode.pvLen),
             pvLen: rootNode.pvLen
           });
+
+          multiPVExcluded.push(statsBestMove);
+
+          if (numLines === 1)
+            reportScore(score, iterDepth);
+
+          if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes)
+            statsTimeOut = 1;
+
+          break;
+
         }
 
-        if (multiPV > 1) {
-
-          reportMultiPV(depth);
-
-        }
-
-        else {
-
-          reportScore(score, depth);
-
-        }
-
-        if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes)
-          statsTimeOut = 1;
-
-        break;
+        if (canYield && await checkStop())
+          break;
 
       }
-      
+
+      if (statsTimeOut)
+        break;
+
       if (canYield && await checkStop())
         break;
-      
+
     }
-    
+
+    // a complete iteration replaces the previous lines; keep them best first
+    // (search instability can leave a later line scoring higher)
+
+    if (iterLines.length === numLines) {
+
+      iterLines.sort((a, b) => b.score - a.score);
+
+      multiPVLines = iterLines;
+
+      if (numLines > 1) {
+        statsBestMove  = multiPVLines[0].move;
+        statsBestScore = multiPVLines[0].score;
+        reportMultiPV(multiPVLines);
+      }
+
+    }
+
     if (statsTimeOut)
       break;
-    
+
     if (canYield && await checkStop())
       break;
-    
+
   }
 
   // a move that became best in an iteration that then ran out of time has not
@@ -1061,12 +1087,52 @@ async function go (maxPly, canYield) {
 
   const pvMove = rootNode.pvLen > 0 ? rootNode.pv[rootNode.pvLen-1] : 0;
 
-  if (multiPV === 1 && statsBestMove !== 0 && statsBestMove !== reportedMove && pvMove === statsBestMove)
-    reportScore(statsBestScore, depth);
+  if (numLines === 1 && statsBestMove !== 0 && statsBestMove !== reportedMove && pvMove === statsBestMove)
+    reportScore(statsBestScore, iterDepth);
 
-  // after a fail low statsBestMove is 0, so fall back to the last exact result
+  // after a fail low statsBestMove is 0, so fall back to the last exact
+  // result; with MultiPV, an unfinished iteration's first line is deeper than
+  // the last complete one, otherwise statsBestMove may be from a later line
 
-  const bestMove = statsBestMove || (multiPVMoves.length ? multiPVMoves[0].move : 0);
+  let bestMove = statsBestMove || (multiPVLines.length ? multiPVLines[0].move : 0);
+
+  // with MultiPV, an unfinished iteration's lines are deeper than the last
+  // complete ones; report them, topped up with the previous iteration's lines
+  // for moves not searched yet (as Stockfish does), and play the first
+
+  if (numLines > 1) {
+
+    if (iterLines.length > 0 && iterLines.length < numLines) {
+
+      iterLines.sort((a, b) => b.score - a.score);
+
+      const lines = iterLines.concat(multiPVLines.filter(l => !iterLines.some(m => m.move === l.move))).slice(0, numLines);
+
+      reportMultiPV(lines);
+
+      bestMove = lines[0].move;
+
+    }
+
+    else if (multiPVLines.length) {
+
+      bestMove = multiPVLines[0].move;
+
+    }
+
+  }
+
+  // no legal moves: report mate or stalemate before bestmove 0000 so a GUI can
+  // tell them apart (lifted from Stockfish)
+
+  if (bestMove === 0 && legalMoves().length === 0) {
+
+    if (isKingAttacked(bdTurn ^ COLOR_MASK))
+      uciSend('info depth 0 score mate 0');
+    else
+      uciSend('info depth 0 score cp 0');
+
+  }
 
   bestMoveStr = formatMove(bestMove);
 
@@ -1091,6 +1157,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
   const oAlpha   = alpha;
   const inCheck  = isKingAttacked(nextTurn);
   const doLMR    = (depth >= 3) | 0;
+  const excluded = multiPVExcluded.length;  // MultiPV lines already found this iteration
 
   let numLegalMoves = 0;
   let numPrunes     = 0;
@@ -1111,6 +1178,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
   genMoves(node, turn);
 
   while ((move = getNextMove(node)) !== 0) {
+
+    if (excluded !== 0 && multiPVExcluded.includes(move))
+      continue;
 
     makeMoveA(node, move);
 
@@ -1188,7 +1258,8 @@ function rootSearch (node, depth, turn, alpha, beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
             addHistory(Math.imul(Math.imul(depth, depth), depth), bestMove);
-          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INF);
+          if (excluded === 0)
+            ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INF);
           return bestScore;
         }
 
@@ -1207,7 +1278,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
   // update tt etc
   
-  if (numLegalMoves === 1)
+  if (numLegalMoves === 1 && excluded === 0)
     statsTimeOut = 1;  // only one legal move so don't waste any more time
   
   if (numLegalMoves === 0) {
@@ -1215,6 +1286,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
     statsBestMove = 0;
     statsBestScore = 0;
   }
+  
+  if (excluded !== 0)
+    return bestScore;  // not a search of the whole position so don't store it
   
   if (bestScore > oAlpha) {
     ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
@@ -4039,7 +4113,7 @@ function flipFen (fen) {
 
 function formatMove (move) {
 
-  let moveStr = 'NULL';
+  let moveStr = '0000';  // UCI null move
 
   if (move !== 0) {
 
@@ -4229,12 +4303,7 @@ function uciSend () {
   if (silentMode)
     return;
 
-  var s = '';
-
-  for (var i = 0; i < arguments.length; i++)
-    s += arguments[i] + ' ';
-
-  //fs.writeSync(1, s + '\n');
+  let s = Array.from(arguments).join(' ');
 
   if (nodeHost)
     console.log(s);
@@ -4450,9 +4519,6 @@ function uciExec (commands, canYield) {
 
           const mb = Math.max(uciGetInt(tokens, 'value', ttDefault), 1);
 
-          if (nodeHost)
-            console.log(mb);
-
           ttResize(mb);
 
         }
@@ -4493,7 +4559,7 @@ function uciExec (commands, canYield) {
           uciSend('id name Lozza', BUILD);
         uciSend('id author Colin Jenkins');
         uciSend('option name Hash type spin default', ttDefault, 'min 1 max 1024');
-        uciSend('option name MultiPV type spin default 1 min 1 max 500');
+        uciSend('option name MultiPV type spin default 1 min 1 max 10');
         uciSend('uciok');
         
         break;
@@ -4719,18 +4785,10 @@ function uciExec (commands, canYield) {
       case 'm': {
         // moves
         
-        initNode(rootNode);
+        const moves = legalMoves();
         
-        rootNode.inCheck = 1;
-        
-        let move = 0;
-        
-        genMoves(rootNode, bdTurn);
-        
-        while(move = getNextMove(rootNode))
-          uciSend(formatMove(move));
-        
-        initNode(rootNode);
+        for (let i=0; i < moves.length; i++)
+          uciSend(formatMove(moves[i]));
         
         break;
         
@@ -4746,6 +4804,40 @@ function uciExec (commands, canYield) {
       }
     }
   }
+
+}
+
+function legalMoves () {
+
+  // the legal moves in the current position, using the same legality test as rootSearch
+
+  const moves    = [];
+  const nextTurn = bdTurn ^ COLOR_MASK;
+
+  let move = 0;
+
+  initNode(rootNode);
+
+  rootNode.inCheck = isKingAttacked(nextTurn);
+
+  cache(rootNode);
+  genMoves(rootNode, bdTurn);
+
+  while ((move = getNextMove(rootNode)) !== 0) {
+
+    makeMoveA(rootNode, move);
+
+    if ((move & MOVE_LEGAL_MASK) !== 0 || isKingAttacked(nextTurn) === 0)
+      moves.push(move);
+
+    unmakeMove(rootNode, move);
+    uncacheA(rootNode);
+
+  }
+
+  initNode(rootNode);
+
+  return moves;
 
 }
 

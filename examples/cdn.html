@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loading via CDN</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 90%;
+    margin: auto;
+    padding: 0 1em;
+  }
+  pre, code, textarea, input {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  pre {
+    background: #ffffff;
+    padding: 1em;
+    overflow-x: auto;
+  }
+  .ucioutput {
+    height: 100%;
+    overflow-y: auto;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+
+<h1>CDN</h1>
+
+<p>Lozza can be loaded straight from GitHub via the <a href="https://www.jsdelivr.com">jsDelivr</a> CDN, with no need to download <code>lozza.js</code>. Browsers will not start a Web Worker from another origin with <code>new Worker(url)</code>, so instead a tiny worker is created from a Blob, which pulls Lozza in with <code>importScripts</code> (allowed cross-origin). After that it's used exactly like a local <code>new Worker('lozza.js')</code>.</p>
+
+<p>The URL is <code>https://cdn.jsdelivr.net/gh/op12no2/lozza@&lt;version&gt;/examples/lozza.js</code>, where <code>&lt;version&gt;</code> is a release tag or <code>main</code>. Only releases from 11.0 onwards can be targeted like this; earlier releases do not have a standalone <code>examples/lozza.js</code> in their tags.</p>
+
+<h2>Release 11.0</h2>
+
+<p>A release tag always serves the same file, so this is what to use in your own pages.</p>
+
+<pre class="ucioutput" id="release"></pre>
+
+<h2>Main</h2>
+
+<p>The <code>main</code> branch serves the current development build, which may be newer than the latest release. jsDelivr caches branch URLs for up to 12 hours, so it can lag behind the repo a little.</p>
+
+<pre class="ucioutput" id="main"></pre>
+
+<script>
+
+function cdnWorker (url) {
+  const blob = new Blob(["importScripts('" + url + "');"], {type: 'application/javascript'});
+  return new Worker(URL.createObjectURL(blob));
+}
+
+function demo (url, id) {
+
+  const lozza     = cdnWorker(url);
+  const ucioutput = document.getElementById(id);
+
+  ucioutput.textContent = url + '\n\n';
+
+  lozza.onmessage = function(e) {
+    ucioutput.textContent += e.data + '\n'; // lozza reponds with text as per UCI
+    ucioutput.scrollTop = ucioutput.scrollHeight;
+  };
+
+  lozza.postMessage('uci');
+  lozza.postMessage('ucinewgame');
+  lozza.postMessage('position startpos');
+  lozza.postMessage('go depth 8');
+
+}
+
+demo('https://cdn.jsdelivr.net/gh/op12no2/lozza@11.0/examples/lozza.js', 'release');
+demo('https://cdn.jsdelivr.net/gh/op12no2/lozza@main/examples/lozza.js', 'main');
+
+</script>
+
+</body>
+</html>
