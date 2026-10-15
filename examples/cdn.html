@@ -29,7 +29,7 @@
 </head>
 <body>
 
-<h1>CDN</h1>
+<h1>Loading via CDN</h1>
 
 <p>Lozza can be loaded straight from GitHub via the <a href="https://www.jsdelivr.com">jsDelivr</a> CDN, with no need to download <code>lozza.js</code>. Browsers will not start a Web Worker from another origin with <code>new Worker(url)</code>, so instead a tiny worker is created from a Blob, which pulls Lozza in with <code>importScripts</code> (allowed cross-origin). After that it's used exactly like a local <code>new Worker('lozza.js')</code>.</p>
 

@@ -18,7 +18,7 @@ Examples:-
 
 If you would like to try the latest development Lozza, use `./examples/lozza.js` which has the net embedded like release versions and is up to date with all commits. 
 
-Note that development and release versions can be accessed via CDN as per the example above.
+Note that development and release versions can also be accessed via CDN as per the example above.
 
 ## Command line use
 
