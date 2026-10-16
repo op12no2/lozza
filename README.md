@@ -35,7 +35,7 @@ node lozza.js qb q                                       # quick bench and quit
 Examples:-
 
 ```
-- node examples/node-promise.js # node equivalent of the web promise wrapper above.
+node examples/node-promise.js # node equivalent of the web promise wrapper above.
 ```
 
 ## References and Acknowledgements
