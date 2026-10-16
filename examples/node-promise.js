@@ -1,6 +1,6 @@
 // Promise wrapper for Lozza under Node.
 //
-//   node node-promise.js
+//   node examples/node-promise.js
 //
 // The Node counterpart of promise.html. On the command line Lozza is a
 // normal UCI engine reading commands from stdin and writing replies to
