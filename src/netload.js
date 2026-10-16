@@ -1,10 +1,6 @@
 const WEIGHTS_B64 = getWeights();
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/sqrrelu256.bin';  // ignore - only relevant for dev version
 
 function getWeightsBuffer() {
-
-  if (WEIGHTS_B64 === '')
-    return fs.readFileSync(NET_WEIGHTS_FILE);
 
   const b64 = WEIGHTS_B64.replace(/\s+/g, "");
 

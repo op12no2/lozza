@@ -9,7 +9,6 @@ out=lozza.js
 files=(
   constants
   tables
-  host
   utils
   node
   movelist

@@ -186,10 +186,7 @@ function uciExec (commands, canYield) {
 
       case 'uci': {
         
-        if (WEIGHTS_B64 == '')
-          uciSend('id name Lozza', BUILD, '(dev)');
-        else
-          uciSend('id name Lozza', BUILD);
+        uciSend('id name Lozza', BUILD);
         uciSend('id author Colin Jenkins');
         uciSend('option name Hash type spin default', ttDefault, 'min 1 max 1024');
         uciSend('option name MultiPV type spin default 1 min 1 max 10');
@@ -285,9 +282,6 @@ function uciExec (commands, canYield) {
       case 'net':
       case 'n': {
         
-        if (WEIGHTS_B64 == '') {
-          uciSend('weights file', NET_WEIGHTS_FILE);
-        }
         uciSend('i_size, h1_size', NET_I_SIZE, NET_H1_SIZE);
         uciSend('qa, qb', NET_QA, NET_QB);
         uciSend('scale', NET_SCALE);

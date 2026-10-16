@@ -101,3 +101,5 @@ const B_BISHOP = BISHOP | BLACK;
 const B_ROOK   = ROOK   | BLACK;
 const B_QUEEN  = QUEEN  | BLACK;
 const B_KING   = KING   | BLACK;
+
+const nodeHost = (typeof process) != 'undefined';
