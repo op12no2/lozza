@@ -29,7 +29,12 @@ If your site uses a bundler (Vite, webpack etc.), put ```lozza.js``` in its stat
 ```
 node lozza.js                                            # interactive, quit to close 
 node lozza.js uci "position startpos" "go depth 10 quit" # execute commands then quit 
+node lozza.js qb q                                       # quick bench and quit
 ```
+
+Examples:-
+
+- node examples/node-promise.js # node equivalent of the web promise wrapper above.
 
 ## References and Acknowledgements
 
