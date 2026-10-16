@@ -31,16 +31,13 @@ node lozza.js                                            # interactive, quit to 
 node lozza.js uci "position startpos" "go depth 10 quit" # execute commands then quit 
 ```
 
-## References
+## References and Acknowledgements
 
 - https://nodejs.org - Node
 - https://www.chessprogramming.org/Main_Page - Chess programming wiki
 - https://computerchess.org.uk/ccrl/4040 - CCRL rating list
 - https://backscattering.de/chess/uci - UCI protocol
 - https://talkchess.com - Talkchess forums
-
-## Acknowledgements
-
 - https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
 - https://github.com/jw1912/bullet - bullet network trainer
 - https://github.com/Disservin/fastchess - fastchess game runner
