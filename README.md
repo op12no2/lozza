@@ -4,11 +4,15 @@ A UCI chess engine written in Javascript.
 
 Lozza was primarily created for use in web pages, but [more recent versions](https://github.com/op12no2/lozza/wiki/Release-overview) can also be used on the command line via Node. 
 
+I use Claude lightly from version 12.0 in Lozza itself.
+
 ## Web use
 
 All you need is ```lozza.js``` from a [release's](https://github.com/op12no2/lozza/wiki/Release-overview) Assets section.  
 
 Examples:-
+
+All written by Claude.
 
 - [Hello world](https://op12no2.github.io/lozza/examples/hello.html)
 - [Stop command](https://op12no2.github.io/lozza/examples/stop.html) 

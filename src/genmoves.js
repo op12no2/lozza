@@ -51,10 +51,10 @@ function genMoves (node, turn) {
   
     if (inCheck === 0 && rights !== 0) {
   
-      if (((rights & BLACK_RIGHTS_KING) !== 0) && b[F8] === 0 && b[G8] === 0 && b[SQG7] !== B_KING && b[SQH7] !== B_KING && isAttacked(F8,WHITE) === 0)
+      if (((rights & BLACK_RIGHTS_KING) !== 0) && b[F8] === 0 && b[G8] === 0 && b[SQG7] !== W_KING && b[SQH7] !== W_KING && isAttacked(F8,WHITE) === 0)
         addCastle(node, MOVE_E8G8);
   
-      if (((rights & BLACK_RIGHTS_QUEEN) !== 0) && b[B8] === 0 && b[C8] === 0 && b[D8] === 0 && b[SQB7] !== B_KING && b[SQC7] !== B_KING && isAttacked(D8,WHITE) === 0)
+      if (((rights & BLACK_RIGHTS_QUEEN) !== 0) && b[B8] === 0 && b[C8] === 0 && b[D8] === 0 && b[SQB7] !== W_KING && b[SQC7] !== W_KING && isAttacked(D8,WHITE) === 0)
         addCastle(node, MOVE_E8C8);
     }
   

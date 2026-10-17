@@ -1744,6 +1744,10 @@ const PERFTFENS = [
   ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b q    -  0 1', 3, 4729,      'castling-6'],
   ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b k    -  0 1', 3, 4686,      'castling-7'],
   ['fen r3k2r/r7/8/8/8/8/8/4K3                                  b -    -  0 1', 3, 4522,      'castling-8'],
+  ['fen 4k2r/6K1/8/8/8/8/8/8                                    b k    -  0 1', 6, 185867,    'castle-kg7'],
+  ['fen 4k2r/7K/8/8/8/8/8/8                                     b k    -  0 1', 6, 59776,     'castle-kh7'],
+  ['fen r3k3/2K5/8/8/8/8/8/8                                    b q    -  0 1', 6, 466474,    'castle-kc7'],
+  ['fen r3k3/1K6/8/8/8/8/8/8                                    b q    -  0 1', 6, 413018,    'castle-kb7'],
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 0, 1,         'cpw-pos1-0'],
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 1, 20,        'cpw-pos1-1'],
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 3, 8902,      'cpw-pos1-3'],
@@ -2702,10 +2706,10 @@ function genMoves (node, turn) {
   
     if (inCheck === 0 && rights !== 0) {
   
-      if (((rights & BLACK_RIGHTS_KING) !== 0) && b[F8] === 0 && b[G8] === 0 && b[SQG7] !== B_KING && b[SQH7] !== B_KING && isAttacked(F8,WHITE) === 0)
+      if (((rights & BLACK_RIGHTS_KING) !== 0) && b[F8] === 0 && b[G8] === 0 && b[SQG7] !== W_KING && b[SQH7] !== W_KING && isAttacked(F8,WHITE) === 0)
         addCastle(node, MOVE_E8G8);
   
-      if (((rights & BLACK_RIGHTS_QUEEN) !== 0) && b[B8] === 0 && b[C8] === 0 && b[D8] === 0 && b[SQB7] !== B_KING && b[SQC7] !== B_KING && isAttacked(D8,WHITE) === 0)
+      if (((rights & BLACK_RIGHTS_QUEEN) !== 0) && b[B8] === 0 && b[C8] === 0 && b[D8] === 0 && b[SQB7] !== W_KING && b[SQC7] !== W_KING && isAttacked(D8,WHITE) === 0)
         addCastle(node, MOVE_E8C8);
     }
   
