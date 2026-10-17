@@ -13,7 +13,7 @@ bin/build.sh        # concatenates src/*.js into ./lozza.js and runs `node lozza
 ```
 
 - There are no imports. `src/` files are concatenated in the explicit order listed in `bin/build.sh`, so everything shares one global scope and order matters (constants/tables first, `main` last). Adding a file to `src/` without listing it in `build.sh` makes the build fail on purpose.
-- `./lozza.js` (repo root) is the dev build and is gitignored. `examples/lozza.js` is the committed copy of the current dev build served via GitHub Pages / CDN; refresh it from `./lozza.js` when committing engine changes. `releases/<ver>/lozza.js` and `releases/lozza.js` (latest release) are frozen copies and the SPRT baseline. VS Code marks all three read-only.
+- `./lozza.js` (repo root) is the dev build and is gitignored. `examples/lozza.js` is the committed copy of the current dev build served via GitHub Pages / CDN; refresh it from `./lozza.js` when committing engine changes. `releases/lozza.js` is the last build that passed SPRT, the accumulating candidate for the next release and the SPRT baseline (`cand` in `bin/sprt.sh`); refresh it from `./lozza.js` too when an engine change is accepted. `releases/<ver>/lozza.js` are the frozen formal releases. `releases/` is gitignored, so both are local only. VS Code marks all three read-only.
 - `src/weights.js` is generated (base64 net weights, `-diff` in `.gitattributes`). Never hand edit it.
 
 ## Running and testing

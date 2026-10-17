@@ -17,7 +17,7 @@ cand=releases/lozza.js
 report=100
 concurrency=15
 rounds=10000
-timemargin=200
+timemargin=50
 data=/mnt/d/chess_data
 book=$data/4moves_noob.epd
 
@@ -47,9 +47,9 @@ cp "$cand" /tmp/cand.js
 rm -f $pgn
 
 $fastchess \
-  -engine name=coal cmd=node args=/tmp/coal.js \
-  -engine name=cand cmd=node args=/tmp/cand.js \
-  -each proto=uci tc=$tc timemargin=$timemargin option.Hash=$hash \
+  -engine name=coal cmd=node timemargin=$timemargin args=/tmp/coal.js \
+  -engine name=cand cmd=node timemargin=200 args=/tmp/cand.js \
+  -each proto=uci tc=$tc option.Hash=$hash \
   -rounds $rounds -repeat \
   -sprt $sprt alpha=0.05 beta=0.1 \
   -concurrency $concurrency \

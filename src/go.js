@@ -68,8 +68,11 @@ async function go (maxPly, canYield) {
           if (numLines === 1)
             report(uciScore(score) + ' upperbound', iterDepth);
 
+          // the best move may be bad; let the re-search run up to the hard
+          // limit rather than stopping on the normal budget
+
           if (!statsMaxNodes && pvIdx === 0)
-            statsBestMove = 0;
+            statsMoveTime = statsHardTime;
 
         }
 
@@ -100,6 +103,15 @@ async function go (maxPly, canYield) {
 
           if (numLines === 1)
             reportScore(score, iterDepth);
+
+          // back to the normal budget after a fail low extension; if it has
+          // already run out don't start another iteration
+
+          if (statsMoveTime !== statsSoftTime) {
+            statsMoveTime = statsSoftTime;
+            if (statsMoveTime > 0 && now() - statsStartTime >= statsMoveTime)
+              statsTimeOut = 1;
+          }
 
           if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes)
             statsTimeOut = 1;
@@ -154,9 +166,10 @@ async function go (maxPly, canYield) {
   if (numLines === 1 && statsBestMove !== 0 && statsBestMove !== reportedMove && pvMove === statsBestMove)
     reportScore(statsBestScore, iterDepth);
 
-  // after a fail low statsBestMove is 0, so fall back to the last exact
-  // result; with MultiPV, an unfinished iteration's first line is deeper than
-  // the last complete one, otherwise statsBestMove may be from a later line
+  // statsBestMove is 0 if no iteration has produced a move yet, so fall back
+  // to the last exact result; with MultiPV, an unfinished iteration's first
+  // line is deeper than the last complete one, otherwise statsBestMove may be
+  // from a later line
 
   let bestMove = statsBestMove || (multiPVLines.length ? multiPVLines[0].move : 0);
 

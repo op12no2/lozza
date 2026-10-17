@@ -1002,8 +1002,11 @@ async function go (maxPly, canYield) {
           if (numLines === 1)
             report(uciScore(score) + ' upperbound', iterDepth);
 
+          // the best move may be bad; let the re-search run up to the hard
+          // limit rather than stopping on the normal budget
+
           if (!statsMaxNodes && pvIdx === 0)
-            statsBestMove = 0;
+            statsMoveTime = statsHardTime;
 
         }
 
@@ -1034,6 +1037,15 @@ async function go (maxPly, canYield) {
 
           if (numLines === 1)
             reportScore(score, iterDepth);
+
+          // back to the normal budget after a fail low extension; if it has
+          // already run out don't start another iteration
+
+          if (statsMoveTime !== statsSoftTime) {
+            statsMoveTime = statsSoftTime;
+            if (statsMoveTime > 0 && now() - statsStartTime >= statsMoveTime)
+              statsTimeOut = 1;
+          }
 
           if (statsBestMove && statsMaxNodes > 0 && statsNodes >= statsMaxNodes)
             statsTimeOut = 1;
@@ -1088,9 +1100,10 @@ async function go (maxPly, canYield) {
   if (numLines === 1 && statsBestMove !== 0 && statsBestMove !== reportedMove && pvMove === statsBestMove)
     reportScore(statsBestScore, iterDepth);
 
-  // after a fail low statsBestMove is 0, so fall back to the last exact
-  // result; with MultiPV, an unfinished iteration's first line is deeper than
-  // the last complete one, otherwise statsBestMove may be from a later line
+  // statsBestMove is 0 if no iteration has produced a move yet, so fall back
+  // to the last exact result; with MultiPV, an unfinished iteration's first
+  // line is deeper than the last complete one, otherwise statsBestMove may be
+  // from a later line
 
   let bestMove = statsBestMove || (multiPVLines.length ? multiPVLines[0].move : 0);
 
@@ -4255,7 +4268,9 @@ function boardCheck (turn) {
 
 let statsStartTime = 0;
 let statsNodes     = 0;
-let statsMoveTime  = 0;
+let statsMoveTime  = 0;  // limit checkTime uses; go switches it between soft and hard
+let statsSoftTime  = 0;  // normal budget for the move
+let statsHardTime  = 0;  // never exceeded; used while re-searching after a root fail low
 let statsMaxNodes  = 0;
 let statsTimeOut   = 0;
 let statsSelDepth  = 0;
@@ -4267,6 +4282,8 @@ function initStats () {
   statsStartTime = now();
   statsNodes     = 0;
   statsMoveTime  = 0;
+  statsSoftTime  = 0;
+  statsHardTime  = 0;
   statsMaxNodes  = 0;
   statsTimeOut   = 0;
   statsSelDepth  = 0;
@@ -4575,8 +4592,10 @@ function uciExec (commands, canYield) {
         if (depth <= 0)
           depth = MAX_PLY;
         
-        if (moveTime > 0)
-          statsMoveTime = moveTime;
+        if (moveTime > 0) {
+          statsSoftTime = moveTime;
+          statsHardTime = moveTime;  // movetime is a hard limit
+        }
         
         if (maxNodes > 0)
           statsMaxNodes = maxNodes;
@@ -4600,12 +4619,18 @@ function uciExec (commands, canYield) {
           movTime = myround(totTime / movesToGo) + incTime;
           movTime = movTime * 0.95;
         
-          if (movTime > 0)
-            statsMoveTime = movTime | 0;
+          if (movTime > 0) {
+            statsSoftTime = movTime | 0;
+            statsHardTime = Math.max(statsSoftTime, Math.min(statsSoftTime * 4, totTime / 2)) | 0;
+          }
         
-          if (statsMoveTime < 1 && (wTime || bTime))
-            statsMoveTime = 1;
+          if (statsSoftTime < 1 && (wTime || bTime)) {
+            statsSoftTime = 1;
+            statsHardTime = 1;
+          }
         }
+        
+        statsMoveTime = statsSoftTime;
         
         if (canYield)
           return go(depth, 1);
