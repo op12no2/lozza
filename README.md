@@ -2,67 +2,23 @@
 
 A UCI Javascript chess engine.
 
-Lozza was primarily created for use in browsers, but can also be used with traditional chess user interfaces (see below). 
+Lozza was created for use in web pages and runs as a Web Worker. It's readable, easily tweakable and WASM-free.
 
-## Basic use in a browser
+The [latest release](https://github.com/op12no2/lozza/releases) has several builds available as assets to choose from:-
 
-All you need is ```lozza.js``` from the latest release (not the repo).  
+| File | Evaluation | ~Elo | Size | |
+|---|---|---|---|---|
+| lozzaNNUE.js | [Neural network](https://chessprogramming.org/NNUE)                                | 3100 | 370 kb | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaNNUE) |
+| lozzaMini.js | Mini [neural network](https://chessprogramming.org/NNUE) as readable boards        | 2800 | 195 kb | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMini) |
+| lozzaHCE.js  | [Hand coded evaluation](https://chessprogramming.org/Evaluation)                   | 2750 | 97 kb  | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaHCE)  |
+| lozzaMat.js  | [Material only](https://www.danheisman.com/evaluation-of-material-imbalances.html) | 2050 | 62 kb  | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMat)  |
+| lozzaBeal.js | [Random (Beal effect)](https://chessprogramming.org/Search_with_Random_Leaf_Values)| 1200 | 58 kb  | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaBeal) |
 
-Here is a little example to do a 10 ply search:-
+All have identical UCI interfaces and search. They only differ by their evaluation function. There some example of use [here](https://github.com/op12no2/lozza-ui). 
 
-```Javascript
-var lozza = new Worker('lozza.js');      
+## References & Acknowledgements
 
-lozza.onmessage = function (e) {
-  $('#dump').append(e.data);             // assuming jquery and a div called #dump
-                                         // parse messages from here as required
-};
-
-lozza.postMessage('uci');                // lozza uses the uci communication protocol
-lozza.postMessage('ucinewgame');         // reset tt
-lozza.postMessage('position startpos');
-lozza.postMessage('go depth 10');        // 10 ply search
-```
-
-Note that Lozza must be fired up in a web worker.
-
-## Play Lozza offline in chess user interfaces
-
-The most straightfoward way is to use one of the binaries from the latest release. 
-
-Alternatively install [Node](https://nodejs.org/en) or [Bun](https://bun.com) and use ```lozza.js``` via a batch file; for example:
-
-```
-"c:\program files\nodejs\node.exe" "c:\path\to\lozza.js"
-```
-
-## UCI options
-
-```
-option name Hash type spin default 16 min 1 max 1024 
-option name MultiPV type spin default 1 min 1 max 500 
-```
-
-## Custom commands
-
-- quit - close Lozza.
-- board - display the board for the current position.
-- moves - display the moves for the current position.
-- eval - display the evaluation for the current position.
-- net - display network attributes.
-- bench - run a sequence of searches returning the toal node count and nps.
-- perft depth <d> - run a perft search from the current position using depth <d>.
-- pt - run a sequence of perft searches.
-- et - run a sequence of evaluations.
-
-## References
-
-- https://nodejs.org - Node
 - https://www.chessprogramming.org/Main_Page - Chess programming wiki
-- https://computerchess.org.uk/ccrl/4040 - CCRL rating list
 - https://backscattering.de/chess/uci - UCI protocol
-- https://talkchess.com - Talkchess forums
-
-## Acknowledgements
-
-- https://www.chessprogramming.org/Fruit - Early versions of Lozza used a HCE based on Fruit 2.1
+- https://github.com/Disservin/fastchess - fastchess game runner
+- https://github.com/jw1912/bullet - bullet network trainer
