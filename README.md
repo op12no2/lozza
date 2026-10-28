@@ -5,7 +5,7 @@ A Javascript UCI chess engine that can be used in a Web Worker and Node.
 Release versions are also available as a Windows binary;
 ping me if you would like a binary for a different platform.
 
-## Hello world
+## Web hello world
 
 ```
 const dump = document.getElementById('dump');
@@ -23,8 +23,11 @@ lozza.postMessage('go depth 10');
 
 [Hello world](https://op12no2.github.io/lozza/examples/hello_world.html)
 
+## Node
+
 ```
-node lozza.js # interactive uci or use in a chess gui via a batch file
+node lozza.js                     # interactive or use in a chess gui via a batch file
+node lozza.js uci "go depth 10" q # exec command and exit
 ```
 
 ## Acknowledgements
