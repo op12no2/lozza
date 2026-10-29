@@ -432,17 +432,21 @@ const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
 const net_h1_b      = new Int32Array(NET_H1_SIZE);
 const net_o_w       = new Int32Array(NET_H1_SIZE*2);
 let   net_o_b       = 0;
-const net_h1_a      = new Int32Array(NET_H1_SIZE);
-const net_h2_a      = new Int32Array(NET_H1_SIZE);
-const net_a         = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
+// Each node owns the accumulators for its position. They all live in net_acc, one flat
+// array so that v8 sees a constant base: node.acc1 is the offset of the us accumulator
+// and node.acc2 the them accumulator (see initNodes()). makeMoveA() records what changed
+// in the child node (ueType, ueArgs*) and marks it dirty. Nothing is computed until
+// netEval() needs it; netRefresh() then walks up to the nearest clean ancestor and
+// applies the recorded updates downwards, child = parent + delta.
 
-let ueFunc  = netMove;
-let ueArgs0 = 0;
-let ueArgs1 = 0;
-let ueArgs2 = 0;
-let ueArgs3 = 0;
-let ueArgs4 = 0;
-let ueArgs5 = 0;
+const net_acc = new Int32Array(MAX_PLY * 2 * NET_H1_SIZE);
+
+const UE_MOVE      = 1;
+const UE_CAPTURE   = 2;
+const UE_PROMOTE   = 3;
+const UE_EPCAPTURE = 4;
+const UE_CASTLE    = 5;
+const UE_COPY      = 6;  // null move
 
 //{{{  getWeightsBuffer()
 
@@ -587,22 +591,35 @@ function bullet2lozza (index) {
 
 //{{{  netEval
 
-function netEval(turn) {
+function netEval(node, turn) {
+
+  if (node.accDirty !== 0)
+    netRefresh(node);
+
+  if (turn === WHITE)
+    return netEval2(node.acc1, node.acc2);
+  else
+    return netEval2(node.acc2, node.acc1);
+
+}
+
+function netEval2(o1, o2) {
 
   const w  = net_o_w;
-  const a  = net_a[turn >>> 3];
-  const a1 = a[0];
-  const a2 = a[1];
+  const a  = net_acc;
   const N  = NET_H1_SIZE | 0;
 
   let e  = 0 | 0;
   let p1 = 0 | 0;
   let p2 = N | 0;
+  let i1 = o1 | 0;
+  let i2 = o2 | 0;
 
   while (p1 < N) {
 
-    const x1 = a1[p1] | 0;
-    const x2 = a2[p1] | 0;
+    const x1 = a[i1] | 0;
+    const x2 = a[i2] | 0;
+    i1++; i2++;
 
     const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
     const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
@@ -626,28 +643,85 @@ function netEval(turn) {
 
 //}}}
 
-//{{{  netMove
+//{{{  netRefresh
+//
+// Bring node's accumulators up to date. The parent must be clean first; the
+// root is always clean after position(), so the walk up always terminates.
+//
 
-function netMove () {
+function netRefresh (node) {
 
-  const frObj = ueArgs0 << 8;
-  const from  = ueArgs1 | 0;
-  const to    = ueArgs2 | 0;
+  const parent = node.parentNode;
 
-  const map = IMAP;
-  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+  if (parent.accDirty !== 0)
+    netRefresh(parent);
+
+  switch (node.ueType) {
+    case UE_MOVE: {
+      netMove(parent, node);
+      break;
+    }
+    case UE_CAPTURE: {
+      netCapture(parent, node);
+      break;
+    }
+    case UE_PROMOTE: {
+      netPromote(parent, node);
+      break;
+    }
+    case UE_EPCAPTURE: {
+      netEpCapture(parent, node);
+      break;
+    }
+    case UE_CASTLE: {
+      netCastle(parent, node);
+      break;
+    }
+    case UE_COPY: {
+      netCopy(parent, node);
+      break;
+    }
+  }
+
+  node.accDirty = 0;
+
+}
+
+//}}}
+//{{{  netCopy
+
+function netCopy (parent, node) {
 
   const N = NET_H1_SIZE | 0;
 
-  let h  = 0;
+  net_acc.set(net_acc.subarray(parent.acc1, parent.acc1 + N + N), node.acc1);
+
+}
+
+//}}}
+//{{{  netMove
+
+function netMove (parent, node) {
+
+  const frObj = node.ueArgs0 << 8;
+  const from  = node.ueArgs1 | 0;
+  const to    = node.ueArgs2 | 0;
+
+  const map = IMAP;
+  const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
+  const a   = net_acc;
+  let   c1  = node.acc1   | 0, c2 = node.acc2   | 0;
+  let   q1  = parent.acc1 | 0, q2 = parent.acc2 | 0;
+
+  const e1 = c1 + NET_H1_SIZE | 0;
+
   let p1 = map[frObj + from] | 0;
   let p2 = map[frObj + to]   | 0;
 
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p2] - h2w[p1];
-    h++; p1++; p2++;
+  while (c1 < e1) {
+    a[c1] = a[q1] + h1w[p2] - h1w[p1];
+    a[c2] = a[q2] + h2w[p2] - h2w[p1];
+    c1++; c2++; q1++; q2++; p1++; p2++;
   }
 
 }
@@ -655,28 +729,29 @@ function netMove () {
 //}}}
 //{{{  netCapture
 
-function netCapture () {
+function netCapture (parent, node) {
 
-  const frObj = ueArgs0 << 8;
-  const fr    = ueArgs1 | 0;
-  const toObj = ueArgs2 << 8;
-  const to    = ueArgs3 | 0;
+  const frObj = node.ueArgs0 << 8;
+  const fr    = node.ueArgs1 | 0;
+  const toObj = node.ueArgs2 << 8;
+  const to    = node.ueArgs3 | 0;
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+  const a   = net_acc;
+  let   c1  = node.acc1   | 0, c2 = node.acc2   | 0;
+  let   q1  = parent.acc1 | 0, q2 = parent.acc2 | 0;
 
-  const N = NET_H1_SIZE | 0;
+  const e1 = c1 + NET_H1_SIZE | 0;
 
-  let h  = 0;
   let p1 = map[frObj + fr] | 0;
   let p2 = map[toObj + to] | 0;
   let p3 = map[frObj + to] | 0;
 
-  while (h < N) {
-    h1a[h] += h1w[p3] - h1w[p2] - h1w[p1];
-    h2a[h] += h2w[p3] - h2w[p2] - h2w[p1];
-    h++; p1++; p2++; p3++;
+  while (c1 < e1) {
+    a[c1] = a[q1] + h1w[p3] - h1w[p2] - h1w[p1];
+    a[c2] = a[q2] + h2w[p3] - h2w[p2] - h2w[p1];
+    c1++; c2++; q1++; q2++; p1++; p2++; p3++;
   }
 
 }
@@ -684,37 +759,38 @@ function netCapture () {
 //}}}
 //{{{  netPromote
 
-function netPromote () {
+function netPromote (parent, node) {
 
-  const pawnObj    = ueArgs0 << 8;
-  const pawnFr     = ueArgs1 | 0;
-  const pawnTo     = ueArgs2 | 0;
-  const captureObj = ueArgs3 << 8;
-  const promoteObj = ueArgs4 << 8;
+  const pawnObj    = node.ueArgs0 << 8;
+  const pawnFr     = node.ueArgs1 | 0;
+  const pawnTo     = node.ueArgs2 | 0;
+  const captureObj = node.ueArgs3 << 8;
+  const promoteObj = node.ueArgs4 << 8;
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+  const a   = net_acc;
+  let   c1  = node.acc1   | 0, c2 = node.acc2   | 0;
+  let   q1  = parent.acc1 | 0, q2 = parent.acc2 | 0;
 
-  const N = NET_H1_SIZE | 0;
+  const e1 = c1 + NET_H1_SIZE | 0;
 
-  let h  = 0;
   let p1 = map[pawnObj    + pawnFr] | 0;
   let p2 = map[promoteObj + pawnTo] | 0;
 
   if (captureObj !== 0) {
     let p3 = map[captureObj + pawnTo] | 0;
-    while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-      h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
-      h++; p1++; p2++; p3++;
+    while (c1 < e1) {
+      a[c1] = a[q1] + h1w[p2] - h1w[p1] - h1w[p3];
+      a[c2] = a[q2] + h2w[p2] - h2w[p1] - h2w[p3];
+      c1++; c2++; q1++; q2++; p1++; p2++; p3++;
     }
   }
   else {
-    while (h < N) {
-      h1a[h] += h1w[p2] - h1w[p1];
-      h2a[h] += h2w[p2] - h2w[p1];
-      h++; p1++; p2++;
+    while (c1 < e1) {
+      a[c1] = a[q1] + h1w[p2] - h1w[p1];
+      a[c2] = a[q2] + h2w[p2] - h2w[p1];
+      c1++; c2++; q1++; q2++; p1++; p2++;
     }
   }
 
@@ -723,29 +799,30 @@ function netPromote () {
 //}}}
 //{{{  netEpCapture
 
-function netEpCapture () {
+function netEpCapture (parent, node) {
 
-  const pawnObj        = ueArgs0 << 8;
-  const pawnFr         = ueArgs1 | 0;
-  const pawnTo         = ueArgs2 | 0;
-  const pawnCaptureObj = ueArgs3 << 8;
-  const ep             = ueArgs4 | 0;
+  const pawnObj        = node.ueArgs0 << 8;
+  const pawnFr         = node.ueArgs1 | 0;
+  const pawnTo         = node.ueArgs2 | 0;
+  const pawnCaptureObj = node.ueArgs3 << 8;
+  const ep             = node.ueArgs4 | 0;
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+  const a   = net_acc;
+  let   c1  = node.acc1   | 0, c2 = node.acc2   | 0;
+  let   q1  = parent.acc1 | 0, q2 = parent.acc2 | 0;
 
-  const N = NET_H1_SIZE | 0;
+  const e1 = c1 + NET_H1_SIZE | 0;
 
-  let h  = 0;
   let p1 = map[pawnObj        + pawnFr] | 0;
   let p2 = map[pawnObj        + pawnTo] | 0;
   let p3 = map[pawnCaptureObj + ep] | 0;
 
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] - h2w[p3];
-    h++; p1++; p2++; p3++;
+  while (c1 < e1) {
+    a[c1] = a[q1] + h1w[p2] - h1w[p1] - h1w[p3];
+    a[c2] = a[q2] + h2w[p2] - h2w[p1] - h2w[p3];
+    c1++; c2++; q1++; q2++; p1++; p2++; p3++;
   }
 
 }
@@ -753,31 +830,32 @@ function netEpCapture () {
 //}}}
 //{{{  netCastle
 
-function netCastle () {
+function netCastle (parent, node) {
 
-  const kingObj = ueArgs0 << 8;
-  const kingFr  = ueArgs1 | 0;
-  const kingTo  = ueArgs2 | 0;
-  const rookObj = ueArgs3 << 8;
-  const rookFr  = ueArgs4 | 0;
-  const rookTo  = ueArgs5 | 0;
+  const kingObj = node.ueArgs0 << 8;
+  const kingFr  = node.ueArgs1 | 0;
+  const kingTo  = node.ueArgs2 | 0;
+  const rookObj = node.ueArgs3 << 8;
+  const rookFr  = node.ueArgs4 | 0;
+  const rookTo  = node.ueArgs5 | 0;
 
   const map = IMAP;
   const h1w = net_h1_w_flat, h2w = net_h2_w_flat;
-  const h1a = net_h1_a, h2a = net_h2_a;
+  const a   = net_acc;
+  let   c1  = node.acc1   | 0, c2 = node.acc2   | 0;
+  let   q1  = parent.acc1 | 0, q2 = parent.acc2 | 0;
 
-  const N = NET_H1_SIZE | 0;
+  const e1 = c1 + NET_H1_SIZE | 0;
 
-  let h  = 0;
   let p1 = map[kingObj + kingFr] | 0;
   let p2 = map[kingObj + kingTo] | 0;
   let p3 = map[rookObj + rookFr] | 0;
   let p4 = map[rookObj + rookTo] | 0;
 
-  while (h < N) {
-    h1a[h] += h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
-    h2a[h] += h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
-    h++; p1++; p2++; p3++; p4++;
+  while (c1 < e1) {
+    a[c1] = a[q1] + h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
+    a[c2] = a[q2] + h2w[p2] - h2w[p1] + h2w[p4] - h2w[p3];
+    c1++; c2++; q1++; q2++; p1++; p2++; p3++; p4++;
   }
 
 }
@@ -1070,8 +1148,13 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
 
   //}}}
   //{{{  update accumulators
-  net_h1_a.set(net_h1_b);
-  net_h2_a.set(net_h1_b);
+
+  const a  = net_acc;
+  const o1 = rootNode.acc1;
+  const o2 = rootNode.acc2;
+
+  a.set(net_h1_b, o1);
+  a.set(net_h1_b, o2);
 
   for (let sq=0; sq < 64; sq++) {
 
@@ -1085,11 +1168,13 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
 
     for (let h=0; h < NET_H1_SIZE; h++) {
       const idx1 = off1 + h;
-      net_h1_a[h] += net_h1_w_flat[idx1];
-      net_h2_a[h] += net_h2_w_flat[idx1];
+      a[o1 + h] += net_h1_w_flat[idx1];
+      a[o2 + h] += net_h2_w_flat[idx1];
     }
 
   }
+
+  rootNode.accDirty = 0;
 
   //}}}
 
@@ -1339,6 +1424,10 @@ function makeMoveA (node, move) {
   const frPiece = frObj & PIECE_MASK;
   const frCol   = frObj & COLOR_MASK;
 
+  const child = node.childNode;  // records the accumulator update, applied lazily by netEval()
+
+  child.accDirty = 1;
+
   // slide piece
 
   b[fr] = 0;
@@ -1398,20 +1487,20 @@ function makeMoveA (node, move) {
       bCount--;
     }
 
-    ueFunc  = netCapture;
-    ueArgs0 = frObj;
-    ueArgs1 = fr;
-    ueArgs2 = toObj;
-    ueArgs3 = to;
+    child.ueType = UE_CAPTURE;
+    child.ueArgs0 = frObj;
+    child.ueArgs1 = fr;
+    child.ueArgs2 = toObj;
+    child.ueArgs3 = to;
 
   }
 
   else {
 
-    ueFunc  = netMove;
-    ueArgs0 = frObj;
-    ueArgs1 = fr;
-    ueArgs2 = to;
+    child.ueType = UE_MOVE;
+    child.ueArgs0 = frObj;
+    child.ueArgs1 = fr;
+    child.ueArgs2 = to;
 
   }
 
@@ -1434,10 +1523,10 @@ function makeMoveA (node, move) {
 
       if ((move & MOVE_EPMAKE_MASK) !== 0) {
 
-        ueFunc  = netMove;
-        ueArgs0 = frObj;
-        ueArgs1 = fr;
-        ueArgs2 = to;
+        child.ueType = UE_MOVE;
+        child.ueArgs0 = frObj;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
 
         loHash ^= loEP[bdEp];
         hiHash ^= hiEP[bdEp];
@@ -1450,12 +1539,12 @@ function makeMoveA (node, move) {
 
       else if ((move & MOVE_EPTAKE_MASK) !== 0) {
 
-        ueFunc  = netEpCapture;
-        ueArgs0 = frObj;
-        ueArgs1 = fr;
-        ueArgs2 = to;
-        ueArgs3 = B_PAWN;
-        ueArgs4 = ep;
+        child.ueType = UE_EPCAPTURE;
+        child.ueArgs0 = frObj;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
+        child.ueArgs3 = B_PAWN;
+        child.ueArgs4 = ep;
 
         b[ep]    = 0;
         node.epZ = z[ep];
@@ -1475,12 +1564,12 @@ function makeMoveA (node, move) {
         const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]     = WHITE | pro;
 
-        ueFunc  = netPromote;
-        ueArgs0 = W_PAWN;
-        ueArgs1 = fr;
-        ueArgs2 = to;
-        ueArgs3 = toObj;
-        ueArgs4 = pro|WHITE;
+        child.ueType = UE_PROMOTE;
+        child.ueArgs0 = W_PAWN;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
+        child.ueArgs3 = toObj;
+        child.ueArgs4 = pro|WHITE;
 
         loHash ^= loObjPieces[(W_PAWN << 8) + to];
         hiHash ^= hiObjPieces[(W_PAWN << 8) + to];
@@ -1494,13 +1583,13 @@ function makeMoveA (node, move) {
 
       else if (move === MOVE_E1G1) {
 
-        ueFunc  = netCastle;
-        ueArgs0 = W_KING;
-        ueArgs1 = fr;
-        ueArgs2 = to;
-        ueArgs3 = W_ROOK;
-        ueArgs4 = H1;
-        ueArgs5 = F1;
+        child.ueType = UE_CASTLE;
+        child.ueArgs0 = W_KING;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
+        child.ueArgs3 = W_ROOK;
+        child.ueArgs4 = H1;
+        child.ueArgs5 = F1;
 
         b[H1] = 0;
         b[F1] = W_ROOK;
@@ -1518,13 +1607,13 @@ function makeMoveA (node, move) {
 
       else if (move === MOVE_E1C1) {
 
-        ueFunc  = netCastle;
-        ueArgs0 = W_KING;
-        ueArgs1 = fr;
-        ueArgs2 = to;
-        ueArgs3 = W_ROOK;
-        ueArgs4 = A1;
-        ueArgs5 = D1;
+        child.ueType = UE_CASTLE;
+        child.ueArgs0 = W_KING;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
+        child.ueArgs3 = W_ROOK;
+        child.ueArgs4 = A1;
+        child.ueArgs5 = D1;
 
         b[A1] = 0;
         b[D1] = W_ROOK;
@@ -1547,10 +1636,10 @@ function makeMoveA (node, move) {
 
       if ((move & MOVE_EPMAKE_MASK) !== 0) {
 
-        ueFunc  = netMove;
-        ueArgs0 = frObj;
-        ueArgs1 = fr;
-        ueArgs2 = to;
+        child.ueType = UE_MOVE;
+        child.ueArgs0 = frObj;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
 
         loHash ^= loEP[bdEp];
         hiHash ^= hiEP[bdEp];
@@ -1563,12 +1652,12 @@ function makeMoveA (node, move) {
 
       else if ((move & MOVE_EPTAKE_MASK) !== 0) {
 
-        ueFunc  = netEpCapture;
-        ueArgs0 = frObj;
-        ueArgs1 = fr;
-        ueArgs2 = to;
-        ueArgs3 = W_PAWN;
-        ueArgs4 = ep;
+        child.ueType = UE_EPCAPTURE;
+        child.ueArgs0 = frObj;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
+        child.ueArgs3 = W_PAWN;
+        child.ueArgs4 = ep;
 
         b[ep]    = 0;
         node.epZ = z[ep];
@@ -1588,12 +1677,12 @@ function makeMoveA (node, move) {
         const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]     = BLACK | pro;
 
-        ueFunc  = netPromote;
-        ueArgs0 = B_PAWN;
-        ueArgs1 = fr;
-        ueArgs2 = to;
-        ueArgs3 = toObj;
-        ueArgs4 = pro|BLACK;
+        child.ueType = UE_PROMOTE;
+        child.ueArgs0 = B_PAWN;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
+        child.ueArgs3 = toObj;
+        child.ueArgs4 = pro|BLACK;
 
         loHash ^= loObjPieces[(B_PAWN << 8) + to];
         hiHash ^= hiObjPieces[(B_PAWN << 8) + to];
@@ -1607,13 +1696,13 @@ function makeMoveA (node, move) {
 
       else if (move === MOVE_E8G8) {
 
-        ueFunc  = netCastle;
-        ueArgs0 = B_KING;
-        ueArgs1 = fr;
-        ueArgs2 = to;
-        ueArgs3 = B_ROOK;
-        ueArgs4 = H8;
-        ueArgs5 = F8;
+        child.ueType = UE_CASTLE;
+        child.ueArgs0 = B_KING;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
+        child.ueArgs3 = B_ROOK;
+        child.ueArgs4 = H8;
+        child.ueArgs5 = F8;
 
         b[H8] = 0;
         b[F8] = B_ROOK;
@@ -1631,13 +1720,13 @@ function makeMoveA (node, move) {
 
       else if (move === MOVE_E8C8) {
 
-        ueFunc  = netCastle;
-        ueArgs0 = B_KING;
-        ueArgs1 = fr;
-        ueArgs2 = to;
-        ueArgs3 = B_ROOK;
-        ueArgs4 = A8;
-        ueArgs5 = D8;
+        child.ueType = UE_CASTLE;
+        child.ueArgs0 = B_KING;
+        child.ueArgs1 = fr;
+        child.ueArgs2 = to;
+        child.ueArgs3 = B_ROOK;
+        child.ueArgs4 = A8;
+        child.ueArgs5 = D8;
 
         b[A8] = 0;
         b[D8] = B_ROOK;
@@ -1679,19 +1768,6 @@ function makeMoveA (node, move) {
 
   if ((move & (MOVE_SPECIAL_MASK | MOVE_TOOBJ_MASK)) || frPiece === PAWN)
     repLo = repHi;
-
-}
-
-//}}}
-//{{{  makeMoveB
-//
-// If the ue* data is moved into nodes, this could be deferred and
-// done in evaluate().
-//
-
-function makeMoveB  () {
-
-  ueFunc();
 
 }
 
@@ -1843,10 +1919,13 @@ function unmakeMove (node, move) {
 //}}}
 //{{{  boardCheck (debug)
 
-function boardCheck (turn) {
+function boardCheck (node, turn) {
 
   const a1 = new Int32Array(NET_H1_SIZE);
   const a2 = new Int32Array(NET_H1_SIZE);
+
+  if (node.accDirty !== 0)
+    netRefresh(node);
 
   // hash
 
@@ -1909,10 +1988,10 @@ function boardCheck (turn) {
   }
 
   for (let i=0; i < NET_H1_SIZE; i++) {
-    if (a1[i] !== net_h1_a[i])
-      console.log('****** A1', i, a1[i], net_h1_a[i]);
-    if (a2[i] !== net_h2_a[i])
-      console.log('****** A2', i, a2[i], net_h2_a[i]);
+    if (a1[i] !== net_acc[node.acc1 + i])
+      console.log('****** A1', i, a1[i], net_acc[node.acc1 + i]);
+    if (a2[i] !== net_acc[node.acc2 + i])
+      console.log('****** A2', i, a2[i], net_acc[node.acc2 + i]);
   }
 
 }
@@ -2065,8 +2144,16 @@ function nodeStruct () {
   this.loHash = 0;
   this.hiHash = 0;
 
-  this.net_h1_a = new Int32Array(NET_H1_SIZE);
-  this.net_h2_a = new Int32Array(NET_H1_SIZE);
+  this.acc1     = 0;  // offsets of this node's accumulators in net_acc, see initNodes() and the net fold
+  this.acc2     = 0;
+  this.accDirty = 0;
+  this.ueType   = 0;
+  this.ueArgs0  = 0;
+  this.ueArgs1  = 0;
+  this.ueArgs2  = 0;
+  this.ueArgs3  = 0;
+  this.ueArgs4  = 0;
+  this.ueArgs5  = 0;
 
   this.toZ = 0;
   this.frZ = 0;
@@ -2109,9 +2196,6 @@ function cache (node) {
   node.loHash = loHash;
   node.hiHash = hiHash;
 
-  node.net_h1_a.set(net_h1_a);
-  node.net_h2_a.set(net_h2_a);
-
 }
 
 //}}}
@@ -2129,16 +2213,6 @@ function uncacheA (node) {
 }
 
 //}}}
-//{{{  uncacheB
-
-function uncacheB (node) {
-
-  net_h1_a.set(node.net_h1_a);
-  net_h2_a.set(node.net_h2_a);
-
-}
-
-//}}}
 
 let rootNode = null;
 
@@ -2149,7 +2223,9 @@ function initNodes () {
   for (let i=0; i < nodes.length; i++) {
     nodes[i] = new nodeStruct();
     seal(nodes[i]);
-    nodes[i].ply = i;
+    nodes[i].ply  = i;
+    nodes[i].acc1 = i * 2 * NET_H1_SIZE;
+    nodes[i].acc2 = i * 2 * NET_H1_SIZE + NET_H1_SIZE;
   }
 
   for (let i=0; i < nodes.length-1; i++)
@@ -3535,7 +3611,7 @@ function addHistory (bonus, move) {
 //}}}
 //{{{  evaluate
 
-function evaluate (turn) {
+function evaluate (node, turn) {
 
   // init
 
@@ -3585,7 +3661,7 @@ function evaluate (turn) {
   if (numPieces === 4 && wNumQueens !== 0 && bNumQueens !== 0)
     return 0;
 
-  return netEval(turn);
+  return netEval(node, turn);
 
 }
 
@@ -3990,7 +4066,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
   score = ttGet(node, depth, alpha, beta);  // load hash move and hash eval
 
   node.inCheck = inCheck;
-  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   ttUpdateEval(node.ev);
   cache(node);
@@ -4011,8 +4087,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
       continue;
 
     }
-
-    makeMoveB();
 
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
@@ -4051,7 +4125,6 @@ function rootSearch (node, depth, turn, alpha, beta) {
     unmakeMove(node, move);
 
     uncacheA(node);
-    uncacheB(node);
 
     if (statsTimeOut !== 0)
       return 0;
@@ -4183,7 +4256,7 @@ function search (node, depth, turn, alpha, beta) {
   let R = 0;
   let E = 0;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   // improving
 
@@ -4242,10 +4315,12 @@ function search (node, depth, turn, alpha, beta) {
 
     repLo = repHi;
 
+    node.childNode.ueType   = UE_COPY;  // same pieces, so the child inherits our accumulators
+    node.childNode.accDirty = 1;
+
     score = -search(node.childNode, depth-R-1, nextTurn, -beta, -beta+1);
 
     uncacheA(node);
-    //uncacheB(node);
 
     if (score >= beta) {
       if (score > MINMATE)
@@ -4311,8 +4386,6 @@ function search (node, depth, turn, alpha, beta) {
 
     }
 
-    makeMoveB();
-
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
       numPrunes++;
@@ -4345,7 +4418,6 @@ function search (node, depth, turn, alpha, beta) {
     unmakeMove(node, move);
 
     uncacheA(node);
-    uncacheB(node);
 
     if (statsTimeOut !== 0)
       return 0;
@@ -4423,7 +4495,7 @@ function qSearch (node, depth, turn, alpha, beta) {
     statsSelDepth = node.ply;
 
   if (node.childNode === null)
-    return evaluate(turn);
+    return evaluate(node, turn);
 
   const nextTurn = turn ^ COLOR_MASK;
 
@@ -4435,7 +4507,7 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (score !== TTSCORE_UNKNOWN)
     return score;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(turn);
+  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
   if (ev >= beta)
     return ev;
@@ -4477,8 +4549,6 @@ function qSearch (node, depth, turn, alpha, beta) {
 
     }
 
-    makeMoveB();
-
     numLegalMoves++;
 
     score = -qSearch(node.childNode, depth-1, nextTurn, -beta, -alpha);
@@ -4488,7 +4558,6 @@ function qSearch (node, depth, turn, alpha, beta) {
     unmakeMove(node, move);
 
     uncacheA(node);
-    uncacheB(node);
 
     if (score > alpha) {
       if (score >= beta) {
@@ -5064,7 +5133,7 @@ function uciExec (commands, canYield) {
       case 'e': {
         // eval
 
-        const e = netEval(bdTurn);
+        const e = netEval(rootNode, bdTurn);
 
         uciSend(e);
 
