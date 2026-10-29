@@ -11,5 +11,7 @@
 'bin/sprt.sh'
 'bin/datagen.sh'
 
+'junk/commit'
+
 '.gitignore'
 

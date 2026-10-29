@@ -1026,6 +1026,18 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
 
     }
 
+    if (repHi >= 640) {
+      // long game: keep the last 128 plies so the rep stack cannot overflow. anything older
+      // is either before an irreversible move or already a 50 move draw, so isDraw() is unaffected
+      const keepFrom = Math.max(repLo, repHi - 128);
+      for (let k=keepFrom; k < repHi; k++) {
+        repLoHash[k-keepFrom] = repLoHash[k];
+        repHiHash[k-keepFrom] = repHiHash[k];
+      }
+      repHi -= keepFrom;
+      repLo  = Math.max(0, repLo - keepFrom);
+    }
+
   }
   //}}}
   //{{{  compact lists
@@ -2196,7 +2208,7 @@ function ttResize(N_MB) {
   const sm   = silentMode;
   silentMode = 0;
 
-  uciSend('info tt bits', pow2, 'entries', ttSize, 'bytes', ttWidth * ttSize);
+  uciSend('info string tt bits', pow2, 'entries', ttSize, 'bytes', ttWidth * ttSize);
 
   silentMode = sm;
 
@@ -2429,10 +2441,10 @@ function genMoves (node, turn) {
 
     if (inCheck === 0 && rights !== 0) {
 
-      if (((rights & BLACK_RIGHTS_KING) !== 0) && b[F8] === 0 && b[G8] === 0 && b[SQG7] !== B_KING && b[SQH7] !== B_KING && isAttacked(F8,WHITE) === 0)
+      if (((rights & BLACK_RIGHTS_KING) !== 0) && b[F8] === 0 && b[G8] === 0 && b[SQG7] !== W_KING && b[SQH7] !== W_KING && isAttacked(F8,WHITE) === 0)
         addCastle(node, MOVE_E8G8);
 
-      if (((rights & BLACK_RIGHTS_QUEEN) !== 0) && b[B8] === 0 && b[C8] === 0 && b[D8] === 0 && b[SQB7] !== B_KING && b[SQC7] !== B_KING && isAttacked(D8,WHITE) === 0)
+      if (((rights & BLACK_RIGHTS_QUEEN) !== 0) && b[B8] === 0 && b[C8] === 0 && b[D8] === 0 && b[SQB7] !== W_KING && b[SQC7] !== W_KING && isAttacked(D8,WHITE) === 0)
         addCastle(node, MOVE_E8C8);
     }
 
@@ -3792,7 +3804,7 @@ function reportMultiPV (depth) {
 
     let scoreStr = '';
     if (Math.abs(s) > MINMATE) {
-      let mateScore = (MATE - Math.abs(s)) / 2 | 0;
+      let mateScore = (MATE - Math.abs(s) + 1) / 2 | 0;
       if (s < 0)
         mateScore = -mateScore;
       scoreStr = 'score mate ' + mateScore;
@@ -4021,7 +4033,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     }
 
     else if (doLMR !== 0 && numLegalMoves > 4) {
-      R = LMR_LOOKUP[(depth << 7) + numPrunes];
+      R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
 
     const nullWindow = (numLegalMoves > 1 || R) | 0;
@@ -4062,7 +4074,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
             addHistory(Math.imul(Math.imul(depth, depth), depth), bestMove);
-          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INF);
+          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
           return bestScore;
         }
 
@@ -4315,7 +4327,7 @@ function search (node, depth, turn, alpha, beta) {
     }
 
     else if (doLMR !== 0 && numLegalMoves > 4) {
-      R = LMR_LOOKUP[(depth << 7) + numPrunes];
+      R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
 
     const nullWindow = ((pvNode !== 0 && numLegalMoves > 1) || R) | 0;
@@ -4616,7 +4628,9 @@ const PERFTFENS = [
   ['fen r3k2r/8/8/8/3pPp2/8/8/R3K1RR                            b KQkq e3 0 1', 6, 485647607, 'jvm-1     '],
   ['fen 8/3K4/2p5/p2b2r1/5k2/8/8/1q6                            b -    -  0 1', 7, 493407574, 'jvm-4     '],
   ['fen r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1   w kq   -  0 1', 6, 706045033, 'jvm-2     '],
-  ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       ']
+  ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   -  0 1', 6, 975944981, 'ob5       '],
+  ['fen 4k2r/6K1/8/8/8/8/8/8                                    b k    -  0 1', 4, 2219,      'castling-9'],
+  ['fen r3k3/2K5/8/8/8/8/8/8                                    b q    -  0 1', 4, 4999,      'castling-10']
 ];
 
 //}}}
@@ -4627,7 +4641,7 @@ function initSearch () {
 
   for (let p=0; p < MAX_PLY; p++) {
     for (let m=0; m < MAX_MOVES; m++) {
-      LMR_LOOKUP[(p << 7) + m] = (1 + p/5 + m/20) | 0;
+      LMR_LOOKUP[(p << 8) + m] = (1 + p/5 + m/20) | 0;  // stride MAX_MOVES
     }
   }
 
@@ -4759,7 +4773,7 @@ function uciGetStr (tokens, key, def) {
   const lkey = key.toLowerCase();
 
   for (let i=0; i < tokens.length; i++)
-    if (tokens[i].toLowerCase() == key)
+    if (tokens[i].toLowerCase() == lkey)
       if (i < tokens.length - 1)
         return tokens[i+1];
 
@@ -4926,6 +4940,7 @@ function uciExec (commands, canYield) {
           }
 
           movTime = myround(totTime / movesToGo) + incTime;
+          movTime = Math.min(movTime, totTime / 2);  // a big increment must not allot more than the clock
           movTime = movTime * 0.95;
 
           if (movTime > 0)
@@ -4970,9 +4985,6 @@ function uciExec (commands, canYield) {
         if (opt == 'hash') {
 
           const mb = Math.max(uciGetInt(tokens, 'value', ttDefault), 1);
-
-          if (nodeHost)
-            console.log(mb);
 
           ttResize(mb);
 
@@ -5244,14 +5256,22 @@ function uciExec (commands, canYield) {
 
         initNode(rootNode);
 
-        rootNode.inCheck = 1;
+        const nextTurn = bdTurn ^ COLOR_MASK;
+
+        rootNode.inCheck = isKingAttacked(nextTurn);
 
         let move = 0;
 
+        cache(rootNode);
         genMoves(rootNode, bdTurn);
 
-        while(move = getNextMove(rootNode))
-          uciSend(formatMove(move));
+        while ((move = getNextMove(rootNode)) !== 0) {
+          makeMoveA(rootNode, move);
+          if ((move & MOVE_LEGAL_MASK) !== 0 || isKingAttacked(nextTurn) === 0)
+            uciSend(formatMove(move));
+          unmakeMove(rootNode, move);
+          uncacheA(rootNode);
+        }
 
         initNode(rootNode);
 

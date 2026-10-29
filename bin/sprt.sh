@@ -16,7 +16,7 @@ node=$(command -v node)
 fastchess=~/fastchess/fastchess
 
 e1=lozza.js
-e2=releases/9.0/lozza9.0.js #lozzacand.js
+e2=lozzacand.js
 
 elo0=0
 elo1=5
