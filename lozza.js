@@ -3765,9 +3765,14 @@ function checkTime () {
 
 let multiPV = 1;
 
-// multipv entries, best first. fixed arrays rather than objects so the search stays easy to transpile.
+// multipv lines, best first. fixed arrays rather than objects so the search stays easy to transpile.
+// slot MAX_MULTIPV-1 is scratch for the sort, so the most lines is MAX_MULTIPV-1.
+//
+// In an iteration go() searches the lines in turn. rootSearch() skips the moves of the lines
+// already found in this iteration, multiPVMove[0..rootNumExcluded-1], so each line is the best
+// of the remaining moves. rootNumLegal is how many legal moves rootSearch() had left to look at.
 
-const MAX_MULTIPV = 500;
+const MAX_MULTIPV = 501;
 
 const multiPVMove  = new Uint32Array(MAX_MULTIPV);
 const multiPVScore = new Int32Array(MAX_MULTIPV);
@@ -3786,32 +3791,56 @@ function multiPVCopy (to, fr) {
 
 }
 
-// insert the root pv at the front, dropping any existing entry for the same move
+// store the root pv as line slot
 
-function multiPVAdd (move, score) {
+function multiPVSet (slot, move, score) {
 
-  let k = 0;
+  multiPVMove[slot]  = move;
+  multiPVScore[slot] = score;
+  multiPVPvLen[slot] = rootNode.pvLen;
 
-  for (let i=0; i < multiPVNum; i++) {
-    if (multiPVMove[i] !== move) {
-      if (k !== i)
-        multiPVCopy(k, i);
-      k++;
-    }
+  multiPVPv.set(rootNode.pv.subarray(0, rootNode.pvLen), slot * MAX_MOVES);
+
+  if (slot >= multiPVNum)
+    multiPVNum = slot + 1;
+
+}
+
+// slots 0..n-2 are sorted best first; move slot n-1 into place
+
+function multiPVSort (n) {
+
+  const scratch = MAX_MULTIPV - 1;
+
+  let i = n - 1;
+
+  if (i <= 0 || multiPVScore[i] <= multiPVScore[i-1])
+    return;
+
+  multiPVCopy(scratch, i);
+
+  while (i > 0 && multiPVScore[i-1] < multiPVScore[scratch]) {
+    multiPVCopy(i, i-1);
+    i--;
   }
 
-  multiPVNum = Math.min(k, MAX_MULTIPV - 1);
+  multiPVCopy(i, scratch);
 
-  for (let i=multiPVNum; i > 0; i--)
-    multiPVCopy(i, i-1);
+}
 
-  multiPVMove[0]  = move;
-  multiPVScore[0] = score;
-  multiPVPvLen[0] = rootNode.pvLen;
+let rootNumExcluded = 0;  // see rootSearch()
+let rootNumLegal    = 0;
 
-  multiPVPv.set(rootNode.pv.subarray(0, rootNode.pvLen), 0);
+function rootIsExcluded (move) {
 
-  multiPVNum++;
+  const m = move & MOVE_CLEAN_MASK;
+
+  for (let i=0; i < rootNumExcluded; i++) {
+    if ((multiPVMove[i] & MOVE_CLEAN_MASK) === m)
+      return 1;
+  }
+
+  return 0;
 
 }
 
@@ -3924,81 +3953,100 @@ async function go (maxPly, canYield) {
   let delta       = 0;
   let depth       = 0;
 
-  multiPVNum = 0;
+  const numLines = Math.min(multiPV, MAX_MULTIPV - 1);
+
+  multiPVNum      = 0;
+  rootNumExcluded = 0;
+  rootNumLegal    = 0;
 
   for (let ply=1; ply <= maxPly; ply++) {
     // id
 
-    alpha = -INF;
-    beta  = INF;
-    delta = 10;
-    depth = ply;
+    for (let pvIdx=0; pvIdx < numLines; pvIdx++) {
+      // one line. slots 0..pvIdx-1 hold the lines found so far in this iteration and are
+      // excluded by rootSearch; slots pvIdx.. still hold the previous iteration's lines.
 
-    if (ply >= 4) {
-      alpha = Math.max(-INF, score - delta);
-      beta  = Math.min(INF,  score + delta);
-    }
+      rootNumExcluded = pvIdx;
 
-    while (1) {
-      // asp
+      alpha = -INF;
+      beta  = INF;
+      delta = 10;
+      depth = ply;
 
-      score = rootSearch(rootNode, depth, bdTurn, alpha, beta);
-
-      if (statsTimeOut)
-        break;
-
-      delta += delta/2 | 0;
-
-      if (score <= alpha) {
-        // upper bound
-
-        beta  = Math.min(INF, ((alpha + beta) / 2) | 0);
-        alpha = Math.max(-INF, alpha - delta);
-
-        report('upperbound', score, depth);
-
-        if (!statsSoftNodes)
-          statsBestMove = 0;
-
+      if (ply >= 4 && pvIdx < multiPVNum) {
+        alpha = Math.max(-INF, multiPVScore[pvIdx] - delta);
+        beta  = Math.min(INF,  multiPVScore[pvIdx] + delta);
       }
 
-      else if (score >= beta) {
-        // lower bound
+      while (1) {
+        // asp
 
-        beta = Math.min(INF, beta + delta);
+        score = rootSearch(rootNode, depth, bdTurn, alpha, beta);
 
-        report('lowerbound', score, depth);
+        if (statsTimeOut || rootNumLegal === 0)
+          break;
 
-        depth = Math.max(1, depth-1);
+        delta += delta/2 | 0;
 
-      }
+        if (score <= alpha) {
+          // upper bound
 
-      else {
-        // exact
+          beta  = Math.min(INF, ((alpha + beta) / 2) | 0);
+          alpha = Math.max(-INF, alpha - delta);
 
-        // track for MultiPV
+          if (numLines === 1)
+            report('upperbound', score, depth);
 
-        if (statsBestMove)
-          multiPVAdd(statsBestMove, score);
+          if (pvIdx === 0 && !statsSoftNodes)
+            statsBestMove = 0;
 
-        if (multiPV > 1) {
+        }
 
-          reportMultiPV(depth);
+        else if (score >= beta) {
+          // lower bound
+
+          beta = Math.min(INF, beta + delta);
+
+          if (numLines === 1)
+            report('lowerbound', score, depth);
+
+          depth = Math.max(1, depth-1);
 
         }
 
         else {
+          // exact
 
-          reportScore(score, depth);
+          multiPVSet(pvIdx, statsBestMove, score);
+
+          if (numLines === 1) {
+
+            reportScore(score, depth);
+
+          }
+
+          else {
+
+            multiPVSort(pvIdx + 1);
+
+            statsBestMove  = multiPVMove[0];
+            statsBestScore = multiPVScore[0];
+
+            reportMultiPV(depth);
+
+          }
+
+          break;
 
         }
 
-        break;
+        if (canYield && await checkStop())
+          break;
 
       }
 
-      if (canYield && await checkStop())
-        break;
+      if (statsTimeOut || rootNumLegal <= 1)
+        break;  // out of time, or this line used the last legal move so there are no more lines
 
     }
 
@@ -4020,12 +4068,24 @@ async function go (maxPly, canYield) {
 
   const pvMove = rootNode.pvLen > 0 ? rootNode.pv[rootNode.pvLen-1] : 0;
 
-  if (multiPV === 1 && statsBestMove !== 0 && statsBestMove !== reportedMove && pvMove === statsBestMove)
+  if (numLines === 1 && statsBestMove !== 0 && statsBestMove !== reportedMove && pvMove === statsBestMove)
     reportScore(statsBestScore, depth);
 
-  // after a fail low statsBestMove is 0, so fall back to the last exact result
+  // multipv with nothing reported yet (a single legal move stops the search at ply 1)
 
-  const bestMove = statsBestMove || (multiPVNum ? multiPVMove[0] : 0);
+  if (numLines > 1 && multiPVNum === 0 && statsBestMove !== 0) {
+    multiPVSet(0, statsBestMove, statsBestScore);
+    reportMultiPV(depth);
+  }
+
+  // after a fail low statsBestMove is 0, so fall back to the last exact result.
+  // with more than one line statsBestMove may be a lower line's move if the search
+  // was stopped part way through an iteration, so use the best complete line
+
+  let bestMove = statsBestMove || (multiPVNum ? multiPVMove[0] : 0);
+
+  if (numLines > 1 && multiPVNum > 0)
+    bestMove = multiPVMove[0];
 
   bestMoveStr = formatMove(bestMove);
 
@@ -4073,6 +4133,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
   genMoves(node, turn);
 
   while ((move = getNextMove(node)) !== 0) {
+
+    if (rootNumExcluded !== 0 && rootIsExcluded(move) !== 0)
+      continue;  // multipv: already a line in this iteration
 
     makeMoveA(node, move);
 
@@ -4147,7 +4210,8 @@ function rootSearch (node, depth, turn, alpha, beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
             addHistory(Math.imul(Math.imul(depth, depth), depth), bestMove);
-          ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
+          if (rootNumExcluded === 0)
+            ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
           return bestScore;
         }
 
@@ -4165,6 +4229,11 @@ function rootSearch (node, depth, turn, alpha, beta) {
   }
 
   // update tt etc
+
+  rootNumLegal = numLegalMoves;
+
+  if (rootNumExcluded !== 0)
+    return bestScore;  // multipv: a restricted move set, so not the position's score; keep it out of the tt
 
   if (numLegalMoves === 1)
     statsTimeOut = 1;  // only one legal move so don't waste any more time
