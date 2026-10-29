@@ -432,6 +432,7 @@ const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
 const net_h1_b      = new Int32Array(NET_H1_SIZE);
 const net_o_w       = new Int32Array(NET_H1_SIZE*2);
 let   net_o_b       = 0;
+
 // Each node owns the accumulators for its position. They all live in net_acc, one flat
 // array so that v8 sees a constant base: node.acc1 is the offset of the us accumulator
 // and node.acc2 the them accumulator (see initNodes()). makeMoveA() records what changed
