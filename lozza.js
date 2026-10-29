@@ -544,6 +544,7 @@ function netLoad () {
 
 //}}}
 //{{{  flipIndex
+//
 // flipIndex
 //
 // Slow. Only use during init.
@@ -606,7 +607,7 @@ function netEval(turn) {
     const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
     const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
 
-    e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0;
+    e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0; // sqrrelu
 
     p1++; p2++;
 
@@ -851,7 +852,7 @@ const ALIGNED  = Array.from({length: 144}, () => new Int8Array(144));  // see in
 
 //{{{  zobrist
 //
-// Filled in initBoard().
+// Populated by initBoard().
 //
 
 let loTurn = 0;
@@ -878,7 +879,7 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
   loHash = 0;
   hiHash = 0;
 
-  // turn
+  //{{{  turn
 
   if (turn == 'w')
     bdTurn = WHITE;
@@ -888,8 +889,8 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
     loHash ^= loTurn;
     hiHash ^= hiTurn;
   }
-
-  // rights
+  //}}}
+  //{{{  rights
 
   bdRights = 0;
 
@@ -906,8 +907,8 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
   loHash ^= loRights[bdRights];
   hiHash ^= hiRights[bdRights];
 
-  // board
-
+  //}}}
+  //{{{  board
   bdB.fill(EDGE);
 
   for (var i=0; i < B88.length; i++)
@@ -989,8 +990,8 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
 
   }
 
-  // ep
-
+  //}}}
+  //{{{  ep
   if (ep.length === 2)
     bdEp = COORDS.indexOf(ep)
   else
@@ -998,10 +999,12 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
 
   loHash ^= loEP[bdEp];
   hiHash ^= hiEP[bdEp];
+  //}}}
 
   repLo = 0;
   repHi = 0;
 
+  //{{{  play moves
   for (let i=0; i < moves.length; i++) {
     // play move
 
@@ -1024,9 +1027,8 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
     }
 
   }
-
-  // compact
-
+  //}}}
+  //{{{  compact lists
   const wList2 = new Uint8Array(16);
   const bList2 = new Uint8Array(16);
 
@@ -1054,8 +1056,8 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
 
   bList.set(bList2);
 
-  // ue
-
+  //}}}
+  //{{{  update accumulators
   net_h1_a.set(net_h1_b);
   net_h2_a.set(net_h1_b);
 
@@ -1076,6 +1078,8 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
     }
 
   }
+
+  //}}}
 
   initNode(rootNode);
   objHistory.fill(BASE_HISSLIDE);
