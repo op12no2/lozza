@@ -5053,6 +5053,8 @@ function uciExec (commands, canYield) {
         if (depth <= 0)
           depth = MAX_PLY;
 
+        depth = Math.min(depth, MAX_PLY - 1);  // ttDepth is int8 and LMR_LOOKUP has MAX_PLY rows
+
         if (moveTime > 0)
           statsMoveTime = moveTime;
 
