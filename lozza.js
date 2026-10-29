@@ -5791,7 +5791,7 @@ function dgPlayGame (cfg, book) {
     const wScore = (stm === WHITE) ? score : -score;
     const noisy  = (move & (MOVE_NOISY_MASK | MOVE_PROMOTE_MASK)) !== 0;
 
-    if (!inCheck && !noisy && Math.abs(score) < MINMATE) {
+    if (!inCheck && !noisy && rootNumLegal > 1 && Math.abs(score) < MINMATE) {  // forced moves stop at depth 1 so their score is poor
       fens.push(formatFen(stm));
       scores.push(wScore);
     }
