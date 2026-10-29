@@ -4862,7 +4862,7 @@ function uciExec (commands, canYield) {
       case 'uci': {
         // uci
 
-        if (WEIGHTS_B64 == '')
+        if (getWeights() === '')
           uciSend('id name Lozza', BUILD, '(dev)');
         else
           uciSend('id name Lozza', BUILD);
@@ -5075,9 +5075,9 @@ function uciExec (commands, canYield) {
       case 'n': {
         // network
 
-        if (WEIGHTS_B64 == '') {
+        if (getWeights() === '')
           uciSend('weights file', NET_WEIGHTS_FILE);
-        }
+
         uciSend('i_size, h1_size', NET_I_SIZE, NET_H1_SIZE);
         uciSend('qa, qb', NET_QA, NET_QB);
         uciSend('scale', NET_SCALE);
