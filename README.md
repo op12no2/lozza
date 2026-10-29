@@ -2,10 +2,11 @@
 # Lozza
 
 A Javascript UCI chess engine that can be used in a Web Worker and Node.
-Release versions are also available as a Windows binary;
-ping me if you would like a binary for a different platform.
 
-Lozza is easy to read and tweak, trivial to deploy and WSAM-free.
+Lozza is easy to read and tweak; it's also easy to deploy and is WSAM-free.
+
+Release versions are additioinally available as assets for Windows and Linux;
+ping me if you would like one for a different platform.
 
 ## Web hello world
 
@@ -28,14 +29,14 @@ lozza.postMessage('go depth 10');
 ## Node
 
 ```
-node lozza.js                     # interactive or use in a chess gui via a batch file
-node lozza.js uci "go depth 10" q # exec command and exit
+node lozza.js                     # interactive 
+node lozza.js uci "go depth 10" q # exec commands and exit
 ```
 
 ## Notes
 
-- Lozza's code is best read with a folding editor; I use foldit in a terminal - link below.
-- Lozza's search is way behind the hobby coalface.
+- `lozza.js' is best read with a folding editor; I use foldit in a WSL terminal - link below.
+- Lozza needs a rewrite. It's pretty ugly with a 12x12 board inherited from my 1980 engine and search is way behind the hobby coalface.
 
 ## Acknowledgements
 
@@ -47,7 +48,4 @@ node lozza.js uci "go depth 10" q # exec command and exit
 - https://github.com/op12no2/foldit - Folding editor
 - https://github.com/jw1912/bullet - bullet trainer
 - https://github.com/Disservin/fastchess/releases - fastchess - for SPRTs
-- https://discord.gg/HTsRk2ATq - Engine Programming Discord channel
-- https://discord.gg/bbpA5GqSz - Engine Testers Discord channel
-- https://github.com/AndyGrant/Ethereal - Ethereal - Lozza's ID is Ethereal-shaped.
 

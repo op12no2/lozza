@@ -1,32 +1,51 @@
 #!/bin/bash
 #
-# release.sh <version>
+# release.sh <version> [--force]
 #
 # 1. copy lozza.js to releases/<version>/lozza<version>.js with the net weights
 #    (the file named by NET_WEIGHTS_FILE in lozza.js) embedded in getWeights()
 # 2. check the embedded weights match the file
-# 3. build a windows binary from the release source
-# 4. bench the dev source, the release source and the binary and check they match
+# 3. convert the release source to C and build windows and linux binaries
+#    with clang (see tools/lozza2c)
+# 4. bench the dev source, the release source and the binaries and check they match
+#
+# --force replaces an existing releases/<version>
 #
 
 set -e
 
-if [ "$#" -ne 1 ]; then
-  echo "usage: release.sh <version>"
+force=0
+ver=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --force) force=1 ;;
+    -*)      echo "unknown option $arg"; exit 1 ;;
+    *)       ver=$arg ;;
+  esac
+done
+
+if [ -z "$ver" ]; then
+  echo "usage: release.sh <version> [--force]"
   exit 1
 fi
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-ver=$1
 dir=releases/$ver
 js=$dir/lozza$ver.js
 exe=$dir/lozza$ver.exe
+lin=$dir/lozza$ver-linux
 
 if [ -e "$dir" ]; then
-  echo "$dir already exists"
-  exit 1
+  if [ "$force" = 1 ]; then
+    echo "replacing $dir"
+    rm -rf "$dir"
+  else
+    echo "$dir already exists (use --force to replace it)"
+    exit 1
+  fi
 fi
 
 # weights file referenced by the dev source
@@ -78,13 +97,16 @@ node -e '
   console.log("embedded " + m[1].length + " base64 chars, matches weights file");
 ' "$js" "$weights"
 
-# windows binary from the release source
+# binaries: lozza.js -> C -> clang, weights embedded (see tools/lozza2c)
 
-bun build "$js" --compile --target=bun-windows-x64 --minify --outfile "$exe"
+echo "building binaries"
+tools/lozza2c/build.sh "$weights" "$root/$js" | tail -2
+cp tools/lozza2c/lozza.exe "$exe"
+cp tools/lozza2c/lozza "$lin"
 
-echo "binary   $exe"
+ls -l "$dir"
 
-# bench all three
+# bench all four
 
 bench () {
   "$@" qb q 2>&1 | tr '\r' '\n' | grep -o 'nodes [0-9]*' | tail -1
@@ -92,11 +114,12 @@ bench () {
 
 dev=$(bench node lozza.js)
 rel=$(bench node "$js")
-bin=$(bench "$exe")
+win=$(bench "$exe")
+lnx=$(bench "$lin")
 
-echo "bench    dev: $dev  release: $rel  binary: $bin"
+echo "bench    dev: $dev  release: $rel  windows: $win  linux: $lnx"
 
-if [ -z "$dev" ] || [ "$dev" != "$rel" ] || [ "$dev" != "$bin" ]; then
+if [ -z "$dev" ] || [ "$dev" != "$rel" ] || [ "$dev" != "$win" ] || [ "$dev" != "$lnx" ]; then
   echo "BENCH MISMATCH"
   exit 1
 fi

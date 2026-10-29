@@ -368,7 +368,7 @@ function twisterInit(seed) {
   mt[0] = seed >>> 0;
 
   for (let i = 1; i < 624; i++) {
-    mt[i] = (0x6C078965 * (mt[i - 1] ^ (mt[i - 1] >>> 30)) + i) >>> 0;
+    mt[i] = (Math.imul(0x6C078965, mt[i - 1] ^ (mt[i - 1] >>> 30)) + i) >>> 0;
   }
 }
 
@@ -436,7 +436,7 @@ const net_h1_a      = new Int32Array(NET_H1_SIZE);
 const net_h2_a      = new Int32Array(NET_H1_SIZE);
 const net_a         = [[net_h1_a, net_h2_a], [net_h2_a, net_h1_a]];
 
-let ueFunc  = myround; // just a func
+let ueFunc  = netMove;
 let ueArgs0 = 0;
 let ueArgs1 = 0;
 let ueArgs2 = 0;
@@ -456,14 +456,47 @@ function getWeightsBuffer() {
   const b64 = weightsB64.replace(/\s+/g, "");
 
   if (typeof Buffer !== 'undefined' && Buffer.from) {
+    // node
     return Buffer.from(b64, 'base64');
   }
 
-  const binStr = atob(b64);
-  const n = binStr.length;
-  const bytes = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    bytes[i] = binStr.charCodeAt(i);
+  if (typeof atob !== 'undefined') {
+    // browser
+    const binStr = atob(b64);
+    const n = binStr.length;
+    const bytes = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      bytes[i] = binStr.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  // bare v8 (the standalone binary): decode by hand
+
+  const T = new Uint8Array(128);
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+  for (let i=0; i < 64; i++)
+    T[A.charCodeAt(i)] = i;
+
+  let len = b64.length;
+
+  while (len > 0 && b64[len-1] === '=')
+    len--;
+
+  const bytes = new Uint8Array((len * 3) >>> 2);
+
+  let o    = 0;
+  let acc  = 0;
+  let bits = 0;
+
+  for (let i=0; i < len; i++) {
+    acc  = ((acc << 6) | T[b64.charCodeAt(i)]) & 0xFFFF;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes[o++] = (acc >>> bits) & 0xFF;
+    }
   }
 
   return bytes;
@@ -518,7 +551,7 @@ function netLoad () {
 
 function flipIndex (index) {
 
-  const piece         = Math.floor(index / 64);
+  const piece         = (index / 64) | 0;
   const square        = index % 64;
   const flippedSquare = square ^ 56;
   const flippedPiece  = (piece + 6) % 12;
@@ -540,7 +573,7 @@ function flipIndex (index) {
 
 function bullet2lozza (index) {
 
-  const piece        = Math.floor(index / 64);
+  const piece        = (index / 64) | 0;
   const bulletSquare = index % 64;
   const lozzaSquare  = bulletSquare ^ 56;          // map a1 to a8 etc
   const lozzaIndex   = piece * 64 + lozzaSquare;
@@ -814,7 +847,7 @@ const repLoHash = new Int32Array(1024);
 const repHiHash = new Int32Array(1024);
 
 const ADJACENT = new Uint8Array(144);  // see initBoard()
-const ALIGNED  = Array(144);           // see initBoard()
+const ALIGNED  = Array.from({length: 144}, () => new Int8Array(144));  // see initBoard()
 
 //{{{  zobrist
 //
@@ -837,7 +870,7 @@ const hiEP = new Int32Array(144);
 
 //{{{  position
 
-function position (bd, turn, rights, ep, moves) {
+function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rights:str ep:str moves:strarr
 
   for (let i=0; i < nodes.length; i++)
     initNode(nodes[i]);
@@ -896,12 +929,12 @@ function position (bd, turn, rights, ep, moves) {
   for (let j=0; j < bd.length; j++) {
 
     const ch  = bd.charAt(j);
-    const chn = parseInt(ch);
+    const chn = bd.charCodeAt(j) - 48;  // '1'-'8' -> 1-8, anything else is out of range
 
     while (bdB[sq] === EDGE)
       sq++;
 
-    if (isNaN(chn)) {
+    if (chn < 1 || chn > 8) {
 
       if (ch != '/') {
 
@@ -1214,47 +1247,66 @@ function formatFen (turn) {
 // flipFen is slow. Only use for init/test.
 //
 
-function flipFen (fen) {
+function flipFen (fen) {  // @types fen:str
 
-  const [board, color, castling, enPassant, halfmove, fullmove] = fen.split(' ');
+  const parts = fen.split(' ');
 
-  const mirroredBoard = board.split('/').reverse().map(row => {
-    return row.split('').map(char => {
-      if (char === char.toUpperCase()) {
-        return char.toLowerCase();
-      } else if (char === char.toLowerCase()) {
-        return char.toUpperCase();
-      }
-      return char;
-    }).join('');
-  }).join('/');
+  // board: reverse the rows and swap case
 
-  const mirroredColor = color === 'w' ? 'b' : 'w';
+  const rows = parts[0].split('/');
 
-  const mirrorCastling = castling.split('').map(right => {
-    switch(right) {
-      case 'K': return 'k';
-      case 'Q': return 'q';
-      case 'k': return 'K';
-      case 'q': return 'Q';
-      default: return right;
+  let board = '';
+
+  for (let i=rows.length-1; i >= 0; i--) {
+
+    const row = rows[i];
+
+    for (let j=0; j < row.length; j++) {
+      const c = row.charCodeAt(j);
+      if (c >= 65 && c <= 90)
+        board += String.fromCharCode(c + 32);
+      else if (c >= 97 && c <= 122)
+        board += String.fromCharCode(c - 32);
+      else
+        board += row.charAt(j);
     }
-  }).join('');
 
-  const mirroredEnPassant = enPassant === '-' ? '-' :
-    enPassant[0] + (9 - parseInt(enPassant[1]));
+    if (i > 0)
+      board += '/';
+  }
 
-  const newFen = [
-    mirroredBoard,
-    mirroredColor,
-    mirrorCastling || '-',
-    mirroredEnPassant,
-    halfmove,
-    fullmove
-  ].join(' ');
+  // colour
 
-  return newFen;
-};
+  const colour = parts[1] == 'w' ? 'b' : 'w';
+
+  // castling
+
+  let castling = '';
+
+  for (let i=0; i < parts[2].length; i++) {
+    const ch = parts[2].charAt(i);
+    if (ch == 'K')
+      castling += 'k';
+    else if (ch == 'Q')
+      castling += 'q';
+    else if (ch == 'k')
+      castling += 'K';
+    else if (ch == 'q')
+      castling += 'Q';
+    else
+      castling += ch;
+  }
+
+  // ep
+
+  let ep = '-';
+
+  if (parts[3] != '-')
+    ep = parts[3].charAt(0) + (9 - parseInt(parts[3].charAt(1)));
+
+  return board + ' ' + colour + ' ' + castling + ' ' + ep + ' ' + parts[4] + ' ' + parts[5];
+
+}
 
 //}}}
 //{{{  makeMoveA
@@ -1885,7 +1937,7 @@ function initBoard () {
   // ALIGNED
 
   for (var i=0; i < 144; i++) {
-    ALIGNED[i] = new Int8Array(144).fill(EDGE);
+    ALIGNED[i].fill(EDGE);
     for (let j=0; j < 64; j++) {
       ALIGNED[i][B88[j]] = 0;
     }
@@ -2140,7 +2192,7 @@ function ttResize(N_MB) {
   const sm   = silentMode;
   silentMode = 0;
 
-  uciSend('info tt bits', pow2, 'entries', ttSize, '(0x' + ttSize.toString(16) + ')', 'mb', ttWidth * ttSize);
+  uciSend('info tt bits', pow2, 'entries', ttSize, 'bytes', ttWidth * ttSize);
 
   silentMode = sm;
 
@@ -3568,8 +3620,9 @@ const LMR_LOOKUP = new Uint8Array(MAX_PLY * MAX_MOVES);  // see initSearch()
 //{{{  stats
 
 let statsStartTime = 0;
-let statsNodes     = 0;
+let statsNodes     = 0;  // @i64
 let statsMoveTime  = 0;
+let statsHardTime  = 0;  // a fail low re-search may run past statsMoveTime but not past this
 let statsSoftNodes = 0;  // stop between id iterations when reached
 let statsHardNodes = 0;  // stop mid search when reached
 let statsTimeOut   = 0;
@@ -3582,6 +3635,7 @@ function initStats () {
   statsStartTime = now();
   statsNodes     = 0;
   statsMoveTime  = 0;
+  statsHardTime  = 0;
   statsSoftNodes = 0;
   statsHardNodes = 0;
   statsTimeOut   = 0;
@@ -3593,9 +3647,20 @@ function initStats () {
 
 function checkTime () {
 
-  if (statsBestMove && statsMoveTime > 0 && ((now() - statsStartTime) >= statsMoveTime))
+  if (statsMoveTime > 0) {
 
-    statsTimeOut = 1;
+    const elapsed = now() - statsStartTime;
+
+    if (statsBestMove && elapsed >= statsMoveTime)
+      statsTimeOut = 1;
+
+    // after a fail low there is no best move yet. rather than lose on time, stop at the
+    // hard limit and let go() fall back to the last exact result
+
+    else if (statsBestMove === 0 && multiPVNum > 0 && elapsed >= statsHardTime)
+      statsTimeOut = 1;
+
+  }
 
   if (statsBestMove && statsHardNodes > 0 && statsNodes >= statsHardNodes)
 
@@ -3606,8 +3671,57 @@ function checkTime () {
 //}}}
 //{{{  reporting
 
-let multiPV      = 1;
-let multiPVMoves = [];
+let multiPV = 1;
+
+// multipv entries, best first. fixed arrays rather than objects so the search stays easy to transpile.
+
+const MAX_MULTIPV = 500;
+
+const multiPVMove  = new Uint32Array(MAX_MULTIPV);
+const multiPVScore = new Int32Array(MAX_MULTIPV);
+const multiPVPvLen = new Int32Array(MAX_MULTIPV);
+const multiPVPv    = new Uint32Array(MAX_MULTIPV * MAX_MOVES);
+
+let multiPVNum = 0;
+
+function multiPVCopy (to, fr) {
+
+  multiPVMove[to]  = multiPVMove[fr];
+  multiPVScore[to] = multiPVScore[fr];
+  multiPVPvLen[to] = multiPVPvLen[fr];
+
+  multiPVPv.set(multiPVPv.subarray(fr * MAX_MOVES, fr * MAX_MOVES + multiPVPvLen[fr]), to * MAX_MOVES);
+
+}
+
+// insert the root pv at the front, dropping any existing entry for the same move
+
+function multiPVAdd (move, score) {
+
+  let k = 0;
+
+  for (let i=0; i < multiPVNum; i++) {
+    if (multiPVMove[i] !== move) {
+      if (k !== i)
+        multiPVCopy(k, i);
+      k++;
+    }
+  }
+
+  multiPVNum = Math.min(k, MAX_MULTIPV - 1);
+
+  for (let i=multiPVNum; i > 0; i--)
+    multiPVCopy(i, i-1);
+
+  multiPVMove[0]  = move;
+  multiPVScore[0] = score;
+  multiPVPvLen[0] = rootNode.pvLen;
+
+  multiPVPv.set(rootNode.pv.subarray(0, rootNode.pvLen), 0);
+
+  multiPVNum++;
+
+}
 
 let reportedMove = 0;  // the first move of the last pv sent
 
@@ -3660,25 +3774,27 @@ function reportMultiPV (depth) {
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
   const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
 
-  const n = Math.min(multiPV, multiPVMoves.length);
+  const n = Math.min(multiPV, multiPVNum);
 
   for (let i = 0; i < n; i++) {
 
-    const entry = multiPVMoves[i];
+    const pvLen = multiPVPvLen[i];
+    const pvOff = i * MAX_MOVES;
+    const s     = multiPVScore[i];
 
     let pvStr = 'pv';
-    for (let j = entry.pvLen - 1; j >= 0; j--)
-      pvStr += ' ' + formatMove(entry.pv[j]);
+    for (let j = pvLen - 1; j >= 0; j--)
+      pvStr += ' ' + formatMove(multiPVPv[pvOff + j]);
 
-    let scoreStr;
-    if (Math.abs(entry.score) > MINMATE) {
-      let mateScore = (MATE - Math.abs(entry.score)) / 2 | 0;
-      if (entry.score < 0)
+    let scoreStr = '';
+    if (Math.abs(s) > MINMATE) {
+      let mateScore = (MATE - Math.abs(s)) / 2 | 0;
+      if (s < 0)
         mateScore = -mateScore;
       scoreStr = 'score mate ' + mateScore;
     }
     else {
-      scoreStr = 'score cp ' + entry.score;
+      scoreStr = 'score cp ' + s;
     }
 
     uciSend('info', depthStr, 'multipv', (i + 1), scoreStr, nodeStr, hashStr, pvStr);
@@ -3704,6 +3820,8 @@ function collectPV(node, move) {
 // the command queue. When not set (bench etc.) there are no awaits so go()
 // runs synchronously as before.
 //
+// go() is Ethereal shaped.
+//
 
 async function go (maxPly, canYield) {
 
@@ -3714,7 +3832,7 @@ async function go (maxPly, canYield) {
   let delta       = 0;
   let depth       = 0;
 
-  multiPVMoves = [];
+  multiPVNum = 0;
 
   for (let ply=1; ply <= maxPly; ply++) {
     // id
@@ -3768,15 +3886,8 @@ async function go (maxPly, canYield) {
 
         // track for MultiPV
 
-        if (statsBestMove) {
-          multiPVMoves = multiPVMoves.filter(m => m.move !== statsBestMove);
-          multiPVMoves.unshift({
-            move:  statsBestMove,
-            score: score,
-            pv:    rootNode.pv.slice(0, rootNode.pvLen),
-            pvLen: rootNode.pvLen
-          });
-        }
+        if (statsBestMove)
+          multiPVAdd(statsBestMove, score);
 
         if (multiPV > 1) {
 
@@ -3822,7 +3933,7 @@ async function go (maxPly, canYield) {
 
   // after a fail low statsBestMove is 0, so fall back to the last exact result
 
-  const bestMove = statsBestMove || (multiPVMoves.length ? multiPVMoves[0].move : 0);
+  const bestMove = statsBestMove || (multiPVNum ? multiPVMove[0] : 0);
 
   bestMoveStr = formatMove(bestMove);
 
@@ -4396,6 +4507,8 @@ function perft (node, depth, turn) {
 
   node.rights = bdRights;
   node.ep     = bdEp;
+  node.repLo  = repLo;
+  node.repHi  = repHi;
 
   genMoves(node, turn);
 
@@ -4411,6 +4524,8 @@ function perft (node, depth, turn) {
 
       bdRights = node.rights;
       bdEp     = node.ep;
+      repLo    = node.repLo;
+      repHi    = node.repHi;
 
       continue;
 
@@ -4424,6 +4539,8 @@ function perft (node, depth, turn) {
 
     bdRights = node.rights;
     bdEp     = node.ep;
+    repLo    = node.repLo;
+    repHi    = node.repHi;
 
   }
 
@@ -4517,11 +4634,22 @@ function initSearch () {
 //}}}
 //{{{  uci
 
-const nodeHost = (typeof process) != 'undefined';
-
+const nodeHost  = (typeof process)    != 'undefined';  // node
+const shellHost = (typeof lozzaShell) != 'undefined';  // standalone binary, see shell/src/main.rs
+                                                       // otherwise a web worker
 const fs = (nodeHost) ? require('fs') : 0;
 
 let silentMode = 0;
+
+function hostExit () {
+
+  if (nodeHost)
+    process.exit();
+
+  else if (shellHost)
+    lozzaShell.exit(0);
+
+}
 
 //{{{  bench fens
 //
@@ -4598,7 +4726,7 @@ function uciSend () {
 
   //fs.writeSync(1, s + '\n');
 
-  if (nodeHost)
+  if (nodeHost || shellHost)
     console.log(s);
   else
     postMessage(s);
@@ -4638,6 +4766,9 @@ function uciGetStr (tokens, key, def) {
 //}}}
 //{{{  uciGetArr
 
+let uciArrLo = 0;  // set by uciGetArr
+let uciArrHi = 0;
+
 function uciGetArr (tokens, key, to) {
 
   var lo = 0;
@@ -4655,7 +4786,8 @@ function uciGetArr (tokens, key, to) {
     }
   }
 
-  return {lo:lo, hi:hi};
+  uciArrLo = lo;
+  uciArrHi = hi;
 
 }
 
@@ -4708,21 +4840,24 @@ function uciExec (commands, canYield) {
         let rights = 'KQkq';
         let ep     = '-';
 
-        let arr = uciGetArr(tokens, 'fen', 'moves');
+        uciGetArr(tokens, 'fen', 'moves');
 
-        if (arr.lo > 0) {
-          if (arr.lo <= arr.hi) bd     = tokens[arr.lo]; arr.lo++;
-          if (arr.lo <= arr.hi) turn   = tokens[arr.lo]; arr.lo++;
-          if (arr.lo <= arr.hi) rights = tokens[arr.lo]; arr.lo++;
-          if (arr.lo <= arr.hi) ep     = tokens[arr.lo]; arr.lo++;
+        let lo = uciArrLo;
+        let hi = uciArrHi;
+
+        if (lo > 0) {
+          if (lo <= hi) bd     = tokens[lo]; lo++;
+          if (lo <= hi) turn   = tokens[lo]; lo++;
+          if (lo <= hi) rights = tokens[lo]; lo++;
+          if (lo <= hi) ep     = tokens[lo]; lo++;
         }
 
         const moves = [];
 
-        arr = uciGetArr(tokens, 'moves', 'fen');
+        uciGetArr(tokens, 'moves', 'fen');
 
-        if (arr.lo > 0) {
-          for (var i=arr.lo; i <= arr.hi; i++)
+        if (uciArrLo > 0) {
+          for (var i=uciArrLo; i <= uciArrHi; i++)
             moves.push(tokens[i]);
         }
 
@@ -4796,6 +4931,13 @@ function uciExec (commands, canYield) {
             statsMoveTime = 1;
         }
 
+        // hard limit for a fail low re-search: up to twice the soft limit but never more than half the clock
+
+        statsHardTime = statsMoveTime;
+
+        if (moveTime === 0 && totTime > 0)
+          statsHardTime = Math.max(statsMoveTime, Math.min(statsMoveTime * 2, (totTime / 2) | 0));
+
         if (canYield)
           return go(depth, 1);
 
@@ -4846,7 +4988,7 @@ function uciExec (commands, canYield) {
       case 'q': {
         // quit
 
-        process.exit();
+        hostExit();
 
         break;
 
@@ -4999,7 +5141,7 @@ function uciExec (commands, canYield) {
         const t1 = now();
 
         let errors = 0;
-        let tot    = 0;
+        let tot    = 0;  // @i64
 
         for (let i=0; i < n; i++) {
 
@@ -5021,15 +5163,17 @@ function uciExec (commands, canYield) {
           const sec    = Math.round((t2-t1)/100)/10;
           const secStr = sec.toString().padStart(6, ' ');
 
-          let diff = nodes - moves;
+          const diff = nodes - moves;
+
+          let diffStr = '' + diff;
 
           if (diff) {
             errors += Math.abs(diff);
-            diff = '\x1b[1m' + diff + '\x1b[0m';
+            diffStr = '\x1b[1m' + diff + '\x1b[0m';
           }
 
           silentMode = 0;
-          uciSend(secStr, id, fen, depth, diff, nodes, moves);
+          uciSend(secStr, id, fen, depth, diffStr, nodes, moves);
           silentMode = 1;
         }
 
@@ -5114,7 +5258,8 @@ function uciExec (commands, canYield) {
       case 'datagen': {
         // datagen
 
-        datagen(tokens);
+        if (nodeHost)
+          datagen(tokens);
 
         break;
 
@@ -5173,7 +5318,7 @@ async function uciDrain () {
   cmdBusy = 0;
 
   if (stdinEnded)
-    process.exit();
+    hostExit();
 
 }
 
@@ -5181,7 +5326,7 @@ function pollQueue () {
 
   for (let c=0; c < cmdQueue.length; c++) {
 
-    const cmd = cmdQueue[c].split(/\s+/)[0];
+    const cmd = cmdQueue[c].split(' ')[0];
 
     if (cmd == 'stop') {  // stop based an idea by @InSys, extended with a command queue
       // anything after the stop runs after bestmove has been sent
@@ -5205,16 +5350,17 @@ function pollQueue () {
 //
 // Must be a macrotask so stdin/onmessage events can run. In a web worker
 // setTimeout(0) gets clamped to 4ms when nested, so use a MessageChannel.
+// Node and the shell provide setImmediate.
 //
 
-const yieldChannel = nodeHost ? null : new MessageChannel();
+const yieldChannel = (nodeHost || shellHost) ? null : new MessageChannel();
 
 let yieldResolve = null;
 
 function yieldToHost () {
 
   return new Promise(function(resolve) {
-    if (nodeHost)
+    if (nodeHost || shellHost)
       setImmediate(resolve);
     else {
       yieldResolve = resolve;
@@ -5267,8 +5413,24 @@ function initUci () {
       if (stdinBuf)
         uciQueue(stdinBuf);
       if (!cmdBusy)
-        process.exit();
+        hostExit();
     });
+
+  }
+
+  else if (shellHost) {
+
+    // standalone binary: the shell delivers stdin a line at a time
+
+    lozzaShell.onLine = function (line) {
+      uciQueue(line);
+    };
+
+    lozzaShell.onEnd = function () {
+      stdinEnded = 1;
+      if (!cmdBusy)
+        hostExit();
+    };
 
   }
 
@@ -5450,8 +5612,8 @@ function dgPlayGame (cfg, book) {
 
     // after a fail low statsBestMove is 0, so fall back to the last exact result (as go() does)
 
-    const move  = statsBestMove || (multiPVMoves.length ? multiPVMoves[0].move  : 0);
-    const score = statsBestMove ?  statsBestScore : (multiPVMoves.length ? multiPVMoves[0].score : 0);
+    const move  = statsBestMove || (multiPVNum ? multiPVMove[0]  : 0);
+    const score = statsBestMove ?  statsBestScore : (multiPVNum ? multiPVScore[0] : 0);
 
     const inCheck = isKingAttacked(stm ^ COLOR_MASK) !== 0;
 
@@ -5626,10 +5788,12 @@ function initOnce () {
 
 initOnce();
 
-if (nodeHost && process.argv.length > 2) {
-  for (let i=2; i < process.argv.length; i++)
-    uciExec(process.argv[i]);
-}
+// command line arguments are commands, e.g. node lozza.js "go depth 10" q
+
+const argv = nodeHost ? process.argv.slice(2) : (shellHost ? lozzaShell.argv : []);
+
+for (let i=0; i < argv.length; i++)
+  uciExec(argv[i]);
 
 //}}}
 //{{{  weights
