@@ -35,7 +35,7 @@ node lozza.js uci "go depth 10" q # exec command and exit
 ## Notes
 
 - Lozza's code is best read with a folding editor; I use foldit in a terminal - link below.
-- Lozza's search is way behind the coalface; the only engine code I have read is Fruit 2.1 and Ethereal's ID.
+- Lozza's search is way behind the hobby coalface.
 
 ## Acknowledgements
 
@@ -49,4 +49,5 @@ node lozza.js uci "go depth 10" q # exec command and exit
 - https://github.com/Disservin/fastchess/releases - fastchess - for SPRTs
 - https://discord.gg/HTsRk2ATq - Engine Programming Discord channel
 - https://discord.gg/bbpA5GqSz - Engine Testers Discord channel
-- https://github.com/AndyGrant/Ethereal - Ethereal
+- https://github.com/AndyGrant/Ethereal - Ethereal - Lozza's ID is Ethereal-shaped.
+
