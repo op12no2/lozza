@@ -10,11 +10,11 @@ ping me if you would like one for a different platform.
 
 ## Web hello world
 
-All you need is `lozza.js` from the [latest release](https://github.com/op12no2/lozza/releases).
+All you need is `lozza9.0.js` from the [latest release](https://github.com/op12no2/lozza/releases).
 
 ```
 const dump = document.getElementById('dump');
-const lozza = new Worker('lozza.js');
+const lozza = new Worker('lozza9.0.js');
 
 lozza.onmessage = function (e) {
   dump.textContent += e.data + '\n';
