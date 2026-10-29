@@ -5,10 +5,12 @@ A Javascript UCI chess engine that can be used in a Web Worker and Node.
 
 Lozza is easy to read and tweak; it's also easy to deploy and is WSAM-free.
 
-Release versions are additioinally available as assets for Windows and Linux;
+Release versions are additionally available as assets for Windows and Linux;
 ping me if you would like one for a different platform.
 
 ## Web hello world
+
+All you need is `lozza.js` from the [latest release](https://github.com/op12no2/lozza/releases).
 
 ```
 const dump = document.getElementById('dump');
@@ -24,18 +26,19 @@ lozza.postMessage('position startpos');
 lozza.postMessage('go depth 10');
 ```
 
-[Hello world](https://op12no2.github.io/lozza/examples/hello_world.html)
+Try it here: https://op12no2.github.io/lozza/examples/hello_world.html
 
 ## Node
 
 ```
-node lozza.js                     # interactive 
+node lozza.js                     # interactive
 node lozza.js uci "go depth 10" q # exec commands and exit
 ```
 
 ## Notes
 
-- `lozza.js' is best read with a folding editor; I use foldit in a WSL terminal - link below.
+- The repo copy of `lozza.js` will not load because it has no embedded weights; always use the latest release.
+- The code is best read with a folding editor; I use foldit in a WSL terminal - link below.
 - Lozza needs a rewrite. It's pretty ugly with a 12x12 board inherited from my 1980 engine and search is way behind the hobby coalface.
 
 ## Acknowledgements
