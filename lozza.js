@@ -5423,8 +5423,7 @@ function uciExec (commands, canYield) {
       case 'datagen': {
         // datagen
 
-        if (nodeHost)
-          datagen(tokens);
+        datagen(tokens);
 
         break;
 
@@ -5623,8 +5622,13 @@ function initUci () {
 // datagen [games N] [nodes N] [dir D] [book F] [randply N]
 //
 // Each run writes a new uniquely named file in D, so any number of instances
-// can run at once and be stopped and restarted at will. See bin/datagen.sh.
-// Node only.
+// can run at once and be stopped and restarted at will. See bin/datagen.sh,
+// which uses the C build because it is several times faster than node.
+//
+// The file access is in the dg*() host functions below, which are node only.
+// The C build has its own versions in tools/lozza2c/runtime_uci.c, so the
+// rest of this fold must stay in the transpiler friendly subset: int32
+// scalars, strings, string arrays and local typed arrays.
 //
 
 const DG_RESIGN_SCORE = 600;  // cp, white relative
@@ -5636,32 +5640,115 @@ const DG_MAX_PLIES    = 500;  // then adjudicate as a draw
 const DG_FLUSH_GAMES  = 10;   // write to disk every n games
 const DG_REPORT_GAMES = 100;  // log progress every n games
 
-const DG_STARTPOS = ['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', 'w', 'KQkq', '-'];
+let dgGameFens = 0;  // fens written by the last dgPlayGame()
 
-//{{{  dgBookFen
+//{{{  host functions (node)
 //
-// Pick a random line from an EPD book by seeking to a random offset and
-// taking the first complete line after it, so big books are never read
-// into memory. Returns [board, turn, rights, ep] or null.
+// dgOpenBook(name)   open an EPD book, 1 if ok, 0 if none or it cannot be opened
+// dgBookLine()       a random complete line from the book, '' if there is no book
+// dgOpenOut(dir,tag) create dir and a new uniquely named file in it; its name, '' on failure
+// dgWrite(s)         append s to the file (buffered)
+// dgFlush()          write buffered output to disk
+// dgClose()          flush and close the file and the book
+//
+// dgBookLine seeks to a random offset and takes the first complete line after
+// it, so big books are never read into memory.
 //
 
-function dgBookFen (book) {
+let dgBookFd   = -1;
+let dgBookSize = 0;
+let dgOutName  = '';
+let dgOutBuf   = '';
+
+function dgOpenBook (name) {
+
+  if (name === '' || !nodeHost)
+    return 0;
+
+  dgBookFd   = fs.openSync(name, 'r');
+  dgBookSize = fs.fstatSync(dgBookFd).size;
+
+  return 1;
+
+}
+
+function dgBookLine () {
+
+  if (dgBookFd < 0)
+    return '';
 
   const buf = Buffer.alloc(4096);
-  const off = Math.floor(Math.random() * Math.max(1, book.size - buf.length));
-  const n   = fs.readSync(book.fd, buf, 0, buf.length, off);
+  const off = Math.floor(Math.random() * Math.max(1, dgBookSize - buf.length));
+  const n   = fs.readSync(dgBookFd, buf, 0, buf.length, off);
 
   const lines = buf.toString('utf8', 0, n).split('\n');
 
   // the first line is partial unless we started at 0 and the last is probably partial
 
   for (let i = (off === 0 ? 0 : 1); i < lines.length - 1; i++) {
-    const t = lines[i].trim().split(/\s+/);
-    if (t.length >= 4)
-      return t.slice(0, 4);
+    if (lines[i].trim() !== '')
+      return lines[i];
   }
 
-  return null;
+  return '';
+
+}
+
+function dgOpenOut (dir, tag) {
+
+  if (!nodeHost)
+    return '';
+
+  fs.mkdirSync(dir, {recursive: true});
+
+  dgOutName = dir + '/dg_' + tag + '_' + process.pid + '_' + Math.trunc(Math.random() * 1000000000) + '.txt';
+  dgOutBuf  = '';
+
+  fs.writeFileSync(dgOutName, '');
+
+  return dgOutName;
+
+}
+
+function dgWrite (s) {
+
+  dgOutBuf += s;
+
+}
+
+function dgFlush () {
+
+  if (dgOutBuf.length) {
+    fs.appendFileSync(dgOutName, dgOutBuf);
+    dgOutBuf = '';
+  }
+
+}
+
+function dgClose () {
+
+  dgFlush();
+
+  if (dgBookFd >= 0)
+    fs.closeSync(dgBookFd);
+
+  dgBookFd = -1;
+
+}
+
+//}}}
+//{{{  dgLog
+//
+// Progress goes to stdout even though the searches run in silent mode.
+//
+
+function dgLog (s) {
+
+  const sm = silentMode;
+
+  silentMode = 0;
+  uciSend(s);
+  silentMode = sm;
 
 }
 
@@ -5676,9 +5763,10 @@ function dgRandomMove () {
   const node     = rootNode;
   const turn     = bdTurn;
   const nextTurn = turn ^ COLOR_MASK;
-  const legal    = [];
+  const legal    = new Uint32Array(MAX_MOVES);
 
-  let move = 0;
+  let numLegal = 0;
+  let move     = 0;
 
   initNode(node);
 
@@ -5692,7 +5780,7 @@ function dgRandomMove () {
     makeMoveA(node, move);
 
     if ((move & MOVE_LEGAL_MASK) !== 0 || isKingAttacked(nextTurn) === 0)
-      legal.push(move);
+      legal[numLegal++] = move;
 
     unmakeMove(node, move);
     uncacheA(node);
@@ -5701,65 +5789,68 @@ function dgRandomMove () {
 
   initNode(node);
 
-  if (legal.length === 0)
+  if (numLegal === 0)
     return '';
 
-  return formatMove(legal[Math.floor(Math.random() * legal.length)]);
+  return formatMove(legal[(Math.random() * numLegal) | 0]);
 
 }
 
 //}}}
 //{{{  dgPlayGame
 //
-// Play one game. Returns {lines: [...], result: '1.0'|'0.5'|'0.0'} or null
-// if the game was abandoned (ended during the random move phase).
+// Play one game from a random book position (or the start position without a
+// book) with randPly or randPly+1 random plies. Writes the quiet positions and
+// returns the result as '1.0', '0.5' or '0.0', or '' if the game was abandoned
+// because it ended during the random move phase.
 //
 
-function dgPlayGame (cfg, book) {
+function dgPlayGame (nodes, randPly) {
 
-  let start = DG_STARTPOS;
-
-  if (book !== null) {
-    const t = dgBookFen(book);
-    if (t !== null)
-      start = t;
-  }
-
-  const bd     = start[0];
-  const turn   = start[1];
-  const rights = start[2];
-  const ep     = start[3];
+  const book   = dgBookLine().replace(/\s+/g, ' ').trim().split(' ');
   const moves  = [];
+  const lines  = [];
+
+  let bd     = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+  let turn   = 'w';
+  let rights = 'KQkq';
+  let ep     = '-';
+  let result = '';
+
+  dgGameFens = 0;
+
+  if (book.length >= 4) {
+    bd     = book[0];
+    turn   = book[1];
+    rights = book[2];
+    ep     = book[3];
+  }
 
   newGame();
   position(bd, turn, rights, ep, moves);
 
   //{{{  random moves
 
-  const randPlies = cfg.randply + (Math.random() < 0.5 ? 1 : 0);
+  const randPlies = randPly + ((Math.random() < 0.5) ? 1 : 0);
 
   for (let i=0; i < randPlies; i++) {
 
     const m = dgRandomMove();
 
     if (m === '')
-      return null;
+      return '';
 
     moves.push(m);
     position(bd, turn, rights, ep, moves);
 
     if (isDraw())
-      return null;
+      return '';
 
   }
 
   //}}}
   //{{{  play
 
-  const fens   = [];
-  const scores = [];
-
-  let result      = '';
   let resignCount = 0;
   let drawCount   = 0;
 
@@ -5773,7 +5864,7 @@ function dgPlayGame (cfg, book) {
       break;
     }
 
-    uciExec('go nodes ' + cfg.nodes);
+    uciExec('go nodes ' + nodes);
 
     // after a fail low statsBestMove is 0, so fall back to the last exact result (as go() does)
 
@@ -5794,10 +5885,8 @@ function dgPlayGame (cfg, book) {
     const wScore = (stm === WHITE) ? score : -score;
     const noisy  = (move & (MOVE_NOISY_MASK | MOVE_PROMOTE_MASK)) !== 0;
 
-    if (!inCheck && !noisy && rootNumLegal > 1 && Math.abs(score) < MINMATE) {  // forced moves stop at depth 1 so their score is poor
-      fens.push(formatFen(stm));
-      scores.push(wScore);
-    }
+    if (!inCheck && !noisy && rootNumLegal > 1 && Math.abs(score) < MINMATE)  // forced moves stop at depth 1 so their score is poor
+      lines.push(formatFen(stm) + ' | ' + wScore);
 
     //{{{  adjudicate
 
@@ -5840,12 +5929,12 @@ function dgPlayGame (cfg, book) {
 
   //}}}
 
-  const lines = [];
+  for (let i=0; i < lines.length; i++)
+    dgWrite(lines[i] + ' | ' + result + '\n');
 
-  for (let i=0; i < fens.length; i++)
-    lines.push(fens[i] + ' | ' + scores[i] + ' | ' + result);
+  dgGameFens = lines.length;
 
-  return {lines: lines, result: result};
+  return result;
 
 }
 
@@ -5854,90 +5943,79 @@ function dgPlayGame (cfg, book) {
 
 function datagen (tokens) {
 
-  if (!nodeHost) {
-    uciSend('datagen needs node');
+  const games   = uciGetInt(tokens, 'games',   1000);
+  const nodes   = uciGetInt(tokens, 'nodes',   5000);
+  const randPly = uciGetInt(tokens, 'randply', 8);
+  const dir     = uciGetStr(tokens, 'dir',     'data');
+  const book    = uciGetStr(tokens, 'book',    '');
+
+  if (book !== '' && dgOpenBook(book) === 0) {
+    uciSend('datagen cannot open book', book);
     return;
   }
 
-  const cfg = {
-    games:   uciGetInt(tokens, 'games',   1000),
-    nodes:   uciGetInt(tokens, 'nodes',   5000),
-    randply: uciGetInt(tokens, 'randply', 8),
-    dir:     uciGetStr(tokens, 'dir',     'data'),
-    book:    uciGetStr(tokens, 'book',    ''),
-  };
+  const fileName = dgOpenOut(dir, BUILD + '_' + nodes + 'n');
 
-  let book = null;
-
-  if (cfg.book !== '') {
-    const fd = fs.openSync(cfg.book, 'r');
-    book = {fd: fd, size: fs.fstatSync(fd).size};
+  if (fileName === '') {
+    uciSend('datagen cannot create a file in', dir, '(datagen needs node or the C build)');
+    return;
   }
 
-  fs.mkdirSync(cfg.dir, {recursive: true});
+  dgLog('datagen ' + fileName + ' games ' + games + ' nodes ' + nodes + ' randply ' + randPly + ' dir ' + dir + ' book ' + book);
 
-  const fileName = cfg.dir + '/dg_' + BUILD + '_' + cfg.nodes + 'n_' + process.pid + '_' + Math.trunc(Math.random() * 1000000000) + '.txt';
-
-  fs.writeFileSync(fileName, '');
-
-  console.log('datagen', fileName, JSON.stringify(cfg));
-
-  const results = {'1.0': 0, '0.5': 0, '0.0': 0};
-
-  let buf        = '';
+  let wins       = 0;
+  let draws      = 0;
+  let losses     = 0;
   let totalFens  = 0;
   let totalGames = 0;
   let abandoned  = 0;
-  let t          = now();
   let fensSince  = 0;
+  let t          = now();
 
   silentMode = 1;
 
-  for (let g=1; g <= cfg.games; g++) {
+  for (let g=1; g <= games; g++) {
 
-    const game = dgPlayGame(cfg, book);
+    const result = dgPlayGame(nodes, randPly);
 
-    if (game === null) {
+    if (result === '')
       abandoned++;
-    }
     else {
       totalGames++;
-      totalFens += game.lines.length;
-      fensSince += game.lines.length;
-      results[game.result]++;
-      if (game.lines.length)
-        buf += game.lines.join('\n') + '\n';
+      totalFens += dgGameFens;
+      fensSince += dgGameFens;
+      if (result === '1.0')
+        wins++;
+      else if (result === '0.5')
+        draws++;
+      else
+        losses++;
     }
 
-    if ((g % DG_FLUSH_GAMES) === 0 && buf.length) {
-      fs.appendFileSync(fileName, buf);
-      buf = '';
-    }
+    if ((g % DG_FLUSH_GAMES) === 0)
+      dgFlush();
 
     if ((g % DG_REPORT_GAMES) === 0) {
       const secs = Math.max(1, now() - t) / 1000;
-      console.log(fileName, 'games', totalGames, 'fens', totalFens, 'fens/sec', (fensSince / secs) | 0, 'wdl', results['1.0'], results['0.5'], results['0.0'], 'abandoned', abandoned);
-      t = now();
+      dgLog(fileName + ' games ' + totalGames + ' fens ' + totalFens + ' fens/sec ' + ((fensSince / secs) | 0) + ' wdl ' + wins + ' ' + draws + ' ' + losses + ' abandoned ' + abandoned);
+      t         = now();
       fensSince = 0;
     }
 
   }
 
-  if (buf.length)
-    fs.appendFileSync(fileName, buf);
-
-  if (book !== null)
-    fs.closeSync(book.fd);
+  dgClose();
 
   silentMode = 0;
 
-  console.log('done', fileName, 'games', totalGames, 'fens', totalFens, 'wdl', results['1.0'], results['0.5'], results['0.0'], 'abandoned', abandoned);
+  dgLog('done ' + fileName + ' games ' + totalGames + ' fens ' + totalFens + ' wdl ' + wins + ' ' + draws + ' ' + losses + ' abandoned ' + abandoned);
 
 }
 
 //}}}
 
 //}}}
+
 //{{{  init
 
 function initOnce () {
