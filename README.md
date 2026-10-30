@@ -37,7 +37,7 @@ node lozza.js uci "go depth 10" q # exec commands and exit
 
 ## Notes
 
-- The repo copy of `lozza.js` will not load because it has no embedded weights; always use the latest release.
+- Don't use the repo `lozza.js` because it doesn't have any weights; always use the latest release.
 - The code is best read with a folding editor; I use foldit in a WSL terminal - link below.
 - Lozza needs a rewrite. It's pretty ugly with a 12x12 board inherited from my 1980 engine and search is way behind the hobby coalface.
 
