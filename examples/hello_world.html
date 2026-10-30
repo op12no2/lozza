@@ -15,7 +15,7 @@
 
   <script>
     const dump = document.getElementById('dump');
-    const lozza = new Worker('lozza9.0.js');
+    const lozza = new Worker('lozza11.0.js');
 
     lozza.onmessage = function (e) {
       dump.textContent += e.data + '\n';
