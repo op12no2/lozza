@@ -43,7 +43,11 @@ const TT_EXACT = 1;
 const TT_BETA  = 2;
 const TT_ALPHA = 3;
 
-const BASE_HASH       = UINT32_MAX;
+// Move ordering ranks. They are int32 so that moves, ranks and node.base stay int32 in
+// the C build too; the ladder is the old uint32 one shifted down by 2^31, so the order
+// is unchanged. History scores start at BASE_HISSLIDE and drift up and down from there.
+
+const BASE_HASH       = INT32_MAX;
 const BASE_PROMOTES   = BASE_HASH       - 1000;
 const BASE_GOODTAKES  = BASE_PROMOTES   - 1000;
 const BASE_EVENTAKES  = BASE_GOODTAKES  - 1000;
@@ -53,8 +57,8 @@ const BASE_MYKILLERS  = BASE_MATEKILLER - 1000;
 const BASE_GPKILLERS  = BASE_MYKILLERS  - 1000;
 const BASE_CASTLING   = BASE_GPKILLERS  - 1000;
 const BASE_BADTAKES   = BASE_CASTLING   - 1000;
-const BASE_HISSLIDE   = (UINT32_MAX >>> 1) - 10000;
-const BASE_SLIDE      = 100;
+const BASE_HISSLIDE   = -10001;
+const BASE_SLIDE      = INT32_MIN + 100;
 const BASE_PRUNABLE   = BASE_BADTAKES;
 
 const MOVE_TO_BITS     = 0;
@@ -1189,7 +1193,7 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
 
 function isKingAttacked (byCol) {
 
-  const list = wbList[(byCol ^ COLOUR_MASK) >>> 3];
+  const list = wbList[(byCol ^ COLOUR_MASK) >> 3];
 
   return isAttacked(list[0], byCol);
 
@@ -1423,10 +1427,10 @@ function makeMoveA (node, move) {
   const b = bdB;
   const z = bdZ;
 
-  const fr      = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  const to      = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  const toObj   = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
-  const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const fr      = (move & MOVE_FR_MASK   ) >> MOVE_FR_BITS;
+  const to      = (move & MOVE_TO_MASK   ) >> MOVE_TO_BITS;
+  const toObj   = (move & MOVE_TOOBJ_MASK) >> MOVE_TOOBJ_BITS;
+  const frObj   = (move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS;
   const frPiece = frObj & PIECE_MASK;
   const frCol   = frObj & COLOR_MASK;
 
@@ -1451,7 +1455,7 @@ function makeMoveA (node, move) {
   loHash ^= loObjPieces[(frObj << 8) + to];
   hiHash ^= hiObjPieces[(frObj << 8) + to];
 
-  wbList[frCol >>> 3][node.frZ] = to;
+  wbList[frCol >> 3][node.frZ] = to;
 
   // clear rights?
 
@@ -1567,7 +1571,7 @@ function makeMoveA (node, move) {
 
       else if ((move & MOVE_PROMOTE_MASK) !== 0) {
 
-        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        const pro = ((move & MOVE_PROMAS_MASK) >> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]     = WHITE | pro;
 
         child.ueType = UE_PROMOTE;
@@ -1680,7 +1684,7 @@ function makeMoveA (node, move) {
 
       else if ((move & MOVE_PROMOTE_MASK) !== 0) {
 
-        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        const pro = ((move & MOVE_PROMAS_MASK) >> MOVE_PROMAS_BITS) + 2;  //NBRQ
         b[to]     = BLACK | pro;
 
         child.ueType = UE_PROMOTE;
@@ -1794,10 +1798,10 @@ function unmakeMove (node, move) {
   const b = bdB;
   const z = bdZ;
 
-  const fr    = (move & MOVE_FR_MASK)    >>> MOVE_FR_BITS;
-  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-  const toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
-  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const fr    = (move & MOVE_FR_MASK)    >> MOVE_FR_BITS;
+  const to    = (move & MOVE_TO_MASK)    >> MOVE_TO_BITS;
+  const toObj = (move & MOVE_TOOBJ_MASK) >> MOVE_TOOBJ_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS;
   const frCol = frObj & COLOR_MASK;
 
   b[fr] = frObj;
@@ -1806,7 +1810,7 @@ function unmakeMove (node, move) {
   z[fr] = node.frZ;
   z[to] = node.toZ;
 
-  wbList[frCol >>> 3][node.frZ] = fr;
+  wbList[frCol >> 3][node.frZ] = fr;
 
   // capture?
 
@@ -1854,7 +1858,7 @@ function unmakeMove (node, move) {
 
       else if (move & MOVE_PROMOTE_MASK) {
 
-        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        const pro = ((move & MOVE_PROMAS_MASK) >> MOVE_PROMAS_BITS) + 2;  //NBRQ
 
         wCounts[PAWN]++;
         wCounts[pro]--;
@@ -1899,7 +1903,7 @@ function unmakeMove (node, move) {
 
       else if (move & MOVE_PROMOTE_MASK) {
 
-        const pro = ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 2;  //NBRQ
+        const pro = ((move & MOVE_PROMAS_MASK) >> MOVE_PROMAS_BITS) + 2;  //NBRQ
 
         bCounts[PAWN]++;
         bCounts[pro]--;
@@ -2134,10 +2138,10 @@ function nodeStruct () {
   this.parentNode      = null;
   this.grandparentNode = null;
 
-  this.moves  = new Uint32Array(MAX_MOVES);
-  this.ranks  = new Uint32Array(MAX_MOVES);
-  this.moves2 = new Uint32Array(MAX_MOVES);
-  this.ranks2 = new Uint32Array(MAX_MOVES);
+  this.moves  = new Int32Array(MAX_MOVES);
+  this.ranks  = new Int32Array(MAX_MOVES);
+  this.moves2 = new Int32Array(MAX_MOVES);
+  this.ranks2 = new Int32Array(MAX_MOVES);
 
   this.killer1     = 0;
   this.killer2     = 0;
@@ -2174,7 +2178,7 @@ function nodeStruct () {
   this.frZ = 0;
   this.epZ = 0;
 
-  this.pv    = new Uint32Array(MAX_MOVES);
+  this.pv    = new Int32Array(MAX_MOVES);
   this.pvLen = 0;
 
 }
@@ -2259,20 +2263,26 @@ function initNodes () {
 //}}}
 //}}}
 //{{{  tt
+//
+// One Int32Array with 5 words (20 bytes) per entry, so that a probe touches one cache
+// line (two when an entry straddles a line) instead of one line per field:
+//
+//   0  low hash word     3  type | depth << 8    depth is 8 bits, signed
+//   1  high hash word    4  score | eval << 16   both 16 bits, signed
+//   2  move
+//
+// The C build fuses words 0 and 1 into one 64 bit key (tools/lozza2c/fuse.js), which
+// is why they are always stored and compared as adjacent lo/hi statements.
+//
 
 let ttDefault = 16;  // mb
 let ttSize    = 1;
 let ttMask    = 0;
 
-let ttLo    = new Int32Array(ttSize);
-let ttHi    = new Int32Array(ttSize);
-let ttType  = new Uint8Array(ttSize);
-let ttDepth = new Int8Array(ttSize);
-let ttMove  = new Uint32Array(ttSize);
-let ttEval  = new Int16Array(ttSize);
-let ttScore = new Int16Array(ttSize);
+const ttWords = 5;
+const ttWidth = ttWords * 4;  // bytes
 
-const ttWidth = 18;
+let tt = new Int32Array(ttSize * ttWords);
 
 let ttHashUsed = 0;
 
@@ -2280,21 +2290,14 @@ let ttHashUsed = 0;
 
 function ttResize(N_MB) {
 
-  const bytesPerEntry  = ttWidth;
   const requestedBytes = N_MB * 1024 * 1024;
-  const entriesNeeded  = requestedBytes / bytesPerEntry;
+  const entriesNeeded  = requestedBytes / ttWidth;
   const pow2           = Math.ceil(Math.log2(entriesNeeded));
 
   ttSize = 1 << pow2;
   ttMask = ttSize - 1;
 
-  ttLo    = new Int32Array(ttSize);
-  ttHi    = new Int32Array(ttSize);
-  ttType  = new Uint8Array(ttSize);
-  ttDepth = new Int8Array(ttSize);
-  ttMove  = new Uint32Array(ttSize);
-  ttEval  = new Int16Array(ttSize);
-  ttScore = new Int16Array(ttSize);
+  tt = new Int32Array(ttSize * ttWords);
 
   const sm   = silentMode;
   silentMode = 0;
@@ -2311,12 +2314,13 @@ function ttResize(N_MB) {
 
 function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
 
-  const idx = loHash & ttMask;
+  const i    = Math.imul(loHash & ttMask, ttWords);
+  const info = tt[i+3];
 
-  if (depth === 0 && ttType[idx] !== TT_EMPTY && ttDepth[idx] > 0)
+  if (depth === 0 && (info & 0xFF) !== TT_EMPTY && ((info << 16) >> 24) > 0)
     return;
 
-  if (ttType[idx] === TT_EMPTY)
+  if ((info & 0xFF) === TT_EMPTY)
     ttHashUsed++;
 
   if (score <= -MINMATE && score >= -MATE)
@@ -2325,15 +2329,13 @@ function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
   else if (score >= MINMATE && score <= MATE)
     score += ply;
 
-  ttLo[idx]    = loHash;
-  ttHi[idx]    = hiHash;
-  ttType[idx]  = type;
-  ttDepth[idx] = depth;
-  ttScore[idx] = score;
-  ttEval[idx]  = ev;
+  tt[i]   = loHash;
+  tt[i+1] = hiHash;
+  tt[i+3] = type | ((depth & 0xFF) << 8);
+  tt[i+4] = (score & 0xFFFF) | (ev << 16);
 
   if (move !== 0)
-    ttMove[idx] = move & MOVE_CLEAN_MASK;
+    tt[i+2] = move & MOVE_CLEAN_MASK;
 
 }
 
@@ -2342,8 +2344,9 @@ function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
 
 function ttGet (node, depth, alpha, beta) {
 
-  const idx   = loHash & ttMask;
-  const type  = ttType[idx];
+  const i    = Math.imul(loHash & ttMask, ttWords);
+  const info = tt[i+3];
+  const type = info & 0xFF;
 
   node.hashMove = 0;
   node.hashEval = INF;
@@ -2351,10 +2354,7 @@ function ttGet (node, depth, alpha, beta) {
   if (type === TT_EMPTY)
     return TTSCORE_UNKNOWN;
 
-  const lo = ttLo[idx];
-  const hi = ttHi[idx];
-
-  if (lo !== loHash || hi !== hiHash)
+  if (tt[i] !== loHash || tt[i+1] !== hiHash)
     return TTSCORE_UNKNOWN;
 
   //
@@ -2362,15 +2362,19 @@ function ttGet (node, depth, alpha, beta) {
   // so that iterative deepening works.
   //
 
-  if (ttValidate(ttMove[idx]) !== 0)
-    node.hashMove = ttMove[idx];
+  const move = tt[i+2];
 
-  node.hashEval = ttEval[idx];
+  if (ttValidate(move) !== 0)
+    node.hashMove = move;
 
-  if (ttDepth[idx] < depth)
+  const data = tt[i+4];
+
+  node.hashEval = data >> 16;
+
+  if (((info << 16) >> 24) < depth)
     return TTSCORE_UNKNOWN;
 
-  var score = ttScore[idx];
+  var score = (data << 16) >> 16;
 
   if (score <= -MINMATE && score >= -MATE)
     score += node.ply;
@@ -2396,10 +2400,10 @@ function ttGet (node, depth, alpha, beta) {
 
 function ttUpdateEval (ev) {
 
-  const idx = loHash & ttMask;
+  const i = Math.imul(loHash & ttMask, ttWords);
 
-  if (ttType[idx] !== TT_EMPTY && ttLo[idx] === loHash && ttHi[idx] === hiHash)
-    ttEval[idx] = ev;
+  if ((tt[i+3] & 0xFF) !== TT_EMPTY && tt[i] === loHash && tt[i+1] === hiHash)
+    tt[i+4] = (tt[i+4] & 0xFFFF) | (ev << 16);
 
 }
 
@@ -2408,28 +2412,28 @@ function ttUpdateEval (ev) {
 
 function ttInit () {
 
-  ttType.fill(TT_EMPTY);
-  ttMove.fill(0);
+  tt.fill(0);
 
   ttHashUsed = 0;
 
 }
 
 //}}}
+
 //{{{  ttValidate
 
 function ttValidate (move) {
 
   const b = bdB;
 
-  const fr    = (move & MOVE_FR_MASK   ) >>> MOVE_FR_BITS;
-  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const fr    = (move & MOVE_FR_MASK   ) >> MOVE_FR_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS;
 
   if (b[fr] !== frObj)
     return 0;
 
-  const to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  const toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
+  const to    = (move & MOVE_TO_MASK   ) >> MOVE_TO_BITS;
+  const toObj = (move & MOVE_TOOBJ_MASK) >> MOVE_TOOBJ_BITS;
 
   if (b[to] !== toObj)
     return 0;
@@ -2463,13 +2467,13 @@ function formatMove (move) {
 
   if (move !== 0) {
 
-    const fr = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-    const to = (move & MOVE_TO_MASK) >>> MOVE_TO_BITS;
+    const fr = (move & MOVE_FR_MASK) >> MOVE_FR_BITS;
+    const to = (move & MOVE_TO_MASK) >> MOVE_TO_BITS;
 
     moveStr = COORDS[fr] + COORDS[to];
 
     if ((move & MOVE_PROMOTE_MASK) !== 0)
-      moveStr = moveStr + PROMOTES[(move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS];
+      moveStr = moveStr + PROMOTES[(move & MOVE_PROMAS_MASK) >> MOVE_PROMAS_BITS];
 
   }
 
@@ -3208,10 +3212,10 @@ function getNextMove (node) {
         const next  = node.next;
         const num   = node.numMoves;
 
-        let maxR = -INF;
-        let maxI = 0;
+        let maxR = ranks[next];
+        let maxI = next;
 
-        for (let i=next; i < num; i++) {
+        for (let i=next+1; i < num; i++) {
           if (ranks[i] > maxR) {
             maxR = ranks[i];
             maxI = i;
@@ -3254,10 +3258,10 @@ function getNextMove (node) {
         const next  = node.next;
         const num   = node.numMoves2;
 
-        let maxR = -INF;
-        let maxI = 0;
+        let maxR = ranks[next];
+        let maxI = next;
 
-        for (let i=next; i < num; i++) {
+        for (let i=next+1; i < num; i++) {
           if (ranks[i] > maxR) {
             maxR = ranks[i];
             maxI = i;
@@ -3293,14 +3297,14 @@ function rankSlides (node) {
   for (let i=0; i < node.numMoves2; i++) {
 
     const move  = node.moves2[i];
-    const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-    const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+    const to    = (move & MOVE_TO_MASK)    >> MOVE_TO_BITS;
+    const frObj = (move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS;
 
     const hisScore = objHistory[(frObj << 8) + to];
 
     if (hisScore === BASE_HISSLIDE) {
 
-      const fr          = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
+      const fr          = (move & MOVE_FR_MASK) >> MOVE_FR_BITS;
       const slideScores = SLIDE_SCORES[frObj];
 
       node.ranks2[i] = BASE_SLIDE + slideScores[to] - slideScores[fr];
@@ -3407,8 +3411,8 @@ function addCapture (node, move) {
 
   else {
 
-    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS) & PIECE_MASK];
 
     if (victim > attack) {
       node.moves[node.numMoves]   = move;
@@ -3526,17 +3530,17 @@ function addQMove (node, move) {
 
   else if ((move & MOVE_PROMOTE_MASK) !== 0) {
     if ((move & MOVE_NOISY_MASK) !== 0)
-      node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS) + 8;  // QRBN capture
+      node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >> MOVE_PROMAS_BITS) + 8;  // QRBN capture
     else
-      node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >>> MOVE_PROMAS_BITS);      // QRBN slide (allowed in qs)
+      node.ranks[n] = BASE_PROMOTES + ((move & MOVE_PROMAS_MASK) >> MOVE_PROMAS_BITS);      // QRBN slide (allowed in qs)
   }
 
   else if ((move & MOVE_EPTAKE_MASK) !== 0)
     node.ranks[n] = BASE_EPTAKES;
 
   else {
-    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS) & PIECE_MASK];
 
     if (victim > attack)
       node.ranks[n] = BASE_GOODTAKES + (victim << 6) - attack;
@@ -3571,8 +3575,8 @@ function addKiller (node, score, move) {
 
   if ((move & MOVE_TOOBJ_MASK) !== 0) {
 
-    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK];
-    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS) & PIECE_MASK];
+    const victim = RANK_VECTOR[((move & MOVE_TOOBJ_MASK) >> MOVE_TOOBJ_BITS) & PIECE_MASK];
+    const attack = RANK_VECTOR[((move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS) & PIECE_MASK];
 
     if (victim >= attack)
       return; // before killers in move ordering.
@@ -3610,12 +3614,12 @@ function addKiller (node, score, move) {
 //}}}
 //{{{  history
 
-const objHistory = new Uint32Array(15 * 256);
+const objHistory = new Int32Array(15 * 256);
 
 function addHistory (bonus, move) {
 
-  const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-  const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+  const frObj = (move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS;
+  const to    = (move & MOVE_TO_MASK)    >> MOVE_TO_BITS;
 
   objHistory[(frObj << 8) + to] += bonus;
 
@@ -3690,16 +3694,16 @@ function quickSee (turn, move) {
   if ((move & MOVE_SPECIAL_MASK) !== 0)
     return 0;
 
-  const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const frObj   = (move & MOVE_FROBJ_MASK) >> MOVE_FROBJ_BITS;
   const frPiece = frObj & PIECE_MASK;
 
   if (frPiece === PAWN)
     return 0;
 
-  const to    = (move & MOVE_TO_MASK   ) >>> MOVE_TO_BITS;
-  const toObj = (move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS;
+  const to    = (move & MOVE_TO_MASK   ) >> MOVE_TO_BITS;
+  const toObj = (move & MOVE_TOOBJ_MASK) >> MOVE_TOOBJ_BITS;
 
-  const cx = turn >>> 3;
+  const cx = turn >> 3;
 
   const nextTurn = turn ^ BLACK;
 
@@ -3789,10 +3793,10 @@ let multiPV = 1;
 
 const MAX_MULTIPV = 501;
 
-const multiPVMove  = new Uint32Array(MAX_MULTIPV);
+const multiPVMove  = new Int32Array(MAX_MULTIPV);
 const multiPVScore = new Int32Array(MAX_MULTIPV);
 const multiPVPvLen = new Int32Array(MAX_MULTIPV);
-const multiPVPv    = new Uint32Array(MAX_MULTIPV * MAX_MOVES);
+const multiPVPv    = new Int32Array(MAX_MULTIPV * MAX_MOVES);
 
 let multiPVNum = 0;
 
@@ -4613,7 +4617,7 @@ function qSearch (node, depth, turn, alpha, beta) {
 
     // prune?
 
-    if ((wCount + bCount) > 6 && (move & MOVE_SPECIAL_MASK) === 0 && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha)
+    if ((wCount + bCount) > 6 && (move & MOVE_SPECIAL_MASK) === 0 && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha)
       continue;
 
     if (quickSee(turn, move) < 0)
@@ -5068,7 +5072,7 @@ function uciExec (commands, canYield) {
         if (depth <= 0)
           depth = MAX_PLY;
 
-        depth = Math.min(depth, MAX_PLY - 1);  // ttDepth is int8 and LMR_LOOKUP has MAX_PLY rows
+        depth = Math.min(depth, MAX_PLY - 1);  // the tt depth is 8 bits and LMR_LOOKUP has MAX_PLY rows
 
         if (moveTime > 0)
           statsMoveTime = moveTime;
@@ -5777,7 +5781,7 @@ function dgRandomMove () {
   const node     = rootNode;
   const turn     = bdTurn;
   const nextTurn = turn ^ COLOR_MASK;
-  const legal    = new Uint32Array(MAX_MOVES);
+  const legal    = new Int32Array(MAX_MOVES);
 
   let numLegal = 0;
   let move     = 0;
