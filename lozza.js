@@ -1255,6 +1255,11 @@ function isAttacked (to, byCol) {
 
 function isDraw () {
 
+  // 50 move rule (repHi - repLo is the number of reversible plies since the last
+  // irreversible move) and 2-fold repetition against everything on the rep stack,
+  // game history included. Positions created by irreversible moves and the start
+  // position are not on the matchable part of the stack, see makeMoveA().
+
   if (repHi - repLo >= 100)
     return 1;
 
@@ -1760,6 +1765,15 @@ function makeMoveA (node, move) {
   // and every other one entry is a possible rep.  Can also check for
   // 50 move rule by testing hi-lo >= 100 - it's not perfect because of
   // the pawn move reset but it's a type 2 error, so safe.
+  //
+  // Note that repLo is set past the position an irreversible move creates,
+  // so that position is not itself a candidate for repetition; it has to
+  // occur again (as a reversible entry) before it can be matched, i.e. it
+  // needs a third occurrence. The same applies to the start position, which
+  // position() does not push. This is deliberate: making those positions
+  // matchable on the second occurrence (with 2-fold everywhere, or with 2-fold
+  // in tree and 3-fold against game history) both measured a few Elo worse
+  // at 10+0.1 (Oct 2026). See isDraw().
   //
 
   repLoHash[repHi] = loHash;
