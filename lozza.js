@@ -43,9 +43,9 @@ const TT_EXACT = 1;
 const TT_BETA  = 2;
 const TT_ALPHA = 3;
 
-// Move ordering ranks. They are int32 so that moves, ranks and node.base stay int32 in
-// the C build too; the ladder is the old uint32 one shifted down by 2^31, so the order
-// is unchanged. History scores start at BASE_HISSLIDE and drift up and down from there.
+// Move ordering ranks. They are int32 so that moves, ranks and node.base stay int32;
+// the ladder is the old uint32 one shifted down by 2^31, so the order is unchanged.
+// History scores start at BASE_HISSLIDE and drift up and down from there.
 
 const BASE_HASH       = INT32_MAX;
 const BASE_PROMOTES   = BASE_HASH       - 1000;
@@ -954,7 +954,7 @@ const hiEP = new Int32Array(144);
 
 //{{{  position
 
-function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rights:str ep:str moves:strarr
+function position (bd, turn, rights, ep, moves) {
 
   for (let i=0; i < nodes.length; i++)
     initNode(nodes[i]);
@@ -1358,7 +1358,7 @@ function formatFen (turn) {
 // flipFen is slow. Only use for init/test.
 //
 
-function flipFen (fen) {  // @types fen:str
+function flipFen (fen) {
 
   const parts = fen.split(' ');
 
@@ -2270,9 +2270,6 @@ function initNodes () {
 //   0  low hash word     3  type | depth << 8    depth is 8 bits, signed
 //   1  high hash word    4  score | eval << 16   both 16 bits, signed
 //   2  move
-//
-// The C build fuses words 0 and 1 into one 64 bit key (tools/lozza2c/fuse.js), which
-// is why they are always stored and compared as adjacent lo/hi statements.
 //
 
 let ttDefault = 16;  // mb
@@ -3784,7 +3781,7 @@ function checkTime () {
 
 let multiPV = 1;
 
-// multipv lines, best first. fixed arrays rather than objects so the search stays easy to transpile.
+// multipv lines, best first. fixed arrays rather than objects.
 // slot MAX_MULTIPV-1 is scratch for the sort, so the most lines is MAX_MULTIPV-1.
 //
 // In an iteration go() searches the lines in turn. rootSearch() skips the moves of the lines
@@ -4809,9 +4806,8 @@ function initSearch () {
 //}}}
 //{{{  uci
 
-const nodeHost  = (typeof process)    != 'undefined';  // node
-const shellHost = (typeof lozzaShell) != 'undefined';  // standalone binary, see shell/src/main.rs
-                                                       // otherwise a web worker
+const nodeHost = (typeof process) != 'undefined';  // node, otherwise a web worker
+
 const fs = (nodeHost) ? require('fs') : 0;
 
 let silentMode = 0;
@@ -4820,9 +4816,6 @@ function hostExit () {
 
   if (nodeHost)
     process.exit();
-
-  else if (shellHost)
-    lozzaShell.exit(0);
 
 }
 
@@ -4901,7 +4894,7 @@ function uciSend () {
 
   //fs.writeSync(1, s + '\n');
 
-  if (nodeHost || shellHost)
+  if (nodeHost)
     console.log(s);
   else
     postMessage(s);
@@ -5532,17 +5525,17 @@ function pollQueue () {
 //
 // Must be a macrotask so stdin/onmessage events can run. In a web worker
 // setTimeout(0) gets clamped to 4ms when nested, so use a MessageChannel.
-// Node and the shell provide setImmediate.
+// Node provides setImmediate.
 //
 
-const yieldChannel = (nodeHost || shellHost) ? null : new MessageChannel();
+const yieldChannel = (nodeHost) ? null : new MessageChannel();
 
 let yieldResolve = null;
 
 function yieldToHost () {
 
   return new Promise(function(resolve) {
-    if (nodeHost || shellHost)
+    if (nodeHost)
       setImmediate(resolve);
     else {
       yieldResolve = resolve;
@@ -5600,22 +5593,6 @@ function initUci () {
 
   }
 
-  else if (shellHost) {
-
-    // standalone binary: the shell delivers stdin a line at a time
-
-    lozzaShell.onLine = function (line) {
-      uciQueue(line);
-    };
-
-    lozzaShell.onEnd = function () {
-      stdinEnded = 1;
-      if (!cmdBusy)
-        hostExit();
-    };
-
-  }
-
   else {
 
     // web worker
@@ -5640,13 +5617,9 @@ function initUci () {
 // datagen [games N] [nodes N] [dir D] [book F] [randply N]
 //
 // Each run writes a new uniquely named file in D, so any number of instances
-// can run at once and be stopped and restarted at will. See bin/datagen.sh,
-// which uses the C build because it is several times faster than node.
+// can run at once and be stopped and restarted at will. See bin/datagen.sh.
 //
 // The file access is in the dg*() host functions below, which are node only.
-// The C build has its own versions in tools/lozza2c/runtime_uci.c, so the
-// rest of this fold must stay in the transpiler friendly subset: int32
-// scalars, strings, string arrays and local typed arrays.
 //
 
 const DG_RESIGN_SCORE = 600;  // cp, white relative
@@ -5975,7 +5948,7 @@ function datagen (tokens) {
   const fileName = dgOpenOut(dir, BUILD + '_' + nodes + 'n');
 
   if (fileName === '') {
-    uciSend('datagen cannot create a file in', dir, '(datagen needs node or the C build)');
+    uciSend('datagen cannot create a file in', dir, '(datagen needs node)');
     return;
   }
 
@@ -6051,7 +6024,7 @@ initOnce();
 
 // command line arguments are commands, e.g. node lozza.js "go depth 10" q
 
-const argv = nodeHost ? process.argv.slice(2) : (shellHost ? lozzaShell.argv : []);
+const argv = nodeHost ? process.argv.slice(2) : [];
 
 for (let i=0; i < argv.length; i++)
   uciExec(argv[i]);
