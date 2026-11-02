@@ -3876,7 +3876,7 @@ function report (units, value, depth) {
 
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
   const scoreStr = 'score ' + units + ' ' + value;
-  const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
+  const hashStr  = 'hashfull ' + (1000 * (ttHashUsed >> 8) / (ttSize >> 8) | 0);  // >> 8 keeps 1000 * used in int32 for the C build
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 
@@ -3909,7 +3909,7 @@ function reportMultiPV (depth) {
   const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
 
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
-  const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
+  const hashStr  = 'hashfull ' + (1000 * (ttHashUsed >> 8) / (ttSize >> 8) | 0);  // >> 8 keeps 1000 * used in int32 for the C build
 
   const n = Math.min(multiPV, multiPVNum);
 
