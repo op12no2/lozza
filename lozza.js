@@ -1494,6 +1494,65 @@ function formatFen (pos) {
 }
 
 //}}}
+//{{{  printBoard
+//
+// The board command: ascii board, fen and a status line.
+//
+
+function hex32 (n) {
+
+  let s = '';
+
+  for (let i=28; i >= 0; i -= 4) {
+    const d = (n >>> i) & 15;
+    s += String.fromCharCode(d < 10 ? 48 + d : 87 + d);
+  }
+
+  return s;
+
+}
+
+function printBoard (pos) {
+
+  uciSend(formatFen(pos));  // first, some users rely on it
+  uciSend();
+
+  for (let r=7; r >= 0; r--) {
+
+    let line = (r + 1) + '  ';
+
+    for (let f=0; f < 8; f++) {
+      const piece = pos.board[r * 8 + f];
+      if (piece == EMPTY)
+        line += '. ';
+      else
+        line += PIECE_CHARS[piece] + ' ';
+    }
+
+    uciSend(line);
+
+  }
+
+  uciSend();
+  uciSend('   a b c d e f g h');
+  uciSend();
+
+  let stm = 'white';
+  let ep  = '-';
+
+  if (pos.stm == BLACK)
+    stm = 'black';
+
+  if (pos.ep)
+    ep = COORDS[pos.ep];
+
+  scratch64[0] = pos.all[HASH];
+
+  uciSend('stm', stm, 'rights', pos.rights, 'ep', ep, 'hmc', pos.hmc, 'hash', hex32(scratch32[1]) + hex32(scratch32[0]), 'tt', ttSize, 'entries', (ttSize * ttWidth / 1048576) | 0, 'mb');
+
+}
+
+//}}}
 //{{{  posCheck (debug)
 //
 // Check the bitboards and hash of a position against its board. Errors are
@@ -4926,7 +4985,7 @@ function uciExec (commands, canYield) {
       case 'board':
       case 'b': {
 
-        uciSend(formatFen(nodes[0].pos));
+        printBoard(nodes[0].pos);
 
         break;
 
