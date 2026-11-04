@@ -4016,15 +4016,23 @@ function search (ply, depth, alpha, beta) {
   }
 
   //{{{  mate distance pruning
+  //
+  // Not at the root: clamping beta there makes a mate in 1 a beta cutoff, so
+  // the root move loop would not finish (rootNumLegal, the other MultiPV lines).
+  //
 
-  if (alpha < -MATE + ply)
-    alpha = -MATE + ply;
+  if (!isRoot) {
 
-  if (beta > MATE - ply - 1)
-    beta = MATE - ply - 1;
+    if (alpha < -MATE + ply)
+      alpha = -MATE + ply;
 
-  if (alpha >= beta)
-    return alpha;
+    if (beta > MATE - ply - 1)
+      beta = MATE - ply - 1;
+
+    if (alpha >= beta)
+      return alpha;
+
+  }
 
   //}}}
   //{{{  tt
