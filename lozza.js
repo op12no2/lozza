@@ -1494,6 +1494,71 @@ function formatFen (pos) {
 }
 
 //}}}
+//{{{  posCheck (debug)
+//
+// Check the bitboards and hash of a position against its board. Errors are
+// reported and counted.
+//
+
+const checkBB = new BigUint64Array(16);
+
+function posCheck (pos) {
+
+  const all   = pos.all;
+  const board = pos.board;
+
+  let errors = 0;
+
+  checkBB.fill(0n);
+
+  for (let sq=0; sq < 64; sq++) {
+
+    const piece = board[sq];
+
+    if (piece == EMPTY)
+      continue;
+
+    if (piece > BKING) {
+      uciSend('bad piece', piece, 'at', COORDS[sq]);
+      errors++;
+      continue;
+    }
+
+    checkBB[piece]                               |= BIT[sq];
+    checkBB[COLOUR + ((piece >= BPAWN) | 0)]     |= BIT[sq];
+    checkBB[OCCUPIED]                            |= BIT[sq];
+
+  }
+
+  for (let i=0; i <= OCCUPIED; i++) {
+    scratch64[0] = checkBB[i] ^ all[i];
+    if (scratch32[0] | scratch32[1]) {
+      uciSend('bitboard mismatch', i);
+      errors++;
+    }
+  }
+
+  if (popcnt(all[WKING]) != 1 || popcnt(all[BKING]) != 1) {
+    uciSend('king count');
+    errors++;
+  }
+
+  scratch64[0] = rebuildHash(pos) ^ all[HASH];
+  if (scratch32[0] | scratch32[1]) {
+    uciSend('hash mismatch');
+    errors++;
+  }
+
+  if (pos.ep && zobEp[pos.ep] == 0n) {
+    uciSend('bad ep', pos.ep);
+    errors++;
+  }
+
+  return errors;
+
+}
+
+//}}}
 
 //{{{  initBoard
 
@@ -3490,14 +3555,114 @@ function collectPV (node, move) {
 }
 
 //}}}
+//{{{  multipv
+//
+// multipv lines, best first, in fixed arrays rather than objects. Slot
+// MAX_MULTIPV-1 is scratch for the sort, so the most lines is MAX_MULTIPV-1.
+//
+// In an iteration go() searches the lines in turn. At the root search() skips
+// the moves of the lines already found in this iteration,
+// multiPVMove[0..rootNumExcluded-1], so each line is the best of the remaining
+// moves. rootNumLegal is how many legal moves the root had left to look at.
+//
+
+let multiPV = 1;
+
+const MAX_MULTIPV = 501;
+
+const multiPVMove  = new Int32Array(MAX_MULTIPV);
+const multiPVScore = new Int32Array(MAX_MULTIPV);
+const multiPVPvLen = new Int32Array(MAX_MULTIPV);
+const multiPVPv    = new Int32Array(MAX_MULTIPV * MAX_PLY);
+
+let multiPVNum = 0;
+
+let rootNumExcluded = 0;
+let rootNumLegal    = 0;
+
+//{{{  multiPVCopy
+
+function multiPVCopy (to, fr) {
+
+  multiPVMove[to]  = multiPVMove[fr];
+  multiPVScore[to] = multiPVScore[fr];
+  multiPVPvLen[to] = multiPVPvLen[fr];
+
+  multiPVPv.set(multiPVPv.subarray(fr * MAX_PLY, fr * MAX_PLY + multiPVPvLen[fr]), to * MAX_PLY);
+
+}
+
+//}}}
+//{{{  multiPVSet
+//
+// Store the root pv as line slot.
+//
+
+function multiPVSet (slot, move, score) {
+
+  const root = nodes[0];
+
+  multiPVMove[slot]  = move;
+  multiPVScore[slot] = score;
+  multiPVPvLen[slot] = root.pvLen;
+
+  multiPVPv.set(root.pv.subarray(0, root.pvLen), slot * MAX_PLY);
+
+  if (slot >= multiPVNum)
+    multiPVNum = slot + 1;
+
+}
+
+//}}}
+//{{{  multiPVSort
+//
+// Slots 0..n-2 are sorted best first; move slot n-1 into place.
+//
+
+function multiPVSort (n) {
+
+  const scratch = MAX_MULTIPV - 1;
+
+  let i = n - 1;
+
+  if (i <= 0 || multiPVScore[i] <= multiPVScore[i-1])
+    return;
+
+  multiPVCopy(scratch, i);
+
+  while (i > 0 && multiPVScore[i-1] < multiPVScore[scratch]) {
+    multiPVCopy(i, i-1);
+    i--;
+  }
+
+  multiPVCopy(i, scratch);
+
+}
+
+//}}}
+//{{{  rootIsExcluded
+
+function rootIsExcluded (move) {
+
+  for (let i=0; i < rootNumExcluded; i++) {
+    if (multiPVMove[i] == move)
+      return 1;
+  }
+
+  return 0;
+
+}
+
+//}}}
+
+//}}}
 //{{{  report
 
 let reportedMove = 0;  // the first move of the last pv sent
 
-function report (depth) {
+function report (units, value, depth) {
 
-  const root  = nodes[0];
-  const score = statsBestScore;
+  const root = nodes[0];
 
   reportedMove = root.pvLen > 0 ? root.pv[root.pvLen-1] : 0;
 
@@ -3506,22 +3671,76 @@ function report (depth) {
   for (let i=root.pvLen-1; i >= 0; i--)
     pvStr += ' ' + formatMove(root.pv[i]);
 
-  let scoreStr = '';
+  const tim     = Math.max(1, now() - statsStartTime);
+  const nps     = (statsNodes * 1000) / tim | 0;
+  const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
+
+  const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
+  const scoreStr = 'score ' + units + ' ' + value;
+  const hashStr  = 'hashfull ' + (1000 * (ttHashUsed >> 8) / (ttSize >> 8) | 0);  // >> 8 keeps 1000 * used in int32 for the C build
+
+  uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
+
+}
+
+function reportScore (score, depth) {
 
   if (Math.abs(score) > MATEISH) {
+
     let mateScore = ((MATE - Math.abs(score) + 1) / 2) | 0;
+
     if (score < 0)
       mateScore = -mateScore;
-    scoreStr = 'score mate ' + mateScore;
+
+    report('mate', mateScore, depth);
+
   }
+
   else {
-    scoreStr = 'score cp ' + score;
+
+    report('cp', score, depth);
+
   }
 
-  const tim = Math.max(1, now() - statsStartTime);
-  const nps = (statsNodes * 1000) / tim | 0;
+}
 
-  uciSend('info depth', depth, 'seldepth', statsSelDepth, scoreStr, 'nodes', statsNodes, 'time', tim, 'nps', nps, 'hashfull', (1000 * ttHashUsed / ttSize) | 0, pvStr);
+function reportMultiPV (depth) {
+
+  const tim     = Math.max(1, now() - statsStartTime);
+  const nps     = (statsNodes * 1000) / tim | 0;
+  const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
+
+  const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
+  const hashStr  = 'hashfull ' + (1000 * (ttHashUsed >> 8) / (ttSize >> 8) | 0);
+
+  const n = Math.min(multiPV, multiPVNum);
+
+  for (let i=0; i < n; i++) {
+
+    const pvLen = multiPVPvLen[i];
+    const pvOff = i * MAX_PLY;
+    const s     = multiPVScore[i];
+
+    let pvStr = 'pv';
+
+    for (let j=pvLen-1; j >= 0; j--)
+      pvStr += ' ' + formatMove(multiPVPv[pvOff + j]);
+
+    let scoreStr = '';
+
+    if (Math.abs(s) > MATEISH) {
+      let mateScore = ((MATE - Math.abs(s) + 1) / 2) | 0;
+      if (s < 0)
+        mateScore = -mateScore;
+      scoreStr = 'score mate ' + mateScore;
+    }
+    else {
+      scoreStr = 'score cp ' + s;
+    }
+
+    uciSend('info', depthStr, 'multipv', (i + 1), scoreStr, nodeStr, hashStr, pvStr);
+
+  }
 
 }
 
@@ -3544,49 +3763,94 @@ async function go (canYield) {
   let score = 0;
   let depth = 0;
 
+  const numLines = Math.min(multiPV, MAX_MULTIPV - 1);
+
   hhSetRoot();
   clearNodes();
 
-  reportedMove = 0;
+  multiPVNum      = 0;
+  rootNumExcluded = 0;
+  rootNumLegal    = 0;
+  reportedMove    = 0;
 
   for (depth=1; depth <= statsMaxDepth; depth++) {
 
-    alpha = -INF;
-    beta  = INF;
-    delta = 10;
+    for (let pvIdx=0; pvIdx < numLines; pvIdx++) {
+      //{{{  one line
+      //
+      // Slots 0..pvIdx-1 hold the lines found so far in this iteration and are
+      // excluded at the root; slots pvIdx.. still hold the previous iteration's.
+      //
 
-    if (depth >= 4) {
-      alpha = score - delta;
-      beta  = score + delta;
+      rootNumExcluded = pvIdx;
+
+      alpha = -INF;
+      beta  = INF;
+      delta = 10;
+
+      if (depth >= 4) {
+        if (numLines == 1) {
+          alpha = score - delta;
+          beta  = score + delta;
+        }
+        else if (pvIdx < multiPVNum) {
+          alpha = multiPVScore[pvIdx] - delta;
+          beta  = multiPVScore[pvIdx] + delta;
+        }
+      }
+
+      while (1) {
+
+        score = search(0, depth, alpha, beta);
+
+        if (statsTimeOut || rootNumLegal == 0)
+          break;
+
+        if (score <= alpha) {
+          alpha = score - delta;
+          if (numLines == 1)
+            report('upperbound', score, depth);
+        }
+
+        else if (score >= beta) {
+          beta = score + delta;
+          if (numLines == 1)
+            report('lowerbound', score, depth);
+        }
+
+        else
+          break;
+
+        delta += delta;
+
+        if (canYield && await checkStop())
+          break;
+
+      }
+
+      if (statsTimeOut || rootNumLegal == 0)
+        break;
+
+      multiPVSet(pvIdx, statsBestMove, score);
+
+      if (numLines == 1) {
+        reportScore(score, depth);
+      }
+      else {
+        multiPVSort(pvIdx + 1);
+        statsBestMove  = multiPVMove[0];
+        statsBestScore = multiPVScore[0];
+        reportMultiPV(depth);
+      }
+
+      if (rootNumLegal <= 1)
+        break;  // this line used the last legal move so there are no more lines
+
+      //}}}
     }
 
-    while (1) {
-
-      score = search(0, depth, alpha, beta);
-
-      if (statsTimeOut)
-        break;
-
-      if (score <= alpha)
-        alpha = score - delta;
-
-      else if (score >= beta)
-        beta = score + delta;
-
-      else
-        break;
-
-      delta += delta;
-
-      if (canYield && await checkStop())
-        break;
-
-    }
-
-    if (statsTimeOut)
+    if (statsTimeOut || rootNumLegal == 0)
       break;
-
-    report(depth);
 
     checkNodes();
 
@@ -3598,14 +3862,37 @@ async function go (canYield) {
 
   }
 
-  // a move that became best in an iteration that then ran out of time has not
-  // been reported yet; report it so the last pv starts with the bestmove
+  //{{{  final report
+  //
+  // A move that became best in an iteration that then ran out of time has not
+  // been reported yet; report it so the last pv starts with the bestmove. With
+  // more than one line a single legal move can leave nothing reported at all.
+  //
 
-  if (statsBestMove && statsBestMove != reportedMove)
-    report(Math.min(depth, statsMaxDepth));
+  const lastDepth = Math.min(depth, statsMaxDepth);
 
-  if (statsBestMove)
-    uciSend('bestmove', formatMove(statsBestMove));
+  if (numLines == 1) {
+    if (statsBestMove && statsBestMove != reportedMove)
+      reportScore(statsBestScore, lastDepth);
+  }
+
+  else if (multiPVNum == 0 && statsBestMove) {
+    multiPVSet(0, statsBestMove, statsBestScore);
+    reportMultiPV(lastDepth);
+  }
+
+  //}}}
+
+  // with more than one line statsBestMove may be a lower line's move if the
+  // search was stopped part way through an iteration, so use the best complete line
+
+  let bestMove = statsBestMove;
+
+  if (numLines > 1 && multiPVNum > 0)
+    bestMove = multiPVMove[0];
+
+  if (bestMove)
+    uciSend('bestmove', formatMove(bestMove));
   else
     uciSend('bestmove 0000');
 
@@ -3642,6 +3929,7 @@ function search (ply, depth, alpha, beta) {
   const isRoot    = (ply == 0) | 0;
   const isPV      = (isRoot || beta - alpha != 1) | 0;
   const excluded  = node.excludedMove;
+  const storeOk   = (!excluded && !(isRoot && rootNumExcluded)) | 0;  // a restricted move set is not the position's score
 
   node.dextensions = isRoot ? 0 : nodes[ply-1].dextensions;
 
@@ -3746,6 +4034,9 @@ function search (ply, depth, alpha, beta) {
     if (move == excluded)
       continue;
 
+    if (isRoot && rootNumExcluded && rootIsExcluded(move))
+      continue;  // multipv: already a line in this iteration
+
     const isQuiet = ((move & MOVE_NOISY) == 0) | 0;
 
     //{{{  prune
@@ -3812,6 +4103,9 @@ function search (ply, depth, alpha, beta) {
     nextNode.contBase = Math.imul((movedPiece << 6) | to, 12 * 64);
 
     node.played[played++] = move;
+
+    if (isRoot && statsNodes > 10000000)
+      uciSend('info currmove', formatMove(move), 'currmovenumber', played);
 
     const newDepth = depth - 1 + extension;
 
@@ -3915,10 +4209,10 @@ function search (ply, depth, alpha, beta) {
             }
           }
 
-          if (!excluded && !inCheck && bestScore < MATEISH && bestScore > ev && !(bestMove & MOVE_NOISY))
+          if (storeOk && !inCheck && bestScore < MATEISH && bestScore > ev && !(bestMove & MOVE_NOISY))
             updateCorrhist(pos, depth, bestScore - ev);
 
-          if (!excluded)
+          if (storeOk)
             ttPut(pos, TT_BETA, depth, putAdjustedScore(ply, bestScore), bestMove);
 
           return score;
@@ -3932,13 +4226,16 @@ function search (ply, depth, alpha, beta) {
 
   }
 
+  if (isRoot)
+    rootNumLegal = played;
+
   if (played == 0)
     return inCheck ? -MATE + ply : 0;
 
-  if (!excluded && !inCheck && bestScore > -MATEISH && bestScore < MATEISH && !(bestMove & MOVE_NOISY) && !(alpha == origAlpha && bestScore >= ev))
+  if (storeOk && !inCheck && bestScore > -MATEISH && bestScore < MATEISH && !(bestMove & MOVE_NOISY) && !(alpha == origAlpha && bestScore >= ev))
     updateCorrhist(pos, depth, bestScore - ev);
 
-  if (!excluded)
+  if (storeOk)
     ttPut(pos, (alpha > origAlpha) ? TT_EXACT : TT_ALPHA, depth, putAdjustedScore(ply, bestScore), bestMove);
 
   return bestScore;
@@ -4517,6 +4814,7 @@ function uciExec (commands, canYield) {
           uciSend('id name Lozza', BUILD);
         uciSend('id author Colin Jenkins');
         uciSend('option name Hash type spin default', ttDefault, 'min 1 max 1024');
+        uciSend('option name MultiPV type spin default 1 min 1 max 10');
         uciSend('uciok');
 
         break;
@@ -4544,6 +4842,9 @@ function uciExec (commands, canYield) {
 
         if (opt == 'hash')
           ttResize(uciGetInt(tokens, 'value', ttDefault));
+
+        else if (opt == 'multipv')
+          multiPV = Math.max(uciGetInt(tokens, 'value', 1), 1);
 
         break;
 
@@ -4634,6 +4935,7 @@ function uciExec (commands, canYield) {
       //}}}
       //{{{  moves
 
+      case 'moves':
       case 'm': {
 
         const node     = nodes[0];
@@ -4664,6 +4966,12 @@ function uciExec (commands, canYield) {
 
         const depth1 = uciGetInt(tokens, 'depth', 0);
         const depth2 = uciGetInt(tokens, 'to', depth1);
+        const warm   = uciGetInt(tokens, 'warm', 0);
+
+        for (let w=0; w < warm; w++) {
+          for (let depth=depth1; depth <= depth2; depth++)
+            perft(depth, 0);
+        }
 
         for (let depth=depth1; depth <= depth2; depth++) {
           const start   = now();
@@ -4806,6 +5114,21 @@ function uciExec (commands, canYield) {
 
         uciExec('position startpos');
         uciExec('e');
+
+        break;
+
+      }
+
+      //}}}
+      //{{{  check
+      //
+      // Check the root position's bitboards and hash against its board.
+      //
+
+      case 'check':
+      case 'c': {
+
+        uciSend('errors', posCheck(nodes[0].pos));
 
         break;
 
