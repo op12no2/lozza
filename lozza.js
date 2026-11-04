@@ -3132,7 +3132,7 @@ function evaluate (node) {
 
 //{{{  lmr
 
-const LMR = new Int32Array((MAX_PLY + 4) * MAX_MOVES);  // [depth << 8 | moves played], see initSearch()
+const LMR = new Int32Array((MAX_PLY + 8) * MAX_MOVES);  // [depth << 8 | moves played], see initSearch(); depth can pass MAX_PLY by the double extensions
 
 //}}}
 //{{{  history
@@ -3492,8 +3492,8 @@ function seeGe (pos, move, threshold) {
 let statsStartTime  = 0;
 let statsFinishTime = 0;  // 0 for none
 let statsMaxDepth   = 0;
-let statsMaxNodes   = 0;  // stop between iterations once reached
-let statsHardNodes  = 0;  // stop mid search once reached
+let statsMaxNodes   = 0;  // @i64 stop between iterations once reached
+let statsHardNodes  = 0;  // @i64 stop mid search once reached (100 * statsMaxNodes, so i64 for the C build)
 let statsTimeOut    = 0;  // also set by pollQueue() on stop
 let statsNodes      = 0;  // @i64
 let statsBestMove   = 0;
@@ -3541,7 +3541,7 @@ function initTC (wtime, winc, btime, binc, maxNodes, moveTime, maxDepth, movesTo
   statsStartTime  = now();
   statsFinishTime = moveTime ? statsStartTime + moveTime : 0;
   statsMaxNodes   = maxNodes;
-  statsHardNodes  = maxNodes ? maxNodes * 100 : 0;
+  statsHardNodes  = statsMaxNodes * 100;  // via the i64 so the product is 64 bit in the C build
   statsMaxDepth   = maxDepth;
   statsTimeOut    = 0;
   statsNodes      = 0;
@@ -3719,11 +3719,12 @@ function rootIsExcluded (move) {
 
 let reportedMove = 0;  // the first move of the last pv sent
 
-function report (units, value, depth) {
+function report (units, value, depth, bound) {  // bound is '', 'upperbound' or 'lowerbound'
 
   const root = nodes[0];
 
-  reportedMove = root.pvLen > 0 ? root.pv[root.pvLen-1] : 0;
+  if (bound == '')
+    reportedMove = root.pvLen > 0 ? root.pv[root.pvLen-1] : 0;  // a bound is not a real report of the pv
 
   let pvStr = 'pv';
 
@@ -3735,14 +3736,18 @@ function report (units, value, depth) {
   const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
 
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
-  const scoreStr = 'score ' + units + ' ' + value;
   const hashStr  = 'hashfull ' + (1000 * (ttHashUsed >> 8) / (ttSize >> 8) | 0);  // >> 8 keeps 1000 * used in int32 for the C build
+
+  let scoreStr = 'score ' + units + ' ' + value;
+
+  if (bound != '')
+    scoreStr += ' ' + bound;
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 
 }
 
-function reportScore (score, depth) {
+function reportScore (score, depth, bound) {
 
   if (Math.abs(score) > MATEISH) {
 
@@ -3751,13 +3756,13 @@ function reportScore (score, depth) {
     if (score < 0)
       mateScore = -mateScore;
 
-    report('mate', mateScore, depth);
+    report('mate', mateScore, depth, bound);
 
   }
 
   else {
 
-    report('cp', score, depth);
+    report('cp', score, depth, bound);
 
   }
 
@@ -3868,13 +3873,13 @@ async function go (canYield) {
         if (score <= alpha) {
           alpha = score - delta;
           if (numLines == 1)
-            report('upperbound', score, depth);
+            reportScore(score, depth, 'upperbound');
         }
 
         else if (score >= beta) {
           beta = score + delta;
           if (numLines == 1)
-            report('lowerbound', score, depth);
+            reportScore(score, depth, 'lowerbound');
         }
 
         else
@@ -3893,7 +3898,7 @@ async function go (canYield) {
       multiPVSet(pvIdx, statsBestMove, score);
 
       if (numLines == 1) {
-        reportScore(score, depth);
+        reportScore(score, depth, '');
       }
       else {
         multiPVSort(pvIdx + 1);
@@ -3932,7 +3937,7 @@ async function go (canYield) {
 
   if (numLines == 1) {
     if (statsBestMove && statsBestMove != reportedMove)
-      reportScore(statsBestScore, lastDepth);
+      reportScore(statsBestScore, lastDepth, '');
   }
 
   else if (multiPVNum == 0 && statsBestMove) {
@@ -4404,7 +4409,7 @@ function initSearch () {
 
   // lmr: 0.73 + ln(depth) * ln(played) / 2.36, via log2 for the transpiler
 
-  for (let d=1; d < MAX_PLY + 4; d++) {
+  for (let d=1; d < MAX_PLY + 8; d++) {
     for (let m=1; m < MAX_MOVES; m++) {
       LMR[(d << 8) | m] = (0.73 + Math.log2(d) * Math.log2(m < 64 ? m : 63) * 0.4804530139182014 / 2.36) | 0;
     }
