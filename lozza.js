@@ -3529,11 +3529,15 @@ function initTC (wtime, winc, btime, binc, maxNodes, moveTime, maxDepth, movesTo
 
   if (!moveTime && stm == WHITE && (wtime || winc)) {
     moveTime = ((wtime / movesToGo) | 0) + ((winc / 2) | 0);
+    if (moveTime > ((wtime / 2) | 0))  // a big increment must not allot more than the clock
+      moveTime = (wtime / 2) | 0;
     if (!moveTime)
       moveTime = 1;
   }
   else if (!moveTime && stm == BLACK && (btime || binc)) {
     moveTime = ((btime / movesToGo) | 0) + ((binc / 2) | 0);
+    if (moveTime > ((btime / 2) | 0))  // a big increment must not allot more than the clock
+      moveTime = (btime / 2) | 0;
     if (!moveTime)
       moveTime = 1;
   }
