@@ -5545,7 +5545,8 @@ function dgRandomMove () {
 //{{{  dgPlayGame
 //
 // Play one game from a random book position (or the start position without a
-// book) with randPly or randPly+1 random plies. Writes the quiet positions and
+// book), colour flipped half the time, with randPly or randPly+1 random plies.
+// Writes the quiet positions and
 // returns the result as '1.0', '0.5' or '0.0', or '' if the game was abandoned
 // because it ended during the random move phase.
 //
@@ -5569,6 +5570,20 @@ function dgPlayGame (maxNodes, randPly) {
     stm    = book[1];
     rights = book[2];
     ep     = book[3];
+  }
+
+  // half the games are played from the colour flipped position. the book (and
+  // the start position) has white to move and an odd number of random plies
+  // gives white one more random move, so without this black wins more games.
+  // flipped is at function scope so that bd etc. stay valid in the C build
+
+  const flipped = flipFen(bd + ' ' + stm + ' ' + rights + ' ' + ep + ' 0 1').split(' ');
+
+  if (Math.random() < 0.5) {
+    bd     = flipped[0];
+    stm    = flipped[1];
+    rights = flipped[2];
+    ep     = flipped[3];
   }
 
   newGame();
