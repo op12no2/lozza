@@ -16,7 +16,7 @@ node=$(command -v node)
 fastchess=~/fastchess/fastchess
 
 e1=lozza.js
-e2=lozzacand.js
+e2=junk/rewrite.js # lozzacand.js
 
 elo0=-5
 elo1=0
