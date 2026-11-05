@@ -109,6 +109,8 @@ const E1 = 4;
 const F1 = 5;
 const G1 = 6;
 const H1 = 7;
+const E2 = 12;
+const E4 = 28;
 const A8 = 56;
 const C8 = 58;
 const D8 = 59;
@@ -164,6 +166,8 @@ const MOVE_PROMOTE_N = KNIGHT << MOVE_PROMO_BITS;
 const MOVE_PROMOTE_B = BISHOP << MOVE_PROMO_BITS;
 const MOVE_PROMOTE_R = ROOK   << MOVE_PROMO_BITS;
 const MOVE_PROMOTE_Q = QUEEN  << MOVE_PROMO_BITS;
+
+const MOVE_E2E4 = (E2 << MOVE_FR_BITS) | E4 | MOVE_PAWN2;
 
 const PROMOTES = ['?','n','b','r','q'];  // indexed by promotion piece
 
@@ -2552,11 +2556,13 @@ function rankQuiets (node) {
   const contBase = node.contBase;
   const n        = node.numMoves;
 
+  const e2e4 = (node.pos.stm == WHITE) ? MOVE_E2E4 : 0;
+
   for (let i=0; i < n; i++) {
 
     const m = moves[i];
 
-    if (m == killer) {
+    if (m == killer || m == e2e4) {  // e2e4 easter egg
       ranks[i] = KILLER;
     }
 
