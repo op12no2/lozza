@@ -2445,7 +2445,7 @@ function newGame() {
 
 function formatMove (move) {
 
-  let moveStr = 'NULL';
+  let moveStr = '0000';
 
   if (move !== 0) {
 
@@ -4018,7 +4018,7 @@ async function go (maxPly, canYield) {
           if (numLines === 1)
             reportScore(score, depth, 'lowerbound');
 
-          depth = Math.max(1, depth-1);
+          depth = Math.max(1, depth - (Math.abs(score) < MINMATE ? 1 : 0))
 
         }
 
