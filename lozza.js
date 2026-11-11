@@ -2,7 +2,7 @@
 // https://github.com/op12no2/lozza
 //
 
-const BUILD = "11.0";
+const BUILD = "12.0";
 
 //{{{  constants
 
@@ -3662,7 +3662,14 @@ function evaluate (node, turn) {
   if (numPieces === 4 && wNumQueens !== 0 && bNumQueens !== 0)
     return 0;
 
-  return netEval(node, turn);
+  const ev = netEval(node, turn);
+
+  if (ev >= MINMATE)
+    return MINMATE - 1;
+  if (ev <= -MINMATE)
+    return -MINMATE + 1;
+
+  return ev;
 
 }
 
