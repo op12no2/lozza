@@ -3854,7 +3854,7 @@ function rootIsExcluded (move) {
 
 let reportedMove = 0;  // the first move of the last pv sent
 
-function report (units, value, depth) {
+function report (units, value, depth, bound) {
 
   reportedMove = rootNode.pvLen > 0 ? rootNode.pv[rootNode.pvLen-1] : 0;
 
@@ -3867,14 +3867,14 @@ function report (units, value, depth) {
   const nodeStr = 'nodes ' + statsNodes + ' time ' + tim + ' nps ' + nps;
 
   const depthStr = 'depth ' + depth + ' seldepth ' + statsSelDepth;
-  const scoreStr = 'score ' + units + ' ' + value;
+  const scoreStr = 'score ' + units + ' ' + value + (bound ? ' ' + bound : '');  // e.g. score cp 20 upperbound
   const hashStr  = 'hashfull ' + (1000 * ttHashUsed / ttSize | 0);
 
   uciSend('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 
 }
 
-function reportScore (score, depth) {
+function reportScore (score, depth, bound) {
 
   if (Math.abs(score) > MINMATE) {
 
@@ -3882,13 +3882,13 @@ function reportScore (score, depth) {
     if (score < 0)
       mateScore = -mateScore;
 
-    report('mate', mateScore, depth);
+    report('mate', mateScore, depth, bound);
 
   }
 
   else {
 
-    report('cp', score, depth);
+    report('cp', score, depth, bound);
 
   }
 
@@ -4003,7 +4003,7 @@ async function go (maxPly, canYield) {
           alpha = Math.max(-INF, alpha - delta);
 
           if (numLines === 1)
-            report('upperbound', score, depth);
+            reportScore(score, depth, 'upperbound');
 
           if (pvIdx === 0 && !statsSoftNodes)
             statsBestMove = 0;
@@ -4016,7 +4016,7 @@ async function go (maxPly, canYield) {
           beta = Math.min(INF, beta + delta);
 
           if (numLines === 1)
-            report('lowerbound', score, depth);
+            reportScore(score, depth, 'lowerbound');
 
           depth = Math.max(1, depth-1);
 
