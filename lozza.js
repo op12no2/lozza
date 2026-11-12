@@ -422,7 +422,7 @@ function initPrng () {
 //}}}
 //{{{  net
 
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/blobby/lozza-200/quantised.bin';  // ignore - only relevant for dev version
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/gen11/lozza-200/quantised.bin';  // ignore - only relevant for dev version
 
 const IMAP = new Uint32Array(15 * 256);  // piece+colour -> offset into the flat weights, see initNet()
 
@@ -1179,6 +1179,7 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
   //}}}
 
   initNode(rootNode);
+
   objHistory.fill(0);
 
 }
@@ -2433,6 +2434,8 @@ function newGame() {
     ttResize(ttDefault);
 
   ttInit();
+
+  //objHistory.fill(0);
 
 }
 
@@ -3763,6 +3766,8 @@ function initStats () {
 
 }
 
+//{{{  checkTime
+
 function checkTime () {
 
   if (statsMoveTime > 0) {
@@ -3787,16 +3792,11 @@ function checkTime () {
 }
 
 //}}}
+
+//}}}
 //{{{  reporting
 
 let multiPV = 1;
-
-// multipv lines, best first. fixed arrays rather than objects so the search stays easy to transpile.
-// slot MAX_MULTIPV-1 is scratch for the sort, so the most lines is MAX_MULTIPV-1.
-//
-// In an iteration go() searches the lines in turn. rootSearch() skips the moves of the lines
-// already found in this iteration, multiPVMove[0..rootNumExcluded-1], so each line is the best
-// of the remaining moves. rootNumLegal is how many legal moves rootSearch() had left to look at.
 
 const MAX_MULTIPV = 501;
 
@@ -3806,6 +3806,8 @@ const multiPVPvLen = new Int32Array(MAX_MULTIPV);
 const multiPVPv    = new Uint32Array(MAX_MULTIPV * MAX_MOVES);
 
 let multiPVNum = 0;
+
+//{{{  multiPVCopy
 
 function multiPVCopy (to, fr) {
 
@@ -3817,7 +3819,8 @@ function multiPVCopy (to, fr) {
 
 }
 
-// store the root pv as line slot
+//}}}
+//{{{  multiPVSet
 
 function multiPVSet (slot, move, score) {
 
@@ -3832,7 +3835,8 @@ function multiPVSet (slot, move, score) {
 
 }
 
-// slots 0..n-2 are sorted best first; move slot n-1 into place
+//}}}
+//{{{  multiPVSort
 
 function multiPVSort (n) {
 
@@ -3854,8 +3858,12 @@ function multiPVSort (n) {
 
 }
 
+//}}}
+
 let rootNumExcluded = 0;  // see rootSearch()
 let rootNumLegal    = 0;
+
+//{{{  isRootExcluded
 
 function rootIsExcluded (move) {
 
@@ -3870,7 +3878,11 @@ function rootIsExcluded (move) {
 
 }
 
+//}}}
+
 let reportedMove = 0;  // the first move of the last pv sent
+
+//{{{  report
 
 function report (units, value, depth, bound) {
 
@@ -3892,6 +3904,9 @@ function report (units, value, depth, bound) {
 
 }
 
+//}}}
+//{{{  reportScore
+
 function reportScore (score, depth, bound) {
 
   if (Math.abs(score) > MINMATE) {
@@ -3911,6 +3926,9 @@ function reportScore (score, depth, bound) {
   }
 
 }
+
+//}}}
+//{{{  reportMultiPV
 
 function reportMultiPV (depth) {
 
@@ -3948,6 +3966,9 @@ function reportMultiPV (depth) {
   }
 }
 
+//}}}
+//{{{  collectPV
+
 function collectPV(node, move) {
 
   const cNode = node.childNode;
@@ -3960,6 +3981,8 @@ function collectPV(node, move) {
 }
 
 //}}}
+
+//}}}
 //{{{  go
 //
 // When canYield is set (commands from stdin/onmessage), go() yields to the
@@ -3967,7 +3990,7 @@ function collectPV(node, move) {
 // the command queue. When not set (bench etc.) there are no awaits so go()
 // runs synchronously as before.
 //
-// go() is Ethereal shaped.
+// go() is Ethereal shaped ish.
 //
 
 async function go (maxPly, canYield) {
@@ -3986,9 +4009,11 @@ async function go (maxPly, canYield) {
   rootNumLegal    = 0;
 
   for (let ply=1; ply <= maxPly; ply++) {
-    // id
+
+    //{{{  id
 
     for (let pvIdx=0; pvIdx < numLines; pvIdx++) {
+
       // one line. slots 0..pvIdx-1 hold the lines found so far in this iteration and are
       // excluded by rootSearch; slots pvIdx.. still hold the previous iteration's lines.
 
@@ -4004,8 +4029,9 @@ async function go (maxPly, canYield) {
         beta  = Math.min(INF,  multiPVScore[pvIdx] + delta);
       }
 
+      //{{{  asp
+
       while (1) {
-        // asp
 
         score = rootSearch(rootNode, depth, bdTurn, alpha, beta);
 
@@ -4015,7 +4041,7 @@ async function go (maxPly, canYield) {
         delta += delta/2 | 0;
 
         if (score <= alpha) {
-          // upper bound
+          //{{{  upper bound
 
           beta  = Math.min(INF, ((alpha + beta) / 2) | 0);
           alpha = Math.max(-INF, alpha - delta);
@@ -4025,11 +4051,11 @@ async function go (maxPly, canYield) {
 
           if (pvIdx === 0 && !statsSoftNodes)
             statsBestMove = 0;
-
+          //}}}
         }
 
         else if (score >= beta) {
-          // lower bound
+          //{{{  lower bound
 
           beta = Math.min(INF, beta + delta);
 
@@ -4037,11 +4063,11 @@ async function go (maxPly, canYield) {
             reportScore(score, depth, 'lowerbound');
 
           depth = Math.max(1, depth - (Math.abs(score) < MINMATE ? 1 : 0))
-
+          //}}}
         }
 
         else {
-          // exact
+          //{{{  exact
 
           multiPVSet(pvIdx, statsBestMove, score);
 
@@ -4064,17 +4090,20 @@ async function go (maxPly, canYield) {
 
           break;
 
+          //}}}
         }
 
         if (canYield && await checkStop())
           break;
-
       }
+
+      //}}}
 
       if (statsTimeOut || rootNumLegal <= 1)
         break;  // out of time, or this line used the last legal move so there are no more lines
 
     }
+    //}}}
 
     if (statsTimeOut)
       break;
@@ -4088,6 +4117,8 @@ async function go (maxPly, canYield) {
       break;
 
   }
+
+  //{{{  send best move
 
   // a move that became best in an iteration that then ran out of time has not
   // been reported yet. report it so that the last pv starts with the bestmove
@@ -4117,21 +4148,25 @@ async function go (maxPly, canYield) {
 
   uciSend('bestmove', bestMoveStr);
 
+  //}}}
+
 }
+
 
 //}}}
 //{{{  rootSearch
 
 function rootSearch (node, depth, turn, alpha, beta) {
 
-  // check time
-
   node.pvLen = 0;
+
+  //{{{  check time
 
   if (node.childNode === null) {
     statsTimeOut = 1;
     return 0;
   }
+  //}}}
 
   statsNodes++;
 
@@ -4166,7 +4201,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
     makeMoveA(node, move);
 
-    // legal?
+    //{{{  legal?
 
     if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
 
@@ -4177,17 +4212,16 @@ function rootSearch (node, depth, turn, alpha, beta) {
       continue;
 
     }
+    //}}}
 
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
       numPrunes++;
 
-    // send current move to UCI?
-
     if (statsNodes > 10000000)
       uciSend('info currmove ' + formatMove(move) + ' currmovenumber ' + numLegalMoves);
 
-    // extend/reduce
+    //{{{  extend / reduce
 
     E = 0;
     R = 0;
@@ -4200,6 +4234,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
       R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
 
+    //}}}
+    //{{{  search
+
     const nullWindow = (numLegalMoves > 1 || R) | 0;
 
     score = alpha;
@@ -4210,7 +4247,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
     if (statsTimeOut === 0 && (nullWindow === 0 || score > alpha))
       score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
 
-    // unmake move
+    //}}}
 
     unmakeMove(node, move);
 
@@ -4221,10 +4258,13 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
     if (score > bestScore) {
 
+      //{{{  new best move
+
       bestScore = score;
       bestMove  = move;
 
       if (bestScore > alpha) {
+        //{{{  alpha raise
 
         collectPV(node, move);
 
@@ -4234,22 +4274,31 @@ function rootSearch (node, depth, turn, alpha, beta) {
         statsBestScore = bestScore;
 
         if (bestScore >= beta) {
+          //{{{  beta cutoff
+
           addKiller(node, bestScore, bestMove);
+
           if ((move & MOVE_NOISY_MASK) === 0)
             updateHistory(node, numQuiets, depth, bestMove);
+
           if (rootNumExcluded === 0)
             ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
+
           return bestScore;
+          //}}}
         }
+
+        //}}}
       }
+
+      //}}}
+
     }
 
     if ((move & MOVE_NOISY_MASK) === 0)
       node.quiets[numQuiets++] = move;  // no cutoff, so a candidate for a history malus
 
   }
-
-  // update tt etc
 
   rootNumLegal = numLegalMoves;
 
@@ -4281,9 +4330,9 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
 function search (node, depth, turn, alpha, beta) {
 
-  // check time
-
   node.pvLen = 0;
+
+  //{{{  check time etc
 
   if (node.childNode === null) {
     statsTimeOut = 1;
@@ -4294,13 +4343,15 @@ function search (node, depth, turn, alpha, beta) {
   if (statsTimeOut !== 0)
     return 0;
 
+  //}}}
+
   if (node.ply > statsSelDepth)
     statsSelDepth = node.ply;
 
   const nextTurn = turn ^ COLOR_MASK;
   const pvNode   = (beta !== (alpha + 1)) | 0;
 
-  // mate distance pruning
+  //{{{  mate distance pruning
 
   const matingValue1 = MATE - node.ply;
 
@@ -4318,28 +4369,35 @@ function search (node, depth, turn, alpha, beta) {
        return matingValue2;
   }
 
-  // check for draws
+  //}}}
+  //{{{  check for draws
 
   if (isDraw() !== 0)
     return 0;
 
+  //}}}
+
   const inCheck = isKingAttacked(nextTurn);
 
-  // horizon
+  //{{{  horizon?
 
   if (inCheck === 0 && depth <= 0)
     return qSearch(node, -1, turn, alpha, beta);
 
   depth = Math.max(depth,0);
 
+  //}}}
+
   let score = 0;
 
-  // try tt
+  //{{{  check tt
 
   score = ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove and node.hashEval
 
   if (pvNode === 0 && score !== TTSCORE_UNKNOWN)
     return score;
+
+  //}}}
 
   const doBeta = ((pvNode === 0 && inCheck === 0 && beta < MINMATE)) | 0;
 
@@ -4348,9 +4406,9 @@ function search (node, depth, turn, alpha, beta) {
 
   const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
 
-  // improving
+  //{{{  improving
 
-  var improving = 0;
+  let improving = 0;
 
   if (inCheck === 0) {
     const n2 = node.grandparentNode;
@@ -4365,12 +4423,14 @@ function search (node, depth, turn, alpha, beta) {
     }
   }
 
-  // beta prune
+  //}}}
+  //{{{  beta prune
 
   if (doBeta !== 0 && depth <= 8 && (ev - Math.imul(depth, 100)) >= (beta - Math.imul(improving, 50)))
     return ev;
 
-  // alpha prune
+  //}}}
+  //{{{  alpha prune
 
   // hack if (pvNode == 0 && inCheck === 0 && alpha > -MINMATE && depth <= 4 && (ev + 900 * depth) <= alpha) {
     //const qs = qSearch(node, -1, turn, alpha, alpha + 1);
@@ -4379,12 +4439,14 @@ function search (node, depth, turn, alpha, beta) {
     //}
   //}
 
+  //}}}
+
   node.inCheck = inCheck;
   node.ev      = ev;
 
   cache(node);
 
-  // NMP
+  //{{{  null move pruning
 
   //const isPawnEG = (wCount == wCounts[PAWN]+1 && bCount == bCounts[PAWN]+1) | 0;
 
@@ -4422,6 +4484,8 @@ function search (node, depth, turn, alpha, beta) {
       return 0;
   }
 
+  //}}}
+
   const oAlpha = alpha;
   const doFP   = (inCheck === 0 && depth <= 4) | 0;
   const doLMR  = (inCheck === 0 && depth >= 3) | 0;
@@ -4435,16 +4499,17 @@ function search (node, depth, turn, alpha, beta) {
   let numPrunes     = 0;
   let numQuiets     = 0;
 
-  // IIR
-  //
+  //{{{  IIR
+
   // https://www.talkchess.com/forum3/viewtopic.php?f=7&t=74769
-  //
 
   if (doIIR !== 0) {
 
     depth -= 1;
 
   }
+
+  //}}}
 
   ttUpdateEval(ev);
   genMoves(node, turn);
@@ -4453,7 +4518,7 @@ function search (node, depth, turn, alpha, beta) {
 
   while ((move = getNextMove(node)) !== 0) {
 
-    // prune
+    //{{{  prune
 
     const prune = (numLegalMoves > 0 && node.base <= BASE_PRUNABLE && alpha > -MINMATE) | 0;
 
@@ -4463,9 +4528,11 @@ function search (node, depth, turn, alpha, beta) {
     if (doFP !== 0 && prune !== 0 && (ev + Math.imul(depth, 120)) < alpha)
       continue;
 
+    //}}}
+
     makeMoveA(node, move);
 
-    // legal
+    //{{{  legal?
 
     if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
 
@@ -4477,11 +4544,13 @@ function search (node, depth, turn, alpha, beta) {
 
     }
 
+    //}}}
+
     numLegalMoves++;
     if (node.base <= BASE_PRUNABLE)
       numPrunes++;
 
-    // extend/reduce
+    //{{{  extend / reduce
 
     E = 0;
     R = 0;
@@ -4494,6 +4563,9 @@ function search (node, depth, turn, alpha, beta) {
       R = LMR_LOOKUP[(depth << 8) + numPrunes];
     }
 
+    //}}}
+    //{{{  search
+
     const nullWindow = ((pvNode !== 0 && numLegalMoves > 1) || R) | 0;
 
     score = alpha;
@@ -4504,10 +4576,9 @@ function search (node, depth, turn, alpha, beta) {
     if (statsTimeOut === 0 && (nullWindow === 0 || score > alpha))
       score = -search(node.childNode, depth+E-1, nextTurn, -beta, -alpha);
 
-    // unmake move
+    //}}}
 
     unmakeMove(node, move);
-
     uncacheA(node);
 
     if (statsTimeOut !== 0)
@@ -4519,6 +4590,7 @@ function search (node, depth, turn, alpha, beta) {
       bestMove  = move;
 
       if (bestScore > alpha) {
+        //{{{  alpha raise
 
         if (pvNode !== 0)
           collectPV(node, move);
@@ -4526,12 +4598,20 @@ function search (node, depth, turn, alpha, beta) {
         alpha = bestScore;
 
         if (bestScore >= beta) {
+          //{{{  beta cutoff
+
           addKiller(node, bestScore, bestMove);
+
           if ((move & MOVE_NOISY_MASK) === 0)
             updateHistory(node, numQuiets, depth, bestMove);
+
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
+
           return bestScore;
+          //}}}
         }
+
+        //}}}
       }
     }
 
@@ -4540,7 +4620,7 @@ function search (node, depth, turn, alpha, beta) {
 
   }
 
-  // mate
+  //{{{  mate / draw
 
   if (numLegalMoves === 0) {
 
@@ -4556,10 +4636,13 @@ function search (node, depth, turn, alpha, beta) {
 
   }
 
+  //}}}
+
   if (bestScore > oAlpha) {
     ttPut(TT_EXACT, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
     return bestScore;
   }
+
   else {
     ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
     return bestScore;
@@ -4572,7 +4655,7 @@ function search (node, depth, turn, alpha, beta) {
 
 function qSearch (node, depth, turn, alpha, beta) {
 
-  // check depth
+  //{{{  init
 
   node.pvLen = 0;
 
@@ -4603,26 +4686,31 @@ function qSearch (node, depth, turn, alpha, beta) {
 
   ttUpdateEval(ev);
   cache(node);
-  genQMoves(node, turn);
 
   statsNodes++;
+
+  //}}}
+
+  genQMoves(node, turn);
 
   let numLegalMoves = 0;
   let move          = 0;
 
   while ((move = getNextMove(node)) !== 0) {
+    //{{{  move loop
 
-    // prune?
+    //{{{  prune
 
     if ((wCount + bCount) > 6 && (move & MOVE_SPECIAL_MASK) === 0 && ev + 200 + MATERIAL[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha)
       continue;
 
     if (quickSee(turn, move) < 0)
       continue;
+    //}}}
 
     makeMoveA(node, move);
 
-    // legal?
+    //{{{  legal?
 
     if (isKingAttacked(nextTurn) !== 0) {
 
@@ -4634,23 +4722,28 @@ function qSearch (node, depth, turn, alpha, beta) {
 
     }
 
+    //}}}
+
     numLegalMoves++;
 
     score = -qSearch(node.childNode, depth-1, nextTurn, -beta, -alpha);
 
-    // unmake move
-
     unmakeMove(node, move);
-
     uncacheA(node);
 
     if (score > alpha) {
+      //{{{  alpha raise
+
       if (score >= beta) {
         ttPut(TT_BETA, 0, beta, 0, node.ply, alpha, beta, ev);
         return score;
       }
+
       alpha = score;
+      //}}}
     }
+
+    //}}}
   }
 
   ttPut(TT_ALPHA, 0, alpha, 0, node.ply, alpha, beta, ev);
@@ -4663,6 +4756,8 @@ function qSearch (node, depth, turn, alpha, beta) {
 //{{{  perft
 
 function perft (node, depth, turn) {
+
+  //{{{  init
 
   if (depth === 0)
     return 1;
@@ -4680,15 +4775,19 @@ function perft (node, depth, turn) {
   node.repLo  = repLo;
   node.repHi  = repHi;
 
+  //}}}
+
   genMoves(node, turn);
 
   while ((move = getNextMove(node)) !== 0) {
 
+    //{{{  move loop
+
     makeMoveA(node, move);
 
-    // legal?
-
     if ((move & MOVE_LEGAL_MASK) === 0 && isKingAttacked(nextTurn) !== 0) {
+
+      //{{{  legal?
 
       unmakeMove(node, move);
 
@@ -4699,11 +4798,11 @@ function perft (node, depth, turn) {
 
       continue;
 
+      //}}}
+
     }
 
     totalNodes += perft(node.childNode, depth-1, nextTurn);
-
-    // unmake move
 
     unmakeMove(node, move);
 
@@ -4711,12 +4810,15 @@ function perft (node, depth, turn) {
     bdEp     = node.ep;
     repLo    = node.repLo;
     repHi    = node.repHi;
+    //}}}
 
   }
 
   return totalNodes;
 
 }
+
+//{{{  fens
 
 const PERFTFENS = [
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq -  0 1', 2, 400,       'cpw-pos1-2'],
@@ -4788,6 +4890,7 @@ const PERFTFENS = [
 ];
 
 //}}}
+//}}}
 
 //{{{  initSearch
 
@@ -4813,6 +4916,8 @@ const fs = (nodeHost) ? require('fs') : 0;
 
 let silentMode = 0;
 
+//{{{  hostExit
+
 function hostExit () {
 
   if (nodeHost)
@@ -4822,6 +4927,8 @@ function hostExit () {
     lozzaShell.exit(0);
 
 }
+
+//}}}
 
 //{{{  bench fens
 //
@@ -4884,6 +4991,7 @@ const BENCHFENS = [
 ];
 
 //}}}
+
 //{{{  uciSend
 
 function uciSend () {
@@ -5459,6 +5567,7 @@ function uciExec (commands, canYield) {
 }
 
 //}}}
+
 //{{{  command queue
 // command queue
 //
