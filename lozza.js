@@ -54,7 +54,6 @@ const BASE_GPKILLERS  = BASE_MYKILLERS  - 1000;
 const BASE_CASTLING   = BASE_GPKILLERS  - 1000;
 const BASE_BADTAKES   = BASE_CASTLING   - 1000;
 const BASE_HISSLIDE   = (UINT32_MAX >>> 1) - 10000;
-const BASE_SLIDE      = 100;
 const BASE_PRUNABLE   = BASE_BADTAKES;
 
 const MOVE_TO_BITS     = 0;
@@ -1180,7 +1179,7 @@ function position (bd, turn, rights, ep, moves) {  // @types bd:str turn:str rig
   //}}}
 
   initNode(rootNode);
-  objHistory.fill(BASE_HISSLIDE);
+  objHistory.fill(0);
 
 }
 
@@ -2124,6 +2123,7 @@ function nodeStruct () {
   this.ranks  = new Uint32Array(MAX_MOVES);
   this.moves2 = new Uint32Array(MAX_MOVES);
   this.ranks2 = new Uint32Array(MAX_MOVES);
+  this.quiets = new Uint32Array(MAX_MOVES);  // quiet moves searched at this node that did not cut off
 
   this.killer1     = 0;
   this.killer2     = 0;
@@ -3279,25 +3279,17 @@ function rankSlides (node) {
   for (let i=0; i < node.numMoves2; i++) {
 
     const move  = node.moves2[i];
+    const fr    = (move & MOVE_FR_MASK)    >>> MOVE_FR_BITS;
     const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
     const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
 
-    const hisScore = objHistory[(frObj << 8) + to];
+    const slideScores = SLIDE_SCORES[frObj];
 
-    if (hisScore === BASE_HISSLIDE) {
+    // history is in [-HISTORY_MAX, HISTORY_MAX]; the pst delta is tiny in
+    // comparison so only acts as a tie break (i.e. when there is no history yet)
 
-      const fr          = (move & MOVE_FR_MASK) >>> MOVE_FR_BITS;
-      const slideScores = SLIDE_SCORES[frObj];
+    node.ranks2[i] = BASE_HISSLIDE + objHistory[(frObj << 8) + to] + slideScores[to] - slideScores[fr];
 
-      node.ranks2[i] = BASE_SLIDE + slideScores[to] - slideScores[fr];
-
-    }
-
-    else {
-
-      node.ranks2[i] = hisScore;
-
-    }
   }
 }
 
@@ -3596,14 +3588,40 @@ function addKiller (node, score, move) {
 //}}}
 //{{{  history
 
-const objHistory = new Uint32Array(15 * 256);
+//
+// piece-to butterfly history with gravity; entries stay in [-HISTORY_MAX, HISTORY_MAX].
+//
+// when a quiet move causes a beta cutoff it gets a bonus and the quiet moves
+// searched before it at that node (node.quiets) get a malus of the same size.
+//
+// https://www.chessprogramming.org/History_Heuristic
+//
+
+const HISTORY_MAX       = 16384;
+const HISTORY_BONUS_MAX = 1600;
+
+const objHistory = new Int32Array(15 * 256);
 
 function addHistory (bonus, move) {
 
   const frObj = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
   const to    = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+  const idx   = (frObj << 8) + to;
+  const h     = objHistory[idx];
 
-  objHistory[(frObj << 8) + to] += bonus;
+  objHistory[idx] = h + bonus - (Math.imul(h, Math.abs(bonus)) / HISTORY_MAX | 0);
+
+}
+
+function updateHistory (node, numQuiets, depth, bestMove) {
+
+  const bonus  = Math.min(HISTORY_BONUS_MAX, Math.imul(depth, depth) << 4);
+  const quiets = node.quiets;
+
+  addHistory(bonus, bestMove);
+
+  for (let i=0; i < numQuiets; i++)
+    addHistory(-bonus, quiets[i]);
 
 }
 
@@ -4124,6 +4142,7 @@ function rootSearch (node, depth, turn, alpha, beta) {
 
   let numLegalMoves = 0;
   let numPrunes     = 0;
+  let numQuiets     = 0;
   let move          = 0;
   let bestMove      = 0;
   let score         = 0;
@@ -4217,23 +4236,17 @@ function rootSearch (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
-            addHistory(Math.imul(Math.imul(depth, depth), depth), bestMove);
+            updateHistory(node, numQuiets, depth, bestMove);
           if (rootNumExcluded === 0)
             ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, node.ev);
           return bestScore;
         }
-
-        else {
-          if ((move & MOVE_NOISY_MASK) === 0)
-            addHistory(Math.imul(depth, depth), bestMove);
-        }
       }
     }
 
-    else {
-      if ((move & MOVE_NOISY_MASK) === 0)
-        addHistory(-depth, move);
-    }
+    if ((move & MOVE_NOISY_MASK) === 0)
+      node.quiets[numQuiets++] = move;  // no cutoff, so a candidate for a history malus
+
   }
 
   // update tt etc
@@ -4420,6 +4433,7 @@ function search (node, depth, turn, alpha, beta) {
   let bestMove      = 0;
   let numLegalMoves = 0;
   let numPrunes     = 0;
+  let numQuiets     = 0;
 
   // IIR
   //
@@ -4514,22 +4528,16 @@ function search (node, depth, turn, alpha, beta) {
         if (bestScore >= beta) {
           addKiller(node, bestScore, bestMove);
           if ((move & MOVE_NOISY_MASK) === 0)
-            addHistory(Math.imul(Math.imul(depth, depth), depth), bestMove);
+            updateHistory(node, numQuiets, depth, bestMove);
           ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, ev);
           return bestScore;
-        }
-
-        else {
-          if ((move & MOVE_NOISY_MASK) === 0)
-            addHistory(Math.imul(depth, depth), bestMove);
         }
       }
     }
 
-    else {
-      if ((move & MOVE_NOISY_MASK) === 0)
-        addHistory(-depth, move);
-    }
+    if ((move & MOVE_NOISY_MASK) === 0)
+      node.quiets[numQuiets++] = move;  // no cutoff, so a candidate for a history malus
+
   }
 
   // mate
