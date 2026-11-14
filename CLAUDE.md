@@ -114,7 +114,8 @@ All at STC, Elo for the first named.
 - Native binary speed at 1536 is about 1.2M nps where node with the kernel is about
   0.65M and plain Javascript about 0.1M (same machine, for the ratios only).
 
-Speed work on the binary (same bench throughout, so no SPRT was needed):
+Speed work on the binary (same bench throughout; the lot together was +27 as binaries
+in a confirming SPRT):
 
 - Helped: 64 byte alignment of the net arrays about 7%; the eval cache in
   `evaluate()` about 10% on the bench, less in long searches (it also gives the wasm
