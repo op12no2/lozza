@@ -14,7 +14,7 @@ All you need is `lozza11.0.js` from the [latest release](https://github.com/op12
 
 ```
 const dump = document.getElementById('dump');
-const lozza = new Worker('lozza9.0.js');
+const lozza = new Worker('lozza11.0.js');
 
 lozza.onmessage = function (e) {
   dump.textContent += e.data + '\n';
