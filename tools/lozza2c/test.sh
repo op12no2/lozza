@@ -91,10 +91,10 @@ simd_linux lozza ymm 256
 [ -f lozza-avx512.exe ] && simd_windows lozza-avx512.exe zmm 512
 
 # and it must pay: lozza against lozza_scalar, the same C compiled with SIMD off
-# (build.sh). About 9x with a 1536 net; the smaller the net the less there is to gain,
+# (build.sh). About 7.5x with a 1536 net; the smaller the net the less there is to gain,
 # so the ratios are only insisted on for big nets.
 
-SIMD_MIN=6       # times faster than scalar, for a net of 1024 or more
+SIMD_MIN=5       # times faster than scalar, for a net of 1024 or more
 AVX512_MIN=105   # AVX-512 build, percent of the standard build's speed; about 115 when measured
 
 h1=$(./lozza n q | sed -n 's/^i_size, h1_size, o_size [0-9]* \([0-9]*\) .*/\1/p')

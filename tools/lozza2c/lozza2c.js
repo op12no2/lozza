@@ -651,6 +651,68 @@ for (const [name, g] of globals) {
 }
 
 //}}}
+//{{{  index locals
+//
+// A local that is only ever stepped (i++), compared, used as an array index or read
+// into a sum that is then put back into 32 bits (i + n | 0) is declared as int64
+// rather than int32. Code that the C build drops (if (net_kernel !== null) ...) does
+// not count. Nothing changes in what is computed - an index
+// cannot be anywhere near overflowing - but as an int32 it has to wrap like one
+// (-fwrapv, for the Javascript | 0 arithmetic), and the compiler then widens it to 64
+// bits again at every array access. In the net loops that was a fifth of all the
+// instructions the engine executed, and about 3% of its time.
+//
+
+const indexDecls = new Set();   // start position of each declarator of an index local
+
+function walkRefs (n, parent, grand, cb) {
+  if (Array.isArray(n)) { for (const x of n) walkRefs(x, parent, grand, cb); return; }
+  if (!n || typeof n !== 'object' || typeof n.type !== 'string') return;
+  cb(n, parent, grand);
+  if (n.type === 'IfStatement' && staticTest(n.test) !== null) {   // only the branch that is kept
+    walkRefs(staticTest(n.test) ? n.consequent : n.alternate, n, parent, cb);
+    return;
+  }
+  for (const k of Object.keys(n))
+    if (k !== 'loc') walkRefs(n[k], n, parent, cb);
+}
+
+const COMPARES = new Set(['<', '<=', '>', '>=', '===', '!==', '==', '!=']);
+
+for (const f of funcs.values()) {
+
+  if (!f.included || !f.node) continue;
+
+  const info = new Map();   // name -> {decls: [declarator], ok, indexed}
+  const get  = name => { if (!info.has(name)) info.set(name, {decls: [], ok: true, indexed: false}); return info.get(name); };
+
+  for (const p of f.params) get(p.name).ok = false;
+
+  walkRefs(f.node.body, null, null, (n, parent, grand) => {
+    if (n.type === 'VariableDeclaration')
+      for (const d of n.declarations) {
+        const v = get(d.id.name);
+        v.decls.push(d);
+        if (n.kind !== 'let' || !d.init) v.ok = false;
+      }
+    if (n.type !== 'Identifier') return;
+    if (parent.type === 'VariableDeclarator' && parent.id === n) return;                         // the declaration itself
+    if (parent.type === 'MemberExpression' && !parent.computed && parent.property === n) return;   // a field name, x.name
+    const v = get(n.name);
+    if (parent.type === 'MemberExpression' && parent.computed && parent.property === n) v.indexed = true;   // a[i]
+    else if (parent.type === 'UpdateExpression') ;                                                          // i++
+    else if (parent.type === 'BinaryExpression' && COMPARES.has(parent.operator)) ;                         // i < n
+    else if (parent.type === 'BinaryExpression' && (parent.operator === '+' || parent.operator === '-') &&
+             grand && grand.type === 'BinaryExpression' && grand.operator === '|') ;                            // i + n | 0
+    else v.ok = false;
+  });
+
+  for (const v of info.values())
+    if (v.ok && v.indexed)
+      for (const d of v.decls) indexDecls.add(d.start);
+}
+
+//}}}
 //{{{  node struct
 
 let nodeFields = null;
@@ -1455,7 +1517,7 @@ function genStmt (s, scope, out) {
     case 'VariableDeclaration': {
       for (const d of s.declarations) {
         const name = d.id.name;
-        const clue = clueByLine.get(s.loc.start.line);
+        const clue = clueByLine.get(s.loc.start.line) || (indexDecls.has(d.start) ? T.i64 : undefined);   // see index locals
 
         if (s.kind === 'var') {
           const v = lookupVar(scope, name);

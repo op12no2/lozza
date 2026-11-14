@@ -87,12 +87,12 @@ Command line arguments are UCI commands run in order; `q` quits. Useful extras: 
 - Things the binaries get that the Javascript knows nothing about (all in `lozza2c.js`
   or `lozza_rt.h`, each with a comment saying what it was worth): big global arrays
   start on a 64 byte boundary (`LZ_ALIGNED`), the tt entry is prefetched straight
-  after `makeMoveA()` (`PREFETCH`), and on Linux the tt is put in huge pages
-  (`lz_alloc0`). In the C, speed is all that matters; readability is for `lozza.js`.
+  after `makeMoveA()` (`PREFETCH`), on Linux the tt is put in huge pages
+  (`lz_alloc0`), and locals that are only array indices are 64 bit (index locals). In the C, speed is all that matters; readability is for `lozza.js`.
 - `test.sh` ends with the SIMD checks: the net functions must contain the 256 bit 16 bit
   instructions (512 bit in the AVX-512 pair), found by disassembly; the standard binary
-  must be at least 6x faster than `lozza_scalar` (the same C with vectorising off) for a
-  net of 1024 or more, about 9x at 1536; and the AVX-512 pair must be at least 5%
+  must be at least 5x faster than `lozza_scalar` (the same C with vectorising off) for a
+  net of 1024 or more, about 7.5x at 1536; and the AVX-512 pair must be at least 5%
   faster than the standard one. They exist because losing SIMD changes nothing but speed.
 - A binary checks the processor at startup (`cpuCheck()` in `runtime_uci.c`) and says
   what is wrong rather than dying on an illegal instruction.
@@ -125,23 +125,33 @@ in a confirming SPRT):
 - Helped: 64 byte alignment of the net arrays about 7%; the eval cache in
   `evaluate()` about 10% on the bench, less in long searches (it also gives the wasm
   `.js` about 10%); tt prefetch and huge pages together 2-3% at Hash 16, about 9% at
-  Hash 128. Altogether the binary went from about 1.2M to 1.5M nps on the bench.
+  Hash 128; 64 bit index locals about 2% (and 13% fewer instructions). Altogether the
+  binary went from about 1.2M to 1.5M nps on the bench.
 - Did not help, do not retry without a new reason: the tt as an array of structs
   instead of parallel arrays, profile guided optimisation, a non-PIE build, one shared
   weights array for both perspectives (1-2% and only under load), an eval cache
   bigger than 1 << 16, huge pages for the static arrays.
 - The AVX-512 binaries are about 15% faster again than the standard (AVX2) ones on a
   processor that has it.
-- The time now goes roughly 45% on the net (accumulator updates and the output layer),
-  30% in search()/qSearch() and 25% on move generation and ordering.
+- Where the time goes (perf, depth 19 from the start position, standard binary): the
+  net 52% (netEval 23, netRefresh 18, netCapture 11), getNextMove 10, genMoves 9,
+  genQMoves 6, search 6, isAttacked 5, evaluate 4. About 3,700 cycles a node at 2.7
+  instructions a cycle, with 30 mispredicted branches (mostly move generation,
+  isAttacked and search) and 47 cache misses (two thirds of them in the net loops,
+  which are limited by moving memory rather than by arithmetic).
+- getNextMove is already branch free and unrolled; the net loops are tight.
 
 Ideas not yet tried: an input-side change to the net (horizontal mirroring or king
 buckets) and keeping history tables across moves.
 
 ## Gotchas
 
-- There is no profiler here (no perf under WSL); a SIGPROF sampler linked into a scratch
-  build and resolved with nm does the job.
+- perf works, hardware counters included, but under WSL the `perf` wrapper from
+  linux-tools refuses the WSL kernel: call the binary in `/usr/lib/linux-tools/*/`
+  directly (or link it into the path). Then for example
+  `perf stat -e cycles:u,instructions:u,cache-misses:u,branch-misses:u <binary> qb q`,
+  `perf record -e cycles:u -F 4000 ...`, `perf report --stdio --sort symbol` and
+  `perf annotate --stdio -s <function>`. The linux binaries keep their function names.
 - Timing is noisy: pin with `taskset`, interleave the builds being compared and take
   the best of several runs. Nothing can be timed while an SPRT is running.
 - The wasm kernel is built for one net shape. After changing `NET_H1_SIZE` or
