@@ -34,7 +34,6 @@ const INF             = 32000;
 const MATE            = 31000;
 const MINMATE         = 30000;
 const NODES_HARD_MULT = 20;     // go nodes n: soft limit n (between id iterations), hard limit n*20 (mid search)
-const TTSCORE_UNKNOWN = INF + 1;
 const EMPTY           = 0;
 
 const WHITE = 0x0;
@@ -48,6 +47,8 @@ const TT_EMPTY = 0;
 const TT_EXACT = 1;
 const TT_BETA  = 2;
 const TT_ALPHA = 3;
+
+const TT_MISS = -1;  // ttGet(): the position is not in the tt
 
 const BASE_HASH       = UINT32_MAX;
 const BASE_PROMOTES   = BASE_HASH       - 1000;
@@ -2312,7 +2313,6 @@ function nodeStruct () {
   this.numMoves2   = 0;
   this.next        = 0;
   this.hashMove    = 0;
-  this.hashEval    = 0;
   this.base        = 0;
   this.inCheck     = 0;
   this.ev          = 0;
@@ -2429,13 +2429,16 @@ let ttDefault = 16;  // mb
 let ttSize    = 1;
 let ttMask    = 0;
 
-let ttLo    = new Int32Array(ttSize);
-let ttHi    = new Int32Array(ttSize);
-let ttType  = new Uint8Array(ttSize);
-let ttDepth = new Int8Array(ttSize);
-let ttMove  = new Uint32Array(ttSize);
-let ttEval  = new Int16Array(ttSize);
-let ttScore = new Int16Array(ttSize);
+// The tt is seven arrays, with one element of each for an entry: entry idx is
+// ttLo[idx], ttHi[idx], ttType[idx] and so on.
+
+let ttLo    = new Int32Array(ttSize);   // hash, low half
+let ttHi    = new Int32Array(ttSize);   // hash, high half
+let ttType  = new Uint8Array(ttSize);   // TT_EMPTY, or TT_EXACT/TT_BETA/TT_ALPHA: the score is exact/at least/at most
+let ttDepth = new Int8Array(ttSize);    // depth searched to, 0 for qsearch
+let ttMove  = new Uint32Array(ttSize);  // best move, or 0
+let ttEval  = new Int16Array(ttSize);   // static eval
+let ttScore = new Int16Array(ttSize);   // search score, see ttGetScore()
 
 const ttWidth = 18;
 
@@ -2504,67 +2507,61 @@ function ttPut (type, depth, score, move, ply, alpha, beta, ev) {
 
 //}}}
 //{{{  ttGet
+//
+// Look the current position (loHash, hiHash) up in the tt. Returns the index of its
+// entry, to use with the tt arrays (ttDepth[idx], ttType[idx], ttEval[idx] etc), or
+// TT_MISS if it is not there. What to make of the entry is up to the caller: the move
+// (ttGetMove) and the static eval are good whatever depth the entry was searched to,
+// the score (ttGetScore) only if that was deep enough and the bound in ttType allows.
+//
+// The index is only good until the next ttPut(), i.e. until a child is searched.
+//
 
-function ttGet (node, depth, alpha, beta) {
-
-  const idx   = loHash & ttMask;
-  const type  = ttType[idx];
-
-  node.hashMove = 0;
-  node.hashEval = INF;
-
-  if (type === TT_EMPTY)
-    return TTSCORE_UNKNOWN;
-
-  const lo = ttLo[idx];
-  const hi = ttHi[idx];
-
-  if (lo !== loHash || hi !== hiHash)
-    return TTSCORE_UNKNOWN;
-
-  //
-  // Set the hash move before the depth check
-  // so that iterative deepening works.
-  //
-
-  if (ttValidate(ttMove[idx]) !== 0)
-    node.hashMove = ttMove[idx];
-
-  node.hashEval = ttEval[idx];
-
-  if (ttDepth[idx] < depth)
-    return TTSCORE_UNKNOWN;
-
-  var score = ttScore[idx];
-
-  if (score <= -MINMATE && score >= -MATE)
-    score += node.ply;
-
-  else if (score >= MINMATE && score <= MATE)
-    score -= node.ply;
-
-  if (type === TT_EXACT)
-    return score;
-
-  if (type === TT_ALPHA && score <= alpha)
-    return score;
-
-  if (type === TT_BETA && score >= beta)
-    return score;
-
-  return TTSCORE_UNKNOWN;
-
-}
-
-//}}}
-//{{{  ttUpdateEval
-
-function ttUpdateEval (ev) {
+function ttGet () {
 
   const idx = loHash & ttMask;
 
   if (ttType[idx] !== TT_EMPTY && ttLo[idx] === loHash && ttHi[idx] === hiHash)
-    ttEval[idx] = ev;
+    return idx;
+
+  return TT_MISS;
+
+}
+
+//}}}
+//{{{  ttGetMove
+//
+// The move in entry idx, or 0 if there is no entry (TT_MISS), no move, or the move
+// does not fit the board (a different position with the same hash).
+//
+
+function ttGetMove (idx) {
+
+  if (idx !== TT_MISS && ttValidate(ttMove[idx]) !== 0)
+    return ttMove[idx];
+
+  return 0;
+
+}
+
+//}}}
+//{{{  ttGetScore
+//
+// The score in entry idx for a node at ply. Mate scores are stored as the distance to
+// mate from the entry's own position (see ttPut), so the ply is put back here.
+//
+
+function ttGetScore (idx, ply) {
+
+  const score = ttScore[idx];
+
+  if (score <= -MINMATE && score >= -MATE)
+    return score + ply;
+
+  if (score >= MINMATE && score <= MATE)
+    return score - ply;
+
+  return score;
 
 }
 
@@ -4363,12 +4360,14 @@ function rootSearch (node, depth, turn, alpha, beta) {
   let R             = 0;
   let E             = 0;
 
-  score = ttGet(node, depth, alpha, beta);  // load hash move and hash eval
+  // the tt entry for the root gives the move to try first and the static eval
 
-  node.inCheck = inCheck;
-  node.ev      = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
+  const tti = ttGet();
 
-  ttUpdateEval(node.ev);
+  node.hashMove = ttGetMove(tti);
+  node.inCheck  = inCheck;
+  node.ev       = tti !== TT_MISS ? ttEval[tti] : evaluate(node, turn);
+
   cache(node);
   genMoves(node, turn);
 
@@ -4570,10 +4569,23 @@ function search (node, depth, turn, alpha, beta) {
 
   //{{{  check tt
 
-  score = ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove and node.hashEval
+  // A tt entry gives a move to try first and the static eval whatever depth it was
+  // searched to. Its score can stand in for this search only if it was searched at
+  // least this deep, and then only if it is exact or its bound is enough to cut.
 
-  if (pvNode === 0 && score !== TTSCORE_UNKNOWN)
-    return score;
+  const tti = ttGet();
+
+  node.hashMove = ttGetMove(tti);
+
+  if (tti !== TT_MISS && pvNode === 0 && ttDepth[tti] >= depth) {
+
+    const hashType  = ttType[tti];
+    const hashScore = ttGetScore(tti, node.ply);
+
+    if (hashType === TT_EXACT || (hashType === TT_ALPHA && hashScore <= alpha) || (hashType === TT_BETA && hashScore >= beta))
+      return hashScore;
+
+  }
 
   //}}}
 
@@ -4582,7 +4594,7 @@ function search (node, depth, turn, alpha, beta) {
   let R = 0;
   let E = 0;
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
+  const ev = tti !== TT_MISS ? ttEval[tti] : evaluate(node, turn);
 
   //{{{  improving
 
@@ -4689,7 +4701,6 @@ function search (node, depth, turn, alpha, beta) {
 
   //}}}
 
-  ttUpdateEval(ev);
   genMoves(node, turn);
 
   statsNodes++;
@@ -4848,12 +4859,25 @@ function qSearch (node, depth, turn, alpha, beta) {
   if (isDraw() !== 0)
     return 0;
 
-  let score = ttGet(node, 0, alpha, beta);  // sets/clears node.hashMove and node.hashEval
+  // as in search(), except that any entry has been searched deeply enough for here
 
-  if (score !== TTSCORE_UNKNOWN)
-    return score;
+  const tti = ttGet();
 
-  const ev = node.hashEval !== INF ? node.hashEval : evaluate(node, turn);
+  node.hashMove = ttGetMove(tti);
+
+  if (tti !== TT_MISS) {
+
+    const hashType  = ttType[tti];
+    const hashScore = ttGetScore(tti, node.ply);
+
+    if (hashType === TT_EXACT || (hashType === TT_ALPHA && hashScore <= alpha) || (hashType === TT_BETA && hashScore >= beta))
+      return hashScore;
+
+  }
+
+  let score = 0;
+
+  const ev = tti !== TT_MISS ? ttEval[tti] : evaluate(node, turn);
 
   if (ev >= beta)
     return ev;
@@ -4862,7 +4886,6 @@ function qSearch (node, depth, turn, alpha, beta) {
 
   node.inCheck = 0;  // but not used
 
-  ttUpdateEval(ev);
   cache(node);
 
   statsNodes++;

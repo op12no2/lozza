@@ -20,7 +20,6 @@ const PAIRS = [
   ['loEP',        'hiEP',        'hashEP'],
   ['repLoHash',   'repHiHash',   'repHash'],
   ['ttLo',        'ttHi',        'ttKey'],
-  ['lo',          'hi',          'key'],      // locals in ttGet
 ];
 
 const LO2HI = new Map(PAIRS.map(p => [p[0], p[1]]));
