@@ -70,6 +70,17 @@ const HOST = {
 
 const NOOP = new Set(['seal']);
 
+// lozza specific: memory to start fetching straight after a call to a function. A
+// move is hardly made before the search of the new position looks it up in the tt
+// (ttGet), and a tt entry is rarely in the processor's cache, so the binary asks for it
+// as soon as the hash is known rather than wait for it when it is needed. Javascript
+// has no way to say this and lozza.js is not touched. Worth 2-3% at the default hash
+// size and more with a bigger one.
+
+const PREFETCH = {
+  makeMoveA: ['ttLo[loHash & ttMask]', 'ttType[loHash & ttMask]', 'ttDepth[loHash & ttMask]', 'ttMove[loHash & ttMask]', 'ttEval[loHash & ttMask]', 'ttScore[loHash & ttMask]'],
+};
+
 // identifiers that are false in the C build; if (x) {...} is dropped
 
 const HOST_FALSE = new Set(['nodeHost', 'shellHost']);
@@ -99,6 +110,8 @@ const T = {
 };
 
 const ELEM_C = {i8: 'int8_t', u8: 'uint8_t', i16: 'int16_t', u16: 'uint16_t', i32: 'int32_t', u32: 'uint32_t', u64: 'uint64_t', f64: 'double'};
+
+const ELEM_SIZE = {i8: 1, u8: 1, i16: 2, u16: 2, i32: 4, u32: 4, u64: 8, f64: 8};
 
 const TYPED_ARRAYS = {Int8Array: 'i8', Uint8Array: 'u8', Int16Array: 'i16', Uint16Array: 'u16', Int32Array: 'i32', Uint32Array: 'u32', Float64Array: 'f64'};
 
@@ -1434,6 +1447,8 @@ function genStmt (s, scope, out) {
         return;   // e.g. net_kernel = null
       const r = gen(s.expression, scope, false);
       out.push(indent + r.c + (r.block ? '' : ';'));
+      if (s.expression.type === 'CallExpression' && s.expression.callee.type === 'Identifier' && PREFETCH[s.expression.callee.name])
+        out.push(indent + 'LZ_PREFETCH_' + s.expression.callee.name + ';');
       return;
     }
 
@@ -1829,8 +1844,11 @@ for (const [jsname, g] of globals) {
         out.push('#define ' + name + ' ' + numLit(g.constVal, g.type));
       break;
     case 'tarray':
-      if (g.values) out.push('static ' + ELEM_C[g.elem] + ' ' + name + '[' + g.len + '] = {' + g.values.join(', ') + '};');
-      else out.push('static ' + ELEM_C[g.elem] + ' ' + name + '[' + g.len + '];');
+      // big arrays start on a cache line boundary, which matters for the SIMD loops
+      // (LZ_ALIGNED in lozza_rt.h); small ones are left packed together
+      const aligned = g.len * ELEM_SIZE[g.elem] >= 1024 ? ' LZ_ALIGNED' : '';
+      if (g.values) out.push('static ' + ELEM_C[g.elem] + ' ' + name + '[' + g.len + ']' + aligned + ' = {' + g.values.join(', ') + '};');
+      else out.push('static ' + ELEM_C[g.elem] + ' ' + name + '[' + g.len + ']' + aligned + ';');
       break;
     case 'dynarray':
       out.push('static ' + ELEM_C[g.elem] + '* ' + name + ' = NULL; static int32_t ' + name + '__len = 0;');
@@ -1893,6 +1911,16 @@ if (nodeFields) {
   for (const f of nodeFields)
     if (f.kind === 'scalar' && f.init) out.push('  n->' + f.name + ' = ' + f.init + ';');
   out.push('}');
+  out.push('');
+}
+
+for (const fname of Object.keys(PREFETCH)) {
+  const what = PREFETCH[fname].map(src => {
+    const e = fuse(acorn.parseExpressionAt(src, 0, {ecmaVersion: 2022}));   // ttLo[loHash & ttMask] -> ttKey[hash & ttMask]
+    return '__builtin_prefetch(&' + gen(e, topScope, false).c + ');';
+  });
+  out.push('// see PREFETCH in lozza2c.js');
+  out.push('#define LZ_PREFETCH_' + fname + ' do { ' + what.join(' ') + ' } while (0)');
   out.push('');
 }
 

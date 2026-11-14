@@ -3808,6 +3808,28 @@ function updateHistory (node, numQuiets, depth, bestMove) {
 //}}}
 //{{{  evaluate
 
+//{{{  eval cache
+//
+// The net is the slow part of the engine, and the search asks for the eval of the same
+// positions over and over: each iteration walks the tree of the one before, so the
+// same leaves keep coming up. This is a small table of position -> eval, used by
+// evaluate(). It is separate from the tt, which also holds an eval but only for
+// positions that were searched and stored, and it changes nothing but speed: about a
+// quarter of the evals are found here, and the bench is the same with or without it.
+//
+// Bigger is not better: 1 << 18 finds a few more but is slower, the table itself
+// then being too big to stay in the processor's cache.
+//
+
+const EC_SIZE = 1 << 16;  // entries, a power of 2
+const EC_MASK = EC_SIZE - 1;
+
+const ecLo   = new Int32Array(EC_SIZE);  // hash, low half
+const ecHi   = new Int32Array(EC_SIZE);  // hash, high half
+const ecEval = new Int16Array(EC_SIZE);
+
+//}}}
+
 function evaluate (node, turn) {
 
   // init
@@ -3858,12 +3880,23 @@ function evaluate (node, turn) {
   if (numPieces === 4 && wNumQueens !== 0 && bNumQueens !== 0)
     return 0;
 
-  const ev = netEval(node, turn);
+  // the net, unless this position has been through it recently (see the eval cache)
+
+  const idx = loHash & EC_MASK;
+
+  if (ecLo[idx] === loHash && ecHi[idx] === hiHash)
+    return ecEval[idx];
+
+  let ev = netEval(node, turn);
 
   if (ev >= MINMATE)
-    return MINMATE - 1;
-  if (ev <= -MINMATE)
-    return -MINMATE + 1;
+    ev = MINMATE - 1;
+  else if (ev <= -MINMATE)
+    ev = -MINMATE + 1;
+
+  ecLo[idx]   = loHash;
+  ecHi[idx]   = hiHash;
+  ecEval[idx] = ev;
 
   return ev;
 

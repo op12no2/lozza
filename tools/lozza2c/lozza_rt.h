@@ -29,6 +29,13 @@ static inline int32_t lz_toint32 (double d) {
 }
 static inline int32_t lz_fdiv (double a, double b)   { double d = a / b; return (d != d || d > 2147483647.0 || d < -2147483648.0) ? 0 : (int32_t)d; }
 
+// LZ_ALIGNED starts a global array on a cache line (64 byte) boundary. The net loops
+// load and store 32 bytes at a time; without this the arrays land on 16 byte
+// boundaries and every other load or store straddles two cache lines, which cost the
+// binaries about 8% of their speed when it was measured.
+
+#define LZ_ALIGNED __attribute__((aligned(64)))
+
 // LZ_LOOP_I16 is put in front of a loop over 16 bit values (the @i16 clue, see
 // lozza2c.js) and asks clang to do 16 of them at a time, i.e. 256 bit SIMD. The
 // reference build that test.sh measures the SIMD speedup against (lozza_scalar, see
@@ -50,7 +57,32 @@ LZ_FILL(u32, uint32_t, uint32_t)
 LZ_FILL(u64, uint64_t, uint64_t)
 LZ_FILL(f64, double,   double)
 
-#define LZ_REALLOC(E, CT) static inline void lz_realloc_##E (CT** p, int32_t* len, int64_t n) { free(*p); *p = (CT*)calloc((size_t)(n > 0 ? n : 1), sizeof(CT)); *len = (int32_t)n; }
+// Zeroed memory for a run time sized array (the tt). On Linux a big one is put in huge
+// (2MB) pages if the system allows it: a tt probe lands on a random page, and with
+// ordinary 4KB pages the processor often has to look up where that page is first.
+// Worth 1-2% at the default hash size, 5% at 128MB. free() releases it either way.
+
+#ifdef __linux__
+#include <sys/mman.h>
+#endif
+
+static inline void* lz_alloc0 (size_t bytes) {
+#ifdef __linux__
+  const size_t huge = (size_t)2 << 20;
+  if (bytes >= huge) {
+    const size_t rounded = (bytes + huge - 1) & ~(huge - 1);
+    void* p = aligned_alloc(huge, rounded);
+    if (p) {
+      madvise(p, rounded, MADV_HUGEPAGE);   // a request, not a demand; ignored if not available
+      memset(p, 0, rounded);
+      return p;
+    }
+  }
+#endif
+  return calloc(bytes ? bytes : 1, 1);
+}
+
+#define LZ_REALLOC(E, CT) static inline void lz_realloc_##E (CT** p, int32_t* len, int64_t n) { free(*p); *p = (CT*)lz_alloc0((size_t)(n > 0 ? n : 1) * sizeof(CT)); *len = (int32_t)n; }
 LZ_REALLOC(i8,  int8_t)
 LZ_REALLOC(u8,  uint8_t)
 LZ_REALLOC(i16, int16_t)

@@ -20,6 +20,7 @@ const PAIRS = [
   ['loEP',        'hiEP',        'hashEP'],
   ['repLoHash',   'repHiHash',   'repHash'],
   ['ttLo',        'ttHi',        'ttKey'],
+  ['ecLo',        'ecHi',        'ecKey'],
 ];
 
 const LO2HI = new Map(PAIRS.map(p => [p[0], p[1]]));

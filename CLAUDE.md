@@ -84,6 +84,11 @@ Command line arguments are UCI commands run in order; `q` quits. Useful extras: 
 - Host-only code: `if (nodeHost)` / `if (shellHost)` are treated as false, `net_kernel`
   as always null (`HOST_NULL`), functions in the `HOST` table come from the C runtime,
   and `EXCLUDE` in `build.sh` lists functions not to convert.
+- Things the binaries get that the Javascript knows nothing about (all in `lozza2c.js`
+  or `lozza_rt.h`, each with a comment saying what it was worth): big global arrays
+  start on a 64 byte boundary (`LZ_ALIGNED`), the tt entry is prefetched straight
+  after `makeMoveA()` (`PREFETCH`), and on Linux the tt is put in huge pages
+  (`lz_alloc0`). In the C, speed is all that matters; readability is for `lozza.js`.
 - `test.sh` ends with the SIMD checks: the net functions must contain the 256 bit 16 bit
   instructions (disassembly), and the binary must be at least 6x faster than
   `lozza_scalar` (the same C with vectorising off) for a net of 1024 or more. About 9x
@@ -109,11 +114,30 @@ All at STC, Elo for the first named.
 - Native binary speed at 1536 is about 1.2M nps where node with the kernel is about
   0.65M and plain Javascript about 0.1M (same machine, for the ratios only).
 
+Speed work on the binary (same bench throughout, so no SPRT was needed):
+
+- Helped: 64 byte alignment of the net arrays about 7%; the eval cache in
+  `evaluate()` about 10% on the bench, less in long searches (it also gives the wasm
+  `.js` about 10%); tt prefetch and huge pages together 2-3% at Hash 16, about 9% at
+  Hash 128. Altogether the binary went from about 1.2M to 1.5M nps on the bench.
+- Did not help, do not retry without a new reason: the tt as an array of structs
+  instead of parallel arrays, profile guided optimisation, a non-PIE build, one shared
+  weights array for both perspectives (1-2% and only under load), an eval cache
+  bigger than 1 << 16, huge pages for the static arrays.
+- Not done: an AVX-512 build was about 15% faster again on a CPU that has it, but
+  would be an extra pair of binaries in a release.
+- The time now goes roughly 45% on the net (accumulator updates and the output layer),
+  30% in search()/qSearch() and 25% on move generation and ordering.
+
 Ideas not yet tried: an input-side change to the net (horizontal mirroring or king
 buckets) and keeping history tables across moves.
 
 ## Gotchas
 
+- There is no profiler here (no perf under WSL); a SIGPROF sampler linked into a scratch
+  build and resolved with nm does the job.
+- Timing is noisy: pin with `taskset`, interleave the builds being compared and take
+  the best of several runs. Nothing can be timed while an SPRT is running.
 - The wasm kernel is built for one net shape. After changing `NET_H1_SIZE` or
   `NET_O_SIZE` run `bin/wasm.sh`; until then `lozza.js` quietly uses the Javascript
   loops (no "wasm" in the uci name).
