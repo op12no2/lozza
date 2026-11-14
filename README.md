@@ -3,7 +3,7 @@
 
 A Javascript UCI chess engine that can be used in a Web Worker and Node.
 
-Lozza is easy to read and tweak; it's also easy to deploy and is WSAM-free.
+Lozza is easy to read and tweak; it's also easy to deploy.
 
 Release versions are additionally available as assets for Windows and Linux;
 ping me if you would like one for a different platform.

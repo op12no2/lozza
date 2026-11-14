@@ -4,6 +4,11 @@
 
 const BUILD = "12.0";
 
+// 1 = use the WebAssembly SIMD net kernel if the host can run it, 0 = Javascript only.
+// The results are identical, the kernel is just faster. See the net fold and lozza.c.
+
+const WASM = 1;
+
 //{{{  constants
 
 const BENCH_DEPTH = 12;
@@ -18,7 +23,8 @@ const NET_QB      = 64;
 const NET_QAB     = NET_QA * NET_QB;
 const NET_SCALE   = 400;
 const NET_I_SIZE  = 768;
-const NET_H1_SIZE = 256;
+const NET_H1_SIZE = 1536;
+const NET_O_SIZE  = 8;     // output buckets: one output layer for each 4 pieces on the board
 
 const MATERIAL = new Int32Array([0,100,394,388,588,1207,10000]);
 
@@ -422,15 +428,27 @@ function initPrng () {
 //}}}
 //{{{  net
 
-const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/gen11/lozza-200/quantised.bin';  // ignore - only relevant for dev version
+const NET_WEIGHTS_FILE = '/home/xyzzy/lozza/nets/net1536/lozza-200/quantised.bin';  // ignore - only relevant for dev version
 
 const IMAP = new Uint32Array(15 * 256);  // piece+colour -> offset into the flat weights, see initNet()
 
-const net_h1_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // us
-const net_h2_w_flat = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // them
-const net_h1_b      = new Int32Array(NET_H1_SIZE);
-const net_o_w       = new Int32Array(NET_H1_SIZE*2);
-let   net_o_b       = 0;
+// The net is held in 16 bit arrays; the trainer clips the weights so that nothing
+// overflows (see lozza.rs and netCheck()). The accumulator updates and the output
+// layer can be done by a small WebAssembly SIMD kernel (lozza.c, embedded as getWasm()
+// at the bottom of the file, switched on by WASM at the top). When the kernel is in
+// use these arrays are views of its memory, so the kernel and the Javascript here work
+// on the same bytes and nothing is copied; otherwise they are ordinary arrays. The
+// Javascript loops below do exactly what the kernel does and are used when it is off
+// or the host cannot run it. They are also what the native binaries are made from
+// (tools/lozza2c), where 16 bits lets the compiler work on 16 values at a time.
+
+const net_kernel = netKernel();  // the kernel's exports, or null if using Javascript only
+
+const net_h1_w_flat = netArray('net_h1_w', NET_I_SIZE * NET_H1_SIZE);  // us
+const net_h2_w_flat = netArray('net_h2_w', NET_I_SIZE * NET_H1_SIZE);  // them
+const net_h1_b      = netArray('net_h1_b', NET_H1_SIZE);
+const net_o_w       = netArray('net_o_w',  NET_O_SIZE * NET_H1_SIZE * 2);  // each bucket is an us half then a them half
+const net_o_b       = new Int32Array(NET_O_SIZE);
 
 // Each node owns the accumulators for its position. They all live in net_acc, one flat
 // array so that v8 sees a constant base: node.acc1 is the offset of the us accumulator
@@ -439,7 +457,7 @@ let   net_o_b       = 0;
 // netEval() needs it; netRefresh() then walks up to the nearest clean ancestor and
 // applies the recorded updates downwards, child = parent + delta.
 
-const net_acc = new Int32Array(MAX_PLY * 2 * NET_H1_SIZE);
+const net_acc = netArray('net_acc', MAX_PLY * 2 * NET_H1_SIZE);
 
 const UE_MOVE      = 1;
 const UE_CAPTURE   = 2;
@@ -448,6 +466,54 @@ const UE_EPCAPTURE = 4;
 const UE_CASTLE    = 5;
 const UE_COPY      = 6;  // null move
 
+//{{{  netKernel
+//
+// Compile and start the wasm kernel. Returns its exports (the functions net_move,
+// net_capture, net_castle and net_eval, its memory, and the addresses of its arrays),
+// or null if it is switched off, the host has no WebAssembly SIMD, or it was built
+// for different net sizes.
+//
+
+function netKernel () {
+
+  if (!WASM || typeof WebAssembly === 'undefined')
+    return null;
+
+  try {
+
+    const module = new WebAssembly.Module(b64Decode(getWasm()));  // throws if the host cannot run it
+    const kernel = new WebAssembly.Instance(module).exports;
+
+    if (!kernel.net_sizes_ok(NET_I_SIZE, NET_H1_SIZE, NET_O_SIZE, MAX_PLY))
+      return null;
+
+    return kernel;
+
+  }
+
+  catch (e) {
+    return null;
+  }
+
+}
+
+//}}}
+//{{{  netArray
+//
+// A 16 bit array of the net. name is the name of the array in lozza.c; with the
+// kernel in use the result is a view of that array in the kernel's memory.
+//
+
+function netArray (name, length) {
+
+  if (net_kernel !== null)
+    return new Int16Array(net_kernel.memory.buffer, net_kernel[name].value, length);
+
+  return new Int16Array(length);
+
+}
+
+//}}}
 //{{{  getWeightsBuffer()
 
 function getWeightsBuffer() {
@@ -457,7 +523,19 @@ function getWeightsBuffer() {
   if (weightsB64 === '')
     return fs.readFileSync(NET_WEIGHTS_FILE);
 
-  const b64 = weightsB64.replace(/\s+/g, "");
+  return b64Decode(weightsB64);
+
+}
+
+//}}}
+//{{{  b64Decode
+//
+// base64 string to bytes, used for the embedded weights and the wasm kernel.
+//
+
+function b64Decode (str) {
+
+  const b64 = str.replace(/\s+/g, "");
 
   if (typeof Buffer !== 'undefined' && Buffer.from) {
     // node
@@ -537,12 +615,51 @@ function netLoad () {
   }
 
   offset += NET_H1_SIZE;
-  for (let i = 0; i < NET_H1_SIZE * 2; i++) {
+  for (let i = 0; i < NET_O_SIZE * NET_H1_SIZE * 2; i++) {
     net_o_w[i] = dataView[offset + i];
   }
 
-  offset += NET_H1_SIZE * 2;
-  net_o_b = dataView[offset];
+  offset += NET_O_SIZE * NET_H1_SIZE * 2;
+  for (let i = 0; i < NET_O_SIZE; i++) {
+    net_o_b[i] = dataView[offset + i];
+  }
+
+  netCheck();
+
+}
+
+//}}}
+//{{{  netCheck
+//
+// The 16 bit arithmetic depends on the size of the weights, which the trainer clips
+// (see lozza.rs). Check that this net is inside the limits.
+//
+
+function netCheck () {
+
+  let maxW = 0;
+  let maxB = 0;
+  let maxO = 0;
+
+  for (let i=0; i < net_h1_w_flat.length; i++)
+    maxW = Math.max(maxW, Math.abs(net_h1_w_flat[i]));
+
+  for (let i=0; i < net_h1_b.length; i++)
+    maxB = Math.max(maxB, Math.abs(net_h1_b[i]));
+
+  for (let i=0; i < net_o_w.length; i++)
+    maxO = Math.max(maxO, Math.abs(net_o_w[i]));
+
+  // an accumulator is the bias plus one weight for each of up to 32 pieces
+
+  if (maxB + 32 * maxW > 32767)
+    uciSend('info string net weights are too big for 16 bit accumulators');
+
+  // netEvalSum() and the kernel multiply a clamped accumulator value (up to QA) by an
+  // output weight in 16 bits
+
+  if (NET_QA * maxO > 32767)
+    uciSend('info string net output weights are too big for 16 bit arithmetic');
 
 }
 
@@ -596,21 +713,46 @@ function netEval(node, turn) {
   if (node.accDirty !== 0)
     netRefresh(node);
 
+  // The net has NET_O_SIZE output layers (buckets) and the number of pieces on the
+  // board, kings included, picks the one to use: 2-5 pieces is bucket 0, 6-9 is
+  // bucket 1 and so on up to 30-32, bucket 7. Same as MaterialCount in lozza.rs.
+
+  const bucket = (wCount + bCount - 2) >> 2;
+
   if (turn === WHITE)
-    return netEval2(node.acc1, node.acc2);
+    return netEval2(node.acc1, node.acc2, bucket);
   else
-    return netEval2(node.acc2, node.acc1);
+    return netEval2(node.acc2, node.acc1, bucket);
 
 }
 
-function netEval2(o1, o2) {
+function netEval2(o1, o2, bucket) {
+
+  const ow = Math.imul(bucket, NET_H1_SIZE * 2) | 0;  // where this bucket's weights start in net_o_w
+
+  let e = (net_kernel !== null) ? net_kernel.net_eval(o1, o2, ow) : netEvalSum(o1, o2, ow);
+
+  e = (e / NET_QA) | 0;
+  e = (e + (net_o_b[bucket] | 0)) | 0;
+  e = Math.imul(e, NET_SCALE | 0) | 0;
+  e = (e / NET_QAB) | 0;
+
+  return e | 0;
+
+}
+
+// The output layer: the sum of w * y * y over both accumulators, the side to move's
+// (at o1) first, where y is the accumulator value clamped to 0..QA (SCReLU) and the
+// output weights w start at ow in net_o_w. net_eval() in lozza.c is the same thing.
+
+function netEvalSum(o1, o2, ow) {
 
   const w  = net_o_w;
   const a  = net_acc;
-  const N  = NET_H1_SIZE | 0;
+  const N  = (ow + NET_H1_SIZE) | 0;
 
   let e  = 0 | 0;
-  let p1 = 0 | 0;
+  let p1 = ow | 0;
   let p2 = N | 0;
   let i1 = o1 | 0;
   let i2 = o2 | 0;
@@ -621,23 +763,31 @@ function netEval2(o1, o2) {
     const x2 = a[i2] | 0;
     i1++; i2++;
 
-    const y1 = (x1 + (x1 ^ (x1 >> 31)) - (x1 >> 31)) >> 1;
-    const y2 = (x2 + (x2 ^ (x2 >> 31)) - (x2 >> 31)) >> 1;
+    // y = clamp(x, 0, QA) without branches, which is much the fastest way in v8:
+    // r is x with negatives set to 0, then anything over QA is brought down to QA
 
-    e = (e + Math.imul(w[p1], Math.imul(y1, y1)) + Math.imul(w[p2], Math.imul(y2, y2))) | 0; // sqrrelu
+    const r1 = x1 & ~(x1 >> 31);
+    const r2 = x2 & ~(x2 >> 31);
+    const d1 = (r1 - NET_QA) | 0;
+    const d2 = (r2 - NET_QA) | 0;
+    const y1 = (r1 - (d1 & ~(d1 >> 31))) | 0;  // @i16
+    const y2 = (r2 - (d2 & ~(d2 >> 31))) | 0;  // @i16
+
+    // w * y * y in two steps. t = w * y fits in 16 bits because the trainer clips w
+    // (see netCheck()), and the << 16 >> 16 says so: it changes nothing here, but it
+    // and the @i16 clues let the native build (tools/lozza2c) do this loop in 16 bit
+    // SIMD, 16 values at a time, which is worth about a third more speed.
+
+    const t1 = (Math.imul(w[p1], y1) << 16) >> 16;  // @i16
+    const t2 = (Math.imul(w[p2], y2) << 16) >> 16;  // @i16
+
+    e = (e + Math.imul(t1, y1) + Math.imul(t2, y2)) | 0;
 
     p1++; p2++;
 
   }
 
-  let e2 = e;
-
-  e2 = (e2 / NET_QA) | 0;
-  e2 = (e2 + (net_o_b | 0)) | 0;
-  e2 = Math.imul(e2, NET_SCALE | 0) | 0;
-  e2 = (e2 / NET_QAB) | 0;
-
-  return e2 | 0;
+  return e | 0;
 
 }
 
@@ -718,6 +868,11 @@ function netMove (parent, node) {
   let p1 = map[frObj + from] | 0;
   let p2 = map[frObj + to]   | 0;
 
+  if (net_kernel !== null) {
+    net_kernel.net_move(c1, q1, p1, p2);
+    return;
+  }
+
   while (c1 < e1) {
     a[c1] = a[q1] + h1w[p2] - h1w[p1];
     a[c2] = a[q2] + h2w[p2] - h2w[p1];
@@ -748,6 +903,11 @@ function netCapture (parent, node) {
   let p2 = map[toObj + to] | 0;
   let p3 = map[frObj + to] | 0;
 
+  if (net_kernel !== null) {
+    net_kernel.net_capture(c1, q1, p1, p2, p3);
+    return;
+  }
+
   while (c1 < e1) {
     a[c1] = a[q1] + h1w[p3] - h1w[p2] - h1w[p1];
     a[c2] = a[q2] + h2w[p3] - h2w[p2] - h2w[p1];
@@ -777,6 +937,14 @@ function netPromote (parent, node) {
 
   let p1 = map[pawnObj    + pawnFr] | 0;
   let p2 = map[promoteObj + pawnTo] | 0;
+
+  if (net_kernel !== null) {
+    if (captureObj !== 0)
+      net_kernel.net_capture(c1, q1, p1, map[captureObj + pawnTo] | 0, p2);
+    else
+      net_kernel.net_move(c1, q1, p1, p2);
+    return;
+  }
 
   if (captureObj !== 0) {
     let p3 = map[captureObj + pawnTo] | 0;
@@ -819,6 +987,11 @@ function netEpCapture (parent, node) {
   let p2 = map[pawnObj        + pawnTo] | 0;
   let p3 = map[pawnCaptureObj + ep] | 0;
 
+  if (net_kernel !== null) {
+    net_kernel.net_capture(c1, q1, p1, p3, p2);
+    return;
+  }
+
   while (c1 < e1) {
     a[c1] = a[q1] + h1w[p2] - h1w[p1] - h1w[p3];
     a[c2] = a[q2] + h2w[p2] - h2w[p1] - h2w[p3];
@@ -851,6 +1024,11 @@ function netCastle (parent, node) {
   let p2 = map[kingObj + kingTo] | 0;
   let p3 = map[rookObj + rookFr] | 0;
   let p4 = map[rookObj + rookTo] | 0;
+
+  if (net_kernel !== null) {
+    net_kernel.net_castle(c1, q1, p1, p2, p3, p4);
+    return;
+  }
 
   while (c1 < e1) {
     a[c1] = a[q1] + h1w[p2] - h1w[p1] + h1w[p4] - h1w[p3];
@@ -5284,8 +5462,14 @@ function uciExec (commands, canYield) {
       case 'uci': {
         // uci
 
-        if (getWeights() === '')
-          uciSend('id name Lozza', BUILD, '(dev)');
+        // e.g. Lozza 12.0 (dev wasm): dev = weights loaded from a file, wasm = using the wasm net kernel
+
+        const dev  = (getWeights() === '') ? 'dev'  : '';
+        const wasm = (net_kernel !== null) ? 'wasm' : '';
+        const tags = (dev + ' ' + wasm).trim();
+
+        if (tags !== '')
+          uciSend('id name Lozza', BUILD, '(' + tags + ')');
         else
           uciSend('id name Lozza', BUILD);
         uciSend('id author Colin Jenkins');
@@ -5502,7 +5686,8 @@ function uciExec (commands, canYield) {
         if (getWeights() === '')
           uciSend('weights file', NET_WEIGHTS_FILE);
 
-        uciSend('i_size, h1_size', NET_I_SIZE, NET_H1_SIZE);
+        uciSend('wasm kernel', (net_kernel !== null) ? 'on' : 'off');
+        uciSend('i_size, h1_size, o_size', NET_I_SIZE, NET_H1_SIZE, NET_O_SIZE);
         uciSend('qa, qb', NET_QA, NET_QB);
         uciSend('scale', NET_SCALE);
 
@@ -5538,16 +5723,6 @@ function uciExec (commands, canYield) {
         }
 
         initNode(rootNode);
-
-        break;
-
-      }
-
-      case 'datagen': {
-        // datagen
-
-        if (nodeHost)
-          datagen(tokens);
 
         break;
 
@@ -5740,328 +5915,6 @@ function initUci () {
 //}}}
 
 //}}}
-//{{{  datagen
-//
-// Generate training data in bullet text format: fen | white score | white result.
-//
-// datagen [games N] [nodes N] [dir D] [book F] [randply N]
-//
-// Each run writes a new uniquely named file in D, so any number of instances
-// can run at once and be stopped and restarted at will. See bin/datagen.sh.
-// Node only.
-//
-
-const DG_RESIGN_SCORE = 600;  // cp, white relative
-const DG_RESIGN_PLIES = 5;    // consecutive plies at or beyond DG_RESIGN_SCORE
-const DG_DRAW_SCORE   = 5;    // cp, white relative
-const DG_DRAW_PLIES   = 8;    // consecutive plies within DG_DRAW_SCORE
-const DG_DRAW_MINPLY  = 80;   // no draw adjudication before this ply
-const DG_MAX_PLIES    = 500;  // then adjudicate as a draw
-const DG_FLUSH_GAMES  = 10;   // write to disk every n games
-const DG_REPORT_GAMES = 100;  // log progress every n games
-
-const DG_STARTPOS = ['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', 'w', 'KQkq', '-'];
-
-//{{{  dgBookFen
-//
-// Pick a random line from an EPD book by seeking to a random offset and
-// taking the first complete line after it, so big books are never read
-// into memory. Returns [board, turn, rights, ep] or null.
-//
-
-function dgBookFen (book) {
-
-  const buf = Buffer.alloc(4096);
-  const off = Math.floor(Math.random() * Math.max(1, book.size - buf.length));
-  const n   = fs.readSync(book.fd, buf, 0, buf.length, off);
-
-  const lines = buf.toString('utf8', 0, n).split('\n');
-
-  // the first line is partial unless we started at 0 and the last is probably partial
-
-  for (let i = (off === 0 ? 0 : 1); i < lines.length - 1; i++) {
-    const t = lines[i].trim().split(/\s+/);
-    if (t.length >= 4)
-      return t.slice(0, 4);
-  }
-
-  return null;
-
-}
-
-//}}}
-//{{{  dgRandomMove
-//
-// A random legal move string for the side to move, or '' if there are none.
-//
-
-function dgRandomMove () {
-
-  const node     = rootNode;
-  const turn     = bdTurn;
-  const nextTurn = turn ^ COLOR_MASK;
-  const legal    = [];
-
-  let move = 0;
-
-  initNode(node);
-
-  node.inCheck = isKingAttacked(nextTurn);
-
-  cache(node);
-  genMoves(node, turn);
-
-  while ((move = getNextMove(node)) !== 0) {
-
-    makeMoveA(node, move);
-
-    if ((move & MOVE_LEGAL_MASK) !== 0 || isKingAttacked(nextTurn) === 0)
-      legal.push(move);
-
-    unmakeMove(node, move);
-    uncacheA(node);
-
-  }
-
-  initNode(node);
-
-  if (legal.length === 0)
-    return '';
-
-  return formatMove(legal[Math.floor(Math.random() * legal.length)]);
-
-}
-
-//}}}
-//{{{  dgPlayGame
-//
-// Play one game. Returns {lines: [...], result: '1.0'|'0.5'|'0.0'} or null
-// if the game was abandoned (ended during the random move phase).
-//
-
-function dgPlayGame (cfg, book) {
-
-  let start = DG_STARTPOS;
-
-  if (book !== null) {
-    const t = dgBookFen(book);
-    if (t !== null)
-      start = t;
-  }
-
-  const bd     = start[0];
-  const turn   = start[1];
-  const rights = start[2];
-  const ep     = start[3];
-  const moves  = [];
-
-  newGame();
-  position(bd, turn, rights, ep, moves);
-
-  //{{{  random moves
-
-  const randPlies = cfg.randply + (Math.random() < 0.5 ? 1 : 0);
-
-  for (let i=0; i < randPlies; i++) {
-
-    const m = dgRandomMove();
-
-    if (m === '')
-      return null;
-
-    moves.push(m);
-    position(bd, turn, rights, ep, moves);
-
-    if (isDraw())
-      return null;
-
-  }
-
-  //}}}
-  //{{{  play
-
-  const fens   = [];
-  const scores = [];
-
-  let result      = '';
-  let resignCount = 0;
-  let drawCount   = 0;
-
-  while (true) {
-
-    const stm = bdTurn;
-    const ply = moves.length;
-
-    if (isDraw() || ply >= DG_MAX_PLIES) {
-      result = '0.5';
-      break;
-    }
-
-    uciExec('go nodes ' + cfg.nodes);
-
-    // after a fail low statsBestMove is 0, so fall back to the last exact result (as go() does)
-
-    const move  = statsBestMove || (multiPVNum ? multiPVMove[0]  : 0);
-    const score = statsBestMove ?  statsBestScore : (multiPVNum ? multiPVScore[0] : 0);
-
-    const inCheck = isKingAttacked(stm ^ COLOR_MASK) !== 0;
-
-    if (move === 0) {
-      // no legal moves
-      if (inCheck)
-        result = (stm === WHITE) ? '0.0' : '1.0';
-      else
-        result = '0.5';
-      break;
-    }
-
-    const wScore = (stm === WHITE) ? score : -score;
-    const noisy  = (move & (MOVE_NOISY_MASK | MOVE_PROMOTE_MASK)) !== 0;
-
-    if (!inCheck && !noisy && rootNumLegal > 1 && Math.abs(score) < MINMATE) {  // forced moves stop at depth 1 so their score is poor
-      fens.push(formatFen(stm));
-      scores.push(wScore);
-    }
-
-    //{{{  adjudicate
-
-    if (wScore >= MINMATE) {
-      result = '1.0';
-      break;
-    }
-
-    if (wScore <= -MINMATE) {
-      result = '0.0';
-      break;
-    }
-
-    if (Math.abs(wScore) >= DG_RESIGN_SCORE)
-      resignCount++;
-    else
-      resignCount = 0;
-
-    if (resignCount >= DG_RESIGN_PLIES) {
-      result = (wScore > 0) ? '1.0' : '0.0';
-      break;
-    }
-
-    if (ply >= DG_DRAW_MINPLY && Math.abs(wScore) <= DG_DRAW_SCORE)
-      drawCount++;
-    else
-      drawCount = 0;
-
-    if (drawCount >= DG_DRAW_PLIES) {
-      result = '0.5';
-      break;
-    }
-
-    //}}}
-
-    moves.push(formatMove(move));
-    position(bd, turn, rights, ep, moves);
-
-  }
-
-  //}}}
-
-  const lines = [];
-
-  for (let i=0; i < fens.length; i++)
-    lines.push(fens[i] + ' | ' + scores[i] + ' | ' + result);
-
-  return {lines: lines, result: result};
-
-}
-
-//}}}
-//{{{  datagen
-
-function datagen (tokens) {
-
-  if (!nodeHost) {
-    uciSend('datagen needs node');
-    return;
-  }
-
-  const cfg = {
-    games:   uciGetInt(tokens, 'games',   1000),
-    nodes:   uciGetInt(tokens, 'nodes',   5000),
-    randply: uciGetInt(tokens, 'randply', 8),
-    dir:     uciGetStr(tokens, 'dir',     'data'),
-    book:    uciGetStr(tokens, 'book',    ''),
-  };
-
-  let book = null;
-
-  if (cfg.book !== '') {
-    const fd = fs.openSync(cfg.book, 'r');
-    book = {fd: fd, size: fs.fstatSync(fd).size};
-  }
-
-  fs.mkdirSync(cfg.dir, {recursive: true});
-
-  const fileName = cfg.dir + '/dg_' + BUILD + '_' + cfg.nodes + 'n_' + process.pid + '_' + Math.trunc(Math.random() * 1000000000) + '.txt';
-
-  fs.writeFileSync(fileName, '');
-
-  console.log('datagen', fileName, JSON.stringify(cfg));
-
-  const results = {'1.0': 0, '0.5': 0, '0.0': 0};
-
-  let buf        = '';
-  let totalFens  = 0;
-  let totalGames = 0;
-  let abandoned  = 0;
-  let t          = now();
-  let fensSince  = 0;
-
-  silentMode = 1;
-
-  for (let g=1; g <= cfg.games; g++) {
-
-    const game = dgPlayGame(cfg, book);
-
-    if (game === null) {
-      abandoned++;
-    }
-    else {
-      totalGames++;
-      totalFens += game.lines.length;
-      fensSince += game.lines.length;
-      results[game.result]++;
-      if (game.lines.length)
-        buf += game.lines.join('\n') + '\n';
-    }
-
-    if ((g % DG_FLUSH_GAMES) === 0 && buf.length) {
-      fs.appendFileSync(fileName, buf);
-      buf = '';
-    }
-
-    if ((g % DG_REPORT_GAMES) === 0) {
-      const secs = Math.max(1, now() - t) / 1000;
-      console.log(fileName, 'games', totalGames, 'fens', totalFens, 'fens/sec', (fensSince / secs) | 0, 'wdl', results['1.0'], results['0.5'], results['0.0'], 'abandoned', abandoned);
-      t = now();
-      fensSince = 0;
-    }
-
-  }
-
-  if (buf.length)
-    fs.appendFileSync(fileName, buf);
-
-  if (book !== null)
-    fs.closeSync(book.fd);
-
-  silentMode = 0;
-
-  console.log('done', fileName, 'games', totalGames, 'fens', totalFens, 'wdl', results['1.0'], results['0.5'], results['0.0'], 'abandoned', abandoned);
-
-}
-
-//}}}
-
-//}}}
 //{{{  init
 
 function initOnce () {
@@ -6083,6 +5936,35 @@ const argv = nodeHost ? process.argv.slice(2) : (shellHost ? lozzaShell.argv : [
 
 for (let i=0; i < argv.length; i++)
   uciExec(argv[i]);
+
+//}}}
+//{{{  wasm
+//
+// The net kernel: lozza.c compiled to WebAssembly, as base64. See netKernel() and WASM
+// at the top of the file. Rebuild it with bin/wasm.sh (or the command in lozza.c).
+//
+
+function getWasm() {
+  return `
+AGFzbQEAAAABKAVgBH9/f38Bf2AEf39/fwBgBX9/f39/AGAGf39/f39/AGADf39/AX8DBgUAAQIDBAUDAQBVBi4GfwFBgMDTAgt/
+AEGACAt/AEGAiDALfwBBgIjAAQt/AEGAiNACC38AQYCI0wILB38LBm1lbW9yeQIADG5ldF9zaXplc19vawAACG5ldF9tb3ZlAAEH
+bmV0X2FjYwMBCG5ldF9oMV93AwIIbmV0X2gyX3cDAwtuZXRfY2FwdHVyZQACCm5ldF9jYXN0bGUAAwhuZXRfZXZhbAAEB25ldF9v
+X3cDBAhuZXRfaDFfYgMFCvAHBRwAIABBgAZGIAFBgAxGcSACQQhGcSADQYABRnELwQEBBn8gA0EBdCEEIAJBAXQhBUGAiICAACAA
+QQF0aiEGQYCIgIAAIAFBAXRqIQdBeCECQQAhAwNAIAYgA2oiAEGAiLCAACAEIANqIgFq/QABACAHIANqIgj9AAEA/Y4BQYCIsIAA
+IAUgA2oiCWr9AAEA/ZEB/QsBACAAQYAYakGAiMCBACABav0AAQAgCEGAGGr9AAEA/Y4BQYCIwIEAIAlq/QABAP2RAf0LAQAgA0EQ
+aiEDIAJBCGoiAkH4C0kNAAsL7QEBB38gBEEBdCEFIAJBAXQhBiADQQF0IQdBgIiAgAAgAEEBdGohCEGAiICAACABQQF0aiEJQXgh
+AkEAIQQDQCAIIARqIgNBgIiwgAAgBSAEaiIAav0AAQAgCSAEaiIB/QABAP2OAUGAiLCAACAGIARqIgpq/QABAEGAiLCAACAHIARq
+Igtq/QABAP2OAf2RAf0LAQAgA0GAGGpBgIjAgQAgAGr9AAEAIAFBgBhq/QABAP2OAUGAiMCBACAKav0AAQBBgIjAgQAgC2r9AAEA
+/Y4B/ZEB/QsBACAEQRBqIQQgAkEIaiICQfgLSQ0ACwuZAgEIfyADQQF0IQYgAkEBdCEHIAVBAXQhCCAEQQF0IQlBgIiAgAAgAEEB
+dGohCkGAiICAACABQQF0aiELQXghAkEAIQMDQCAKIANqIgVBgIiwgAAgBiADaiIEav0AAQAgCyADaiIA/QABAP2OAUGAiLCAACAI
+IANqIgFq/QABAP2OAUGAiLCAACAHIANqIgxq/QABAEGAiLCAACAJIANqIg1q/QABAP2OAf2RAf0LAQAgBUGAGGpBgIjAgQAgBGr9
+AAEAIABBgBhq/QABAP2OAUGAiMCBACABav0AAQD9jgFBgIjAgQAgDGr9AAEAQYCIwIEAIA1q/QABAP2OAf2RAf0LAQAgA0EQaiED
+IAJBCGoiAkH4C0kNAAsLgwICAX8Fe0GAiNCCACACQQF0aiECQYCIgIAAIAFBAXRqIQFBgIiAgAAgAEEBdGohAEF4IQP9DAAAAAAA
+AAAAAAAAAAAAAAAiBCEFA0AgAf0AAQD9DAAAAAAAAAAAAAAAAAAAAAAiBv2YAf0M/wD/AP8A/wD/AP8A/wD/ACIH/ZYBIgggAkGA
+GGr9AAEA/ZUBIAj9ugEgBf2uASEFIAD9AAEAIAb9mAEgB/2WASIGIAL9AAEA/ZUBIAb9ugEgBP2uASEEIABBEGohACABQRBqIQEg
+AkEQaiECIANBCGoiA0H4C0kNAAsgBCAF/a4BIgT9GwAgBP0bAWogBP0bAmogBP0bA2oL
+`;
+}
 
 //}}}
 //{{{  weights

@@ -1,0 +1,15 @@
+# local only: trained nets, training data, opening books, built releases, scratch
+/nets
+/data
+/books
+/releases
+/junk
+
+# sprt baseline (a copy of lozza.js) and fastchess output
+lozzacand.js
+sprt.pgn
+config.json
+
+# editor and machine specific
+top
+/bin/myracle.sh
