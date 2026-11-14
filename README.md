@@ -10,7 +10,7 @@ ping me if you would like one for a different platform.
 
 ## Web hello world
 
-All you need is `lozza9.0.js` from the [latest release](https://github.com/op12no2/lozza/releases).
+All you need is `lozza11.0.js` from the [latest release](https://github.com/op12no2/lozza/releases).
 
 ```
 const dump = document.getElementById('dump');
