@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# test.sh [source.js] - checks the C build here (./lozza and ./lozza.exe, see build.sh)
+# test.sh [source.js] - checks the C builds here (./lozza, ./lozza.exe and the AVX-512
+# pair, see build.sh)
 # against node running the source it was built from (default ../../lozza.js), and
 # checks that the binaries have the SIMD they should have (the simd checks at the end)
 #
@@ -39,46 +40,63 @@ if [ -f lozza.exe ]; then
   A=$(printf 'position startpos moves e2e4\r\ngo depth 5\r\n' | ./lozza.exe | tr -d '\r' | grep -c '^bestmove'); same "$A" "1" "windows crlf input"
 fi
 
-# SIMD. The speed of the binaries comes from clang turning the net loops into 256 bit
-# SIMD on 16 bit values, 16 at a time (see @i16 in lozza2c.js). Nothing in the search
-# shows if a change to lozza.js or the converter quietly loses that, the binary is just
-# slower, so check for it: the instructions must be there, and they must pay.
+# SIMD. The speed of the binaries comes from clang turning the net loops into SIMD on
+# 16 bit values: 256 bit, 16 at a time, in the standard build and 512 bit, 32 at a time,
+# in the AVX-512 build (see @i16 in lozza2c.js). Nothing in the search shows if a change
+# to lozza.js or the converter quietly loses that, the binary is just slower, so check
+# for it: the instructions must be there, and they must pay.
 
-# count <mnemonic regex> <objdump args>: how many such instructions use 256 bit (ymm) registers
-count () { local re=$1; shift; objdump -d --no-show-raw-insn "$@" | grep -cE "\s($re)\s.*%ymm"; }
+# count <register> <mnemonic regex> <objdump args>: how many such instructions use that
+# kind of register (ymm is 256 bit, zmm is 512 bit)
+count () { local reg=$1 re=$2; shift 2; objdump -d --no-show-raw-insn "$@" | grep -cE "\s($re)\s.*%$reg"; }
 # best nps of two benches
 nps () { for i in 1 2; do "$1" qb q | tr -d '\r' | grep -o 'nps [0-9]*' | sed 's/nps //'; done | sort -n | tail -1; }
 
-# the accumulator updates: adds and subtracts of 16 bit values, 16 per instruction
+# simd_linux <binary> <register> <bits>: the linux binaries have function names in them
 
-for f in netMove netCapture netPromote netEpCapture netCastle; do
-  add=$(count "vpaddw" --disassemble=$f lozza); sub=$(count "vpsubw" --disassemble=$f lozza)
-  if [ "$add" -ge 1 ] && [ "$sub" -ge 1 ]; then echo "ok   simd $f (256 bit: $add add, $sub subtract)"
-  else echo "FAIL simd $f: no 256 bit vpaddw/vpsubw (clang did not vectorise the loop, or $f is no longer a function in the binary)"; fail=1; fi
-done
+simd_linux () {
+  local bin=$1 reg=$2 bits=$3 f add sub clamp mul madd wide
 
-# the output layer: 16 bit clamp and multiply, then multiply-and-add-pairs into 32 bit.
-# vpmulld/vpmovsxwd there mean it has fallen back to 32 bit values, 8 at a time.
+  # the accumulator updates: adds and subtracts of 16 bit values
 
-clamp=$(count "vpminsw|vpmaxsw" --disassemble=netEvalSum lozza); mul=$(count "vpmullw" --disassemble=netEvalSum lozza)
-madd=$(count "vpmaddwd" --disassemble=netEvalSum lozza); wide=$(count "vpmulld|vpmovsxwd" --disassemble=netEvalSum lozza)
-if [ "$clamp" -ge 2 ] && [ "$mul" -ge 1 ] && [ "$madd" -ge 1 ] && [ "$wide" = 0 ]; then echo "ok   simd netEvalSum (256 bit: $clamp clamp, $mul multiply, $madd multiply-add)"
-else echo "FAIL simd netEvalSum: 256 bit clamp $clamp, vpmullw $mul, vpmaddwd $madd, 32 bit fallback (vpmulld/vpmovsxwd) $wide"; fail=1; fi
+  for f in netMove netCapture netPromote netEpCapture netCastle; do
+    add=$(count $reg "vpaddw" --disassemble=$f $bin); sub=$(count $reg "vpsubw" --disassemble=$f $bin)
+    if [ "$add" -ge 1 ] && [ "$sub" -ge 1 ]; then echo "ok   simd $bin $f ($bits bit: $add add, $sub subtract)"
+    else echo "FAIL simd $bin $f: no $bits bit vpaddw/vpsubw (clang did not vectorise the loop, or $f is no longer a function in the binary)"; fail=1; fi
+  done
 
-# the windows binary has no function names in it, so look at all of it (only vpmulld
-# for the fallback: netLoad uses a vpmovsxwd, quite rightly, to widen the output biases)
+  # the output layer: 16 bit clamp and multiply, then multiply-and-add-pairs into 32 bit.
+  # vpmulld/vpmovsxwd there mean it has fallen back to 32 bit values, half as many at a time.
 
-if [ -f lozza.exe ]; then
-  acc=$(count "vpaddw|vpsubw" lozza.exe); mul=$(count "vpmullw" lozza.exe); madd=$(count "vpmaddwd" lozza.exe); wide=$(count "vpmulld" lozza.exe)
-  if [ "$acc" -ge 10 ] && [ "$mul" -ge 1 ] && [ "$madd" -ge 1 ] && [ "$wide" = 0 ]; then echo "ok   simd windows (256 bit: $acc add/subtract, $mul multiply, $madd multiply-add)"
-  else echo "FAIL simd windows: 256 bit add/subtract $acc, vpmullw $mul, vpmaddwd $madd, 32 bit fallback (vpmulld) $wide"; fail=1; fi
-fi
+  clamp=$(count $reg "vpminsw|vpmaxsw" --disassemble=netEvalSum $bin); mul=$(count $reg "vpmullw" --disassemble=netEvalSum $bin)
+  madd=$(count $reg "vpmaddwd" --disassemble=netEvalSum $bin); wide=$(count $reg "vpmulld|vpmovsxwd" --disassemble=netEvalSum $bin)
+  if [ "$clamp" -ge 2 ] && [ "$mul" -ge 1 ] && [ "$madd" -ge 1 ] && [ "$wide" = 0 ]; then echo "ok   simd $bin netEvalSum ($bits bit: $clamp clamp, $mul multiply, $madd multiply-add)"
+  else echo "FAIL simd $bin netEvalSum: $bits bit clamp $clamp, vpmullw $mul, vpmaddwd $madd, 32 bit fallback (vpmulld/vpmovsxwd) $wide"; fail=1; fi
+}
+
+# simd_windows <binary> <register> <bits>: the windows binaries have no function names
+# in them, so look at all of it (only vpmulld for the fallback: netLoad uses a vpmovsxwd,
+# quite rightly, to widen the output biases)
+
+simd_windows () {
+  local bin=$1 reg=$2 bits=$3 acc mul madd wide
+  acc=$(count $reg "vpaddw|vpsubw" $bin); mul=$(count $reg "vpmullw" $bin); madd=$(count $reg "vpmaddwd" $bin); wide=$(count $reg "vpmulld" $bin)
+  if [ "$acc" -ge 10 ] && [ "$mul" -ge 1 ] && [ "$madd" -ge 1 ] && [ "$wide" = 0 ]; then echo "ok   simd $bin ($bits bit: $acc add/subtract, $mul multiply, $madd multiply-add)"
+  else echo "FAIL simd $bin: $bits bit add/subtract $acc, vpmullw $mul, vpmaddwd $madd, 32 bit fallback (vpmulld) $wide"; fail=1; fi
+}
+
+simd_linux lozza ymm 256
+[ -f lozza.exe ]        && simd_windows lozza.exe ymm 256
+[ -f lozza-avx512 ]     && simd_linux lozza-avx512 zmm 512
+[ -f lozza-avx512.exe ] && simd_windows lozza-avx512.exe zmm 512
 
 # and it must pay: lozza against lozza_scalar, the same C compiled with SIMD off
 # (build.sh). About 9x with a 1536 net; the smaller the net the less there is to gain,
-# so the ratio is only insisted on for big nets.
+# so the ratios are only insisted on for big nets.
 
-SIMD_MIN=6   # times faster than scalar, for a net of 1024 or more
+SIMD_MIN=6       # times faster than scalar, for a net of 1024 or more
+AVX512_MIN=105   # AVX-512 build, percent of the standard build's speed; about 115 when measured
+
 h1=$(./lozza n q | sed -n 's/^i_size, h1_size, o_size [0-9]* \([0-9]*\) .*/\1/p')
 fast=$(nps ./lozza)
 if [ -x lozza_scalar ]; then
@@ -95,5 +113,21 @@ if [ -f lozza.exe ]; then
   if [ $pc -ge 80 ]; then echo "ok   simd windows speed ($win nps, ${pc}% of linux)"
   else echo "FAIL simd windows speed ($win nps, ${pc}% of linux)"; fail=1; fi
 fi
+
+# the AVX-512 binaries: the same search, and faster. They can only be run where the
+# processor has AVX-512; elsewhere they say so and stop, which is checked instead.
+
+for bin in lozza-avx512 lozza-avx512.exe; do
+  [ -f $bin ] || continue
+  if grep -q avx512bw /proc/cpuinfo; then
+    A=$(./$bin qb q | tr -d '\r' | grep -o 'nodes [0-9]*'); B=$(./lozza qb q | grep -o 'nodes [0-9]*'); same "$A" "$B" "$bin bench nodes"
+    v=$(nps ./$bin); pc=$(( 100 * v / fast ))
+    if [ "$h1" -lt 1024 ]; then echo "ok   simd $bin speed ($v nps, ${pc}% of the standard linux build; not judged, net $h1 is small)"
+    elif [ $pc -ge $AVX512_MIN ]; then echo "ok   simd $bin speed ($v nps, ${pc}% of the standard linux build)"
+    else echo "FAIL simd $bin speed ($v nps, ${pc}% of the standard linux build), expected at least ${AVX512_MIN}%"; fail=1; fi
+  else
+    A=$(./$bin uci q 2>&1 | tr -d '\r' | grep -c 'does not have AVX-512'); same "$A" "1" "$bin refuses to run without AVX-512"
+  fi
+done
 
 exit $fail

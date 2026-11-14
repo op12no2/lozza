@@ -213,7 +213,48 @@ uint8_t* getWeightsBuffer (void) {
 
 //}}}
 
+// A build for a newer processor than the one it is run on would die with "illegal
+// instruction" and nothing else. Say what is wrong instead.
+
+#include <cpuid.h>
+
+static int cpuHas (int avx512) {
+
+  unsigned int a = 0, b = 0, c = 0, d = 0;
+
+  if (!__get_cpuid(1, &a, &b, &c, &d) || !(c & (1u << 27)))   // the OS must save the SIMD registers
+    return 0;
+
+  unsigned int xlo, xhi;
+  __asm__("xgetbv" : "=a"(xlo), "=d"(xhi) : "c"(0));
+
+  if (!__get_cpuid_count(7, 0, &a, &b, &c, &d))
+    return 0;
+
+  if (avx512)
+    return (xlo & 0xe6) == 0xe6 && (b & (1u << 16)) && (b & (1u << 30));   // AVX-512 F and BW
+
+  return (xlo & 0x6) == 0x6 && (b & (1u << 5));                            // AVX2
+
+}
+
+static void cpuCheck (void) {
+#if defined(__AVX512BW__)
+  if (!cpuHas(1)) {
+    puts("info string this is the AVX-512 build of Lozza and this processor does not have AVX-512: use the standard build");
+    exit(1);
+  }
+#elif defined(__AVX2__)
+  if (!cpuHas(0)) {
+    puts("info string this build of Lozza needs a processor with AVX2 (2013 or later)");
+    exit(1);
+  }
+#endif
+}
+
 int main (int argc, char** argv) {
+
+  cpuCheck();
 
   lz_initGlobals();
 

@@ -37,12 +37,15 @@ static inline int32_t lz_fdiv (double a, double b)   { double d = a / b; return 
 #define LZ_ALIGNED __attribute__((aligned(64)))
 
 // LZ_LOOP_I16 is put in front of a loop over 16 bit values (the @i16 clue, see
-// lozza2c.js) and asks clang to do 16 of them at a time, i.e. 256 bit SIMD. The
+// lozza2c.js) and asks clang to do 16 of them at a time, i.e. 256 bit SIMD, or 32 at a
+// time in the AVX-512 build. The
 // reference build that test.sh measures the SIMD speedup against (lozza_scalar, see
 // build.sh) is compiled with -DLOZZA_SCALAR, where it asks for no SIMD at all.
 
 #ifdef LOZZA_SCALAR
 #define LZ_LOOP_I16 _Pragma("clang loop vectorize(disable)")
+#elif defined(__AVX512BW__)
+#define LZ_LOOP_I16 _Pragma("clang loop vectorize_width(32)")
 #else
 #define LZ_LOOP_I16 _Pragma("clang loop vectorize_width(16)")
 #endif

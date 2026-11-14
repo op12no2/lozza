@@ -49,7 +49,7 @@ node lozza.js qb q               bench; the node count is the engine's fingerpri
 node lozza.js uci q              name: "Lozza <ver> (dev wasm)" = weights from a file, kernel in use
 node lozza.js n q                net details
 bin/wasm.sh                      rebuild + embed the kernel (needed when a net size changes), checks bench
-tools/lozza2c/build.sh           lozza.js -> C -> ./lozza, ./lozza.exe, ./lozza_scalar
+tools/lozza2c/build.sh           lozza.js -> C -> ./lozza, ./lozza.exe, the -avx512 pair, ./lozza_scalar
 tools/lozza2c/test.sh            binaries against node, and the SIMD checks
 bin/sprt.sh [stc|ltc] [a b]      SPRT; default lozza.js against lozzacand.js; .js or binaries
 bin/release.sh <ver> [--force]   releases/<ver>/
@@ -90,14 +90,19 @@ Command line arguments are UCI commands run in order; `q` quits. Useful extras: 
   after `makeMoveA()` (`PREFETCH`), and on Linux the tt is put in huge pages
   (`lz_alloc0`). In the C, speed is all that matters; readability is for `lozza.js`.
 - `test.sh` ends with the SIMD checks: the net functions must contain the 256 bit 16 bit
-  instructions (disassembly), and the binary must be at least 6x faster than
-  `lozza_scalar` (the same C with vectorising off) for a net of 1024 or more. About 9x
-  at 1536. They exist because losing SIMD changes nothing but speed.
+  instructions (512 bit in the AVX-512 pair), found by disassembly; the standard binary
+  must be at least 6x faster than `lozza_scalar` (the same C with vectorising off) for a
+  net of 1024 or more, about 9x at 1536; and the AVX-512 pair must be at least 5%
+  faster than the standard one. They exist because losing SIMD changes nothing but speed.
+- A binary checks the processor at startup (`cpuCheck()` in `runtime_uci.c`) and says
+  what is wrong rather than dying on an illegal instruction.
 
 ## Releases
 
 `bin/release.sh <ver>` makes `lozza<ver>.js` (the net `lozza.js` uses, the best one),
-`lozza<ver>-linux` and `lozza<ver>.exe` with the same net, and `lozza<ver>_net<width>.js`
+`lozza<ver>-linux` and `lozza<ver>.exe` with the same net, `lozza<ver>-linux-avx512` and
+`lozza<ver>-avx512.exe` (the same again for processors with AVX-512, about 15% faster;
+they say so and stop on a processor without it), and `lozza<ver>_net<width>.js`
 for each narrower net in `nets/` as smaller, weaker alternatives. Every `.js` has
 `WASM = 1` and a kernel built for its width. Everything is bench-checked.
 
@@ -125,8 +130,8 @@ in a confirming SPRT):
   instead of parallel arrays, profile guided optimisation, a non-PIE build, one shared
   weights array for both perspectives (1-2% and only under load), an eval cache
   bigger than 1 << 16, huge pages for the static arrays.
-- Not done: an AVX-512 build was about 15% faster again on a CPU that has it, but
-  would be an extra pair of binaries in a release.
+- The AVX-512 binaries are about 15% faster again than the standard (AVX2) ones on a
+  processor that has it.
 - The time now goes roughly 45% on the net (accumulator updates and the output layer),
   30% in search()/qSearch() and 25% on move generation and ordering.
 

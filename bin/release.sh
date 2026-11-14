@@ -7,6 +7,8 @@
 #   lozza<version>.js              the engine with the net that lozza.js itself uses
 #   lozza<version>-linux           (NET_WEIGHTS_FILE), the best one, and native binaries
 #   lozza<version>.exe             with that same net
+#   lozza<version>-linux-avx512    the same binaries for processors with AVX-512,
+#   lozza<version>-avx512.exe      about 15% faster there; they refuse to start elsewhere
 #   lozza<version>_net<width>.js   alternatives: one for each smaller net, e.g.
 #                                  lozza12.0_net256.js, smaller files but weaker
 #
@@ -59,6 +61,8 @@ cd "$root"
 dir=releases/$ver
 exe=$dir/lozza$ver.exe
 lin=$dir/lozza$ver-linux
+exe512=$dir/lozza$ver-avx512.exe
+lin512=$dir/lozza$ver-linux-avx512
 l2c=tools/lozza2c
 
 if [ -e "$dir" ]; then
@@ -243,12 +247,24 @@ if [ "$jsonly" = 0 ]; then
   fi
 
   echo "  $(echo "$out" | grep -c '^ok') checks ok (against node, and simd)"
-  echo "$out" | grep -E 'simd (speedup|windows speed)' | sed 's/^ok  /  /'
+  echo "$out" | grep -E 'simd (speedup|windows speed|lozza-avx512(\.exe)? speed)' | sed 's/^ok  /  /'
 
-  cp $l2c/lozza     "$lin"
-  cp $l2c/lozza.exe "$exe"
+  cp $l2c/lozza            "$lin"
+  cp $l2c/lozza.exe        "$exe"
+  cp $l2c/lozza-avx512     "$lin512"
+  cp $l2c/lozza-avx512.exe "$exe512"
 
-  for f in "$lin" "$exe"; do
+  for f in "$lin" "$exe" "$lin512" "$exe512"; do
+
+    # an AVX-512 binary cannot be run here if this processor has no AVX-512 (test.sh
+    # has then checked that it says so); it is still released
+
+    if [[ "$f" == *avx512* ]] && ! grep -q avx512bw /proc/cpuinfo; then
+      line=$(printf 'net%-5s %-28s %9s bytes  not run, no AVX-512 here' "$devwidth" "$(basename "$f")" "$(stat -c %s "$f")")
+      echo "$line"
+      summary="$summary$line"$'\n'
+      continue
+    fi
 
     b=$(bench "$f")
 
@@ -269,4 +285,5 @@ echo
 echo "$dir"
 echo "$summary"
 echo "lozza$ver.js and the binaries have the net$devwidth net; the _net<width>.js files are smaller nets"
+echo "the -avx512 binaries are for processors with AVX-512 (they say so and stop on others)"
 echo "release $ver ok"

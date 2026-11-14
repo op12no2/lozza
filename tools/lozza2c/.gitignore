@@ -4,3 +4,5 @@ weights_blob.h
 lozza
 lozza.exe
 lozza_scalar
+lozza-avx512
+lozza-avx512.exe

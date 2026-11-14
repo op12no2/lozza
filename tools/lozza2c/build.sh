@@ -3,7 +3,8 @@
 # build.sh [weights.bin] [source.js]
 #
 # Converts lozza.js (default ../../lozza.js) to C and builds linux and windows
-# binaries here. With a weights file the net is embedded (release), otherwise
+# binaries here: lozza and lozza.exe for any processor with AVX2 (2013 on), and
+# lozza-avx512 and lozza-avx512.exe, about 15% faster, for those with AVX-512. With a weights file the net is embedded (release), otherwise
 # the binaries read the file named in lozza.js (dev).
 #
 # Also builds lozza_scalar, the linux binary with clang's SIMD (auto-vectorising)
@@ -36,7 +37,12 @@ if [ -n "$1" ]; then
   CFLAGS="$CFLAGS -DLOZZA_WEIGHTS_H=\"weights_blob.h\""
 fi
 
+# the AVX-512 build: 512 bit SIMD in the net loops, see LZ_LOOP_I16 in lozza_rt.h
+
+AVX512="-march=x86-64-v4 -mprefer-vector-width=512"
+
 clang $CFLAGS -o lozza runtime_uci.c -lm
+clang $CFLAGS $AVX512 -o lozza-avx512 runtime_uci.c -lm
 clang $CFLAGS -DLOZZA_SCALAR -fno-vectorize -fno-slp-vectorize -o lozza_scalar runtime_uci.c -lm
 
 X=~/.cache/cargo-xwin/xwin
@@ -48,4 +54,9 @@ clang --target=x86_64-pc-windows-msvc -fuse-ld=lld $CFLAGS -w \
   -L$X/crt/lib/x86_64 -L$X/sdk/lib/um/x86_64 -L$X/sdk/lib/ucrt/x86_64 \
   runtime_uci.c -o lozza.exe
 
-ls -l lozza lozza.exe lozza_scalar
+clang --target=x86_64-pc-windows-msvc -fuse-ld=lld $CFLAGS $AVX512 -w \
+  -I$X/crt/include -I$X/sdk/include/ucrt -I$X/sdk/include/um -I$X/sdk/include/shared \
+  -L$X/crt/lib/x86_64 -L$X/sdk/lib/um/x86_64 -L$X/sdk/lib/ucrt/x86_64 \
+  runtime_uci.c -o lozza-avx512.exe
+
+ls -l lozza lozza.exe lozza-avx512 lozza-avx512.exe lozza_scalar
