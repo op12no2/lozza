@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Play Lozza</title>
+  <style>
+    body    { font-family: system-ui, sans-serif; margin: 1rem; }
+    #board  { display: grid; grid-template-columns: repeat(8, 1fr); width: min(92vw, 30rem); aspect-ratio: 1; border: 1px solid #555; }
+    #board button { border: 0; padding: 0; font-size: min(8.5vw, 2.8rem); line-height: 1; color: #000; cursor: pointer; }
+    .light  { background: #f0d9b5; }
+    .dark   { background: #b58863; }
+    .last   { box-shadow: inset 0 0 0 0.2rem #cdd26a; }
+    .picked { box-shadow: inset 0 0 0 0.2rem #2a7; }
+    .target { background-image: radial-gradient(circle, rgba(0, 0, 0, 0.3) 18%, transparent 20%); }
+    #status { min-height: 1.4rem; font-weight: 600; }
+    #moves  { max-width: 30rem; color: #444; }
+    button.ctl { font: inherit; padding: 0.3rem 0.8rem; }
+    p       { margin: 0.6rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Play Lozza</h1>
+
+  <p id="status"></p>
+  <div id="board"></div>
+  <p>
+    <button class="ctl" id="white">New game as white</button>
+    <button class="ctl" id="black">New game as black</button>
+  </p>
+  <p id="moves"></p>
+  <p><a href="https://github.com/op12no2/lozza">repo</a></p>
+
+  <script src="engine.js"></script>
+  <script>
+    //
+    // A complete game against Lozza with no chess library. The engine is the only thing
+    // here that knows the rules: after every move it is asked for the position (as a
+    // FEN, to draw) and for the legal moves (to know what may be clicked). The page
+    // keeps the game as a list of moves and sends the whole list each time.
+    //
+    // What the engine does not report is why a game is over, so that is worked out
+    // here: check (to tell checkmate from stalemate), repetition, the fifty move rule
+    // and bare kings.
+    //
+    // A pawn reaching the last rank is always made a queen. To offer a choice, ask the
+    // user when more than one legal move goes from the picked square to the clicked one.
+    //
+
+    const THINK_MS = 500;   // how long Lozza thinks about each move
+
+    const GLYPHS = {K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙', k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟︎'};
+
+    const engine  = lozzaEngine('lozza_net256.js');
+    const boardEl = document.getElementById('board');
+
+    let human    = 'w';     // the colour the user plays
+    let moves    = [];      // the game so far, e.g. ['e2e4', 'e7e5']
+    let board    = [];      // 64 squares, a8 first, a piece letter or '' (from the FEN)
+    let turn     = 'w';     // whose move it is
+    let legal    = [];      // legal moves in this position
+    let picked   = '';      // the square the user has clicked on, e.g. 'e2'
+    let over     = '';      // why the game is over, or ''
+    let said     = '';      // what Lozza said about its last move
+    let quiet    = 0;       // moves since a capture or a pawn move, for the fifty move rule
+    let seen     = {};      // how many times each position has come up, for repetition
+    let gameId   = 0;       // so that an answer from an abandoned game can be ignored
+
+    //{{{  squares
+
+    function squareName (i) {
+      return 'abcdefgh'[i % 8] + (8 - (i >> 3));
+    }
+
+    function squareIndex (name) {
+      return 'abcdefgh'.indexOf(name[0]) + 8 * (8 - parseInt(name[1]));
+    }
+
+    //}}}
+    //{{{  readFen
+
+    function readFen (fen) {
+
+      const fields = fen.split(' ');
+
+      board = [];
+
+      for (const ch of fields[0]) {
+        if (ch === '/')
+          continue;
+        if (ch >= '1' && ch <= '8')
+          for (let i = 0; i < parseInt(ch); i++)
+            board.push('');
+        else
+          board.push(ch);
+      }
+
+      turn = fields[1];
+
+      return fields.slice(0, 4).join(' ');   // the position without the move counters, for repetition
+
+    }
+
+    //}}}
+    //{{{  inCheck
+    //
+    // Is the king of the given colour attacked?
+    //
+
+    function inCheck (colour) {
+
+      const mine = p => p !== '' && (p === p.toUpperCase()) === (colour === 'w');
+      const king = board.indexOf(colour === 'w' ? 'K' : 'k');
+      const kx   = king % 8;
+      const ky   = king >> 3;
+
+      // the piece on a square as the enemy's lower case letter, or '' if it is empty, ours or off the board
+
+      const enemy = function (x, y) {
+        if (x < 0 || x > 7 || y < 0 || y > 7)
+          return '';
+        const p = board[y * 8 + x];
+        return (p === '' || mine(p)) ? '' : p.toLowerCase();
+      };
+
+      for (const [dx, dy] of [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]])
+        if (enemy(kx + dx, ky + dy) === 'n')
+          return true;
+
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+
+        if (enemy(kx + dx, ky + dy) === 'k')
+          return true;
+
+        // slide away from the king to the first piece: a rook or queen along a rank or
+        // file, a bishop or queen along a diagonal
+
+        let x = kx + dx;
+        let y = ky + dy;
+
+        while (x >= 0 && x <= 7 && y >= 0 && y <= 7 && board[y * 8 + x] === '') {
+          x += dx;
+          y += dy;
+        }
+
+        const p = enemy(x, y);
+
+        if (p === 'q' || p === (dx === 0 || dy === 0 ? 'r' : 'b'))
+          return true;
+
+      }
+
+      // pawns attack towards the other side: a8 is row 0, so black pawns attack downwards
+
+      const dy = colour === 'w' ? -1 : 1;
+
+      return enemy(kx - 1, ky + dy) === 'p' || enemy(kx + 1, ky + dy) === 'p';
+
+    }
+
+    //}}}
+    //{{{  draw
+
+    function draw () {
+
+      const last = moves.length ? moves[moves.length - 1] : '';
+
+      boardEl.textContent = '';
+
+      for (let n = 0; n < 64; n++) {
+
+        const i      = human === 'w' ? n : 63 - n;   // black plays from the other side
+        const name   = squareName(i);
+        const button = document.createElement('button');
+
+        button.textContent = GLYPHS[board[i]] || '';
+        button.className   = ((i + (i >> 3)) % 2 === 0) ? 'light' : 'dark';
+
+        if (last.slice(0, 2) === name || last.slice(2, 4) === name)
+          button.classList.add('last');
+        if (picked === name)
+          button.classList.add('picked');
+        if (picked !== '' && legal.some(m => m.startsWith(picked + name)))
+          button.classList.add('target');
+
+        button.onclick = () => clicked(name);
+
+        boardEl.appendChild(button);
+
+      }
+
+      let status = '';
+
+      if (over !== '')
+        status = over;
+      else if (turn === human)
+        status = 'Your move.';
+      else
+        status = 'Lozza is thinking...';
+
+      document.getElementById('status').textContent = status + (said !== '' ? ' ' + said : '');
+      document.getElementById('moves').textContent  = moves.join(' ');
+
+    }
+
+    //}}}
+    //{{{  update
+    //
+    // Called after every move: get the new position from the engine, see if the game
+    // is over, and if it is Lozza's turn ask it for a move.
+    //
+
+    async function update () {
+
+      const id       = gameId;
+      const position = 'position startpos' + (moves.length ? ' moves ' + moves.join(' ') : '');
+
+      const fen  = await engine.fen(position);
+      const list = await engine.legalMoves(position);
+
+      if (id !== gameId)
+        return;   // a new game was started meanwhile
+
+      const key = readFen(fen);
+
+      legal     = list;
+      picked    = '';
+      seen[key] = (seen[key] || 0) + 1;
+
+      const pieces = board.filter(p => p !== '').join('').toLowerCase().replace(/k/g, '');
+
+      if (legal.length === 0 && inCheck(turn))
+        over = 'Checkmate. ' + (turn === human ? 'Lozza wins.' : 'You win.');
+      else if (legal.length === 0)
+        over = 'Stalemate. A draw.';
+      else if (seen[key] >= 3)
+        over = 'The same position three times. A draw.';
+      else if (quiet >= 100)
+        over = 'Fifty moves without a capture or a pawn move. A draw.';
+      else if (pieces === '' || pieces === 'n' || pieces === 'b')
+        over = 'Not enough pieces left to win. A draw.';
+
+      draw();
+
+      if (over !== '' || turn === human)
+        return;
+
+      const result = await engine.bestMove(position, {movetime: THINK_MS});
+
+      if (id !== gameId)
+        return;
+
+      // the score is from Lozza's side: centipawns, or moves to mate
+
+      said = 'Lozza played ' + result.move + '.';
+
+      if (result.score !== null) {
+        const score = result.score.type === 'mate' ? 'mate in ' + Math.abs(result.score.value) : (result.score.value / 100).toFixed(2);
+        said = 'Lozza played ' + result.move + ' (' + score + ', depth ' + result.depth + ').';
+      }
+
+      play(result.move);
+
+    }
+
+    //}}}
+    //{{{  play
+
+    function play (move) {
+
+      const from = squareIndex(move.slice(0, 2));
+      const to   = squareIndex(move.slice(2, 4));
+
+      // fifty move rule: a pawn move or a capture starts the count again
+
+      if (board[from].toLowerCase() === 'p' || board[to] !== '')
+        quiet = 0;
+      else
+        quiet++;
+
+      moves.push(move);
+
+      update();
+
+    }
+
+    //}}}
+    //{{{  clicked
+
+    function clicked (name) {
+
+      if (over !== '' || turn !== human)
+        return;
+
+      // a second click on a square the picked piece can go to makes the move
+
+      if (picked !== '') {
+        const found = legal.filter(m => m.startsWith(picked + name));
+        if (found.length > 0) {
+          turn = turn === 'w' ? 'b' : 'w';   // no more clicks until the position comes back
+          play(found.find(m => m.endsWith('q')) || found[0]);
+          return;
+        }
+      }
+
+      picked = legal.some(m => m.startsWith(name)) ? name : '';
+
+      draw();
+
+    }
+
+    //}}}
+    //{{{  newGame
+
+    function newGame (colour) {
+
+      gameId++;
+
+      engine.stop();      // in case Lozza is thinking about the old game
+      engine.newGame();
+
+      human  = colour;
+      moves  = [];
+      picked = '';
+      over   = '';
+      said   = '';
+      quiet  = 0;
+      seen   = {};
+
+      update();
+
+    }
+
+    //}}}
+
+    document.getElementById('white').onclick = () => newGame('w');
+    document.getElementById('black').onclick = () => newGame('b');
+
+    newGame('w');
+  </script>
+</body>
+</html>

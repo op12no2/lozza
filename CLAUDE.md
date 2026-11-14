@@ -17,7 +17,7 @@ email addresses, machine details, home directory paths).
 | `lozza.rs` | the net trainer (for bullet). Its save format is exactly what `netLoad()` reads. |
 | `tools/lozza2c/` | Javascript-to-C converter that makes the native binaries from `lozza.js`. |
 | `bin/` | `wasm.sh`, `sprt.sh`, `release.sh`, `train.sh`. Each has a header comment saying how to use it. |
-| `examples/` | the web hello world. |
+| `examples/` | things for users to copy: hello world, a promise wrapper for the Worker, a playable board, a Node script. The README has a table of them. |
 
 Local only, not in git: `nets/` (trained nets, `nets/net<width>/lozza-200/quantised.bin`),
 `data/` (training data), `books/` (opening books), `releases/`, `junk/` (scratch, logs,
@@ -105,6 +105,22 @@ Command line arguments are UCI commands run in order; `q` quits. Useful extras: 
 they say so and stop on a processor without it), and `lozza<ver>_net<width>.js`
 for each narrower net in `nets/` as smaller, weaker alternatives. Every `.js` has
 `WASM = 1` and a kernel built for its width. Everything is bench-checked.
+
+## The examples
+
+- All of them load `examples/lozza_net256.js`: the current engine with the 256 net,
+  small enough to keep in the repo and handy for our own testing in a browser. It is a
+  copy of `releases/<ver>/lozza<ver>_net256.js` and is **not** kept up to date
+  automatically: refresh it now and again, when the engine has changed enough to matter
+  (`bin/release.sh <ver> --force --js-only`, then copy the file over), and then load
+  the pages to check them. The name has no version in it so that the examples never
+  need editing for this.
+- The pages are single files with no dependencies and are written to be read; keep
+  them that way. `play.html` leans on the engine's `moves` and `board` commands.
+- To test a page here: serve `examples/` over http (a Worker will not load from a
+  file), start a headless Chromium with a remote debugging port and drive it over the
+  DevTools protocol from node (fetch and WebSocket are built in). Wait for the page to
+  load before clicking anything.
 
 ## What has been measured (so it need not be redone)
 

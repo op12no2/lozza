@@ -8,25 +8,17 @@ Lozza is easy to read and tweak; it's also easy to deploy.
 Release versions are additionally available as assets for Windows and Linux;
 ping me if you would like one for a different platform.
 
-## Web hello world
+## Examples
 
-All you need is `lozza11.0.js` from the [latest release](https://github.com/op12no2/lozza/releases).
+| example | what it shows |
+|---|---|
+| [hello_world.html](examples/hello_world.html) ([try it](https://op12no2.github.io/lozza/examples/hello_world.html)) | The least you can do: start Lozza in a Web Worker, send it UCI commands and show what comes back. |
+| [engine.js](examples/engine.js) and [engine.html](examples/engine.html) ([try it](https://op12no2.github.io/lozza/examples/engine.html)) | A small promise wrapper for the Worker, so that you can `await` a best move, the legal moves or the position, and stop a search. The page asks for the best move in a position. |
+| [play.html](examples/play.html) ([try it](https://op12no2.github.io/lozza/examples/play.html)) | A game against Lozza on a clickable board, with no chess library: Lozza supplies the legal moves and the page works out check, mate and draws. |
+| [analyse.js](examples/analyse.js) | Lozza from a Node program: run it as a child process and get the best move, score and line for a list of positions. `node examples/analyse.js` |
 
-```
-const dump = document.getElementById('dump');
-const lozza = new Worker('lozza11.0.js');
-
-lozza.onmessage = function (e) {
-  dump.textContent += e.data + '\n';
-};
-
-lozza.postMessage('uci');
-lozza.postMessage('ucinewgame');
-lozza.postMessage('position startpos');
-lozza.postMessage('go depth 10');
-```
-
-Try it here: https://op12no2.github.io/lozza/examples/hello_world.html
+The examples use `examples/lozza_net256.js`, a recent build with a small net. For your
+own use take the engine from the [latest release](https://github.com/op12no2/lozza/releases).
 
 ## Node
 

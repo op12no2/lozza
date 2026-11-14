@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lozza best move</title>
+  <style>
+    body   { font-family: system-ui, sans-serif; margin: 1rem; max-width: 50rem; }
+    input  { font: inherit; padding: 0.3rem; }
+    #fen   { width: 100%; box-sizing: border-box; }
+    button { font: inherit; padding: 0.3rem 0.8rem; }
+    #out   { background: #fff; color: #000; padding: 1rem; white-space: pre-wrap; }
+    p      { margin: 0.6rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Lozza best move</h1>
+
+  <p>Ask the engine for a move with <code>await</code>, using the wrapper in <a href="engine.js">engine.js</a>.</p>
+
+  <p><input id="fen" value="r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"></p>
+  <p>
+    Think for <input id="ms" type="number" value="1000" min="10" step="100" style="width: 6rem"> ms
+    <button id="go">Best move</button>
+    <button id="stop">Stop</button>
+  </p>
+
+  <pre id="out"></pre>
+
+  <p><a href="https://github.com/op12no2/lozza">repo</a></p>
+
+  <script src="engine.js"></script>
+  <script>
+    const engine = lozzaEngine('lozza_net256.js');
+    const out    = document.getElementById('out');
+
+    // score as the engine reports it: centipawns, or moves to mate, for the side to move
+
+    function scoreText (score) {
+      if (score === null)
+        return '';
+      if (score.type === 'mate')
+        return 'mate in ' + score.value;
+      return (score.value / 100).toFixed(2);
+    }
+
+    document.getElementById('go').onclick = async function () {
+
+      const position = 'position fen ' + document.getElementById('fen').value.trim();
+      const movetime = parseInt(document.getElementById('ms').value);
+
+      out.textContent = 'thinking...';
+
+      // the third argument is optional: it is called with each line of thinking
+
+      const result = await engine.bestMove(position, {movetime: movetime}, function (info) {
+        out.textContent = 'thinking... depth ' + info.depth + ' score ' + scoreText(info.score) + ' ' + info.pv.join(' ');
+      });
+
+      if (result.move === null)
+        out.textContent = 'no legal moves';
+      else
+        out.textContent = 'best move ' + result.move + '\nscore     ' + scoreText(result.score) + '\ndepth     ' + result.depth + '\nline      ' + result.pv.join(' ');
+
+    };
+
+    document.getElementById('stop').onclick = function () {
+      engine.stop();
+    };
+  </script>
+</body>
+</html>
