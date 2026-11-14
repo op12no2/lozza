@@ -1,8 +1,11 @@
 #!/bin/bash
 #
-# sprt.sh [stc|ltc] [engine1 engine2]
+# sprt.sh [stc|ltc] [nonreg] [engine1 engine2]
 #
-# SPRT of engine1 against engine2 with fastchess; the Elo shown is engine1's. With no
+# SPRT of engine1 against engine2 with fastchess; the Elo shown is engine1's. The bounds
+# are 0 and 5 (is it a gain?), or with nonreg -3 and 1 (is it at least not worse?), which
+# is the one for a change that is not expected to gain much: a tidy up, or a small
+# speedup, which the 0 and 5 test would be more likely to fail than pass. With no
 # engines it is lozza.js against lozzacand.js. An engine whose name ends in .js is run
 # with node, anything else is run as a binary, so these all work:
 #
@@ -11,6 +14,7 @@
 #   bin/sprt.sh stc new.js old.js
 #   bin/sprt.sh stc junk/new junk/old             two native builds (tools/lozza2c/build.sh)
 #   bin/sprt.sh stc junk/new lozzacand.js         a binary against a .js
+#   bin/sprt.sh stc nonreg junk/new junk/old      non-regression bounds
 #
 # Engine paths are relative to the repo root (or absolute). The games go to sprt.pgn.
 #
@@ -18,7 +22,7 @@
 set -e
 
 usage() {
-  echo "usage: sprt.sh [stc|ltc] [engine1 engine2]"
+  echo "usage: sprt.sh [stc|ltc] [nonreg] [engine1 engine2]"
   exit 1
 }
 
@@ -30,6 +34,15 @@ speed=stc
 
 if [ "$1" = "stc" ] || [ "$1" = "ltc" ]; then
   speed=$1
+  shift
+fi
+
+elo0=0
+elo1=5
+
+if [ "$1" = "nonreg" ]; then
+  elo0=-3
+  elo1=1
   shift
 fi
 
@@ -46,8 +59,6 @@ fi
 node=$(command -v node)
 fastchess=~/fastchess/fastchess
 
-elo0=0
-elo1=5
 concurrency=15
 book=noob_4moves.epd
 
