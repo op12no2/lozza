@@ -26,8 +26,8 @@ lozza.postMessage('go depth 10');
 ## Node
 
 ```
-node lozza.js                     # interactive
-node lozza.js uci "go depth 10" q # exec commands and exit
+node lozza11.0.js                     # interactive
+node lozza11.0.js uci "go depth 10" q # exec commands and exit
 ```
 
 ## Notes
