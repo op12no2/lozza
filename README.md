@@ -8,7 +8,7 @@ A Javascript UCI chess engine.
 - A single file that is easy to deploy.
 - Be functionally identical in a Web Worker and Node (or Bun).
 - Must not include any WASM.
-- Any releases binaries must embed a JS engine (like V8) and run as JS.
+- Any release binaries must embed a JS engine (like V8) and run as JS.
 - Have a straight-forward easy to tweak coding style.
 
 ## Web Worker
