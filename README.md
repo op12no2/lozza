@@ -10,6 +10,7 @@ A Javascript UCI chess engine.
 - Must not include any WASM.
 - Any release binaries must embed a JS engine (like V8) and run as JS.
 - Have a straight-forward easy to tweak coding style.
+- Use self-play for the network training data.
 
 ## Web Worker
 
