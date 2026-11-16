@@ -5,11 +5,11 @@ A Javascript UCI chess engine.
 
 ## Project constraints
 
-- A single file that is easy to deploy.
+- A single file that is easily deployed.
 - Be functionally identical in a Web Worker and Node (or Bun).
 - Must not include any WASM.
 - Any release binaries must embed a JS engine (like V8) and run as JS.
-- Have a straight-forward easy to tweak coding style.
+- Have a straight-forward easy-to-tweak coding style (users like to hack Lozza).
 - Use self-play for the network training data.
 
 ## Web Worker
