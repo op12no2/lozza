@@ -1,9 +1,15 @@
 
 # Lozza
 
-A Javascript UCI chess engine that can be used in a Web Worker and Node.
+A Javascript UCI chess engine.
 
-Lozza is easy to read and tweak; it's also easy to deploy and is WSAM-free.
+# Project constrains
+
+- A single file that is easy to deploy.
+- Be functionally identical in a Web Worker and Node (or Bun).
+- Must not include any WASM.
+- Any releases binaries must embed a JS engine (like V8) and run as JS.
+- Have a straight-forward easy to tweak coding style.
 
 ## Web Worker
 
