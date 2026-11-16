@@ -3,7 +3,7 @@
 
 A Javascript UCI chess engine.
 
-## Project constrains
+## Project constraints
 
 - A single file that is easy to deploy.
 - Be functionally identical in a Web Worker and Node (or Bun).
